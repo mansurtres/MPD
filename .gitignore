@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Django
+*.sqlite3
+media/
+staticfiles/
+
+# Ambiente
+.env
+.env.local
+.env.production
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Tests
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Tailwind
+static/css/tailwind-output.css
+node_modules/
+
+# Tailwind binary (baixado por dev, não versionado)
+bin/tailwindcss
+bin/tailwindcss.exe
+
+# Logs
+*.log
+
+# Claude Code local settings
+.claude/settings.local.json
