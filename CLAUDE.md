@@ -6,12 +6,14 @@
 
 ## 1. O que é o MPD
 
-**Mandato Parlamentar Digital** — sistema de rastreabilidade de relacionamento político (categoria *constituent management*) para um mandato municipal. Cidadão é o núcleo; **casos** orbitam o cidadão. Cada `Caso` tem **dois eixos independentes**:
+**Mandato Parlamentar Digital** — sistema de rastreabilidade de relacionamento político (categoria *constituent management*) para um mandato municipal. **Pessoa** é o núcleo; **demandas** orbitam a pessoa. Cada `Demanda` tem **dois eixos independentes**:
 
-- `status` — ciclo de trabalho (`aberto → em_andamento → respondido → arquivado`).
-- `resultado` — desfecho material (`sucesso_total | sucesso_parcial | sem_sucesso | nao_se_aplica`).
+- `status` — ciclo de trabalho (`novo → em_andamento → respondido → arquivado`).
+- `resultado` — desfecho material (`atendido | atendido_parcialmente | nao_atendido | inviavel | nao_se_aplica`).
 
-**Regra de ouro do domínio:** caso só vai para `respondido` com **retorno documentado** (data + conteúdo) **e** `resultado` classificado. Codificada no `clean()` do model — vale em qualquer porta de entrada.
+**Regra de ouro do domínio:** demanda só vai para `respondida` com **retorno documentado** (data + conteúdo) **e** `resultado` classificado. Codificada no `clean()` do model — vale em qualquer porta de entrada.
+
+**Multiplicidades:** demanda pode ter múltiplas pessoas e entidades como partes (M:N). Anexos são polimórficos — podem ser pendurados em Demanda, Pessoa, Entidade ou Encaminhamento.
 
 ---
 
@@ -53,18 +55,22 @@ Ideia que parece "óbvia" e não está no doc → primeiro vira ADR ou backlog.
 
 ## 5. Estado atual
 
-**Fase corrente:** v0.1 — Fase 0 (Fundação) **concluída**.
+**Fase corrente:** v0.2 — Fase 1 (Autenticação e usuários) **concluída**.
 
 **O que está pronto:**
 - Django 5.2 + PostgreSQL 16 + Tailwind v4 standalone rodando localmente.
 - Settings split (`config/settings/{base,development,production,test}.py`).
-- 4 apps Django criados: `core`, `accounts`, `cidadaos`, `casos`.
-- `accounts.Usuario(AbstractUser)` mínimo (será expandido na Fase 1) — registrado como `AUTH_USER_MODEL`.
-- Tooling: `uv`, `ruff`, `black`, `pytest` (+ `pytest-django`), `pre-commit` (com `detect-secrets`).
-- Tests: 2 smoke tests em [`tests/test_smoke.py`](./tests/test_smoke.py).
-- Página inicial pública em `/` ("MPD — em construção"); `/admin/` ativo; `/healthz/` retorna `{"status":"ok"}`.
+- 4 apps Django: `core`, `accounts`, `pessoas`, `demandas`.
+- `accounts.Usuario` completo: email como login, `nome_completo`, `cargo`, `UsuarioManager` customizado.
+- Login/logout com templates Tailwind; sessão 12h / "lembrar-me" 30 dias.
+- Gestão de usuários (criar, editar, desativar) restrita a `is_staff=True`.
+- Página de perfil pessoal.
+- Comando `criar_usuarios_iniciais`.
+- Política de senha: mínimo 8 chars, sem exigências de complexidade.
+- 22 testes passando (accounts + smoke).
+- Revisão arquitetural completa: nomenclatura, M:N partes de demanda, anexos polimórficos, entidades expandidas — registrada em docs e ADRs 0018–0024.
 
-**Próximo marco:** v0.2 — Fase 1 (Autenticação e perfis). Ver [`roadmap.md`](./roadmap.md) §4.1.
+**Próximo marco:** v0.3 — Fase 2 (Pessoas e Entidades). Ver [`roadmap.md`](./roadmap.md) §4.2.
 
 ---
 
@@ -111,8 +117,8 @@ uv run black .
 
 A Fase 0 deliberadamente **não** entrega:
 
-- Modelos de domínio (`Cidadao`, `Caso`, `Interacao`, `Encaminhamento`, `Anexo`, `ItemInbox`, `SolicitacaoLGPD`, `Tag`, `Entidade`, `Vinculo`) — `models.py` dos apps `cidadaos` e `casos` estão vazios.
-- Login/logout customizado, grupos Django, perfis (ADM/CG/CO/AS), permissões por perfil — Fase 1.
+- Modelos de domínio (`Pessoa`, `Demanda`, `DemandaPessoa`, `DemandaEntidade`, `Interacao`, `Encaminhamento`, `Anexo`, `ItemInbox`, `SolicitacaoLGPD`, `Tag`, `Entidade`, `Vinculo`) — `models.py` dos apps `cidadaos` e `casos` estão vazios (serão renomeados para `pessoas` e `demandas` antes da Fase 2).
+- Login/logout customizado — **entregue na Fase 1**. Grupos Django (ADM/CG/CO/AS) e permissões por perfil — Fase 2 em diante, criados junto com os models que protegem.
 - `core/permissions.py`, `core/middleware.py`, `core/templatetags/` — sem código de produto que os use ainda.
 - `django-auditlog` instalado mas **sem registrar nenhum modelo** ainda — registros entram por modelo, fase a fase.
 - HTMX/Alpine local — via CDN no MVP (Fase 6 considera baixar para `static/vendor/`).
@@ -122,17 +128,13 @@ A Fase 0 deliberadamente **não** entrega:
 
 ## 9. Pendência registrada para a próxima sessão (Fase 1)
 
-**Antes de codar a Fase 1, retomar com Pedro a pergunta sobre os 4 perfis (ADM, CG, CO, AS).**
+**Decisão tomada (2026-05-08):** sistema de permissões modular via Django Groups + Permissions nativos. Ver ADRs 0022 e 0024.
 
-Pedro levantou em sessão anterior: *"Será que precisa desse monte de perfil? Será que não é o caso de primeiro nos preocupar com o sistema e depois pensar nos níveis de acesso e permissão?"*
+- Grupos padrão criados na **Fase 2** (junto com `Pessoa`/`Entidade`) e expandidos na **Fase 3** (junto com `Demanda`). Fase 1 usa apenas `is_staff` para distinguir quem gerencia usuários.
+- Toda verificação de permissão usa `user.has_perm()` — nunca checar nome de grupo diretamente no código.
+- ADM pode criar/editar grupos sem deploy. A matriz documentada é configuração padrão, não regra de código.
 
-Possibilidades:
-
-1. **Manter como roadmap** — 4 perfis, granularidade fina implementada incrementalmente.
-2. **Simplificar** — começar com 2 perfis (ADM + Equipe), expandir quando apertar.
-3. **Sem perfis na Fase 1** — só login; permissões viram Fase 2.
-
-A decisão precede qualquer código da Fase 1. Se houver simplificação, **atualizar `docs/permissoes.md` e `roadmap.md` antes de codar.**
+**Apps renomeados (2026-05-08):** `cidadaos/` → `pessoas/`, `casos/` → `demandas/`. Django check e smoke tests passando.
 
 ---
 
@@ -147,4 +149,4 @@ Para o histórico completo ver [`docs/decisoes.md`](./docs/decisoes.md). Decisõ
 
 ---
 
-*Atualizar este arquivo ao fim de cada fase.*
+*Atualizar este arquivo ao fim de cada fase. Última atualização: 2026-05-08 (Fase 1 concluída).*

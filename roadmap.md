@@ -8,15 +8,15 @@
 
 ### 1.1. O que é o MPD
 
-Sistema de **rastreabilidade de relacionamento político** para mandato parlamentar municipal. Núcleo: cidadão; satélites: casos, interações, encaminhamentos. Promessa central: nenhuma demanda se perde, todo cidadão recebe retorno, e a base se enriquece com o uso.
+Sistema de **rastreabilidade de relacionamento político** para mandato parlamentar municipal. Núcleo: pessoa; satélites: demandas, interações, encaminhamentos. Promessa central: nenhuma demanda se perde, toda pessoa recebe retorno, e a base se enriquece com o uso.
 
 A categoria equivalente em mandatos parlamentares anglófonos é *constituent management*. Sistema mais maduro de referência: CiviCRM (open source, AGPL v3).
 
 ### 1.2. Princípios
 
-1. **Cidadão como núcleo**, casos como satélites.
-2. **Rastreabilidade total**: nenhum contato se perde, nenhum caso fica sem retorno documentado.
-3. **Disciplina de fechamento**: caso só vai para "respondido" com retorno preenchido E resultado classificado.
+1. **Pessoa como núcleo**, demandas como satélites.
+2. **Rastreabilidade total**: nenhum contato se perde, nenhuma demanda fica sem retorno documentado.
+3. **Disciplina de fechamento**: demanda só vai para "respondida" com retorno preenchido E resultado classificado.
 4. **Anti-perda estrutural**: interações podem existir no futuro (`agendada`); follow-ups são sugeridos no encerramento; mudanças geram registros automáticos.
 5. **GTD**: capture primeiro (sem estrutura), estruture depois.
 6. **Dados separados do código**: configuração via `.env`, sempre.
@@ -42,7 +42,7 @@ Tudo open source, gratuito enquanto local, pronto para deploy. Detalhes e justif
 ### 1.4. Versões
 
 - `v0.1` — Fase 0: Fundação
-- `v0.2` — Fase 1: Autenticação e Perfis
+- `v0.2` — Fase 1: Autenticação e Usuários
 - `v0.3` — Fase 2: Cidadãos e Entidades
 - `v0.4` — Fase 3: Casos e Interações (incluindo follow-up e interações automáticas)
 - `v0.5` — Fase 4: Inbox GTD + Minhas Pendências
@@ -71,7 +71,7 @@ Cada versão é tag Git, marco testável e utilizável. Não se avança sem crit
 
 Detalhes em `docs/estrutura-do-repositorio.md`. Resumo:
 
-- 4 apps no root (`core`, `accounts`, `cidadaos`, `casos`), sem wrapper `apps/`.
+- 4 apps no root (`core`, `accounts`, `pessoas`, `demandas`), sem wrapper `apps/`. (Renomeados de `cidadaos`/`casos` no início da Fase 2 — ver ADR 0018.)
 - Código em inglês, produto em português.
 - `models.py`, `views.py`, `tests.py` únicos por app no início.
 - Sem `services/`, `permissions.py`, `signals.py` separados desde o início.
@@ -82,22 +82,25 @@ Detalhes em `docs/estrutura-do-repositorio.md`. Resumo:
 
 ## 3. Modelo de Dados (resumo)
 
-Detalhes em `docs/modelo-de-dados.md`. Onze tabelas principais:
+Detalhes em `docs/modelo-de-dados.md`. Treze tabelas principais:
 
 ```
 usuarios (Django auth + extensões)
-cidadaos ── tags (M:N) ── entidades
-   │                          │
-   └── vinculos ──────────────┘
-casos ──┬── interacoes (status: realizada/agendada/cancelada)
-        ├── encaminhamentos
-        ├── anexos
-        └── tags (M:N)
-itens_inbox ── (FK opcional para casos)
+pessoas ── tags (M:N) ── entidades
+   │                         │
+   └── vinculos ─────────────┘
+   │                         │
+   └── demanda_pessoas ───────┴── demanda_entidades
+                  │
+             demandas ──┬── interacoes (status: realizada/agendada/cancelada)
+                        ├── encaminhamentos
+                        └── tags (M:N)
+anexos (polimórficos — vinculados a demanda, pessoa, entidade ou encaminhamento)
+itens_inbox ── (FK opcional para demandas)
 solicitacoes_lgpd
 ```
 
-Auditoria via `django-auditlog` (sem modelagem manual). Mudanças no Caso geram interações automáticas via signal.
+Auditoria via `django-auditlog` (sem modelagem manual). Mudanças na Demanda geram interações automáticas via signal.
 
 ---
 
@@ -159,10 +162,10 @@ python manage.py makemigrations --check --dry-run
 
 ---
 
-### Fase 1 — Autenticação e Perfis
+### Fase 1 — Autenticação e Usuários
 
 **Versão:** `v0.2`
-**Objetivo:** login funcional com 4 perfis e permissões diferenciadas.
+**Objetivo:** autenticação funcional e infraestrutura de usuários. Grupos e permissões entram nas fases em que os models que eles protegem são criados.
 
 #### 4.1.1. Pré-requisitos
 
@@ -170,28 +173,24 @@ Fase 0 concluída.
 
 #### 4.1.2. Especificações
 
-1. App `accounts`. Modelo `Usuario` herdando de `AbstractUser`. Campos extras: `nome_completo`, `cargo`. Email é único e usado para login.
-2. **Quatro grupos** via data migration: `Administrador`, `Chefe de Gabinete`, `Coordenador`, `Assessor`.
-3. **Matriz de permissões** conforme `docs/permissoes.md`.
-4. Login/logout com templates Tailwind.
-5. Política de senha: mínimo 12 caracteres.
-6. Sessão: 12h de inatividade; "lembrar-me" estende para 30 dias.
-7. Comando `criar_usuarios_iniciais` cria um usuário de cada perfil.
-8. Fixture com dados fictícios.
-9. Página de perfil pessoal.
-10. Gerenciamento de usuários (apenas ADM).
+1. App `accounts`. Modelo `Usuario` herdando de `AbstractUser`. Campos extras: `nome_completo`, `cargo`. Email é único e usado para login. Flag `is_staff` distingue quem pode gerenciar outros usuários.
+2. Login/logout com templates Tailwind.
+3. Política de senha: mínimo 8 caracteres, sem exigências de complexidade (maiúsculas, números, caracteres especiais). Senhas obviamente comuns bloqueadas (ex: "password", "12345678").
+4. Sessão: 12h de inatividade; "lembrar-me" estende para 30 dias.
+5. Comando `criar_usuarios_iniciais` cria um usuário `is_staff` e um usuário comum para facilitar o setup local.
+6. Fixture com dados fictícios.
+7. Página de perfil pessoal.
+8. Gerenciamento de usuários (apenas `is_staff=True`).
 
 #### 4.1.3. Critérios de Aceite
 
 - [ ] URL não pública redireciona para login.
-- [ ] Cada perfil consegue logar.
-- [ ] Cada perfil enxerga apenas o que tem permissão.
-- [ ] ADM consegue criar/editar/desativar usuários.
-- [ ] Não-ADM recebe 403 ao tentar gerenciar usuários.
+- [ ] Usuário consegue logar e fazer logout.
+- [ ] Usuário `is_staff` consegue criar/editar/desativar outros usuários.
+- [ ] Usuário sem `is_staff` recebe 403 ao tentar gerenciar usuários.
 - [ ] Senhas fracas rejeitadas.
 - [ ] `criar_usuarios_iniciais` funciona.
 - [ ] Logout invalida sessão.
-- [ ] Toda matriz de permissões testada.
 
 #### 4.1.4. Validação
 
@@ -203,15 +202,14 @@ python manage.py check
 
 #### 4.1.5. Verificação Manual
 
-1. Rodar `criar_usuarios_iniciais` e logar com cada perfil.
-2. Em cada perfil, verificar menu/dashboard esperado.
-3. Como ADM, criar novo usuário e logar com ele.
-4. Tentar acessar `/configuracoes/usuarios` como Assessor → 403.
-5. Logout e confirmar redirect.
+1. Rodar `criar_usuarios_iniciais`.
+2. Logar com o usuário `is_staff`, criar um novo usuário, logar com o novo usuário.
+3. Tentar acessar `/configuracoes/usuarios` com usuário comum → 403.
+4. Logout e confirmar redirect.
 
 ---
 
-### Fase 2 — Cidadãos e Entidades
+### Fase 2 — Pessoas e Entidades
 
 **Versão:** `v0.3`
 **Objetivo:** núcleo de relacionamento funcional. Cadastrar, buscar, vincular, classificar com tags.
@@ -222,29 +220,31 @@ Fase 1 concluída.
 
 #### 4.2.2. Especificações
 
-1. App `cidadaos` com modelos: `Cidadao`, `Entidade`, `Vinculo`, `Tag`.
-2. **Endereço inline** em `Cidadao` e `Entidade`.
-3. **Communication preferences** em `Cidadao`: 4 booleans (`nao_telefonar`, `nao_enviar_email`, `nao_enviar_sms`, `nao_compartilhar_dados`).
-4. **Campos extras de canal:** `whatsapp` e `instagram` em Cidadão.
+0. **Renomear apps:** `cidadaos/` → `pessoas/`, `casos/` → `demandas/` (antes de criar qualquer model). Atualizar `INSTALLED_APPS`.
+1. App `pessoas` com modelos: `Pessoa`, `Entidade`, `Vinculo`, `Tag`.
+2. **Endereço inline** em `Pessoa` e `Entidade`.
+3. **Preferências de comunicação** em `Pessoa`: 4 booleans (`nao_telefonar`, `nao_enviar_email`, `nao_enviar_sms`, `nao_compartilhar_dados`).
+4. **Campos extras de canal:** `whatsapp` e `instagram` em Pessoa.
 5. Validações: pelo menos um entre email/telefone/whatsapp; bairro/cidade obrigatórios; CPF válido por algoritmo.
-6. **Integração ViaCEP**: módulo `cidadaos/viacep.py`. Tolerante a falha.
+6. **Integração ViaCEP**: módulo `pessoas/viacep.py`. Tolerante a falha.
 7. **Deduplicação**: CPF UNIQUE NULLS DISTINCT; alerta AJAX por similaridade em email/telefone/whatsapp.
-8. Tags com 4 categorias.
+8. Tags com 4 categorias (`tema`, `perfil`, `territorio`, `livre`).
 9. Telas conforme `docs/mapa-de-telas.md` (seções 6 e 7).
-10. Permissões conforme `docs/permissoes.md`.
+10. **Criar grupos padrão** (Administrador, Chefe de Gabinete, Coordenador, Assessor) via data migration com as permissões dos models desta fase. Permissões de `demandas` adicionadas na Fase 3. Matriz completa em `docs/permissoes.md`.
 11. Soft delete via campo `ativo`.
 12. Django Admin com fieldsets organizados.
 
 #### 4.2.3. Critérios de Aceite
 
-- [ ] Cadastrar cidadão completo, sem demanda, funciona.
+- [ ] Renomear apps concluído; migrate sem erros.
+- [ ] Cadastrar pessoa completa, sem demanda, funciona.
 - [ ] Cadastro sem email/telefone/whatsapp rejeitado com mensagem clara.
 - [ ] CEP válido auto-preenche endereço.
 - [ ] CPF duplicado bloqueado.
 - [ ] Email/telefone duplicado mostra alerta amarelo, mas permite criar.
-- [ ] Communication preferences salvam e são exibidas no detalhe.
+- [ ] Preferências de comunicação salvam e são exibidas no detalhe.
 - [ ] Lista pagina, busca, filtra.
-- [ ] Cadastrar entidade e vincular cidadão funciona.
+- [ ] Cadastrar entidade (inclusive tipo `familia` ou `grupo_informal`) e vincular pessoa funciona.
 - [ ] Tag criada e atribuída.
 - [ ] Permissões respeitadas por perfil.
 - [ ] Soft delete remove de listagem mas preserva no banco.
@@ -252,26 +252,27 @@ Fase 1 concluída.
 #### 4.2.4. Validação
 
 ```bash
-pytest cidadaos/ -v --cov=cidadaos
+pytest pessoas/ -v --cov=pessoas
 ```
 
 #### 4.2.5. Verificação Manual
 
-1. Cadastrar 5 cidadãos com variações.
+1. Cadastrar 5 pessoas com variações.
 2. Tentar duplicado e ver alerta.
-3. Cadastrar associação fictícia e vincular 3 cidadãos.
-4. Marcar `nao_enviar_email` em um cidadão.
-5. Criar tags e atribuir.
-6. Buscar por nome, bairro, tag.
-7. Logar como diferentes perfis e verificar permissões.
-8. Desativar cidadão.
+3. Cadastrar "Família Silva" como Entidade tipo `familia` e vincular 3 pessoas.
+4. Cadastrar associação fictícia com CNPJ e vincular pessoas.
+5. Marcar `nao_enviar_email` em uma pessoa.
+6. Criar tags e atribuir.
+7. Buscar por nome, bairro, tag.
+8. Logar como diferentes perfis e verificar permissões.
+9. Desativar pessoa.
 
 ---
 
-### Fase 3 — Casos e Interações
+### Fase 3 — Demandas e Interações
 
 **Versão:** `v0.4`
-**Objetivo:** coração operacional. Casos com timeline de interações (manuais e automáticas), encaminhamentos, anexos, regra inviolável de fechamento, schedule follow-up.
+**Objetivo:** coração operacional. Demandas com múltiplas partes (M:N), timeline de interações (manuais e automáticas), encaminhamentos, anexos polimórficos, regra inviolável de fechamento, schedule follow-up.
 
 #### 4.3.1. Pré-requisitos
 
@@ -279,71 +280,72 @@ Fase 2 concluída.
 
 #### 4.3.2. Especificações
 
-1. App `casos` com modelos: `Caso`, `Interacao`, `Encaminhamento`, `Anexo`.
+1. App `demandas` com modelos: `Demanda`, `DemandaPessoa`, `DemandaEntidade`, `Interacao`, `Encaminhamento`, `Anexo`, `ItemInbox`.
 2. **Regra de fechamento** codificada conforme `docs/fluxos-de-estado.md`: status `respondido` exige `retorno_data`, `retorno_conteudo` E `resultado` ≠ `pendente`.
-3. **Constraint de titular**: caso deve ter `cidadao_id` OU `entidade_id` OU `anonimo=True`.
-4. **Geração de número** thread-safe.
-5. **Tema do caso** = uma tag de categoria `tema` vinculada via M:N.
+3. **Partes M:N**: formulário de criação exige ao menos uma parte (pessoa ou entidade) vinculada, ou flag `anonimo=True`. Validado no formulário/view.
+4. **Geração de número** thread-safe. Formato `MPD-AAAA-NNNNN`.
+5. **Tema da demanda** = uma tag de categoria `tema` vinculada via M:N.
 6. **Visibilidade** via boolean `restrito`.
-7. **Resultado do caso**: campo `resultado` com 6 valores (`pendente`, `atendido`, `atendido_parcialmente`, `nao_atendido`, `inviavel`, `nao_se_aplica`) + campo `resultado_observacao`. Editável a qualquer momento por quem pode editar o caso.
+7. **Resultado da demanda**: campo `resultado` com 6 valores + campo `resultado_observacao`. Editável a qualquer momento por quem pode editar a demanda.
 8. **Interação com status `agendada`/`realizada`/`cancelada`**.
-9. **Schedule Follow-up**: ao salvar interação como `realizada`, formulário oferece criar follow-up. Cria nova interação com status `agendada` e `interacao_origem_id` apontando para a anterior.
-10. **Interações automáticas via signal** em mudanças do Caso (criação, mudança de status, mudança de responsável, **mudança de resultado**, arquivamento). Marcadas com `automatica=TRUE`.
+9. **Schedule Follow-up**: ao salvar interação como `realizada`, formulário oferece criar follow-up.
+10. **Interações automáticas via signal** em mudanças da Demanda. Marcadas com `automatica=TRUE`.
 11. **Janela de edição de 24h** para interações `realizada` pelo autor.
 12. **Reunião como Interação** tipo `reuniao` com data futura — não há módulo Agenda separado.
-13. **Anexos**: upload com validação de tamanho (≤25MB) e mime type.
+13. **Anexos polimórficos**: via `GenericForeignKey` — upload disponível no detalhe de Demanda, Pessoa, Entidade e Encaminhamento. Validação de tamanho (≤25MB) e mime type.
 14. Telas conforme `docs/mapa-de-telas.md` (seções 8, 9).
-15. Permissões conforme `docs/permissoes.md`.
+15. **Expandir permissões dos grupos** via data migration com as permissões customizadas dos models desta fase.
 
 #### 4.3.3. Critérios de Aceite
 
-- [ ] Criar caso vinculado a cidadão funciona.
-- [ ] Criar caso anônimo funciona com flag.
-- [ ] Criar caso vinculado apenas a entidade funciona.
-- [ ] Caso recém-criado tem `resultado='pendente'` por default.
+- [ ] Criar demanda vinculando múltiplas pessoas funciona.
+- [ ] Criar demanda anônima funciona com flag.
+- [ ] Criar demanda vinculada apenas a entidade funciona.
+- [ ] Demanda recém-criada tem `resultado='pendente'` por default.
 - [ ] Mudar status para "respondido" sem retorno → bloqueado.
 - [ ] Mudar status para "respondido" com `resultado='pendente'` → bloqueado com mensagem clara.
-- [ ] Atualizar `resultado` em qualquer status do caso funciona.
+- [ ] Atualizar `resultado` em qualquer status da demanda funciona.
 - [ ] Mudança de `resultado` gera interação automática `mudanca_resultado` na timeline.
 - [ ] Adicionar interação `realizada` registra na timeline.
 - [ ] Adicionar interação `agendada` (com data futura) aparece em "minhas pendências".
 - [ ] Schedule Follow-up: ao encerrar interação, oferta cria follow-up agendado.
 - [ ] Cadeia de follow-up reconstrutível via `interacao_origem_id`.
-- [ ] Mudar status do caso gera interação automática na timeline.
-- [ ] Mudar responsável do caso gera interação automática.
+- [ ] Mudar status da demanda gera interação automática na timeline.
+- [ ] Mudar responsável gera interação automática.
 - [ ] Interação `automatica=TRUE` é imutável (não editável por ninguém).
 - [ ] Janela de 24h: editar interação própria recém-criada funciona; após 24h, bloqueada.
 - [ ] Adicionar encaminhamento aparece na timeline.
+- [ ] Anexo pendurado na Demanda aceito; anexo pendurado no Encaminhamento aceito.
 - [ ] Anexo de 30MB rejeitado; de 5MB aceito.
-- [ ] Detalhe do cidadão lista todos os casos.
-- [ ] Filtro "Meus casos" funciona.
-- [ ] Caso restrito não aparece para CO de outra coordenação.
+- [ ] Detalhe da pessoa lista todas as demandas vinculadas.
+- [ ] Filtro "Minhas demandas" funciona.
+- [ ] Demanda restrita não aparece para CO de outra coordenação.
 
 #### 4.3.4. Validação
 
 ```bash
-pytest casos/ -v --cov=casos
+pytest demandas/ -v --cov=demandas
 ```
 
 #### 4.3.5. Verificação Manual
 
-1. Como AS, criar caso a partir de cidadão existente, tema "Saúde", canal "WhatsApp".
-2. Adicionar interação `realizada` simulando ligação.
-3. Ao salvar, marcar "criar follow-up" e agendar próxima ligação para 7 dias.
-4. Verificar que a interação agendada aparece em "Minhas Interações Pendentes".
-5. Adicionar encaminhamento à Sesa.
-6. Atualizar `resultado` para `atendido_parcialmente` com observação. Verificar interação automática `mudanca_resultado` na timeline.
-7. Tentar marcar caso como respondido sem retorno → erro.
-8. Tentar marcar caso como respondido com retorno mas resultado `pendente` → erro.
-9. Preencher retorno e marcar respondido (resultado já estava classificado) → sucesso.
-10. Ver na timeline a interação automática "Status: em_andamento → respondido".
-11. Reatribuir o caso a outro assessor → ver interação automática "Mudança de responsável".
-12. Criar caso proativo (moção), sem cidadão, com flag.
-13. Marcar caso proativo com `resultado='nao_se_aplica'` (postagem por convicção política) → permitido.
-14. Criar caso vinculado a Associação.
-15. Como CO Jurídico, tentar caso restrito de Comunicação → bloqueado.
-16. Filtrar por "vencidos" e "sem retorno há +30 dias".
-17. Detalhe do cidadão mostra todos os casos.
+1. Como AS, criar demanda a partir de pessoa existente + vincular uma entidade como parte. Tema "Saúde", canal "WhatsApp".
+2. Adicionar segunda pessoa à demanda como "afetada".
+3. Adicionar interação `realizada` simulando ligação.
+4. Ao salvar, marcar "criar follow-up" e agendar próxima ligação para 7 dias.
+5. Verificar que a interação agendada aparece em "Minhas Interações Pendentes".
+6. Adicionar encaminhamento à Sesa. Fazer upload do ofício enviado (anexo no encaminhamento).
+7. Atualizar `resultado` para `atendido_parcialmente` com observação. Verificar interação automática `mudanca_resultado` na timeline.
+8. Tentar marcar demanda como respondida sem retorno → erro.
+9. Tentar marcar demanda como respondida com retorno mas resultado `pendente` → erro.
+10. Preencher retorno e marcar respondida (resultado já estava classificado) → sucesso.
+11. Ver na timeline a interação automática "Status: em_andamento → respondido".
+12. Reatribuir a demanda a outro assessor → ver interação automática "Mudança de responsável".
+13. Criar demanda proativa (moção), anônima, com flag.
+14. Marcar demanda proativa com `resultado='nao_se_aplica'` → permitido.
+15. Como CO Jurídico, tentar demanda restrita de Comunicação → bloqueado.
+16. Filtrar por "vencidas" e "sem retorno há +30 dias".
+17. Detalhe da pessoa mostra todas as demandas vinculadas.
 18. Editar interação 1h após criar → permitido. Após 25h → bloqueado.
 
 ---
@@ -359,7 +361,7 @@ Fase 3 concluída.
 
 #### 4.4.2. Especificações
 
-1. **Modelo `ItemInbox`** em `casos/models.py`.
+1. **Modelo `ItemInbox`** em `demandas/models.py`.
 2. **Captura rápida** — três formas:
    - Atalho `Ctrl+K` / `Cmd+K` em qualquer página.
    - Botão flutuante (FAB) sempre visível.
@@ -391,15 +393,15 @@ Fase 3 concluída.
 #### 4.4.4. Validação
 
 ```bash
-pytest casos/ -v -k "inbox or pendencia"
+pytest demandas/ -v -k "inbox or pendencia"
 ```
 
 #### 4.4.5. Verificação Manual
 
 1. Como AS, `Ctrl+K`, digitar "minutar moção de aplausos para João da Silva pelo prêmio internacional", enviar.
 2. Confirmar que aparece em `/inbox`.
-3. Como CO Jurídico, processar: vincular cidadão "João da Silva" (criar se não existir), tema "Homenagem", origem proativa.
-4. Confirmar que caso foi criado.
+3. Como CO Jurídico, processar: vincular pessoa "João da Silva" (criar se não existir), tema "Homenagem", origem proativa.
+4. Confirmar que demanda foi criada.
 5. Capturar 3 itens em sequência rápida.
 6. Descartar um com motivo.
 7. Como AS, criar interação agendada para amanhã. Verificar em `/minhas-pendencias`.
@@ -529,7 +531,7 @@ curl http://localhost:8000/healthz
 1. Usar o sistema no celular por 30 minutos.
 2. Convidar 2 assessores e fazer onboarding sem assistência.
 3. Refinar manual conforme dúvidas.
-4. Fluxo completo: cidadão chega por WhatsApp → captura no inbox → processado → caso → encaminhamento → retorno → resposta → arquivamento.
+4. Fluxo completo: pessoa chega por WhatsApp → captura no inbox → processado → demanda → encaminhamento → retorno → resposta → arquivamento.
 5. Conferir auditoria de toda a operação.
 
 ---
@@ -584,18 +586,19 @@ A partir de `v1.0`, evolução guiada por uso real.
 
 ## 7. Glossário
 
-- **Caso** — registro de uma demanda do mandato, vinculado a cidadão, entidade ou ambos.
-- **Cidadão** — pessoa física que se relaciona com o mandato.
+- **Demanda** — registro de uma necessidade ou pedido trazido ao mandato. Tem uma ou mais partes (pessoas e/ou entidades) ou é anônima.
+- **Pessoa** — pessoa física que se relaciona com o mandato (solicitante, afetada, representante, etc.).
+- **Entidade** — organização, coletivo ou agrupamento de qualquer natureza (formal ou informal) que se relaciona com o mandato.
+- **Parte** — pessoa ou entidade vinculada a uma demanda específica, com um papel (solicitante, afetada, representante, etc.).
 - **Coordenação** — área funcional do gabinete (gabinete, jurídico, comunicação).
-- **Encaminhamento** — comunicação a terceiro (órgão público, concessionária) feita a partir de um caso.
-- **Entidade** — pessoa jurídica ou coletivo organizado.
+- **Encaminhamento** — comunicação a terceiro (órgão público, concessionária) feita a partir de uma demanda. Tem lifecycle próprio (enviado → respondido/vencido).
 - **Inbox** — fila de itens capturados rapidamente, sem estrutura, aguardando triagem.
-- **Interação** — registro pontual dentro de um caso. Pode estar no passado (`realizada`), no futuro (`agendada`), ou cancelada.
-- **Interação automática** — gerada pelo sistema em mudanças do caso. Imutável.
+- **Interação** — registro pontual dentro de uma demanda. Pode estar no passado (`realizada`), no futuro (`agendada`), ou cancelada.
+- **Interação automática** — gerada pelo sistema em mudanças da demanda. Imutável.
 - **MPD** — Mandato Parlamentar Digital.
-- **Origem responsiva / proativa** — responsiva nasce de demanda do cidadão; proativa nasce da iniciativa do mandato.
-- **Tag tema** — tag de categoria `tema`, usada para classificar a área temática.
-- **Vínculo** — relação entre Cidadão e Entidade, com papel e período.
+- **Origem responsiva / proativa** — responsiva nasce de uma necessidade trazida por pessoa; proativa nasce da iniciativa do mandato.
+- **Tag tema** — tag de categoria `tema`, usada para classificar a área temática da demanda.
+- **Vínculo** — relação entre Pessoa e Entidade, com papel e período.
 
 ---
 
@@ -620,4 +623,4 @@ Em cada sessão de Claude Code:
 
 ---
 
-*Documento vivo. Última revisão: planejamento, pré-Fase 0.*
+*Documento vivo. Última revisão: 2026-05-07, pré-Fase 1 (pós-revisão arquitetural).*

@@ -39,8 +39,8 @@ THIRD_PARTY_APPS = [
 LOCAL_APPS = [
     "core",
     "accounts",
-    "cidadaos",
-    "casos",
+    "pessoas",
+    "demandas",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -70,6 +70,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "core.context_processors.mandato",
             ],
         },
     },
@@ -81,10 +82,11 @@ ASGI_APPLICATION = "config.asgi.application"
 DATABASES = {"default": env.db("DATABASE_URL")}
 
 AUTH_PASSWORD_VALIDATORS = [
-    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
-    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+        "OPTIONS": {"min_length": 8},
+    },
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
-    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
 AUTH_USER_MODEL = "accounts.Usuario"
@@ -107,3 +109,10 @@ DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="mpd@example.com")
 VIACEP_TIMEOUT = env("VIACEP_TIMEOUT")
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+LOGIN_URL = "/entrar/"
+LOGIN_REDIRECT_URL = "/"
+LOGOUT_REDIRECT_URL = "/entrar/"
+
+SESSION_COOKIE_AGE = 43200  # 12 horas
+SESSION_SAVE_EVERY_REQUEST = True

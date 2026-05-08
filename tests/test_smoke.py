@@ -11,6 +11,6 @@ def test_django_imports():
 
 def test_apps_locais_registrados():
     """Confirma que os 4 apps locais estão em INSTALLED_APPS."""
-    apps_esperados = {"core", "accounts", "cidadaos", "casos"}
+    apps_esperados = {"core", "accounts", "pessoas", "demandas"}
     instalados = set(settings.INSTALLED_APPS)
     assert apps_esperados.issubset(instalados)

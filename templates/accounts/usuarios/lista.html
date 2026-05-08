@@ -1,0 +1,67 @@
+{% extends "layouts/app.html" %}
+
+{% block app_conteudo %}
+<div class="flex items-center justify-between mb-6">
+  <h1 class="text-xl font-semibold text-slate-900">Usuários</h1>
+  <a href="{% url 'accounts:usuarios_criar' %}" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+    Novo usuário
+  </a>
+</div>
+
+<div class="bg-white border border-slate-200 rounded-xl overflow-hidden">
+  {% if usuarios %}
+  <table class="w-full text-sm">
+    <thead>
+      <tr class="border-b border-slate-200 bg-slate-50">
+        <th class="text-left px-4 py-3 font-medium text-slate-600">Nome</th>
+        <th class="text-left px-4 py-3 font-medium text-slate-600">E-mail</th>
+        <th class="text-left px-4 py-3 font-medium text-slate-600">Cargo</th>
+        <th class="text-left px-4 py-3 font-medium text-slate-600">Acesso</th>
+        <th class="text-left px-4 py-3 font-medium text-slate-600">Status</th>
+        <th class="px-4 py-3"></th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for usuario in usuarios %}
+      <tr class="hover:bg-slate-50">
+        <td class="px-4 py-3 font-medium text-slate-900">{{ usuario.nome_completo|default:"—" }}</td>
+        <td class="px-4 py-3 text-slate-600">{{ usuario.email }}</td>
+        <td class="px-4 py-3 text-slate-600">{{ usuario.cargo|default:"—" }}</td>
+        <td class="px-4 py-3">
+          {% if usuario.is_staff %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-violet-100 text-violet-800">Admin</span>
+          {% else %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600">Padrão</span>
+          {% endif %}
+        </td>
+        <td class="px-4 py-3">
+          {% if usuario.is_active %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Ativo</span>
+          {% else %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">Inativo</span>
+          {% endif %}
+        </td>
+        <td class="px-4 py-3">
+          <div class="flex items-center gap-3 justify-end">
+            <a href="{% url 'accounts:usuarios_editar' usuario.pk %}" class="text-slate-500 hover:text-slate-800">Editar</a>
+            {% if usuario != request.user %}
+            <form method="post" action="{% url 'accounts:usuarios_toggle_ativo' usuario.pk %}">
+              {% csrf_token %}
+              <button type="submit" class="text-slate-500 hover:text-slate-800">
+                {% if usuario.is_active %}Desativar{% else %}Ativar{% endif %}
+              </button>
+            </form>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="px-4 py-12 text-center text-sm text-slate-500">
+    Nenhum usuário cadastrado.
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

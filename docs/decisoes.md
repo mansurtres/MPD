@@ -454,4 +454,253 @@ A separação entre status (ciclo do trabalho) e resultado (desfecho material) v
 
 ---
 
+---
+
+## ADR 0018 — Renomeação: Cidadão → Pessoa, Caso → Demanda
+
+**Data:** 2026-05-07
+**Status:** Aceito
+
+### Contexto
+Os termos originais "Cidadão" e "Caso" foram questionados antes do início da codificação dos modelos.
+
+"Cidadão" tem conotação de gênero em português (masculino padrão) e limita o escopo semântico a cidadãos formais, quando o mandato se relaciona com qualquer pessoa — incluindo grupos informais, representantes, colaboradores.
+
+"Caso" remete a atendimento jurídico ou serviço social, não ao vocabulário real do gabinete parlamentar municipal.
+
+### Decisão
+- **`Cidadao` → `Pessoa`** (model, tabela `pessoas`, rotas `/pessoas/`)
+- **`Caso` → `Demanda`** (model, tabela `demandas`, rotas `/demandas/`)
+
+Apps Django permanecerão com os nomes `cidadaos` e `casos` até o início da Fase 2, quando serão renomeados para `pessoas` e `demandas` antes da criação dos primeiros models — custo mínimo enquanto `models.py` ainda está vazio.
+
+### Alternativas consideradas
+- **Contato** (em vez de Pessoa): jargão de CRM de vendas, inadequado para representação política.
+- **Manter Cidadão:** preserva os nomes originais, mas carrega gênero gramatical embutido.
+- **Manter Caso:** amplamente compreendido, mas desconexo do vocabulário do gabinete.
+
+### Justificativa
+"Pessoa" é neutral, humanizante, e alinha com o vocabulário jurídico brasileiro ("Pessoa Física" × "Pessoa Jurídica"). "Demanda" é o termo exato usado no dia a dia de um mandato parlamentar municipal para descrever o que um cidadão traz ao gabinete.
+
+### Consequências
+- Todos os docs, rotas, templates e models usam os novos nomes.
+- Renomear os apps Django é tarefa inicial da Fase 2 (antes de criar qualquer migration nos apps afetados).
+
+---
+
+## ADR 0019 — M:N entre Demanda e Partes (Pessoas e Entidades)
+
+**Data:** 2026-05-07
+**Status:** Aceito
+
+### Contexto
+No design original, `casos` tinha duas FKs simples: `cidadao_id` (um único cidadão) e `entidade_id` (uma única entidade). Isso impede registrar demandas que envolvem múltiplos solicitantes — cenário comum no dia a dia do mandato (grupo de vizinhos solicitando reparo de rua, família requerendo benefício social, etc.).
+
+### Decisão
+Substituir as FKs simples por duas tabelas de junção:
+
+- **`demanda_pessoas`** (`demanda_id`, `pessoa_id`, `papel`, `observacao`, `criado_em`) — UNIQUE em `(demanda_id, pessoa_id)`.
+- **`demanda_entidades`** (`demanda_id`, `entidade_id`, `papel`, `observacao`, `criado_em`) — UNIQUE em `(demanda_id, entidade_id)`.
+
+Campo `papel` (texto livre) registra o papel da parte naquela demanda específica: "solicitante", "afetado", "representante", etc.
+
+A constraint "pelo menos uma parte ou anônimo" é validada no formulário/view, não no banco (pois envolve M:N).
+
+### Alternativas consideradas
+- **Tabela única `demanda_partes` polimórfica:** um GenericForeignKey apontando para Pessoa ou Entidade. Economiza uma tabela, mas perde FK real e torna queries menos legíveis. Descartado em favor de clareza.
+- **Manter FKs simples:** solução adequada para mandatos com demandas de solicitante único, mas insuficiente para a realidade política onde múltiplos representantes comparecem juntos.
+
+### Justificativa
+M:N é a multiplicidade real do domínio. Duas FKs reais > uma GenericFK na junção. Três linhas similares > abstração prematura.
+
+### Consequências
+- Demanda não tem mais `cidadao_id` nem `entidade_id` diretos.
+- Queries "demandas de uma pessoa" passam por JOIN em `demanda_pessoas`.
+- Telas de detalhe de Pessoa e Entidade listam demandas via esse JOIN.
+- Formulário de nova demanda inclui seção de partes com seleção múltipla.
+
+---
+
+## ADR 0020 — Anexos polimórficos via GenericForeignKey
+
+**Data:** 2026-05-07
+**Status:** Aceito
+
+### Contexto
+O design original tinha `anexos.caso_id FK → casos` — anexos só podiam ser pendurados em demandas. Necessidade identificada: anexar documentos também a Pessoas (identidade, comprovante), Entidades (CNPJ, estatuto), Encaminhamentos (ofício enviado, resposta recebida).
+
+### Decisão
+Substituir a FK simples por **`GenericForeignKey`** do Django (via `django.contrib.contenttypes`):
+
+```python
+content_type = ForeignKey(ContentType, on_delete=CASCADE)
+object_id    = UUIDField()
+content_object = GenericForeignKey('content_type', 'object_id')
+```
+
+Entidades que aceitam anexos no MVP: `Demanda`, `Pessoa`, `Entidade`, `Encaminhamento`.
+
+### Alternativas consideradas
+- **FK específica por entidade** (`demanda_anexos`, `pessoa_anexos`, etc.): FK real, integridade garantida pelo banco. Mas exige nova tabela (e nova migration) para cada entidade futura. Cresce linearmente com o schema.
+- **Manter apenas `caso_id`:** limita a capacidade do sistema; documentos de pessoa e encaminhamento ficariam "soltos" na demanda sem identificação.
+
+### Justificativa
+Padrão consolidado no Django e em CRMs maduros (CiviCRM usa `entity_id` + `entity_table` exatamente assim). O custo (sem integridade referencial de banco) é coberto por signal `pre_delete` nos models vinculados, que exclui anexos órfãos antes de deletar o registro pai.
+
+### Consequências
+- Tabela `anexos` passa a ter `content_type_id` e `object_id` em vez de `demanda_id`.
+- Índice composto `(content_type_id, object_id)` para lookup eficiente.
+- Signal `pre_delete` necessário em `Demanda`, `Pessoa`, `Entidade`, `Encaminhamento`.
+- Upload disponível no detalhe de qualquer dessas entidades, não apenas da demanda.
+
+---
+
+## ADR 0021 — Entidade como agrupamento universal
+
+**Data:** 2026-05-07
+**Status:** Aceito
+
+### Contexto
+O design original de `entidades` modelava apenas organizações formais: associações, sindicatos, empresas — tipos com CNPJ e endereço formal. O mandato municipal, porém, precisa registrar relacionamentos com agrupamentos informais: "Família Silva", "Turma do WhatsApp do Bairro X", "Moradores da Quadra 7".
+
+### Decisão
+Expandir o CHECK do campo `tipo` em `entidades` para incluir agrupamentos sem formalidade jurídica:
+
+```
+Novos tipos adicionados:
+  familia        — grupo familiar sem CNPJ
+  grupo_informal — coletivo sem estrutura formal (grupo de WhatsApp, vizinhança)
+  condominio     — condomínio residencial (com ou sem CNPJ)
+```
+
+Nenhuma mudança estrutural na tabela — todos os campos além de `nome` e `tipo` já eram opcionais. O CNPJ permanece UNIQUE NULLS DISTINCT (múltiplos registros sem CNPJ não conflitam).
+
+### Alternativas consideradas
+- **Tabela separada `grupos`:** mais puro semanticamente, mas fragmenta o cadastro e o relacionamento M:N com Demanda.
+- **Manter Entidade apenas para formal:** impede registrar vínculos reais do mandato com famílias e grupos informais, que são atores políticos relevantes.
+
+### Justificativa
+A tabela `entidades` já suportava o caso tecnicamente (campos opcionais). A mudança é apenas semântica (expandir o tipo). "Família Silva" como entidade do tipo `familia` é mais rico politicamente do que deixar esse vínculo sem registro.
+
+### Consequências
+- `tipo` aceita `familia`, `grupo_informal`, `condominio` além dos tipos originais.
+- Entidades informais tipicamente terão só `nome` e `tipo` preenchidos — tudo mais é opcional.
+- UI pode filtrar por tipo para separar formais de informais nas listagens.
+
+---
+
+---
+
+## ADR 0022 — Sistema de permissões modular via Django Groups + Permissions nativos
+
+**Data:** 2026-05-08
+**Status:** Aceito
+
+### Contexto
+A pergunta pendente desde a Fase 0: implementar 4 perfis fixos (ADM, CG, CO, AS) com lógica de permissão hardcoded em Python, ou construir um sistema mais flexível?
+
+Pedro clarificou: o sistema precisa ser **capaz** de criar perfis diferentes, com permissões e acessos diferentes. Qualquer ação pode ser permissionada ou impedida. A modularidade de acesso é o requisito central — não os 4 perfis específicos.
+
+### Decisão
+
+Usar o **sistema nativo de `Permission` + `Group` do Django** em sua capacidade plena:
+
+1. **Permissões granulares por model**: cada model gera automaticamente 4 permissões (`add_X`, `change_X`, `delete_X`, `view_X`). Permissões customizadas são declaradas em `Meta.permissions` para ações específicas (ex: `('can_archive_demanda', 'Pode arquivar demandas')`, `('can_anonymize_pessoa', 'Pode anonimizar pessoas')`).
+
+2. **Groups como perfis configuráveis**: `Group` do Django é o perfil. Grupos são criados via data migration com a configuração padrão (equivalente à matriz em `docs/permissoes.md`), mas podem ser alterados pelo ADM sem deploy novo.
+
+3. **Checks via `user.has_perm()`**: toda verificação de permissão usa `user.has_perm('app.codename')`. Não há `if grupo == 'Chefe de Gabinete':` no código.
+
+4. **Helpers em `core/permissions.py`**: funções como `pode_ver_demanda(user, demanda)` continuam existindo, mas internamente chamam `has_perm` + regras de negócio (como o campo `restrito`), nunca checam nome de grupo diretamente.
+
+5. **Configuração inicial via data migration na Fase 1**: cria 4 grupos padrão (Administrador, Chefe de Gabinete, Coordenador, Assessor) com as permissões da matriz documentada. Esses grupos são o ponto de partida, não o teto.
+
+### Alternativas consideradas
+
+- **4 grupos hardcoded com `if grupo == 'X':`**: simples de implementar, mas rígido. Adicionar um 5º grupo exigiria alteração de código em vez de configuração. Descartado.
+- **Permissões por linha de objeto (row-level security)**: granularidade máxima, mas complexidade alta. O campo `restrito` em Demanda já cobre o caso central de row-level. Reservado para v2.x.
+
+### Justificativa
+
+O sistema nativo do Django foi projetado exatamente para isso: grupos e permissões configuráveis sem redeployment. Usar a infraestrutura existente em vez de reinventá-la é o princípio "simplicidade vence". O ADM pode criar "Grupo Estagiário" com acesso só-leitura sem tocar em código.
+
+### Consequências
+
+- Fase 1 cria 4 grupos via data migration com permissões da matriz.
+- `core/permissions.py` usa `has_perm`, não checagem de nome de grupo.
+- Novas permissões customizadas entram no `Meta.permissions` de cada model conforme necessidade.
+- ADM pode criar/editar grupos pelo Django Admin (e futuramente pela UI própria em v1.x).
+- `docs/permissoes.md` documenta a configuração **padrão** — não uma regra inviolável de código.
+
+---
+
+## ADR 0024 — Timing dos grupos: Fase 2, não Fase 1 (emenda ADR 0022)
+
+**Data:** 2026-05-08
+**Status:** Aceito
+
+### Contexto
+
+ADR 0022 estabeleceu que "Fase 1 cria 4 grupos via data migration com permissões da matriz". Ao revisar o escopo da Fase 1, identificou-se uma contradição: as permissões customizadas que esses grupos deveriam ter (`pode_criar_demanda`, `pode_ver_todas_demandas`, etc.) são declaradas no `Meta` dos models `Pessoa`, `Demanda`, `Interacao`, etc. — que só existem nas Fases 2 e 3. Criar os grupos na Fase 1 geraria caixas vazias sem permissões significativas.
+
+Além disso, Pedro questionou a necessidade de 4 perfis pré-definidos no MVP, o que levou a um redesenho do escopo da Fase 1.
+
+### Decisão
+
+**Fase 1** usa apenas `is_staff=True` para distinguir quem pode gerenciar outros usuários. Nenhum Group criado.
+
+**Fase 2** cria os 4 grupos padrão (Administrador, Chefe de Gabinete, Coordenador, Assessor) via data migration, com as permissões dos models `pessoas` (`Pessoa`, `Entidade`, `Vinculo`, `Tag`).
+
+**Fase 3** expande as permissões dos grupos via data migration com as permissões customizadas dos models `demandas`.
+
+### Justificativa
+
+Grupos criados junto com os models que protegem têm conteúdo real e testável imediatamente. Grupos criados antecipadamente são configuração sem verificação. O Django já suporta atribuição direta de permissões a usuários individuais via Admin — suficiente para o período entre Fase 1 e Fase 2.
+
+### Consequências
+
+- Fase 1 entrega apenas infraestrutura de autenticação. Nenhuma data migration de grupos.
+- Fase 2 inclui step de criação de grupos como parte do setup dos models de pessoas.
+- Fase 3 inclui step de expansão das permissões como parte do setup dos models de demandas.
+- ADR 0022 permanece válida em tudo exceto no timing.
+
+---
+
+## ADR 0023 — Política de senha: mínimo 8 chars, sem complexidade obrigatória
+
+**Data:** 2026-05-08
+**Status:** Aceito
+
+### Contexto
+
+A decisão inicial (roadmap v0.2) definia mínimo de 12 caracteres para senhas, adotada sem discussão com Pedro. Ao revisar a Fase 1, Pedro sinalizou que não participou da decisão e queria reavaliá-la.
+
+O sistema serve uma equipe interna pequena, de perfil não-técnico, em um mandato municipal. Exigências de complexidade (maiúsculas, números, caracteres especiais) criam atrito de adoção sem benefício proporcional para esse contexto.
+
+### Decisão
+
+Remover os validadores `UserAttributeSimilarityValidator` e `NumericPasswordValidator` do Django. Manter apenas:
+
+- **`MinimumLengthValidator`** com `min_length=8`.
+- **`CommonPasswordValidator`** — bloqueia senhas trivialmente comuns ("password", "12345678", etc.) sem exigir complexidade específica.
+
+Sem exigência de maiúsculas, números ou caracteres especiais. Sem bloqueio por similaridade com o nome de usuário.
+
+### Alternativas consideradas
+
+- **12 caracteres + validadores padrão (decisão original):** mais seguro em cenário web com usuários desconhecidos. Excessivo para equipe interna de 5–10 pessoas.
+- **Apenas mínimo de 8, sem nenhum validador:** deixa "aaaaaaaa" e "password" passarem. `CommonPasswordValidator` cobre esse caso sem fricção para senhas normais.
+
+### Justificativa
+
+Política de senha deve equilibrar segurança com adoção. Para uma equipe interna que conhece o sistema, 8 caracteres + bloqueio de senhas óbvias é suficiente e não gera resistência. Se o sistema for exposto publicamente (Fase 6), a política pode ser revisada novamente.
+
+### Consequências
+
+- `AUTH_PASSWORD_VALIDATORS` em `base.py` contém apenas `MinimumLengthValidator` (min 8) e `CommonPasswordValidator`.
+- Django Admin e views de autenticação respeitam automaticamente esses validadores.
+- Nenhuma exigência de complexidade é mostrada ao usuário no formulário de senha.
+
+---
+
 *Decisões adicionadas em ordem cronológica conforme surgem. Cada decisão registrada uma vez; alterações futuras criam nova ADR (não editam a anterior).*
