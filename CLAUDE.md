@@ -55,32 +55,36 @@ Ideia que parece "óbvia" e não está no doc → primeiro vira ADR ou backlog.
 
 ## 5. Estado atual
 
-**Fase corrente:** v0.3 — Fase 2 (Pessoas e Entidades) **concluída**.
+**Fase corrente:** v0.3.1 — Fase 2 (Pessoas e Entidades) + ciclo de hardening **concluídos**.
 
-**O que está pronto (Fase 1, mantido):**
-- Django 5.2 + PostgreSQL 16 + Tailwind v4 standalone rodando localmente.
+**Fundação (Fase 0/1, mantido):**
+- Django 5.2 + PostgreSQL 16 + Tailwind v4 standalone.
 - Settings split (`config/settings/{base,development,production,test}.py`).
-- 4 apps Django: `core`, `accounts`, `pessoas`, `demandas`.
-- `accounts.Usuario` completo: email como login, `nome_completo`, `cargo`, `UsuarioManager` customizado.
-- Login/logout com templates Tailwind; sessão 12h / "lembrar-me" 30 dias.
-- Gestão de usuários (criar, editar, desativar) restrita a `is_staff=True`.
-- Página de perfil pessoal.
-- Comando `criar_usuarios_iniciais` (idempotente, sincroniza grupos).
-- Política de senha: mínimo 8 chars, sem exigências de complexidade.
+- 4 apps: `core`, `accounts`, `pessoas`, `demandas`.
+- `accounts.Usuario` (email como login), login/logout, sessão 12h / "lembrar-me" 30 dias, gestão de usuários, perfil.
+- Política de senha: mínimo 8 chars, sem complexidade obrigatória (ADR 0023).
 
-**O que entrou na Fase 2:**
-- Models `Pessoa`, `Entidade`, `Vinculo`, `Tag` em `pessoas/`.
-- Pessoa com endereço inline, 4 booleans LGPD, validação de CPF, soft delete via `ativo`, anonimização.
-- Entidade com 14 tipos (de associação formal a `familia`/`grupo_informal`/`condominio`); CNPJ opcional, UNIQUE NULLS DISTINCT.
-- Vínculo (Pessoa ↔ Entidade) com `papel`, `data_inicio`, `data_fim`.
-- Tag única e compartilhada com 4 categorias (`tema`, `perfil`, `territorio`, `livre`).
-- CRUDs com listas paginadas (25/pg), busca, filtros (bairro, tag, tipo, mostrar inativos).
-- Integração ViaCEP em `pessoas/viacep.py`, tolerante a falha; auto-preenchimento via JS no form.
-- Deduplicação por email/telefone/whatsapp em `pessoas/deduplicacao.py`; alerta amarelo no form via fetch JS.
-- Django Admin com fieldsets para Pessoa/Entidade/Tag/Vínculo.
-- Data migration cria 4 grupos padrão (Administrador, Chefe de Gabinete, Coordenador, Assessor) com permissões de pessoas. Permissões customizadas: `pode_desativar_pessoa`, `pode_reativar_pessoa`, `pode_anonimizar_pessoa`, `pode_desativar_entidade`, `pode_reativar_entidade`.
-- 67 testes passando (45 novos em pessoas).
-- ADR 0025: padronização `BigAutoField` (supersede ADR 0002).
+**Fase 2 (pessoas):**
+- Models `Pessoa`, `Entidade`, `Vinculo`, `Tag`. Pessoa com endereço inline, 4 booleans LGPD, validação de CPF, soft delete, anonimização.
+- Entidade com 14 tipos (formais a `familia`/`grupo_informal`); CNPJ opcional UNIQUE NULLS DISTINCT.
+- CRUDs com `PermissionRequiredMixin`, listas paginadas (25/pg), busca, filtros.
+- ViaCEP em `pessoas/viacep.py` (tolerante a falha); deduplicação em `pessoas/deduplicacao.py`.
+- Django Admin com fieldsets.
+- 4 grupos padrão (ADM, CG, CO, AS) via data migration com permissões customizadas (`pode_desativar_*`, `pode_reativar_*`, `pode_anonimizar_pessoa`).
+- ADR 0025: `BigAutoField` (supersede ADR 0002).
+
+**Hardening v0.3.1 (ADRs 0026–0033):**
+- `DeduplicacaoCheckView` exige `view_pessoa` (fechou vazamento de PII) — ADR 0028.
+- `auditlog` registra `Pessoa`, `Entidade`, `Vinculo`, `Tag` (LGPD) — ADR 0029.
+- `criar_usuarios_iniciais` exige `DEBUG=True` (anti-backdoor em prod) — ADR 0030.
+- Toggle views padronizadas com `PermissionRequiredMixin` + `PermissionDenied` — ADR 0031.
+- Rate limiting de login via `django-axes` (5 falhas / 30min, lockout por IP+username) — ADR 0032.
+- `SECURE_PROXY_SSL_HEADER` env-driven, default off — ADR 0033.
+- Identidade do mandato genérica em `.env.example` e docs (licenciabilidade) — ADR 0027.
+- Tabela de credenciais permanece no `.env` local por escolha do proprietário — ADR 0026.
+- Link `/admin/` removido da home pública.
+
+**72 testes passando.** ADRs 0001–0033 em [`docs/decisoes.md`](./docs/decisoes.md).
 
 **Próximo marco:** v0.4 — Fase 3 (Demandas e Interações). Ver [`roadmap.md`](./roadmap.md) §4.3.
 
@@ -161,4 +165,4 @@ Para o histórico completo ver [`docs/decisoes.md`](./docs/decisoes.md). Decisõ
 
 ---
 
-*Atualizar este arquivo ao fim de cada fase. Última atualização: 2026-05-08 (Fase 2 concluída).*
+*Atualizar este arquivo ao fim de cada fase. Última atualização: 2026-05-08 (v0.3.1 — Fase 2 + hardening).*
