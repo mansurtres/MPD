@@ -8,7 +8,7 @@
     <h1 class="text-4xl font-bold text-slate-900 mb-4">{{ NOME_DO_MANDATO }}</h1>
     <p class="text-lg text-slate-600">Em construção.</p>
     <p class="mt-12 text-sm text-slate-400">
-        Acesse <a href="/admin/" class="underline hover:text-slate-600">/admin/</a> para o painel administrativo.
+        <a href="{% url 'accounts:login' %}" class="underline hover:text-slate-600">Acesso da equipe</a>
     </p>
 </div>
 {% endblock %}
