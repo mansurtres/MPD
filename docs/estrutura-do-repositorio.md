@@ -280,11 +280,11 @@ DATABASE_URL=postgres://mpd:mpd@localhost:5432/mpd_dev
 
 # === E-mail (Fase 1) ===
 EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
-DEFAULT_FROM_EMAIL=mpd@gabinetepedrotres.com.br
+DEFAULT_FROM_EMAIL=mandato@exemplo.com
 
 # === Identidade do Mandato ===
-NOME_DO_MANDATO=Vereador Pedro Trés
-NOME_CURTO_DO_MANDATO=Pedro Trés
+NOME_DO_MANDATO=Mandato Exemplo
+NOME_CURTO_DO_MANDATO=Mandato
 SIGLA_MANDATO=MPD
 
 # === Storage ===
