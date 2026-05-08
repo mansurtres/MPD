@@ -731,4 +731,225 @@ Política de senha deve equilibrar segurança com adoção. Para uma equipe inte
 
 ---
 
+## ADR 0026 — Anotação de credenciais de desenvolvimento permanece no `.env` local
+
+**Data:** 2026-05-08
+**Status:** Aceito
+
+### Contexto
+
+Auditoria de fundação identificou que o `.env` local (não versionado, gitignored) contém — além das variáveis de ambiente — uma tabela de senhas em texto plano no rodapé: senha do superuser PostgreSQL local, senha do app user PostgreSQL local, e senha provisória do superusuário Django. As linhas estão fora do formato `KEY=VALUE` e não são consumidas pelo runtime.
+
+### Decisão
+
+Manter a anotação no `.env`. Pedro (proprietário) optou explicitamente após auditoria, ciente dos vetores de vazamento que o `.gitignore` não cobre.
+
+### Alternativas consideradas
+
+- **Mover para gerenciador de senhas externo (1Password, Bitwarden, KeePass) e remover do `.env`:** recomendação inicial do auditor. Reduz superfície de vazamento por backup automático, screenshot, share de pasta, indexador, ferramentas de IA com acesso ao filesystem.
+
+### Justificativa
+
+Decisão do proprietário, registrada em transparência. Os vetores citados são reais mas considerados aceitáveis no estágio atual (máquina pessoal, sem deploy, sem outros desenvolvedores).
+
+### Consequências
+
+- A senha provisória `mpd123` do superusuário deve ser trocada via `manage.py changepassword`. A nova senha **não** volta para a tabela do `.env`; vive apenas no banco (hash) e no gerenciador de senhas pessoal de Pedro.
+- Reavaliar esta ADR caso o sistema ganhe outros desenvolvedores, troque de máquina, ou entre em ambiente compartilhado.
+
+---
+
+## ADR 0027 — Identidade do mandato genérica em `.env.example`
+
+**Data:** 2026-05-08
+**Status:** Aceito
+
+### Contexto
+
+`NOME_DO_MANDATO`, `NOME_CURTO_DO_MANDATO`, `SIGLA_MANDATO` e `DEFAULT_FROM_EMAIL` já são externalizados em variáveis de ambiente. Mas `.env.example` (versionado) e `docs/estrutura-do-repositorio.md` traziam os valores reais do mandato atual ("Vereador Pedro Trés", "gabinetepedrotres.com.br") como exemplo. Como o sistema é construído para ser licenciável a outros parlamentares no futuro, exemplo committado com identidade real contradiz o produto.
+
+### Decisão
+
+Substituir os valores de exemplo por placeholders neutros:
+
+```
+NOME_DO_MANDATO=Mandato Exemplo
+NOME_CURTO_DO_MANDATO=Mandato
+SIGLA_MANDATO=MPD
+DEFAULT_FROM_EMAIL=mandato@exemplo.com
+```
+
+### Justificativa
+
+Quem clonar o repo amanhã (outro mandato, contribuidor, dev em onboarding) deve entender no primeiro arquivo que abre que esses campos são configuráveis. Anchoring em valores reais sugere o contrário.
+
+### Consequências
+
+- `.env` local de Pedro permanece com os valores reais (gitignored).
+- Mesma genericização replicada em `docs/estrutura-do-repositorio.md`.
+- Templates já consumem via context processor — nenhuma mudança de código de aplicação.
+
+---
+
+## ADR 0028 — `DeduplicacaoCheckView` exige `pessoas.view_pessoa`
+
+**Data:** 2026-05-08
+**Status:** Aceito
+
+### Contexto
+
+`pessoas.views.DeduplicacaoCheckView` (rota `/pessoas/api/deduplicar/`) foi entregue na Fase 2 com apenas `LoginRequiredMixin`. Qualquer usuário autenticado — mesmo sem permissão `pessoas.view_pessoa` — pode consultar pessoas por email/telefone/whatsapp e receber nome de exibição, email, telefone, WhatsApp e URL do detalhe. Endpoint de exfiltração de PII para usuários sem direito de leitura.
+
+### Decisão
+
+Adicionar `PermissionRequiredMixin` com `permission_required = "pessoas.view_pessoa"`. Cobrir com testes: (a) usuário sem perm recebe 403; (b) usuário com perm recebe 200; (c) anônimo é redirecionado para login.
+
+### Justificativa
+
+Busca por dado pessoal **é** leitura de pessoa. Não há diferença substantiva entre `/pessoas/?q=foo` e `/pessoas/api/deduplicar/?email=foo` do ponto de vista de PII; o segundo deve respeitar a mesma permissão.
+
+### Consequências
+
+- Os 4 grupos padrão (Administrador, Chefe de Gabinete, Coordenador, Assessor) já têm `view_pessoa` — nenhum perfil em produção é afetado.
+- Teste novo em `pessoas/tests.py`.
+
+---
+
+## ADR 0029 — Auditlog registra Pessoa, Entidade, Vínculo e Tag
+
+**Data:** 2026-05-08
+**Status:** Aceito
+
+### Contexto
+
+`django-auditlog` foi instalado na Fase 0 mas nenhum model foi registrado. CLAUDE.md §8 documenta: "registros entram por modelo, fase a fase". A Fase 2 introduziu os models que mais demandam auditoria — dados pessoais de cidadãos sob LGPD — sem registrar nenhum deles.
+
+### Decisão
+
+Registrar `Pessoa`, `Entidade`, `Vinculo` e `Tag` no auditlog via `pessoas/apps.py:ready()`. A trilha cobre criação, edição e exclusão (incluindo soft delete via mudança de `ativo`).
+
+### Alternativas consideradas
+
+- **Aguardar Fase 6 (deploy):** trilha de auditoria só vale com histórico desde o início. Auditoria iniciada amanhã não responde "o que aconteceu antes".
+
+### Justificativa
+
+LGPD exige rastreabilidade ("quem viu, quando, alterou o quê") para dados pessoais. Custo do registro é mínimo (5 linhas); benefício de recuperar histórico após fato é altíssimo.
+
+### Consequências
+
+- Tabela `auditlog_logentry` cresce com edits dos 4 models.
+- `criado_por` e `atualizado_em` no model continuam — auditlog é além, não substitui.
+- Models de demandas (Fase 3) seguem o mesmo padrão.
+
+---
+
+## ADR 0030 — `criar_usuarios_iniciais` exige `DEBUG=True`
+
+**Data:** 2026-05-08
+**Status:** Aceito
+
+### Contexto
+
+O comando `accounts.management.commands.criar_usuarios_iniciais` cria dois usuários com senhas fixas em código (`admin12345`, `usuario12345`) e os adiciona aos grupos correspondentes — incluindo o grupo `Administrador` para `admin@mpd.local`. Útil em dev local; risco grande se rodado por engano em produção: vira backdoor com permissões totais.
+
+### Decisão
+
+Comando aborta com `CommandError` quando `settings.DEBUG` for `False`. Semear usuários iniciais em produção é responsabilidade explícita do admin (via Django Admin ou data migration própria).
+
+### Justificativa
+
+`DEBUG=True` é proxy razoável de "ambiente de desenvolvimento". Defesa simples, sem custo. Se houver razão futura para semear em produção (demo, staging), abrir flag explícita ou comando separado em vez de relaxar este.
+
+### Consequências
+
+- Dev: comportamento inalterado.
+- Produção: comando falha com mensagem explicativa, sem efeito colateral.
+- Teste cobre o aborto quando `DEBUG=False`.
+
+---
+
+## ADR 0031 — Toggle views usam `PermissionRequiredMixin` + `PermissionDenied`
+
+**Data:** 2026-05-08
+**Status:** Aceito
+
+### Contexto
+
+`PessoaToggleAtivoView` e `EntidadeToggleAtivoView` usam só `LoginRequiredMixin` e checam permissão **dentro** do método com `messages.error + redirect`. As outras views do mesmo arquivo padronizam `PermissionRequiredMixin` (gera 403 padrão). Resultado: padrão inconsistente; `get_object_or_404` roda antes da checagem (permite enumeração de PKs); experiência de usuário não-autorizado vira "redirect com mensagem" em vez de 403.
+
+### Decisão
+
+Reescrever ambas com:
+- `PermissionRequiredMixin` checando a permissão genérica (`change_pessoa` / `change_entidade`) **antes** do `get_object_or_404`.
+- Verificação adicional dentro do método (a permissão muda conforme a ação: `pode_desativar_*` ou `pode_reativar_*`) levantando `PermissionDenied` em vez de `messages.error + redirect`.
+
+### Justificativa
+
+Padronização (princípio do menor espanto). Permissão é checada antes do `get_object_or_404` — sem enumeração. 403 padrão em vez de mensagem flash.
+
+### Consequências
+
+- Comportamento para usuário autorizado: inalterado.
+- Comportamento para usuário não-autorizado: 403 em vez de redirect com mensagem.
+- Testes existentes ajustados.
+
+---
+
+## ADR 0032 — `django-axes` para rate limiting de login (substitui `django-ratelimit`)
+
+**Data:** 2026-05-08
+**Status:** Aceito
+
+### Contexto
+
+`django-ratelimit` está em `pyproject.toml` desde Fase 0 mas **não está aplicado** em nenhuma view. Login (`accounts.MPDLoginView`) está sem proteção contra brute force. Sistema lida com dados pessoais sob LGPD; brute force aberto é fraqueza séria mesmo em escala interna.
+
+### Decisão
+
+Adotar `django-axes`. Lockout por (IP + username) após 5 tentativas falhas, cooldown de 30 minutos. Registrar tentativas em DB (visíveis no Django Admin). Remover `django-ratelimit` das dependências.
+
+### Alternativas consideradas
+
+- **Manter `django-ratelimit` e decorar a view:** simples, leve, suficiente para rate limit por IP. Axes oferece lockout por par (IP, username), dashboard nativo, e integra com signals — encaixe natural com Django Auth e com auditlog (ADR 0029).
+- **Defesa em profundidade (axes + ratelimit):** ganho marginal, complexidade extra. Axes sozinho cobre.
+
+### Justificativa
+
+- Senhas são fracas-médias (ADR 0023: 8 chars sem complexidade) — proteção contra adivinhação importa.
+- Axes registra tentativas em DB — visibilidade auditável alinhada à LGPD.
+- Custo: 1 dep, 1 migração, ~5 linhas em settings, 1 backend de autenticação a mais.
+
+### Consequências
+
+- Login com 5 falhas em 30min trava (IP+email) por 30min. Mensagem de erro informa.
+- Admin reseta locks manualmente via Django Admin.
+- Dependência `django-ratelimit` removida.
+
+---
+
+## ADR 0033 — `SECURE_PROXY_SSL_HEADER` é env-driven, default desligado
+
+**Data:** 2026-05-08
+**Status:** Aceito
+
+### Contexto
+
+`config/settings/production.py` configurava `SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")` incondicionalmente. Footgun clássico do Django: se a aplicação for diretamente alcançável (sem proxy estrito que sanitize/sete a header), qualquer cliente pode mandar `X-Forwarded-Proto: https` e fazer `request.is_secure()` retornar True — bypassando `SECURE_SSL_REDIRECT`, `SESSION_COOKIE_SECURE`, etc. A própria documentação do Django avisa.
+
+### Decisão
+
+Tornar opt-in via env var `DJANGO_TRUST_PROXY_SSL_HEADER`. Default desligado. `.env.example` documenta quando ativar (apenas atrás de proxy estrito — nginx, Caddy, Cloudflare, etc.).
+
+### Justificativa
+
+Default seguro. Ativação consciente. Documentação no próprio exemplo evita armadilha quando o deploy for configurado por alguém que não conhece o histórico desta decisão.
+
+### Consequências
+
+- Sem deploy hoje: nenhum efeito prático.
+- Quando deploy chegar: quem fizer setup decide explicitamente se confia na header. Decisão fica documentada via env var no servidor.
+
+---
+
 *Decisões adicionadas em ordem cronológica conforme surgem. Cada decisão registrada uma vez; alterações futuras criam nova ADR (não editam a anterior).*
