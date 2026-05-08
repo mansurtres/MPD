@@ -43,7 +43,7 @@ Tudo open source, gratuito enquanto local, pronto para deploy. Detalhes e justif
 
 - `v0.1` — Fase 0: Fundação
 - `v0.2` — Fase 1: Autenticação e Usuários
-- `v0.3` — Fase 2: Cidadãos e Entidades
+- `v0.3` — Fase 2: Pessoas e Entidades
 - `v0.4` — Fase 3: Casos e Interações (incluindo follow-up e interações automáticas)
 - `v0.5` — Fase 4: Inbox GTD + Minhas Pendências
 - `v0.6` — Fase 5: Análise, Auditoria, LGPD
@@ -623,4 +623,4 @@ Em cada sessão de Claude Code:
 
 ---
 
-*Documento vivo. Última revisão: 2026-05-07, pré-Fase 1 (pós-revisão arquitetural).*
+*Documento vivo. Última revisão: 2026-05-08, pós-Fase 2 (Pessoas, Entidades, Vínculos, Tags entregues).*

@@ -2,7 +2,9 @@
 
 Documento consolidado das regras de acesso e permissão do sistema. Define quem pode ver, criar, editar e excluir cada entidade.
 
-> **Princípio:** o sistema é colaborativo, não compartimentalizado. O default é dar acesso. Restrições existem para casos sensíveis específicos, não como regra geral.
+> **Princípio:** o sistema é colaborativo, não compartimentalizado. O default é dar acesso. Restrições existem para demandas sensíveis específicas, não como regra geral.
+
+> **Sobre este documento:** define a **configuração padrão** dos grupos criados na Fase 1 via data migration. O sistema usa Django Groups + Permissions nativos — o ADM pode criar novos grupos e ajustar permissões sem alterar código. Esta matriz não é regra hardcoded; é o ponto de partida. Ver ADR 0022.
 
 ---
 
@@ -17,15 +19,15 @@ Quatro perfis, atribuídos via Django Group. Cada usuário pertence a exatamente
 | **Coordenador** (`CO`) | Coord. Jurídico ou Coord. de Comunicação | 2 |
 | **Assessor** (`AS`) | Demais assessores parlamentares | 4-10 |
 
-**Sub-tipos de Coordenador:** o sistema não tem grupos separados para Coord Jurídico vs Coord Comunicação. A distinção aparece pelo campo `coordenacao_responsavel` que cada um assume nos casos. Um Coordenador Jurídico é simplesmente um usuário com perfil `CO` que predominantemente opera casos com `coordenacao_responsavel='juridico'`. Isso evita inflar grupos sem necessidade — se mudar o coordenador, basta reatribuir os casos.
+**Sub-tipos de Coordenador:** o sistema não tem grupos separados para Coord Jurídico vs Coord Comunicação. A distinção aparece pelo campo `coordenacao_responsavel` que cada um assume nas demandas. Um Coordenador Jurídico é simplesmente um usuário com perfil `CO` que predominantemente opera demandas com `coordenacao_responsavel='juridico'`. Isso evita inflar grupos sem necessidade — se mudar o coordenador, basta reatribuir as demandas.
 
 ---
 
 ## 2. Princípios gerais
 
-**Default: visibilidade total entre perfis logados.** Casos, cidadãos, entidades, interações e encaminhamentos são visíveis a todos os usuários autenticados, exceto quando explicitamente restritos.
+**Default: visibilidade total entre perfis logados.** Demandas, pessoas, entidades, interações e encaminhamentos são visíveis a todos os usuários autenticados, exceto quando explicitamente restritos.
 
-**Restrição é exceção, marcada explicitamente.** O campo `restrito` em `Caso` é boolean único. Quando `TRUE`, o caso é visível apenas para: responsável atribuído, Chefe de Gabinete e Administrador.
+**Restrição é exceção, marcada explicitamente.** O campo `restrito` em `Demanda` é boolean único. Quando `TRUE`, a demanda é visível apenas para: responsável atribuído, Chefe de Gabinete e Administrador.
 
 **Soft delete > hard delete.** Apenas Administrador pode excluir definitivamente. Coordenadores podem desativar (soft delete via `ativo=FALSE`). Assessores não excluem nem desativam.
 
@@ -35,22 +37,24 @@ Quatro perfis, atribuídos via Django Group. Cada usuário pertence a exatamente
 
 ## 3. Matriz por entidade
 
-### 3.1 Cidadãos
+### 3.1 Pessoas
 
 | Ação | ADM | CG | CO | AS |
 |---|---|---|---|---|
-| Listar (excluindo casos restritos cujo cidadão se vê só por isso) | ✅ | ✅ | ✅ | ✅ |
+| Listar | ✅ | ✅ | ✅ | ✅ |
 | Ver detalhe | ✅ | ✅ | ✅ | ✅ |
 | Criar | ✅ | ✅ | ✅ | ✅ |
 | Editar | ✅ | ✅ | ✅ | ✅ |
 | Desativar (soft delete) | ✅ | ✅ | ✅ | ❌ |
-| Reativar desativado | ✅ | ✅ | ❌ | ❌ |
+| Reativar desativada | ✅ | ✅ | ❌ | ❌ |
 | Excluir definitivamente | ✅ | ❌ | ❌ | ❌ |
 | Anonimizar (LGPD) | ✅ | ✅ | ✅ | ❌ |
 | Adicionar tag | ✅ | ✅ | ✅ | ✅ |
 | Adicionar vínculo com entidade | ✅ | ✅ | ✅ | ✅ |
-| Editar communication preferences | ✅ | ✅ | ✅ | ✅ |
+| Editar preferências de comunicação | ✅ | ✅ | ✅ | ✅ |
 | Exportar lista para CSV | ✅ | ✅ | ✅ | ❌ |
+| Fazer upload de anexo | ✅ | ✅ | ✅ | ✅ |
+| Excluir anexo | ✅ | ✅ | ✅ (próprios) | ❌ |
 
 ### 3.2 Entidades
 
@@ -63,40 +67,43 @@ Quatro perfis, atribuídos via Django Group. Cada usuário pertence a exatamente
 | Desativar | ✅ | ✅ | ✅ | ❌ |
 | Excluir definitivamente | ✅ | ❌ | ❌ | ❌ |
 | Exportar | ✅ | ✅ | ✅ | ❌ |
+| Fazer upload de anexo | ✅ | ✅ | ✅ | ✅ |
+| Excluir anexo | ✅ | ✅ | ✅ (próprios) | ❌ |
 
-### 3.3 Casos
+### 3.3 Demandas
 
 Permissões com nuances. A coordenação importa.
 
 | Ação | ADM | CG | CO | AS |
 |---|---|---|---|---|
-| Listar casos não-restritos | ✅ | ✅ | ✅ | ✅ (próprios + da coord) |
-| Listar casos restritos | ✅ | ✅ | ❌ | ✅ se for o responsável |
+| Listar demandas não-restritas | ✅ | ✅ | ✅ | ✅ (próprias + da coord) |
+| Listar demandas restritas | ✅ | ✅ | ❌ | ✅ se for o responsável |
 | Ver detalhe não-restrito | ✅ | ✅ | ✅ | ✅ |
 | Ver detalhe restrito | ✅ | ✅ | ❌ | ✅ se for o responsável |
-| Criar caso | ✅ | ✅ | ✅ (própria coord) | ✅ |
-| Editar caso atribuído a si | ✅ | ✅ | ✅ | ✅ |
-| Editar caso atribuído a outro | ✅ | ✅ | ✅ (própria coord) | ❌ |
+| Criar demanda | ✅ | ✅ | ✅ (própria coord) | ✅ |
+| Editar demanda atribuída a si | ✅ | ✅ | ✅ | ✅ |
+| Editar demanda atribuída a outro | ✅ | ✅ | ✅ (própria coord) | ❌ |
+| Vincular / desvincular partes (pessoas e entidades) | ✅ | ✅ | ✅ (própria coord) | ✅ (atribuídas) |
 | Atribuir/reatribuir responsável | ✅ | ✅ | ✅ (própria coord) | ❌ |
 | Mudar coordenação responsável | ✅ | ✅ | ❌ | ❌ |
-| Atualizar `resultado` do caso | ✅ | ✅ | ✅ | ✅ (atribuídos) |
-| Marcar como respondido | ✅ | ✅ | ✅ | ✅ (atribuídos) |
-| Arquivar caso respondido | ✅ | ✅ | ✅ | ❌ |
-| Arquivar caso não-respondido (com justificativa) | ✅ | ✅ | ❌ | ❌ |
-| Marcar/desmarcar como restrito | ✅ | ✅ | ❌ | ❌ |
-| Excluir caso definitivamente | ✅ | ❌ | ❌ | ❌ |
+| Atualizar `resultado` da demanda | ✅ | ✅ | ✅ | ✅ (atribuídas) |
+| Marcar como respondida | ✅ | ✅ | ✅ | ✅ (atribuídas) |
+| Arquivar demanda respondida | ✅ | ✅ | ✅ | ❌ |
+| Arquivar demanda não-respondida (com justificativa) | ✅ | ✅ | ❌ | ❌ |
+| Marcar/desmarcar como restrita | ✅ | ✅ | ❌ | ❌ |
+| Excluir demanda definitivamente | ✅ | ❌ | ❌ | ❌ |
 | Exportar lista | ✅ | ✅ | ✅ | ❌ |
 
-**Regra "AS de outra coordenação":** um Assessor da Comunicação não vê casos da Jurídica (e vice-versa) por padrão, exceto se atribuído pessoalmente a ele. Isso reduz ruído na lista "meus casos" e respeita a divisão funcional.
+**Regra "AS de outra coordenação":** um Assessor da Comunicação não vê demandas da Jurídica (e vice-versa) por padrão, exceto se atribuído pessoalmente a ele. Isso reduz ruído na lista "minhas demandas" e respeita a divisão funcional.
 
 ### 3.4 Interações
 
-A interação herda a permissão do caso ao qual pertence. Se o usuário pode ver o caso, pode ver as interações.
+A interação herda a permissão da demanda à qual pertence. Se o usuário pode ver a demanda, pode ver as interações.
 
 | Ação | ADM | CG | CO | AS |
 |---|---|---|---|---|
-| Ver timeline do caso | ✅ | ✅ | ✅ | ✅ (se pode ver caso) |
-| Adicionar interação manual | ✅ | ✅ | ✅ | ✅ (se pode editar caso) |
+| Ver timeline da demanda | ✅ | ✅ | ✅ | ✅ (se pode ver demanda) |
+| Adicionar interação manual | ✅ | ✅ | ✅ | ✅ (se pode editar demanda) |
 | Editar interação **própria** dentro de 24h | ✅ | ✅ | ✅ | ✅ |
 | Editar interação alheia | ✅ | ✅ | ❌ | ❌ |
 | Cancelar interação agendada própria | ✅ | ✅ | ✅ | ✅ |
@@ -105,33 +112,37 @@ A interação herda a permissão do caso ao qual pertence. Se o usuário pode ve
 
 **Janela de edição de 24h:** após criada, uma interação `realizada` pode ser editada pelo autor por 24h (correção de erros de digitação). Depois disso, fica imutável (apenas ADM/CG podem editar). Esta regra é codificada no model.
 
-**Interações automáticas** (geradas por mudanças no caso): nunca são editáveis por ninguém. São registros do sistema.
+**Interações automáticas** (geradas por mudanças na demanda): nunca são editáveis por ninguém. São registros do sistema.
 
 ### 3.5 Encaminhamentos
 
 | Ação | ADM | CG | CO | AS |
 |---|---|---|---|---|
-| Ver | ✅ | ✅ | ✅ | ✅ (se pode ver caso) |
-| Criar | ✅ | ✅ | ✅ | ✅ (em casos atribuídos) |
-| Editar | ✅ | ✅ | ✅ | ✅ (em casos atribuídos) |
-| Registrar resposta | ✅ | ✅ | ✅ | ✅ (em casos atribuídos) |
+| Ver | ✅ | ✅ | ✅ | ✅ (se pode ver demanda) |
+| Criar | ✅ | ✅ | ✅ | ✅ (em demandas atribuídas) |
+| Editar | ✅ | ✅ | ✅ | ✅ (em demandas atribuídas) |
+| Registrar resposta | ✅ | ✅ | ✅ | ✅ (em demandas atribuídas) |
 | Excluir | ✅ | ✅ | ❌ | ❌ |
 
 ### 3.6 Anexos
 
+Permissão de visualização segue a entidade à qual o anexo pertence (demanda, pessoa, entidade ou encaminhamento). Upload segue a permissão de edição da entidade.
+
 | Ação | ADM | CG | CO | AS |
 |---|---|---|---|---|
-| Visualizar | ✅ | ✅ | ✅ | ✅ (se pode ver caso) |
-| Upload | ✅ | ✅ | ✅ | ✅ (em casos atribuídos) |
-| Editar descrição | ✅ | ✅ | ✅ | ✅ (em casos atribuídos) |
-| Excluir | ✅ | ✅ | ✅ (em casos da coord) | ❌ |
+| Visualizar | ✅ | ✅ | ✅ | ✅ (se pode ver o objeto pai) |
+| Upload em demanda | ✅ | ✅ | ✅ | ✅ (em demandas atribuídas) |
+| Upload em pessoa / entidade | ✅ | ✅ | ✅ | ✅ |
+| Upload em encaminhamento | ✅ | ✅ | ✅ | ✅ (em demandas atribuídas) |
+| Editar descrição | ✅ | ✅ | ✅ | ✅ (próprios) |
+| Excluir | ✅ | ✅ | ✅ (próprios ou da coord) | ❌ |
 
 ### 3.7 Tags
 
 | Ação | ADM | CG | CO | AS |
 |---|---|---|---|---|
 | Listar | ✅ | ✅ | ✅ | ✅ |
-| Atribuir tag a cidadão/entidade/caso | ✅ | ✅ | ✅ | ✅ |
+| Atribuir tag a pessoa/entidade/demanda | ✅ | ✅ | ✅ | ✅ |
 | Criar nova tag | ✅ | ✅ | ✅ | ❌ |
 | Editar tag (nome, cor, descrição) | ✅ | ✅ | ✅ | ❌ |
 | Mesclar duas tags (v0.6) | ✅ | ✅ | ❌ | ❌ |
@@ -144,7 +155,7 @@ A interação herda a permissão do caso ao qual pertence. Se o usuário pode ve
 | Capturar item (Ctrl+K, FAB, página) | ✅ | ✅ | ✅ | ✅ |
 | Listar pendentes | ✅ | ✅ | ✅ | ✅ |
 | Listar processados/descartados | ✅ | ✅ | ✅ | ✅ (próprios) |
-| Processar item (converter em caso) | ✅ | ✅ | ✅ | ✅ |
+| Processar item (converter em demanda) | ✅ | ✅ | ✅ | ✅ |
 | Descartar item | ✅ | ✅ | ✅ | ✅ (próprios) |
 
 ### 3.9 Solicitações LGPD
@@ -154,7 +165,7 @@ A interação herda a permissão do caso ao qual pertence. Se o usuário pode ve
 | Submeter (público, sem login) | — | — | — | — |
 | Listar solicitações | ✅ | ✅ | ✅ | ❌ |
 | Tratar (responder, atender, negar) | ✅ | ✅ | ✅ | ❌ |
-| Gerar relatório PDF de cidadão | ✅ | ✅ | ✅ (Jurídico) | ❌ |
+| Gerar relatório PDF de pessoa | ✅ | ✅ | ✅ (Jurídico) | ❌ |
 
 ### 3.10 Usuários
 
@@ -195,13 +206,13 @@ A interação herda a permissão do caso ao qual pertence. Se o usuário pode ve
   - `is_admin(user)` → True se grupo Administrador.
   - `is_cg_or_above(user)` → True se ADM ou CG.
   - `is_co_or_above(user)` → True se ADM, CG ou CO.
-  - `pode_ver_caso(user, caso)` → considera `restrito`, `responsavel`, coordenação.
-  - `pode_editar_caso(user, caso)` → considera atribuição e coordenação.
+  - `pode_ver_demanda(user, demanda)` → considera `restrito`, `responsavel`, coordenação.
+  - `pode_editar_demanda(user, demanda)` → considera atribuição e coordenação.
 
 **No model:**
 
-- `Caso.objects.visiveis_para(user)` — manager method que retorna QuerySet filtrado conforme as regras de visibilidade do user.
-- `Cidadao.objects.ativos()` — filtra por `ativo=True`.
+- `Demanda.objects.visiveis_para(user)` — manager method que retorna QuerySet filtrado conforme as regras de visibilidade do user.
+- `Pessoa.objects.ativas()` — filtra por `ativo=True`.
 
 **Em templates:**
 
@@ -214,45 +225,42 @@ A interação herda a permissão do caso ao qual pertence. Se o usuário pode ve
 
 ### 5.1 Coordenador da própria coordenação
 
-Quando se diz "Coord. Jurídico edita casos da própria coordenação", a verificação é:
+Quando se diz "Coord. Jurídico edita demandas da própria coordenação", a verificação é:
 
 ```python
-def pode_editar_caso(user, caso):
+def pode_editar_demanda(user, demanda):
     if user.groups.filter(name='Administrador').exists():
         return True
     if user.groups.filter(name='Chefe de Gabinete').exists():
         return True
     if user.groups.filter(name='Coordenador').exists():
-        # Coordenador edita se o caso é da coordenação onde ele atua predominantemente
-        # Determinada pela coordenacao_responsavel mais frequente em casos atribuídos a ele
-        # OU configurada manualmente no perfil dele (futuro)
-        return _coordenacao_do_usuario(user) == caso.coordenacao_responsavel
+        return _coordenacao_do_usuario(user) == demanda.coordenacao_responsavel
     if user.groups.filter(name='Assessor').exists():
-        return caso.responsavel_id == user.id
+        return demanda.responsavel_id == user.id
     return False
 ```
 
 A função `_coordenacao_do_usuario(user)` infere a coordenação a partir do histórico. Em v1.x, isso pode virar campo explícito no perfil do usuário (`User.coordenacao`).
 
-### 5.2 Caso anônimo (sem cidadão titular)
+### 5.2 Demanda anônima (sem partes identificadas)
 
-Caso com `anonimo=TRUE` é visível por todos que poderiam ver casos não-restritos. Não há regra adicional.
+Demanda com `anonimo=TRUE` é visível por todos que poderiam ver demandas não-restritas. Não há regra adicional.
 
-### 5.3 Caso vinculado a Entidade (sem cidadão)
+### 5.3 Demanda com múltiplas partes
 
-Mesma regra: visibilidade segue `restrito` e atribuição. Entidade não confere privacidade extra.
+Quando uma demanda tem várias pessoas e entidades vinculadas, as regras de visibilidade continuam se aplicando apenas sobre a demanda em si (via `restrito` e coordenação), não sobre as partes individualmente.
 
-### 5.4 Cidadão anonimizado por LGPD
+### 5.4 Pessoa anonimizada por LGPD
 
-Cidadão com `anonimizado=TRUE` aparece em listagens com nome `"[Cidadão Removido]"`. Casos vinculados continuam visíveis (sem nome do cidadão), porque casos têm valor histórico/estatístico próprio.
+Pessoa com `anonimizado=TRUE` aparece em listagens com nome `"[Pessoa Removida]"`. Demandas vinculadas continuam visíveis (sem nome da pessoa), porque demandas têm valor histórico/estatístico próprio.
 
 ### 5.5 Usuário desativado
 
-Usuário com `is_active=FALSE` não consegue logar. Suas atribuições anteriores em casos permanecem (FK preservada). Casos atribuídos a usuário desativado aparecem na lista de casos como "responsável inativo" — sinal para reatribuir.
+Usuário com `is_active=FALSE` não consegue logar. Suas atribuições anteriores em demandas permanecem (FK preservada). Demandas atribuídas a usuário desativado aparecem na lista como "responsável inativo" — sinal para reatribuir.
 
 ### 5.6 Perfis em transição
 
-Quando um usuário muda de grupo (ex: Assessor é promovido a Coordenador), os casos já atribuídos a ele permanecem. A nova lista "casos da minha coordenação" passa a incluir mais casos automaticamente.
+Quando um usuário muda de grupo (ex: Assessor é promovido a Coordenador), as demandas já atribuídas a ele permanecem. A nova lista "demandas da minha coordenação" passa a incluir mais demandas automaticamente.
 
 ---
 
@@ -276,7 +284,7 @@ Todos os logins, falhas de login e logouts são registrados em log dedicado (`dj
 - Login falho: email tentado, IP, timestamp.
 - Após 5 falhas em 10 minutos: rate limiting de 15 minutos para o IP.
 
-Acessos a recursos individuais (visualização de cidadão, caso, interação) **não são logados** por padrão — geraria volume gigante. Se necessário, ativável via configuração.
+Acessos a recursos individuais (visualização de pessoa, demanda, interação) **não são logados** por padrão — geraria volume gigante. Se necessário, ativável via configuração.
 
 ---
 
@@ -292,4 +300,4 @@ Falhar em qualquer camada não compromete a segurança — as outras seguram.
 
 ---
 
-*Atualizado quando regras mudam. Versão atual: planejamento, pré-Fase 0.*
+*Atualizado quando regras mudam. Versão atual: planejamento, pré-Fase 1.*

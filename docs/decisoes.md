@@ -666,6 +666,34 @@ Grupos criados junto com os models que protegem têm conteúdo real e testável 
 
 ---
 
+## ADR 0025 — BigAutoField como PK universal (supersede ADR 0002)
+
+**Data:** 2026-05-08
+**Status:** Aceito (supersede ADR 0002)
+
+### Contexto
+
+ADR 0002 prescreveu `UUIDField` como PK em todos os models. Na Fase 1, o model `accounts.Usuario` foi implementado com a default do Django (`BigAutoField`) sem que o desvio fosse questionado. A Fase 2 agora introduz quatro novos models (`Pessoa`, `Entidade`, `Vinculo`, `Tag`) e exige uma decisão antes de criar as primeiras migrations: seguir o doc (UUID nos novos, mas Usuario seguiria com BigAutoField — schema misto), retroceder o Usuario para UUID (drop+recreate, perde a base de dev), ou padronizar todo o schema com BigAutoField.
+
+### Decisão
+
+**Padronizar `BigAutoField` em todos os models do MVP.** Atualizar ADR 0002 como supersedida.
+
+### Justificativa
+
+- **Consistência:** schema misto (UUID em pessoas, int em usuario) gera fricção em FKs cruzadas e confunde quem lê o código.
+- **Custo dos benefícios do UUID é especulativo:** os ganhos de privacidade (URL não revela volume) e geração offline mencionados em ADR 0002 são features que o MVP não usa nem usará tão cedo. Multi-tenant é v2.x — quando chegar, é uma migration.
+- **Custo do BigAutoField é zero hoje:** menor índice, URLs curtas, integração mais simples com bibliotecas (django-auditlog, formulários, etc).
+- **Reversível:** se um dia houver razão real (ex.: API pública em v3.x), trocar PK é uma migration por tabela. Antecipar agora cobra preço todo dia.
+
+### Consequências
+
+- Models de Fase 2 e seguintes usam o default do Django (`BigAutoField`, configurado em `DEFAULT_AUTO_FIELD`).
+- ADR 0002 fica registrada para histórico, mas não é mais a regra vigente.
+- Documento `docs/modelo-de-dados.md` será atualizado para refletir BigAutoField nas tabelas (mudança de tipo de PK e FK que apontam para `usuarios(id)`).
+
+---
+
 ## ADR 0023 — Política de senha: mínimo 8 chars, sem complexidade obrigatória
 
 **Data:** 2026-05-08

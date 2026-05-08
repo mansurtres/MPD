@@ -1,0 +1,159 @@
+{% extends "layouts/app.html" %}
+
+{% block app_conteudo %}
+<div class="flex items-center gap-3 mb-4">
+  <a href="{% url 'pessoas:pessoa_lista' %}" class="text-sm text-slate-500 hover:text-slate-800">← Pessoas</a>
+  <span class="text-slate-300">/</span>
+  <h1 class="text-xl font-semibold text-slate-900">{{ pessoa.nome_exibicao }}</h1>
+  {% if not pessoa.ativo %}
+  <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">Inativa</span>
+  {% endif %}
+  {% if pessoa.anonimizado %}
+  <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-200 text-slate-700">Anonimizada</span>
+  {% endif %}
+</div>
+
+<div class="flex items-center gap-3 mb-6">
+  {% if perms.pessoas.change_pessoa %}
+  <a href="{% url 'pessoas:pessoa_editar' pessoa.pk %}" class="text-sm text-slate-700 hover:text-slate-900 underline">Editar</a>
+  {% endif %}
+  {% if pessoa.ativo and perms.pessoas.pode_desativar_pessoa or not pessoa.ativo and perms.pessoas.pode_reativar_pessoa %}
+  <form method="post" action="{% url 'pessoas:pessoa_toggle_ativo' pessoa.pk %}" class="inline">
+    {% csrf_token %}
+    <button type="submit" class="text-sm text-slate-700 hover:text-slate-900 underline">
+      {% if pessoa.ativo %}Desativar{% else %}Reativar{% endif %}
+    </button>
+  </form>
+  {% endif %}
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <div class="lg:col-span-2 space-y-6">
+
+    <section class="bg-white border border-slate-200 rounded-xl p-6">
+      <h2 class="text-base font-semibold text-slate-900 mb-4">Identificação</h2>
+      <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+        <div><dt class="text-slate-500">Nome</dt><dd class="text-slate-900">{{ pessoa.nome }} {{ pessoa.sobrenome }}</dd></div>
+        {% if pessoa.nome_social %}<div><dt class="text-slate-500">Nome social</dt><dd class="text-slate-900">{{ pessoa.nome_social }}</dd></div>{% endif %}
+        {% if pessoa.cpf %}<div><dt class="text-slate-500">CPF</dt><dd class="text-slate-900">{{ pessoa.cpf_formatado }}</dd></div>{% endif %}
+        {% if pessoa.data_nascimento %}<div><dt class="text-slate-500">Nascimento</dt><dd class="text-slate-900">{{ pessoa.data_nascimento|date:"d/m/Y" }}</dd></div>{% endif %}
+        {% if pessoa.genero %}<div><dt class="text-slate-500">Gênero</dt><dd class="text-slate-900">{{ pessoa.get_genero_display }}</dd></div>{% endif %}
+      </dl>
+    </section>
+
+    <section class="bg-white border border-slate-200 rounded-xl p-6">
+      <h2 class="text-base font-semibold text-slate-900 mb-4">Contato</h2>
+      <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+        {% if pessoa.email %}<div><dt class="text-slate-500">E-mail</dt><dd class="text-slate-900">{{ pessoa.email }}</dd></div>{% endif %}
+        {% if pessoa.telefone %}<div><dt class="text-slate-500">Telefone</dt><dd class="text-slate-900">{{ pessoa.telefone }}</dd></div>{% endif %}
+        {% if pessoa.whatsapp %}<div><dt class="text-slate-500">WhatsApp</dt><dd class="text-slate-900">{{ pessoa.whatsapp }}</dd></div>{% endif %}
+        {% if pessoa.instagram %}<div><dt class="text-slate-500">Instagram</dt><dd class="text-slate-900">@{{ pessoa.instagram }}</dd></div>{% endif %}
+      </dl>
+    </section>
+
+    <section class="bg-white border border-slate-200 rounded-xl p-6">
+      <h2 class="text-base font-semibold text-slate-900 mb-4">Endereço</h2>
+      <p class="text-sm text-slate-900">
+        {% if pessoa.logradouro %}{{ pessoa.logradouro }}{% if pessoa.numero %}, {{ pessoa.numero }}{% endif %}{% if pessoa.complemento %} — {{ pessoa.complemento }}{% endif %}<br>{% endif %}
+        {{ pessoa.bairro }}, {{ pessoa.cidade }}/{{ pessoa.estado }}
+        {% if pessoa.cep %} — CEP {{ pessoa.cep }}{% endif %}
+      </p>
+    </section>
+
+    <section class="bg-white border border-slate-200 rounded-xl p-6">
+      <h2 class="text-base font-semibold text-slate-900 mb-2">Vínculos com entidades</h2>
+      {% if vinculos %}
+      <ul class="divide-y divide-slate-100">
+        {% for v in vinculos %}
+        <li class="py-2 flex items-center justify-between text-sm">
+          <div>
+            <a href="{% url 'pessoas:entidade_detalhe' v.entidade.pk %}" class="font-medium text-slate-900 hover:underline">{{ v.entidade.nome }}</a>
+            <span class="text-slate-500"> — {{ v.papel }}</span>
+            {% if v.data_inicio %}<span class="text-slate-400 text-xs"> ({{ v.data_inicio|date:"d/m/Y" }}{% if v.data_fim %} → {{ v.data_fim|date:"d/m/Y" }}{% endif %})</span>{% endif %}
+          </div>
+          {% if perms.pessoas.delete_vinculo %}
+          <form method="post" action="{% url 'pessoas:vinculo_remover' v.pk %}" class="inline">
+            {% csrf_token %}
+            <button type="submit" class="text-xs text-slate-400 hover:text-red-600">Remover</button>
+          </form>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="text-sm text-slate-500 mb-3">Sem vínculos cadastrados.</p>
+      {% endif %}
+
+      {% if perms.pessoas.add_vinculo %}
+      <details class="mt-4">
+        <summary class="text-sm text-slate-700 cursor-pointer hover:text-slate-900">+ Adicionar vínculo</summary>
+        <form method="post" action="{% url 'pessoas:vinculo_novo' pessoa.pk %}" class="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+          {% csrf_token %}
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Entidade</label>
+            <select name="entidade" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+              {% for e in form_vinculo.fields.entidade.queryset %}
+              <option value="{{ e.pk }}">{{ e.nome }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Papel</label>
+            <input type="text" name="papel" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Início</label>
+            <input type="date" name="data_inicio" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Fim</label>
+            <input type="date" name="data_fim" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+          </div>
+          <div class="md:col-span-2">
+            <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2 rounded-lg">Adicionar</button>
+          </div>
+        </form>
+      </details>
+      {% endif %}
+    </section>
+
+    {% if pessoa.observacoes %}
+    <section class="bg-white border border-slate-200 rounded-xl p-6">
+      <h2 class="text-base font-semibold text-slate-900 mb-2">Observações</h2>
+      <p class="text-sm text-slate-700 whitespace-pre-line">{{ pessoa.observacoes }}</p>
+    </section>
+    {% endif %}
+  </div>
+
+  <aside class="space-y-6">
+    <section class="bg-white border border-slate-200 rounded-xl p-6">
+      <h2 class="text-base font-semibold text-slate-900 mb-3">Tags</h2>
+      {% if pessoa.tags.all %}
+      <div class="flex flex-wrap gap-1">
+        {% for t in pessoa.tags.all %}
+        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-700">{{ t.nome }}</span>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="text-sm text-slate-500">Sem tags.</p>
+      {% endif %}
+    </section>
+
+    <section class="bg-white border border-slate-200 rounded-xl p-6">
+      <h2 class="text-base font-semibold text-slate-900 mb-3">Preferências de comunicação</h2>
+      <ul class="text-sm space-y-1">
+        <li class="flex items-center gap-2"><span class="{% if pessoa.nao_telefonar %}text-red-600{% else %}text-green-600{% endif %}">{% if pessoa.nao_telefonar %}✗{% else %}✓{% endif %}</span> Telefone</li>
+        <li class="flex items-center gap-2"><span class="{% if pessoa.nao_enviar_email %}text-red-600{% else %}text-green-600{% endif %}">{% if pessoa.nao_enviar_email %}✗{% else %}✓{% endif %}</span> E-mail em massa</li>
+        <li class="flex items-center gap-2"><span class="{% if pessoa.nao_enviar_sms %}text-red-600{% else %}text-green-600{% endif %}">{% if pessoa.nao_enviar_sms %}✗{% else %}✓{% endif %}</span> SMS/WhatsApp em massa</li>
+        <li class="flex items-center gap-2"><span class="{% if pessoa.nao_compartilhar_dados %}text-red-600{% else %}text-green-600{% endif %}">{% if pessoa.nao_compartilhar_dados %}✗{% else %}✓{% endif %}</span> Compartilhamento com terceiros</li>
+      </ul>
+    </section>
+
+    <section class="bg-white border border-slate-200 rounded-xl p-6 text-xs text-slate-500">
+      <div>Origem: {{ pessoa.get_origem_cadastro_display }}</div>
+      <div>Criada em {{ pessoa.criado_em|date:"d/m/Y H:i" }}{% if pessoa.criado_por %} por {{ pessoa.criado_por }}{% endif %}.</div>
+      <div>Atualizada em {{ pessoa.atualizado_em|date:"d/m/Y H:i" }}.</div>
+    </section>
+  </aside>
+</div>
+{% endblock %}

@@ -18,7 +18,7 @@ Todas as rotas do sistema na `v1.0`. Para cada tela: rota, perfis com acesso, fu
 - **Rota:** `/privacidade/solicitar`
 - **Perfis:** público (rate limiting)
 - **Fase:** 5
-- **Função:** cidadão solicita acesso, correção, exclusão, portabilidade ou revogação.
+- **Função:** pessoa solicita acesso, correção, exclusão, portabilidade ou revogação.
 
 ---
 
@@ -49,10 +49,10 @@ Todas as rotas do sistema na `v1.0`. Para cada tela: rota, perfis com acesso, fu
 - **Fase:** 1 (esqueleto) → enriquecido nas fases seguintes
 - **Função:** ponto de partida diário com o que importa para cada perfil.
 - **Componentes por perfil:**
-  - **ADM, CG:** total de casos abertos por coordenação, sem retorno há +30 dias, vencidos, pendentes no inbox, **carga por assessor** (top 5 com mais casos abertos), atividades recentes.
-  - **CO:** casos da própria coordenação, prazos próximos, encaminhamentos aguardando retorno, **carga dos assessores da coordenação**.
-  - **AS:** "Meus casos" priorizados, "Minhas interações pendentes" (agendadas vencidas e do dia), pendentes do inbox.
-- **Ações:** captura rápida (Ctrl+K), criar caso, busca global.
+  - **ADM, CG:** total de demandas abertas por coordenação, sem retorno há +30 dias, vencidas, pendentes no inbox, **carga por assessor** (top 5 com mais demandas abertas), atividades recentes.
+  - **CO:** demandas da própria coordenação, prazos próximos, encaminhamentos aguardando retorno, **carga dos assessores da coordenação**.
+  - **AS:** "Minhas demandas" priorizadas, "Minhas interações pendentes" (agendadas vencidas e do dia), pendentes do inbox.
+- **Ações:** captura rápida (Ctrl+K), criar demanda, busca global.
 
 ---
 
@@ -80,7 +80,7 @@ Todas as rotas do sistema na `v1.0`. Para cada tela: rota, perfis com acesso, fu
 - **Rota:** `/inbox/<id>/processar`
 - **Perfis:** todos logados
 - **Fase:** 4
-- **Função:** transformar item bruto em caso estruturado.
+- **Função:** transformar item bruto em demanda estruturada.
 
 ### 5.3 Detalhe de Item Processado
 - **Rota:** `/inbox/<id>`
@@ -89,23 +89,23 @@ Todas as rotas do sistema na `v1.0`. Para cada tela: rota, perfis com acesso, fu
 
 ---
 
-## 6. Cidadãos
+## 6. Pessoas
 
 ### 6.1 Lista
-- **Rota:** `/cidadaos`
+- **Rota:** `/pessoas`
 - **Perfis:** todos logados
 - **Fase:** 2 → 5 (filtros avançados, exportação)
 - **Componentes:** tabela paginada (25/pg), busca, filtros (bairro, cidade, tag, período de cadastro).
 
 ### 6.2 Detalhe
-- **Rota:** `/cidadaos/<id>`
-- **Perfis:** todos logados (respeitando casos restritos)
-- **Fase:** 2 (básico) → 3 (lista de casos)
+- **Rota:** `/pessoas/<id>`
+- **Perfis:** todos logados (respeitando demandas restritas)
+- **Fase:** 2 (básico) → 3 (lista de demandas)
 - **Função:** ficha completa com toda a história relacional.
-- **Componentes:** dados pessoais, endereço, communication preferences, vínculos com entidades, lista de casos cronológica reversa, histórico de alterações.
+- **Componentes:** dados pessoais, endereço, preferências de comunicação, vínculos com entidades, lista de demandas cronológica reversa, histórico de alterações, **anexos da pessoa**.
 
-### 6.3 Novo / Editar
-- **Rota:** `/cidadaos/novo`, `/cidadaos/<id>/editar`
+### 6.3 Nova / Editar
+- **Rota:** `/pessoas/nova`, `/pessoas/<id>/editar`
 - **Perfis:** AS, CO, CG, ADM
 - **Fase:** 2
 - **Validações:** pelo menos um entre email/telefone/whatsapp; bairro/cidade obrigatórios; CPF válido por algoritmo.
@@ -125,6 +125,7 @@ Todas as rotas do sistema na `v1.0`. Para cada tela: rota, perfis com acesso, fu
 ### 7.2 Detalhe
 - **Rota:** `/entidades/<id>`
 - **Fase:** 2 → 3
+- **Componentes:** dados da entidade, membros vinculados (pessoas), lista de demandas, **anexos da entidade**.
 
 ### 7.3 Nova / Editar
 - **Rota:** `/entidades/nova`, `/entidades/<id>/editar`
@@ -133,32 +134,33 @@ Todas as rotas do sistema na `v1.0`. Para cada tela: rota, perfis com acesso, fu
 
 ---
 
-## 8. Casos
+## 8. Demandas
 
 ### 8.1 Lista
-- **Rota:** `/casos`
+- **Rota:** `/demandas`
 - **Perfis:** todos logados (respeitando `restrito`)
 - **Fase:** 3 → 5
-- **Função:** listar casos com filtros poderosos.
-- **Quick filters:** "Meus casos", "Da minha coordenação", "Vencidos", "Sem retorno há +30 dias", "Atendidos", "Não atendidos", "Sem resultado classificado".
+- **Função:** listar demandas com filtros poderosos.
+- **Quick filters:** "Minhas demandas", "Da minha coordenação", "Vencidas", "Sem retorno há +30 dias", "Atendidas", "Não atendidas", "Sem resultado classificado".
 - **Filtros avançados (Fase 5):** filtro por `resultado` (multi-select).
 
 ### 8.2 Detalhe
-- **Rota:** `/casos/<id>`
+- **Rota:** `/demandas/<id>`
 - **Perfis:** conforme `restrito`
 - **Fase:** 3
-- **Função:** painel central de trabalho sobre um caso.
+- **Função:** painel central de trabalho sobre uma demanda.
 - **Componentes:**
   - Cabeçalho: número, título, status, prioridade, prazo, responsável, badges de tags, **badge de resultado** (com cor própria por valor).
   - Painel principal: descrição + timeline de interações (manuais e automáticas, distinguidas visualmente) em ordem cronológica.
-  - Painel lateral: cidadão/entidade vinculados, encaminhamentos, anexos.
-  - **Bloco de Resultado:** seletor de `resultado` + campo `resultado_observacao`. Editável a qualquer momento por quem pode editar o caso. Mudança gera interação automática `mudanca_resultado`.
+  - Painel lateral: **partes vinculadas** (pessoas e entidades, cada uma com papel), encaminhamentos, **anexos da demanda**.
+  - **Bloco de Resultado:** seletor de `resultado` + campo `resultado_observacao`. Editável a qualquer momento por quem pode editar a demanda. Mudança gera interação automática `mudanca_resultado`.
   - Bloco de retorno (destaque visual quando preenchido).
 
-### 8.3 Novo / Editar
-- **Rota:** `/casos/novo`, `/casos/<id>/editar`
+### 8.3 Nova / Editar
+- **Rota:** `/demandas/nova`, `/demandas/<id>/editar`
 - **Perfis:** AS, CO, CG, ADM
 - **Fase:** 3
+- **Partes:** formulário de nova demanda inclui seção "Vincular pessoas e entidades" com seleção múltipla e campo de papel. Ao menos uma parte obrigatória (ou marcar como anônima).
 
 ### 8.4 Adicionar Interação
 - **Modal/inline no detalhe**
@@ -168,17 +170,20 @@ Todas as rotas do sistema na `v1.0`. Para cada tela: rota, perfis com acesso, fu
 
 ### 8.5 Adicionar Encaminhamento
 - **Fase:** 3
+- **Componentes:** destinatário (com autocomplete por histórico), tipo de documento, data de envio, prazo de resposta.
+- **Anexos:** upload de documento associado ao encaminhamento direto na criação ou edição.
 
 ### 8.6 Registrar Resposta de Encaminhamento
 - **Fase:** 3
 
 ### 8.7 Anexar Arquivo
 - **Fase:** 3
+- **Contexto:** upload disponível no detalhe da Demanda, da Pessoa, da Entidade e do Encaminhamento (polimórfico).
 
-### 8.8 Marcar como Respondido
+### 8.8 Marcar como Respondida
 - **Modal específico**
 - **Fase:** 3
-- **Bloqueio:** salva apenas se: (a) `retorno_data` e `retorno_conteudo` preenchidos; (b) `resultado` classificado (≠ `pendente`). Modal pré-popula `resultado` se já estiver preenchido no caso; senão exige escolha.
+- **Bloqueio:** salva apenas se: (a) `retorno_data` e `retorno_conteudo` preenchidos; (b) `resultado` classificado (≠ `pendente`). Modal pré-popula `resultado` se já estiver preenchido; senão exige escolha.
 
 ### 8.9 Arquivar
 - **Perfis:** CO, CG, ADM
@@ -194,7 +199,7 @@ Todas as rotas do sistema na `v1.0`. Para cada tela: rota, perfis com acesso, fu
 - **Fase:** 4
 - **Função:** consolidar todas as interações onde o usuário é autor com `status='agendada'`.
 - **Componentes:** tabela ordenada por `data_ocorrencia` (vencidas no topo, em vermelho), agrupadas por dia (Hoje / Amanhã / Esta semana / Próximas).
-- **Ações:** marcar como realizada (com confirmação), cancelar, abrir caso correspondente.
+- **Ações:** marcar como realizada (com confirmação), cancelar, abrir demanda correspondente.
 
 ### 9.2 Próximas Reuniões
 - **Rota:** `/minhas-reunioes`
@@ -212,18 +217,18 @@ Todas as rotas do sistema na `v1.0`. Para cada tela: rota, perfis com acesso, fu
 - **Perfis:** CO, CG, ADM
 - **Fase:** 5
 - **Componentes:**
-  - Cidadãos por bairro.
-  - Casos por tema.
-  - Casos por mês (série temporal textual).
-  - Top 50 cidadãos com mais casos.
+  - Pessoas por bairro.
+  - Demandas por tema.
+  - Demandas por mês (série temporal textual).
+  - Top 50 pessoas com mais demandas.
   - Encaminhamentos pendentes por órgão.
-  - **Carga por assessor** (casos abertos, vencidos, tempo médio de resposta).
+  - **Carga por assessor** (demandas abertas, vencidas, tempo médio de resposta).
   - **Efetividade do mandato** (distribuição de `resultado` no período: % atendido, % parcial, % não atendido, % inviável, % não se aplica).
   - **Efetividade por tema** (resultado cruzado com tag de categoria `tema`).
-  - **Efetividade por bairro** (resultado cruzado com bairro do cidadão).
+  - **Efetividade por bairro** (resultado cruzado com bairro da pessoa).
   - **Efetividade por coordenação** (resultado cruzado com `coordenacao_responsavel`).
-  - **Cidadãos com casos atendidos** (lista de cidadãos com pelo menos um caso `atendido` ou `atendido_parcialmente` no período — ordenável por quantidade).
-  - **Casos resolvidos não comunicados** (lista operacional: `resultado` ≠ `pendente` E `status` ≠ `respondido` — pendentes de comunicar boa/má notícia ao cidadão).
+  - **Pessoas com demandas atendidas** (lista de pessoas com pelo menos uma demanda `atendida` ou `atendida_parcialmente` no período — ordenável por quantidade).
+  - **Demandas resolvidas não comunicadas** (lista operacional: `resultado` ≠ `pendente` E `status` ≠ `respondido` — pendentes de comunicar boa/má notícia à pessoa).
 
 ---
 
@@ -306,13 +311,13 @@ Todas as rotas do sistema na `v1.0`. Para cada tela: rota, perfis com acesso, fu
 - 13.1, 13.2 Perfil
 
 ### Fase 2 (v0.3)
-- 6.1, 6.2 (sem casos), 6.3 Cidadãos
-- 7.1, 7.2 (sem casos), 7.3 Entidades
+- 6.1, 6.2 (sem demandas), 6.3 Pessoas
+- 7.1, 7.2 (sem demandas), 7.3 Entidades
 - 12.4 Tags
 
 ### Fase 3 (v0.4)
-- 6.2, 7.2 (com lista de casos)
-- 8.1 a 8.9 Casos completos (incluindo Schedule Follow-up em 8.4)
+- 6.2, 7.2 (com lista de demandas)
+- 8.1 a 8.9 Demandas completas (incluindo partes M:N, Schedule Follow-up, anexos polimórficos)
 
 ### Fase 4 (v0.5)
 - 4.1 Captura Rápida
@@ -337,7 +342,7 @@ Todas as rotas do sistema na `v1.0`. Para cada tela: rota, perfis com acesso, fu
 
 **Layout:** topbar (logo, busca global, captura rápida, badge inbox, badge "minhas pendências vencidas", avatar), sidebar.
 
-**UI:** tabela paginada (cards em mobile), filtros laterais, modal de confirmação, toast, empty state, autocomplete, badge de tag colorido, **timeline com distinção visual entre interações manuais e automáticas**, upload drag-and-drop, diff visual.
+**UI:** tabela paginada (cards em mobile), filtros laterais, modal de confirmação, toast, empty state, autocomplete, badge de tag colorido, **timeline com distinção visual entre interações manuais e automáticas**, upload drag-and-drop com progresso, diff visual, **lista de partes da demanda (pessoas + entidades) com papel**.
 
 **Estados:** loading skeleton, empty state, error state, 403, 404.
 
@@ -345,9 +350,9 @@ Todas as rotas do sistema na `v1.0`. Para cada tela: rota, perfis com acesso, fu
 
 ## 17. Convenções de URL
 
-- Coleções no plural: `/cidadaos`, `/casos`, `/entidades`.
-- Detalhe sob a coleção: `/cidadaos/<id>`.
-- Ações em português: `/casos/novo`, `/casos/<id>/editar`.
+- Coleções no plural: `/pessoas`, `/demandas`, `/entidades`.
+- Detalhe sob a coleção: `/pessoas/<id>`.
+- Ações em português: `/demandas/nova`, `/demandas/<id>/editar`.
 - Configurações sob `/configuracoes/`.
 - Sistema sob raiz dedicada (`/healthz`, `/admin/`).
 - Públicas em raiz, sem prefixo de autenticação.
@@ -365,4 +370,4 @@ Verificação manual em Chrome desktop, Chrome Android, Safari iOS, Firefox.
 
 ---
 
-*Atualizado a cada nova rota. Versão atual: planejamento, pré-Fase 0.*
+*Atualizado a cada nova rota. Versão atual: planejamento, pré-Fase 1.*

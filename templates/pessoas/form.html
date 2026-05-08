@@ -1,0 +1,230 @@
+{% extends "layouts/app.html" %}
+
+{% block app_conteudo %}
+<div class="max-w-3xl">
+  <div class="flex items-center gap-3 mb-6">
+    <a href="{% url 'pessoas:pessoa_lista' %}" class="text-sm text-slate-500 hover:text-slate-800">← Pessoas</a>
+    <span class="text-slate-300">/</span>
+    <h1 class="text-xl font-semibold text-slate-900">{{ titulo }}</h1>
+  </div>
+
+  <form method="post" novalidate class="space-y-6" id="pessoa-form">
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+    <div class="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+      {% for erro in form.non_field_errors %}{{ erro }}<br>{% endfor %}
+    </div>
+    {% endif %}
+
+    <section class="bg-white border border-slate-200 rounded-xl p-6">
+      <h2 class="text-base font-semibold text-slate-900 mb-4">Identificação</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Nome *</label>
+          {{ form.nome }}
+          {% for e in form.nome.errors %}<p class="mt-1 text-xs text-red-600">{{ e }}</p>{% endfor %}
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Sobrenome *</label>
+          {{ form.sobrenome }}
+          {% for e in form.sobrenome.errors %}<p class="mt-1 text-xs text-red-600">{{ e }}</p>{% endfor %}
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-sm font-medium text-slate-700 mb-1">Nome social</label>
+          {{ form.nome_social }}
+          <p class="text-xs text-slate-400 mt-1">Tem prioridade na exibição quando preenchido.</p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">CPF</label>
+          {{ form.cpf }}
+          {% for e in form.cpf.errors %}<p class="mt-1 text-xs text-red-600">{{ e }}</p>{% endfor %}
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Data de nascimento</label>
+          {{ form.data_nascimento }}
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Gênero</label>
+          {{ form.genero }}
+        </div>
+      </div>
+    </section>
+
+    <section class="bg-white border border-slate-200 rounded-xl p-6">
+      <h2 class="text-base font-semibold text-slate-900 mb-1">Contato</h2>
+      <p class="text-xs text-slate-500 mb-4">Pelo menos um entre e-mail, telefone ou WhatsApp é obrigatório.</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">E-mail</label>
+          {{ form.email }}
+          {% for e in form.email.errors %}<p class="mt-1 text-xs text-red-600">{{ e }}</p>{% endfor %}
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Telefone</label>
+          {{ form.telefone }}
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">WhatsApp</label>
+          {{ form.whatsapp }}
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Instagram</label>
+          {{ form.instagram }}
+          <p class="text-xs text-slate-400 mt-1">Sem o @.</p>
+        </div>
+      </div>
+
+      <div id="duplicatas-alerta" class="hidden mt-4 bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-3">
+        <p class="text-sm font-medium text-yellow-800 mb-2">Possíveis duplicatas:</p>
+        <ul id="duplicatas-lista" class="text-sm text-yellow-900 space-y-1"></ul>
+      </div>
+    </section>
+
+    <section class="bg-white border border-slate-200 rounded-xl p-6">
+      <h2 class="text-base font-semibold text-slate-900 mb-4">Endereço</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">CEP</label>
+          {{ form.cep }}
+          <p id="cep-status" class="mt-1 text-xs text-slate-400"></p>
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-sm font-medium text-slate-700 mb-1">Logradouro</label>
+          {{ form.logradouro }}
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Número</label>
+          {{ form.numero }}
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-sm font-medium text-slate-700 mb-1">Complemento</label>
+          {{ form.complemento }}
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Bairro *</label>
+          {{ form.bairro }}
+          {% for e in form.bairro.errors %}<p class="mt-1 text-xs text-red-600">{{ e }}</p>{% endfor %}
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Cidade *</label>
+          {{ form.cidade }}
+          {% for e in form.cidade.errors %}<p class="mt-1 text-xs text-red-600">{{ e }}</p>{% endfor %}
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">UF *</label>
+          {{ form.estado }}
+        </div>
+      </div>
+    </section>
+
+    <section class="bg-white border border-slate-200 rounded-xl p-6">
+      <h2 class="text-base font-semibold text-slate-900 mb-4">Tags</h2>
+      <div class="flex flex-wrap gap-3">
+        {% for choice in form.tags %}
+        <label class="inline-flex items-center gap-2 text-sm">
+          {{ choice.tag }}
+          <span>{{ choice.choice_label }}</span>
+        </label>
+        {% empty %}
+        <p class="text-sm text-slate-500">Nenhuma tag cadastrada.</p>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="bg-white border border-slate-200 rounded-xl p-6">
+      <h2 class="text-base font-semibold text-slate-900 mb-1">Preferências de comunicação (LGPD)</h2>
+      <p class="text-xs text-slate-500 mb-4">Aplicam-se a comunicações em massa, não a respostas de demandas específicas.</p>
+      <div class="space-y-2">
+        <label class="flex items-center gap-2 text-sm text-slate-700">{{ form.nao_telefonar }} Não telefonar</label>
+        <label class="flex items-center gap-2 text-sm text-slate-700">{{ form.nao_enviar_email }} Não enviar e-mail em massa</label>
+        <label class="flex items-center gap-2 text-sm text-slate-700">{{ form.nao_enviar_sms }} Não enviar SMS/WhatsApp em massa</label>
+        <label class="flex items-center gap-2 text-sm text-slate-700">{{ form.nao_compartilhar_dados }} Não compartilhar dados com terceiros</label>
+      </div>
+    </section>
+
+    <section class="bg-white border border-slate-200 rounded-xl p-6">
+      <h2 class="text-base font-semibold text-slate-900 mb-4">Observações</h2>
+      {{ form.observacoes }}
+    </section>
+
+    <div class="flex gap-3">
+      <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-5 py-2 rounded-lg">Salvar</button>
+      <a href="{% url 'pessoas:pessoa_lista' %}" class="text-sm text-slate-500 hover:text-slate-800 px-4 py-2">Cancelar</a>
+    </div>
+  </form>
+</div>
+
+<script>
+(function() {
+  const form = document.getElementById("pessoa-form");
+  if (!form) return;
+
+  // Aplica classes Tailwind nos widgets do form Django
+  form.querySelectorAll("input[type=text], input[type=email], input[type=date], input[type=tel], input[type=url], select, textarea").forEach(el => {
+    el.classList.add("w-full", "rounded-lg", "border", "border-slate-300", "px-3", "py-2", "text-sm", "focus:outline-none", "focus:ring-2", "focus:ring-slate-400");
+  });
+  form.querySelectorAll("input[type=checkbox]").forEach(el => {
+    el.classList.add("rounded", "border-slate-300");
+  });
+
+  // Lookup CEP
+  const cepInput = form.querySelector("input[name=cep]");
+  const cepStatus = document.getElementById("cep-status");
+  if (cepInput) {
+    cepInput.addEventListener("blur", async () => {
+      const cep = (cepInput.value || "").replace(/\D/g, "");
+      if (cep.length !== 8) return;
+      cepStatus.textContent = "Consultando…";
+      try {
+        const resp = await fetch(`{% url 'pessoas:api_cep' cep='CEPCEP' %}`.replace("CEPCEP", cep));
+        if (!resp.ok) { cepStatus.textContent = "CEP não encontrado."; return; }
+        const data = await resp.json();
+        const setIfEmpty = (name, val) => {
+          const el = form.querySelector(`[name=${name}]`);
+          if (el && !el.value && val) el.value = val;
+        };
+        setIfEmpty("logradouro", data.logradouro);
+        setIfEmpty("bairro", data.bairro);
+        setIfEmpty("cidade", data.cidade);
+        setIfEmpty("estado", data.estado);
+        cepInput.value = data.cep;
+        cepStatus.textContent = "Endereço preenchido a partir do CEP.";
+      } catch { cepStatus.textContent = "Falha ao consultar CEP."; }
+    });
+  }
+
+  // Deduplicação ao desfocar email/telefone/whatsapp
+  const emailEl = form.querySelector("input[name=email]");
+  const telEl = form.querySelector("input[name=telefone]");
+  const waEl = form.querySelector("input[name=whatsapp]");
+  const alerta = document.getElementById("duplicatas-alerta");
+  const lista = document.getElementById("duplicatas-lista");
+  const url = new URL(window.location.href);
+  const excluir = url.pathname.match(/\/pessoas\/(\d+)\/editar/);
+
+  async function checkDup() {
+    const params = new URLSearchParams();
+    if (emailEl?.value) params.set("email", emailEl.value);
+    if (telEl?.value) params.set("telefone", telEl.value);
+    if (waEl?.value) params.set("whatsapp", waEl.value);
+    if (excluir) params.set("exclude", excluir[1]);
+    if ([...params].length === 0) { alerta.classList.add("hidden"); return; }
+    try {
+      const resp = await fetch(`{% url 'pessoas:api_deduplicar' %}?` + params.toString());
+      const data = await resp.json();
+      if (!data.resultados || data.resultados.length === 0) { alerta.classList.add("hidden"); return; }
+      lista.innerHTML = "";
+      data.resultados.forEach(r => {
+        const li = document.createElement("li");
+        const contato = [r.email, r.telefone, r.whatsapp].filter(Boolean).join(" • ");
+        li.innerHTML = `<a class="underline" href="${r.url}">${r.nome}</a>${contato ? ' — ' + contato : ''}`;
+        lista.appendChild(li);
+      });
+      alerta.classList.remove("hidden");
+    } catch {}
+  }
+  [emailEl, telEl, waEl].forEach(el => el && el.addEventListener("blur", checkDup));
+})();
+</script>
+{% endblock %}

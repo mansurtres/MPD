@@ -55,9 +55,9 @@ Ideia que parece "óbvia" e não está no doc → primeiro vira ADR ou backlog.
 
 ## 5. Estado atual
 
-**Fase corrente:** v0.2 — Fase 1 (Autenticação e usuários) **concluída**.
+**Fase corrente:** v0.3 — Fase 2 (Pessoas e Entidades) **concluída**.
 
-**O que está pronto:**
+**O que está pronto (Fase 1, mantido):**
 - Django 5.2 + PostgreSQL 16 + Tailwind v4 standalone rodando localmente.
 - Settings split (`config/settings/{base,development,production,test}.py`).
 - 4 apps Django: `core`, `accounts`, `pessoas`, `demandas`.
@@ -65,12 +65,24 @@ Ideia que parece "óbvia" e não está no doc → primeiro vira ADR ou backlog.
 - Login/logout com templates Tailwind; sessão 12h / "lembrar-me" 30 dias.
 - Gestão de usuários (criar, editar, desativar) restrita a `is_staff=True`.
 - Página de perfil pessoal.
-- Comando `criar_usuarios_iniciais`.
+- Comando `criar_usuarios_iniciais` (idempotente, sincroniza grupos).
 - Política de senha: mínimo 8 chars, sem exigências de complexidade.
-- 22 testes passando (accounts + smoke).
-- Revisão arquitetural completa: nomenclatura, M:N partes de demanda, anexos polimórficos, entidades expandidas — registrada em docs e ADRs 0018–0024.
 
-**Próximo marco:** v0.3 — Fase 2 (Pessoas e Entidades). Ver [`roadmap.md`](./roadmap.md) §4.2.
+**O que entrou na Fase 2:**
+- Models `Pessoa`, `Entidade`, `Vinculo`, `Tag` em `pessoas/`.
+- Pessoa com endereço inline, 4 booleans LGPD, validação de CPF, soft delete via `ativo`, anonimização.
+- Entidade com 14 tipos (de associação formal a `familia`/`grupo_informal`/`condominio`); CNPJ opcional, UNIQUE NULLS DISTINCT.
+- Vínculo (Pessoa ↔ Entidade) com `papel`, `data_inicio`, `data_fim`.
+- Tag única e compartilhada com 4 categorias (`tema`, `perfil`, `territorio`, `livre`).
+- CRUDs com listas paginadas (25/pg), busca, filtros (bairro, tag, tipo, mostrar inativos).
+- Integração ViaCEP em `pessoas/viacep.py`, tolerante a falha; auto-preenchimento via JS no form.
+- Deduplicação por email/telefone/whatsapp em `pessoas/deduplicacao.py`; alerta amarelo no form via fetch JS.
+- Django Admin com fieldsets para Pessoa/Entidade/Tag/Vínculo.
+- Data migration cria 4 grupos padrão (Administrador, Chefe de Gabinete, Coordenador, Assessor) com permissões de pessoas. Permissões customizadas: `pode_desativar_pessoa`, `pode_reativar_pessoa`, `pode_anonimizar_pessoa`, `pode_desativar_entidade`, `pode_reativar_entidade`.
+- 67 testes passando (45 novos em pessoas).
+- ADR 0025: padronização `BigAutoField` (supersede ADR 0002).
+
+**Próximo marco:** v0.4 — Fase 3 (Demandas e Interações). Ver [`roadmap.md`](./roadmap.md) §4.3.
 
 ---
 
@@ -149,4 +161,4 @@ Para o histórico completo ver [`docs/decisoes.md`](./docs/decisoes.md). Decisõ
 
 ---
 
-*Atualizar este arquivo ao fim de cada fase. Última atualização: 2026-05-08 (Fase 1 concluída).*
+*Atualizar este arquivo ao fim de cada fase. Última atualização: 2026-05-08 (Fase 2 concluída).*

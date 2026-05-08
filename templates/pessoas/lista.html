@@ -1,0 +1,100 @@
+{% extends "layouts/app.html" %}
+
+{% block app_conteudo %}
+<div class="flex items-center justify-between mb-6">
+  <h1 class="text-xl font-semibold text-slate-900">Pessoas</h1>
+  {% if perms.pessoas.add_pessoa %}
+  <a href="{% url 'pessoas:pessoa_nova' %}" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+    Nova pessoa
+  </a>
+  {% endif %}
+</div>
+
+<form method="get" class="bg-white border border-slate-200 rounded-xl p-4 mb-4 flex flex-wrap items-end gap-3">
+  <div class="flex-1 min-w-[220px]">
+    <label class="block text-xs font-medium text-slate-600 mb-1">Buscar</label>
+    <input type="text" name="q" value="{{ q }}" placeholder="Nome, e-mail, telefone, bairro..."
+      class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400">
+  </div>
+  <div class="min-w-[160px]">
+    <label class="block text-xs font-medium text-slate-600 mb-1">Bairro</label>
+    <input type="text" name="bairro" value="{{ bairro }}"
+      class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400">
+  </div>
+  <div class="min-w-[180px]">
+    <label class="block text-xs font-medium text-slate-600 mb-1">Tag</label>
+    <select name="tag" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400">
+      <option value="">Todas</option>
+      {% for t in tags_disponiveis %}
+      <option value="{{ t.pk }}" {% if tag_id|stringformat:'s' == t.pk|stringformat:'s' %}selected{% endif %}>{{ t.nome }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <label class="flex items-center gap-2 text-sm text-slate-700">
+    <input type="checkbox" name="inativos" value="1" {% if mostrar_inativos %}checked{% endif %} class="rounded border-slate-300">
+    Mostrar inativas
+  </label>
+  <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2 rounded-lg">Filtrar</button>
+</form>
+
+<div class="bg-white border border-slate-200 rounded-xl overflow-hidden">
+  {% if pessoas %}
+  <table class="w-full text-sm">
+    <thead>
+      <tr class="border-b border-slate-200 bg-slate-50">
+        <th class="text-left px-4 py-3 font-medium text-slate-600">Nome</th>
+        <th class="text-left px-4 py-3 font-medium text-slate-600">E-mail</th>
+        <th class="text-left px-4 py-3 font-medium text-slate-600">Telefone / WhatsApp</th>
+        <th class="text-left px-4 py-3 font-medium text-slate-600">Bairro</th>
+        <th class="text-left px-4 py-3 font-medium text-slate-600">Tags</th>
+        <th class="text-left px-4 py-3 font-medium text-slate-600">Status</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for p in pessoas %}
+      <tr class="hover:bg-slate-50">
+        <td class="px-4 py-3 font-medium text-slate-900">
+          <a href="{% url 'pessoas:pessoa_detalhe' p.pk %}" class="hover:underline">{{ p.nome_exibicao }}</a>
+        </td>
+        <td class="px-4 py-3 text-slate-600">{{ p.email|default:"—" }}</td>
+        <td class="px-4 py-3 text-slate-600">{{ p.telefone|default:p.whatsapp|default:"—" }}</td>
+        <td class="px-4 py-3 text-slate-600">{{ p.bairro }}</td>
+        <td class="px-4 py-3">
+          <div class="flex flex-wrap gap-1">
+            {% for t in p.tags.all %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-700">{{ t.nome }}</span>
+            {% endfor %}
+          </div>
+        </td>
+        <td class="px-4 py-3">
+          {% if p.ativo %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Ativa</span>
+          {% else %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">Inativa</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="px-4 py-12 text-center text-sm text-slate-500">
+    Nenhuma pessoa encontrada.
+  </div>
+  {% endif %}
+</div>
+
+{% if is_paginated %}
+<div class="flex items-center justify-between mt-4 text-sm text-slate-600">
+  <span>Página {{ page_obj.number }} de {{ paginator.num_pages }}</span>
+  <div class="flex gap-2">
+    {% if page_obj.has_previous %}
+    <a href="?{% if q %}q={{ q }}&{% endif %}{% if bairro %}bairro={{ bairro }}&{% endif %}{% if tag_id %}tag={{ tag_id }}&{% endif %}{% if mostrar_inativos %}inativos=1&{% endif %}page={{ page_obj.previous_page_number }}" class="px-3 py-1 rounded border border-slate-300 hover:bg-slate-100">Anterior</a>
+    {% endif %}
+    {% if page_obj.has_next %}
+    <a href="?{% if q %}q={{ q }}&{% endif %}{% if bairro %}bairro={{ bairro }}&{% endif %}{% if tag_id %}tag={{ tag_id }}&{% endif %}{% if mostrar_inativos %}inativos=1&{% endif %}page={{ page_obj.next_page_number }}" class="px-3 py-1 rounded border border-slate-300 hover:bg-slate-100">Próxima</a>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}

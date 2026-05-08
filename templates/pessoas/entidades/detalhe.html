@@ -1,0 +1,106 @@
+{% extends "layouts/app.html" %}
+
+{% block app_conteudo %}
+<div class="flex items-center gap-3 mb-4">
+  <a href="{% url 'pessoas:entidade_lista' %}" class="text-sm text-slate-500 hover:text-slate-800">← Entidades</a>
+  <span class="text-slate-300">/</span>
+  <h1 class="text-xl font-semibold text-slate-900">{{ entidade.nome }}</h1>
+  <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">{{ entidade.get_tipo_display }}</span>
+  {% if not entidade.ativo %}
+  <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">Inativa</span>
+  {% endif %}
+</div>
+
+<div class="flex items-center gap-3 mb-6">
+  {% if perms.pessoas.change_entidade %}
+  <a href="{% url 'pessoas:entidade_editar' entidade.pk %}" class="text-sm text-slate-700 hover:text-slate-900 underline">Editar</a>
+  {% endif %}
+  {% if entidade.ativo and perms.pessoas.pode_desativar_entidade or not entidade.ativo and perms.pessoas.pode_reativar_entidade %}
+  <form method="post" action="{% url 'pessoas:entidade_toggle_ativo' entidade.pk %}" class="inline">
+    {% csrf_token %}
+    <button type="submit" class="text-sm text-slate-700 hover:text-slate-900 underline">
+      {% if entidade.ativo %}Desativar{% else %}Reativar{% endif %}
+    </button>
+  </form>
+  {% endif %}
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <div class="lg:col-span-2 space-y-6">
+    <section class="bg-white border border-slate-200 rounded-xl p-6">
+      <h2 class="text-base font-semibold text-slate-900 mb-4">Identificação</h2>
+      <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+        <div><dt class="text-slate-500">Nome</dt><dd class="text-slate-900">{{ entidade.nome }}</dd></div>
+        {% if entidade.nome_fantasia %}<div><dt class="text-slate-500">Nome fantasia</dt><dd class="text-slate-900">{{ entidade.nome_fantasia }}</dd></div>{% endif %}
+        <div><dt class="text-slate-500">Tipo</dt><dd class="text-slate-900">{{ entidade.get_tipo_display }}</dd></div>
+        {% if entidade.cnpj %}<div><dt class="text-slate-500">CNPJ</dt><dd class="text-slate-900">{{ entidade.cnpj }}</dd></div>{% endif %}
+      </dl>
+    </section>
+
+    {% if entidade.email or entidade.telefone or entidade.site %}
+    <section class="bg-white border border-slate-200 rounded-xl p-6">
+      <h2 class="text-base font-semibold text-slate-900 mb-4">Contato</h2>
+      <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+        {% if entidade.email %}<div><dt class="text-slate-500">E-mail</dt><dd class="text-slate-900">{{ entidade.email }}</dd></div>{% endif %}
+        {% if entidade.telefone %}<div><dt class="text-slate-500">Telefone</dt><dd class="text-slate-900">{{ entidade.telefone }}</dd></div>{% endif %}
+        {% if entidade.site %}<div><dt class="text-slate-500">Site</dt><dd class="text-slate-900"><a class="underline" href="{{ entidade.site }}" target="_blank" rel="noopener">{{ entidade.site }}</a></dd></div>{% endif %}
+      </dl>
+    </section>
+    {% endif %}
+
+    {% if entidade.bairro or entidade.cidade %}
+    <section class="bg-white border border-slate-200 rounded-xl p-6">
+      <h2 class="text-base font-semibold text-slate-900 mb-4">Endereço</h2>
+      <p class="text-sm text-slate-900">
+        {% if entidade.logradouro %}{{ entidade.logradouro }}{% if entidade.numero %}, {{ entidade.numero }}{% endif %}{% if entidade.complemento %} — {{ entidade.complemento }}{% endif %}<br>{% endif %}
+        {{ entidade.bairro }}{% if entidade.cidade %}, {{ entidade.cidade }}{% endif %}{% if entidade.estado %}/{{ entidade.estado }}{% endif %}
+        {% if entidade.cep %} — CEP {{ entidade.cep }}{% endif %}
+      </p>
+    </section>
+    {% endif %}
+
+    <section class="bg-white border border-slate-200 rounded-xl p-6">
+      <h2 class="text-base font-semibold text-slate-900 mb-2">Pessoas vinculadas</h2>
+      {% if vinculos %}
+      <ul class="divide-y divide-slate-100">
+        {% for v in vinculos %}
+        <li class="py-2 text-sm">
+          <a href="{% url 'pessoas:pessoa_detalhe' v.pessoa.pk %}" class="font-medium text-slate-900 hover:underline">{{ v.pessoa.nome_exibicao }}</a>
+          <span class="text-slate-500"> — {{ v.papel }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="text-sm text-slate-500">Nenhuma pessoa vinculada.</p>
+      {% endif %}
+    </section>
+
+    {% if entidade.observacoes %}
+    <section class="bg-white border border-slate-200 rounded-xl p-6">
+      <h2 class="text-base font-semibold text-slate-900 mb-2">Observações</h2>
+      <p class="text-sm text-slate-700 whitespace-pre-line">{{ entidade.observacoes }}</p>
+    </section>
+    {% endif %}
+  </div>
+
+  <aside class="space-y-6">
+    <section class="bg-white border border-slate-200 rounded-xl p-6">
+      <h2 class="text-base font-semibold text-slate-900 mb-3">Tags</h2>
+      {% if entidade.tags.all %}
+      <div class="flex flex-wrap gap-1">
+        {% for t in entidade.tags.all %}
+        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-700">{{ t.nome }}</span>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="text-sm text-slate-500">Sem tags.</p>
+      {% endif %}
+    </section>
+
+    <section class="bg-white border border-slate-200 rounded-xl p-6 text-xs text-slate-500">
+      <div>Criada em {{ entidade.criado_em|date:"d/m/Y H:i" }}{% if entidade.criado_por %} por {{ entidade.criado_por }}{% endif %}.</div>
+      <div>Atualizada em {{ entidade.atualizado_em|date:"d/m/Y H:i" }}.</div>
+    </section>
+  </aside>
+</div>
+{% endblock %}
