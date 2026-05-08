@@ -1,5 +1,6 @@
 """Settings comuns ao MPD. Carregados por development/production/test."""
 
+from datetime import timedelta
 from pathlib import Path
 
 import environ
@@ -33,6 +34,7 @@ DJANGO_APPS = [
 
 THIRD_PARTY_APPS = [
     "auditlog",
+    "axes",
     "django_htmx",
 ]
 
@@ -56,7 +58,22 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "django_htmx.middleware.HtmxMiddleware",
     "auditlog.middleware.AuditlogMiddleware",
+    # AxesMiddleware deve ser o último (captura excepts dos demais).
+    "axes.middleware.AxesMiddleware",
 ]
+
+AUTHENTICATION_BACKENDS = [
+    # AxesStandaloneBackend pré-checa locks antes do backend padrão.
+    "axes.backends.AxesStandaloneBackend",
+    "django.contrib.auth.backends.ModelBackend",
+]
+
+# django-axes: lockout por (IP + username) após 5 tentativas, cooldown 30min.
+# Admin reseta manualmente via /admin/axes/. Ref: ADR 0032.
+AXES_FAILURE_LIMIT = 5
+AXES_COOLOFF_TIME = timedelta(minutes=30)
+AXES_LOCKOUT_PARAMETERS = [["ip_address", "username"]]
+AXES_RESET_ON_SUCCESS = True
 
 ROOT_URLCONF = "config.urls"
 

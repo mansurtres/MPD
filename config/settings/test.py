@@ -16,3 +16,6 @@ PASSWORD_HASHERS = [
 ]
 
 EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+
+# Desabilita axes nos testes — testes específicos de lockout reativam via override_settings.
+AXES_ENABLED = False

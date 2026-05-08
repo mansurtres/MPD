@@ -222,3 +222,24 @@ def test_criar_usuarios_iniciais_aborta_em_producao(db, settings):
     with pytest.raises(CommandError):
         call_command("criar_usuarios_iniciais")
     assert not Usuario.objects.filter(email="admin@mpd.local").exists()
+
+
+# --- Rate limiting (django-axes) ---
+
+
+def test_axes_bloqueia_apos_5_falhas(client, usuario_comum, settings):
+    """Axes bloqueia (IP+username) após 5 tentativas falhas — 6ª retorna 429."""
+    settings.AXES_ENABLED = True
+
+    for _ in range(5):
+        client.post(
+            reverse("accounts:login"),
+            {"username": "comum@test.com", "password": "errada"},  # pragma: allowlist secret
+        )
+
+    response = client.post(
+        reverse("accounts:login"),
+        {"username": "comum@test.com", "password": "errada"},  # pragma: allowlist secret
+    )
+    # Ao locked, axes responde 429 (Too Many Requests) antes de validar a senha.
+    assert response.status_code in (403, 429)
