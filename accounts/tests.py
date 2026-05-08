@@ -198,7 +198,8 @@ def test_perfil_atualiza_dados(client, usuario_comum):
 # --- Management command ---
 
 
-def test_criar_usuarios_iniciais(db):
+def test_criar_usuarios_iniciais(db, settings):
+    settings.DEBUG = True
     call_command("criar_usuarios_iniciais")
     assert Usuario.objects.filter(email="admin@mpd.local").exists()
     assert Usuario.objects.filter(email="usuario@mpd.local").exists()
@@ -206,7 +207,18 @@ def test_criar_usuarios_iniciais(db):
     assert admin.is_staff
 
 
-def test_criar_usuarios_iniciais_idempotente(db):
+def test_criar_usuarios_iniciais_idempotente(db, settings):
+    settings.DEBUG = True
     call_command("criar_usuarios_iniciais")
     call_command("criar_usuarios_iniciais")
     assert Usuario.objects.filter(email="admin@mpd.local").count() == 1
+
+
+def test_criar_usuarios_iniciais_aborta_em_producao(db, settings):
+    """Comando recusa rodar com DEBUG=False — protege contra backdoor em prod."""
+    from django.core.management.base import CommandError
+
+    settings.DEBUG = False
+    with pytest.raises(CommandError):
+        call_command("criar_usuarios_iniciais")
+    assert not Usuario.objects.filter(email="admin@mpd.local").exists()

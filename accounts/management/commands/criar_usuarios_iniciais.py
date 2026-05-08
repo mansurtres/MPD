@@ -1,5 +1,6 @@
+from django.conf import settings
 from django.contrib.auth.models import Group
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 
 from accounts.models import Usuario
 
@@ -8,6 +9,12 @@ class Command(BaseCommand):
     help = "Cria um usuário is_staff e um usuário comum para desenvolvimento local."
 
     def handle(self, *args, **options):
+        if not settings.DEBUG:
+            raise CommandError(
+                "criar_usuarios_iniciais usa senhas fixas em código e só pode rodar com "
+                "DEBUG=True. Em produção, semeie usuários via Django Admin ou data migration."
+            )
+
         admin, criado_admin = Usuario.objects.get_or_create(
             email="admin@mpd.local",
             defaults={
