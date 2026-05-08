@@ -342,7 +342,8 @@ def test_assessor_cria_pessoa(client, usuario_assessor):
 
 def test_assessor_nao_desativa_pessoa(client, usuario_assessor, pessoa_basica):
     client.force_login(usuario_assessor)
-    client.post(reverse("pessoas:pessoa_toggle_ativo", args=[pessoa_basica.pk]))
+    response = client.post(reverse("pessoas:pessoa_toggle_ativo", args=[pessoa_basica.pk]))
+    assert response.status_code == 403
     pessoa_basica.refresh_from_db()
     assert pessoa_basica.ativo  # continuou ativa
 
@@ -358,7 +359,8 @@ def test_coord_nao_reativa_pessoa(client, usuario_coordenador, pessoa_basica):
     pessoa_basica.ativo = False
     pessoa_basica.save()
     client.force_login(usuario_coordenador)
-    client.post(reverse("pessoas:pessoa_toggle_ativo", args=[pessoa_basica.pk]))
+    response = client.post(reverse("pessoas:pessoa_toggle_ativo", args=[pessoa_basica.pk]))
+    assert response.status_code == 403
     pessoa_basica.refresh_from_db()
     assert not pessoa_basica.ativo  # CO não pode reativar
 

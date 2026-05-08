@@ -2,6 +2,7 @@
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.core.exceptions import PermissionDenied
 from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect
@@ -110,22 +111,22 @@ class PessoaUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
         return ctx
 
 
-class PessoaToggleAtivoView(LoginRequiredMixin, View):
-    """Desativa ou reativa pessoa. Requer permissão correspondente."""
+class PessoaToggleAtivoView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    """Desativa ou reativa pessoa. Requer pode_desativar_pessoa ou pode_reativar_pessoa."""
+
+    permission_required = "pessoas.change_pessoa"
 
     def post(self, request, pk):
         pessoa = get_object_or_404(Pessoa, pk=pk)
         if pessoa.ativo:
             if not request.user.has_perm("pessoas.pode_desativar_pessoa"):
-                messages.error(request, "Sem permissão para desativar.")
-                return redirect("pessoas:pessoa_detalhe", pk=pk)
+                raise PermissionDenied("Sem permissão para desativar pessoa.")
             pessoa.ativo = False
             pessoa.save()
             messages.success(request, f"{pessoa.nome_exibicao} desativada.")
         else:
             if not request.user.has_perm("pessoas.pode_reativar_pessoa"):
-                messages.error(request, "Sem permissão para reativar.")
-                return redirect("pessoas:pessoa_detalhe", pk=pk)
+                raise PermissionDenied("Sem permissão para reativar pessoa.")
             pessoa.ativo = True
             pessoa.save()
             messages.success(request, f"{pessoa.nome_exibicao} reativada.")
@@ -250,20 +251,20 @@ class EntidadeUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView
         return ctx
 
 
-class EntidadeToggleAtivoView(LoginRequiredMixin, View):
+class EntidadeToggleAtivoView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    permission_required = "pessoas.change_entidade"
+
     def post(self, request, pk):
         entidade = get_object_or_404(Entidade, pk=pk)
         if entidade.ativo:
             if not request.user.has_perm("pessoas.pode_desativar_entidade"):
-                messages.error(request, "Sem permissão para desativar.")
-                return redirect("pessoas:entidade_detalhe", pk=pk)
+                raise PermissionDenied("Sem permissão para desativar entidade.")
             entidade.ativo = False
             entidade.save()
             messages.success(request, f"{entidade.nome} desativada.")
         else:
             if not request.user.has_perm("pessoas.pode_reativar_entidade"):
-                messages.error(request, "Sem permissão para reativar.")
-                return redirect("pessoas:entidade_detalhe", pk=pk)
+                raise PermissionDenied("Sem permissão para reativar entidade.")
             entidade.ativo = True
             entidade.save()
             messages.success(request, f"{entidade.nome} reativada.")
