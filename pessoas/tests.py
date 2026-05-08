@@ -483,3 +483,35 @@ def test_grupo_administrador_tem_delete_pessoa(db):
 def test_grupo_chefe_de_gabinete_nao_tem_delete_pessoa(db):
     grupo = Group.objects.get(name="Chefe de Gabinete")
     assert not grupo.permissions.filter(codename="delete_pessoa").exists()
+
+
+# --- Auditlog (LGPD) ---
+
+
+def test_auditlog_registra_criacao_de_pessoa(db, usuario_admin):
+    """Confirma que auditlog cria LogEntry ao criar Pessoa.
+
+    Garante a trilha LGPD ('quem criou, quando, o quê'). Os models Entidade,
+    Vínculo e Tag são registrados no mesmo apps.ready(); um teste cobre o setup.
+    """
+    from auditlog.models import LogEntry
+
+    pessoa = Pessoa.objects.create(
+        nome="Auditoria",
+        sobrenome="Teste",
+        email="audit@example.com",
+        bairro="X",
+        cidade="Y",
+        criado_por=usuario_admin,
+    )
+    entries = LogEntry.objects.get_for_object(pessoa)
+    assert entries.filter(action=LogEntry.Action.CREATE).exists()
+
+
+def test_auditlog_registra_alteracao_de_pessoa(db, pessoa_basica):
+    from auditlog.models import LogEntry
+
+    pessoa_basica.bairro = "Bairro Novo"
+    pessoa_basica.save()
+    entries = LogEntry.objects.get_for_object(pessoa_basica)
+    assert entries.filter(action=LogEntry.Action.UPDATE).exists()
