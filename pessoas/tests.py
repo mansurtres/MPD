@@ -428,6 +428,18 @@ def test_dedup_endpoint_logado_responde_json(client, usuario_assessor, pessoa_ba
     assert any(r["email"] == "maria@example.com" for r in data["resultados"])
 
 
+def test_dedup_endpoint_sem_permissao_403(client, db, pessoa_basica):
+    """Usuário logado sem `view_pessoa` não pode usar o endpoint (vazaria PII)."""
+    sem_grupo = Usuario.objects.create_user(
+        email="semgrupo@test.com",
+        password="senha12345",  # pragma: allowlist secret
+        nome_completo="Sem Grupo",
+    )
+    client.force_login(sem_grupo)
+    response = client.get(reverse("pessoas:api_deduplicar") + "?email=maria@example.com")
+    assert response.status_code == 403
+
+
 def test_cep_endpoint_invalido_404(client, usuario_assessor):
     client.force_login(usuario_assessor)
     response = client.get(reverse("pessoas:api_cep", args=["00000000"]))

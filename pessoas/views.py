@@ -339,8 +339,10 @@ class CEPLookupView(LoginRequiredMixin, View):
         return JsonResponse(dados)
 
 
-class DeduplicacaoCheckView(LoginRequiredMixin, View):
+class DeduplicacaoCheckView(LoginRequiredMixin, PermissionRequiredMixin, View):
     """GET /pessoas/deduplicar/?email=&telefone=&whatsapp=&exclude="""
+
+    permission_required = "pessoas.view_pessoa"
 
     def get(self, request):
         excluir_pk = request.GET.get("exclude") or None
