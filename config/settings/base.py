@@ -59,6 +59,8 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "django_htmx.middleware.HtmxMiddleware",
     "auditlog.middleware.AuditlogMiddleware",
+    # Correlation ID: amarra LogEntries gerados na mesma request (ver core/auditlog.py).
+    "core.auditlog.AuditlogCorrelationMiddleware",
     # AxesMiddleware deve ser o último (captura excepts dos demais).
     "axes.middleware.AxesMiddleware",
 ]
