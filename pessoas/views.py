@@ -488,7 +488,7 @@ class DeduplicacaoCheckView(LoginRequiredMixin, PermissionRequiredMixin, View):
             email = p.emails.first()
             dados.append(
                 {
-                    "id": p.pk,
+                    "slug": p.slug_publico,
                     "nome": p.nome_exibicao,
                     "email": email.endereco if email else "",
                     "telefone": tel.numero_formatado if tel else "",
