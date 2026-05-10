@@ -442,10 +442,34 @@ class TagUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
 
 
 class TagDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+    """Hard delete de Tag. Bloqueia se houver pessoa, entidade ou demanda
+    vinculada — auditlog não registra mudança em M:N quando a tag some,
+    então perderia trilha histórica silenciosamente. Caminho seguro: arquivar.
+    Mesma lógica de demandas.TemaDeleteView."""
+
     permission_required = "pessoas.delete_tag"
     model = Tag
     success_url = reverse_lazy("pessoas:tag_lista")
     template_name = "pessoas/tags/confirmar_remocao.html"
+
+    def _em_uso(self):
+        return self.object.pessoas.count() + self.object.entidades.count()
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["em_uso"] = self._em_uso()
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        em_uso = self._em_uso()
+        if em_uso:
+            messages.error(
+                request,
+                f"'{self.object.nome}' está em {em_uso} cadastro(s) de pessoa/entidade. Arquive em vez de remover — mantém a classificação histórica.",
+            )
+            return redirect("pessoas:tag_editar", pk=self.object.pk)
+        return super().post(request, *args, **kwargs)
 
 
 class TagToggleArquivarView(LoginRequiredMixin, PermissionRequiredMixin, View):
