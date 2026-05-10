@@ -17,7 +17,7 @@ import uuid
 from datetime import timedelta
 
 from django.conf import settings
-from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelation
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
@@ -162,6 +162,12 @@ class Demanda(AuditavelMixin, models.Model):
         "pessoas.Entidade", through="DemandaEntidade", related_name="demandas"
     )
     temas = models.ManyToManyField(Tema, blank=True, related_name="demandas")
+    # GenericRelation permite acesso reverso (demanda.anexos.all()) e participa
+    # do CASCADE quando a Demanda é deletada — anexos órfãos são removidos
+    # automaticamente, sem depender do signal pre_delete (defesa em camadas).
+    anexos = GenericRelation(
+        "Anexo", content_type_field="content_type", object_id_field="object_id"
+    )
 
     class Meta:
         verbose_name = "demanda"
@@ -482,6 +488,9 @@ class Encaminhamento(models.Model):
         related_name="encaminhamentos_criados",
     )
     criado_em = models.DateTimeField(auto_now_add=True)
+    anexos = GenericRelation(
+        "Anexo", content_type_field="content_type", object_id_field="object_id"
+    )
 
     class Meta:
         verbose_name = "encaminhamento"

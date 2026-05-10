@@ -147,7 +147,9 @@ class DemandaDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView)
         )
         ctx["partes_pessoas"] = d.demanda_pessoas.select_related("pessoa")
         ctx["partes_entidades"] = d.demanda_entidades.select_related("entidade")
-        ctx["encaminhamentos"] = d.encaminhamentos.select_related("criado_por")
+        ctx["encaminhamentos"] = d.encaminhamentos.select_related("criado_por").prefetch_related(
+            "anexos__enviado_por"
+        )
         ct = ContentType.objects.get_for_model(Demanda)
         ctx["anexos"] = Anexo.objects.filter(content_type=ct, object_id=d.pk).select_related(
             "enviado_por"

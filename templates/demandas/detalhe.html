@@ -135,24 +135,51 @@
           <div class="text-sm font-medium text-slate-900">{{ e.get_tipo_documento_display }} → {{ e.destinatario_orgao }}</div>
           <div class="text-xs text-slate-500">Enviado: {{ e.data_envio|date:"d/m/Y" }}{% if e.prazo_resposta %} · Prazo: {{ e.prazo_resposta|date:"d/m/Y" }}{% endif %} · Status: {{ e.get_status_display }}</div>
           {% if e.conteudo_resposta %}<div class="text-sm text-slate-700 mt-2 whitespace-pre-line">{{ e.conteudo_resposta }}</div>{% endif %}
-          {% if e.status == 'enviado' or e.status == 'prazo_vencido' %}
-          <details class="mt-2 text-sm">
-            <summary class="cursor-pointer text-slate-600">Registrar resposta</summary>
-            <form method="post" action="{% url 'demandas:encaminhamento_responder' e.pk %}" class="mt-2 space-y-2">
-              {% csrf_token %}
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-                <select name="status" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
-                  <option value="respondido_satisfatorio">Respondido (satisfatório)</option>
-                  <option value="respondido_insatisfatorio">Respondido (insatisfatório)</option>
-                  <option value="sem_resposta">Sem resposta (encerrar)</option>
-                </select>
-                <input type="date" name="data_resposta" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
-              </div>
-              <textarea name="conteudo_resposta" rows="2" placeholder="Conteúdo da resposta" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"></textarea>
-              <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2 rounded-lg">Salvar resposta</button>
-            </form>
-          </details>
+
+          {% with anexos_enc=e.anexos.all %}
+          {% if anexos_enc %}
+          <ul class="mt-2 space-y-1">
+            {% for a in anexos_enc %}
+            <li class="text-xs flex items-center justify-between gap-2">
+              <a href="{{ a.arquivo.url }}" class="text-slate-700 hover:underline truncate" target="_blank" rel="noopener">📎 {{ a.nome_original }}</a>
+              <form method="post" action="{% url 'demandas:anexo_remover' a.pk %}" class="inline shrink-0" onsubmit="return confirm('Remover este anexo?');">{% csrf_token %}<button class="text-xs text-red-600 hover:text-red-700">remover</button></form>
+            </li>
+            {% endfor %}
+          </ul>
           {% endif %}
+          {% endwith %}
+
+          <div class="mt-2 flex gap-3 text-xs">
+            {% if perms.demandas.add_anexo and demanda.status != 'arquivado' %}
+            <details>
+              <summary class="cursor-pointer text-slate-600">+ Anexar arquivo</summary>
+              <form method="post" enctype="multipart/form-data" action="{% url 'demandas:anexo_upload' 'encaminhamento' e.pk %}" class="mt-2 flex items-center gap-2">
+                {% csrf_token %}
+                <input type="file" name="arquivo" required class="text-xs">
+                <input type="text" name="descricao" placeholder="Descrição (opcional)" class="text-xs rounded border border-slate-300 px-2 py-1">
+                <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-white text-xs font-medium px-2 py-1 rounded">Enviar</button>
+              </form>
+            </details>
+            {% endif %}
+            {% if e.status == 'enviado' or e.status == 'prazo_vencido' %}
+            <details>
+              <summary class="cursor-pointer text-slate-600">Registrar resposta</summary>
+              <form method="post" action="{% url 'demandas:encaminhamento_responder' e.pk %}" class="mt-2 space-y-2">
+                {% csrf_token %}
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <select name="status" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+                    <option value="respondido_satisfatorio">Respondido (satisfatório)</option>
+                    <option value="respondido_insatisfatorio">Respondido (insatisfatório)</option>
+                    <option value="sem_resposta">Sem resposta (encerrar)</option>
+                  </select>
+                  <input type="date" name="data_resposta" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+                </div>
+                <textarea name="conteudo_resposta" rows="2" placeholder="Conteúdo da resposta" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"></textarea>
+                <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2 rounded-lg">Salvar resposta</button>
+              </form>
+            </details>
+            {% endif %}
+          </div>
         </li>
         {% empty %}
         <li class="text-sm text-slate-500">Nenhum encaminhamento.</li>
