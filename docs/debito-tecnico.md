@@ -72,6 +72,26 @@ Quando um item for resolvido, mover para a seção **Resolvidos** no fim com a r
 
 ---
 
+## Accounts (Fase 1)
+
+### DT-011 — Gestão de usuários ainda usa `is_staff`, não Groups (arquitetural)
+
+**Prioridade:** Alta antes de produção, Média antes de Fase 4
+**Sintoma:** [accounts/views.py:13-19](accounts/views.py#L13-L19) define `StaffRequiredMixin` que gata as views de gestão de usuário em `request.user.is_staff`. [accounts/forms.py:36](accounts/forms.py#L36) e [:63](accounts/forms.py#L63) incluem `is_staff` como campo editável em `UsuarioCreateForm` e `UsuarioUpdateForm`.
+**Por que é cheiro:** o app `pessoas` migrou para `PermissionRequiredMixin` + Django Groups (ADR 0024) na Fase 2. O app `accounts` ficou para trás — ainda usa o flag binário `is_staff`. Resultado: qualquer staff promove qualquer outro a staff via formulário. Em equipe pequena confiável (caso atual), risco baixo. Mas viola o modelo de permissões granular adotado e gera dois sistemas convivendo no mesmo projeto.
+**Proposta:** criar permissão customizada `accounts.gerenciar_usuarios` (ou similar); migrar `UsuarioListView`/`CreateView`/`UpdateView`/`ToggleAtivoView` para `PermissionRequiredMixin` com essa permissão; adicionar a permissão ao grupo `Administrador`; remover `StaffRequiredMixin`. Forms deixam de expor `is_staff` editável (continuam expondo `is_active`); promoção a staff/superuser passa a ser ação reservada via Django Admin. Mitigação tática (commit `<sha>`, ADR 0040) bloqueia self-edit; o fix arquitetural fecha o resto.
+**Gatilho:** **antes de produção** ou **antes de adicionar mais views em accounts** (o que vier primeiro).
+
+### DT-012 — `accounts.Usuario` validação fraca permite criar usuário com senha vazia via ORM
+
+**Prioridade:** Baixa
+**Sintoma:** `UsuarioManager.create_user(email, password=None, ...)` chama `set_password(None)`, que cria conta com senha inutilizável (não vazia, mas hash inválido). Funcional, mas inconsistente com `create_superuser` que aceita os mesmos defaults.
+**Por que é cheiro:** silêncio em vez de erro. Se alguém criar via shell sem passar password, vira fantasma sem login.
+**Proposta:** `if password is None: raise ValueError("Senha é obrigatória.")` em `create_user`.
+**Gatilho:** próxima refactor de `accounts`.
+
+---
+
 ## Resolvidos
 
 ### DT-001 — Normalização vazada entre `clean()` e `save()` em Pessoa/Entidade

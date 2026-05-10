@@ -1247,4 +1247,41 @@ Decidir quando a Demanda existir, com caso de uso real à mão.
 
 ---
 
+## ADR 0040 — Bloqueio de auto-edição de `is_staff` (mitigação tática até DT-011)
+
+**Data:** 2026-05-09
+**Status:** Aceito (provisório — solução completa registrada em DT-011)
+
+### Contexto
+
+Auditoria pré-PR identificou que o app `accounts` ficou para trás na migração para Django Groups (que aconteceu no app `pessoas` na Fase 2 — ADR 0024). `StaffRequiredMixin` ainda gata todas as views de gestão de usuários em `is_staff`, e `UsuarioCreateForm`/`UsuarioUpdateForm` expõem `is_staff` como campo editável. Resultado: qualquer staff promove qualquer outro staff via formulário, e — pior — pode editar a própria flag (rebaixando-se por engano e perdendo acesso, ou subindo um ex-staff de volta).
+
+A solução completa (mover gestão de usuários para `PermissionRequiredMixin` + permissão customizada `accounts.gerenciar_usuarios` no grupo Administrador) é trabalho arquitetural não-trivial. Está registrada em DT-011.
+
+### Decisão
+
+**Mitigação tática agora**, sem refactor arquitetural:
+
+- `UsuarioUpdateView.form_valid` rejeita qualquer mudança em `is_staff` quando o usuário sendo editado é o próprio usuário logado.
+- `UsuarioToggleAtivoView` já bloqueia self-deactivation (existente desde Fase 1).
+- A combinação fecha o pior cenário (admin se rebaixa por engano e fica sem acesso) e mantém o resto funcionando.
+
+### Alternativas consideradas
+
+- **Resolver tudo agora (refactor para Groups):** trabalho considerável; melhor consolidar com a próxima refactor planejada (Fase 3 ou pré-produção). Documentado em DT-011.
+- **Não fazer nada e só registrar DT-011:** o auto-rebaixamento é caso de "pé na própria mão" que custa 10 linhas evitar. Vale.
+
+### Justificativa
+
+- Custo da mitigação: 10–15 linhas + teste.
+- Fecha o cenário concreto que tem maior probabilidade de acontecer no dia-a-dia (rebaixamento acidental).
+- Não atrapalha refactor futuro: quando DT-011 for endereçado, a checagem some junto com `StaffRequiredMixin`.
+
+### Consequências
+
+- Editar usuário via UI: tudo igual, exceto que o checkbox `is_staff` para o próprio usuário, se mudado, é silenciosamente revertido com mensagem de erro.
+- Privilege creep entre admins (admin A promove admin B) continua possível — fix arquitetural cobre. DT-011.
+
+---
+
 *Decisões adicionadas em ordem cronológica conforme surgem. Cada decisão registrada uma vez; alterações futuras criam nova ADR (não editam a anterior).*
