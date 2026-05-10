@@ -71,7 +71,7 @@ Ideia que parece "óbvia" e não está no doc → primeiro vira ADR ou backlog.
 - CRUDs com `PermissionRequiredMixin`, listas paginadas (25/pg), busca, filtros.
 - ViaCEP em `pessoas/viacep.py` (tolerante a falha); deduplicação em `pessoas/deduplicacao.py`.
 - Django Admin com fieldsets.
-- 4 grupos padrão (ADM, CG, CO, AS) via data migration com permissões customizadas (`pode_desativar_*`, `pode_reativar_*`, `pode_anonimizar_pessoa`).
+- 4 grupos padrão ("Administrador", "Chefe de Gabinete", "Coordenador", "Assessor") via data migration com permissões customizadas (`pode_desativar_*`, `pode_reativar_*`, `pode_anonimizar_pessoa`).
 - ADR 0025: `BigAutoField` (supersede ADR 0002).
 
 **Refactor de débito técnico (concluído na v0.3.2):**
@@ -84,7 +84,7 @@ Ideia que parece "óbvia" e não está no doc → primeiro vira ADR ou backlog.
 
 **Hardening v0.3.1 (ADRs 0026–0033):**
 - `DeduplicacaoCheckView` exige `view_pessoa` (fechou vazamento de PII) — ADR 0028.
-- `auditlog` registra `Pessoa`, `Entidade`, `Vinculo`, `Tag` (LGPD) — ADR 0029.
+- `auditlog` registra `Pessoa`, `Entidade`, `Vinculo`, `Tag`, `Telefone`, `EmailPessoa`, `RedeSocial` (LGPD) — ADR 0029, estendido em ADR 0037 para cobrir os canais plurais.
 - `criar_usuarios_iniciais` exige `DEBUG=True` (anti-backdoor em prod) — ADR 0030.
 - Toggle views padronizadas com `PermissionRequiredMixin` + `PermissionDenied` — ADR 0031.
 - Rate limiting de login via `django-axes` (5 falhas / 30min, lockout por IP+username) — ADR 0032.
@@ -130,6 +130,12 @@ Ideia que parece "óbvia" e não está no doc → primeiro vira ADR ou backlog.
 - `criar_dados_teste`: idempotente, OK.
 - Smoke test manual: criar pessoa, rollback de canal vazio (DT-008), unicidade de telefone (DT-010), Tailwind nos forms (DT-006), permissões de Assessor (DT-007). 5/5 ok.
 - 2 fixes UX descobertos na verificação manual: botão "Cancelar" no form de Pessoa/Entidade volta para o detalhe quando editando (em vez de ir para a lista); template do form passa a renderizar `non_form_errors` dos formsets (erros tipo "duplicado" agora aparecem no topo).
+
+**Polimento pré-Fase 3 (revisão de repo, v0.3.6):**
+- `aplicar_tailwind` movido de `pessoas/forms.py` para `core/forms.py` — demandas/forms.py vai herdar o mesmo helper na Fase 3.
+- Dead code removido: `class="input"` em widgets de `accounts/forms.py` (templates do app renderizam HTML manual e ignoram widgets) e fallback `or self.kwargs.get("pk")` em `_PessoaFormMixin.post` (URLs sempre passam slug).
+- `validate_cnpj_tamanho` ganha comentário explicando por que não valida DV (assimetria deliberada com CPF).
+- `core/tests.py` deixa de ser placeholder: cobre `healthz`, `inicio` (anônimo vs autenticado) e `aplicar_tailwind` (idempotência).
 
 **Próximo marco:** v0.4 — Fase 3 (Demandas e Interações). Ver [`roadmap.md`](./roadmap.md) §4.3.
 

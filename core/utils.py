@@ -68,7 +68,12 @@ def validate_cpf(value):
 
 
 def validate_cnpj_tamanho(value):
-    """Valida que CNPJ tem 14 dígitos. Vazio passa. Não checa dígito verificador."""
+    """Valida que CNPJ tem 14 dígitos. Vazio passa. Não checa dígito verificador.
+
+    Assimetria deliberada com `validate_cpf`: CPF é digitado em campo livre por
+    usuários (cidadãos), CNPJ tipicamente vem de cadastros formais ou colado de
+    documento. Risco de erro de digitação é menor — DV não compensa o atrito.
+    """
     if not value:
         return
     if len(somente_digitos(value)) != 14:

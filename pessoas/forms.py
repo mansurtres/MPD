@@ -4,39 +4,9 @@ from django import forms
 from django.db.models import Q
 from django.forms import inlineformset_factory
 
+from core.forms import aplicar_tailwind
+
 from .models import EmailPessoa, Entidade, Pessoa, RedeSocial, Tag, Telefone, Vinculo
-
-# Tailwind nos widgets — aplicado via __init__ para não duplicar attrs em cada
-# field. Evita manipulação client-side de classes (DT-006 resolvido).
-_TAILWIND_INPUT = (
-    "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm "
-    "focus:outline-none focus:ring-2 focus:ring-slate-400"
-)
-_TAILWIND_CHECKBOX = "rounded border-slate-300"
-
-
-def aplicar_tailwind(form):
-    """Injeta classes Tailwind nos widgets do form. Idempotente."""
-    inputs = (
-        forms.TextInput,
-        forms.EmailInput,
-        forms.NumberInput,
-        forms.DateInput,
-        forms.URLInput,
-        forms.Textarea,
-        forms.Select,
-        forms.PasswordInput,
-    )
-    for field in form.fields.values():
-        w = field.widget
-        if isinstance(w, forms.CheckboxInput):
-            existente = w.attrs.get("class", "")
-            if _TAILWIND_CHECKBOX not in existente:
-                w.attrs["class"] = (existente + " " + _TAILWIND_CHECKBOX).strip()
-        elif isinstance(w, inputs):
-            existente = w.attrs.get("class", "")
-            if _TAILWIND_INPUT not in existente:
-                w.attrs["class"] = (existente + " " + _TAILWIND_INPUT).strip()
 
 
 class PessoaForm(forms.ModelForm):

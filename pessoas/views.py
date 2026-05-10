@@ -114,8 +114,7 @@ class _PessoaFormMixin:
         return ctx
 
     def post(self, request, *args, **kwargs):
-        # CreateView: sem kwargs de URL; UpdateView: tem 'slug' (Pessoa) ou 'pk' (legado).
-        eh_update = bool(self.kwargs.get("slug") or self.kwargs.get("pk"))
+        eh_update = bool(self.kwargs.get("slug"))
         self.object = self.get_object() if eh_update else None
         # POST sem management forms = aba aberta antes de um deploy que mudou
         # o template, ou submit duplicado do navegador. Redireciona para GET

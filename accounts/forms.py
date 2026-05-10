@@ -5,40 +5,31 @@ from django.core.exceptions import ValidationError
 
 from .models import Usuario
 
+# Templates de accounts/ renderizam HTML manualmente (login.html, perfil.html,
+# usuarios/form.html) — não usam {{ form.<campo> }}. Por isso os widgets aqui
+# não precisam carregar classes Tailwind: o estilo vive nos templates.
+
 
 class LoginForm(AuthenticationForm):
     username = forms.EmailField(
         label="E-mail",
-        widget=forms.EmailInput(
-            attrs={"autofocus": True, "placeholder": "seu@email.com", "class": "input"}
-        ),
+        widget=forms.EmailInput(attrs={"autofocus": True, "placeholder": "seu@email.com"}),
     )
-    password = forms.CharField(
-        label="Senha",
-        widget=forms.PasswordInput(attrs={"class": "input"}),
-    )
+    password = forms.CharField(label="Senha", widget=forms.PasswordInput)
     lembrar = forms.BooleanField(required=False, label="Lembrar por 30 dias")
 
 
 class UsuarioCreateForm(forms.ModelForm):
     password1 = forms.CharField(
         label="Senha",
-        widget=forms.PasswordInput(attrs={"class": "input"}),
+        widget=forms.PasswordInput,
         help_text="Mínimo 8 caracteres.",
     )
-    password2 = forms.CharField(
-        label="Confirmar senha",
-        widget=forms.PasswordInput(attrs={"class": "input"}),
-    )
+    password2 = forms.CharField(label="Confirmar senha", widget=forms.PasswordInput)
 
     class Meta:
         model = Usuario
         fields = ["email", "nome_completo", "cargo", "is_staff"]
-        widgets = {
-            "email": forms.EmailInput(attrs={"class": "input"}),
-            "nome_completo": forms.TextInput(attrs={"class": "input"}),
-            "cargo": forms.TextInput(attrs={"class": "input"}),
-        }
 
     def clean_password2(self):
         p1 = self.cleaned_data.get("password1")
@@ -61,11 +52,6 @@ class UsuarioUpdateForm(forms.ModelForm):
     class Meta:
         model = Usuario
         fields = ["email", "nome_completo", "cargo", "is_staff", "is_active"]
-        widgets = {
-            "email": forms.EmailInput(attrs={"class": "input"}),
-            "nome_completo": forms.TextInput(attrs={"class": "input"}),
-            "cargo": forms.TextInput(attrs={"class": "input"}),
-        }
 
     def __init__(self, *args, editor=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -89,7 +75,3 @@ class PerfilForm(forms.ModelForm):
     class Meta:
         model = Usuario
         fields = ["nome_completo", "cargo"]
-        widgets = {
-            "nome_completo": forms.TextInput(attrs={"class": "input"}),
-            "cargo": forms.TextInput(attrs={"class": "input"}),
-        }
