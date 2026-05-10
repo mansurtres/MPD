@@ -61,6 +61,9 @@ MIDDLEWARE = [
     "auditlog.middleware.AuditlogMiddleware",
     # Correlation ID: amarra LogEntries gerados na mesma request (ver core/auditlog.py).
     "core.auditlog.AuditlogCorrelationMiddleware",
+    # Repassa request.user para signals automáticos de Demanda (autor das
+    # interações automáticas geradas por mudanças de estado).
+    "demandas.middleware.UsuarioAtualMiddleware",
     # AxesMiddleware deve ser o último (captura excepts dos demais).
     "axes.middleware.AxesMiddleware",
 ]
