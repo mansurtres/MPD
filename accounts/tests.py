@@ -144,6 +144,43 @@ def test_usuario_staff_nao_desativa_si_mesmo(client, usuario_staff):
     assert usuario_staff.is_active
 
 
+def test_usuario_staff_nao_rebaixa_si_mesmo(client, usuario_staff):
+    """Mitigação ADR 0040: staff não pode mudar o próprio is_staff via form."""
+    client.force_login(usuario_staff)
+    response = client.post(
+        reverse("accounts:usuarios_editar", args=[usuario_staff.pk]),
+        {
+            "email": usuario_staff.email,
+            "nome_completo": usuario_staff.nome_completo,
+            "cargo": usuario_staff.cargo or "",
+            # is_staff omitido = checkbox desmarcado = False (tentativa de rebaixar)
+            "is_active": "on",
+        },
+    )
+    # Form rejeitado (200, com erro), e usuário ainda é staff.
+    assert response.status_code == 200
+    usuario_staff.refresh_from_db()
+    assert usuario_staff.is_staff
+
+
+def test_usuario_staff_pode_alterar_outros_dados_de_si(client, usuario_staff):
+    """Self-edit de campos não-críticos continua permitido."""
+    client.force_login(usuario_staff)
+    response = client.post(
+        reverse("accounts:usuarios_editar", args=[usuario_staff.pk]),
+        {
+            "email": usuario_staff.email,
+            "nome_completo": "Nome Atualizado",
+            "cargo": "Cargo Novo",
+            "is_staff": "on",  # mantém igual (checkbox marcado)
+            "is_active": "on",
+        },
+    )
+    assert response.status_code == 302
+    usuario_staff.refresh_from_db()
+    assert usuario_staff.nome_completo == "Nome Atualizado"
+
+
 # --- Senha ---
 
 

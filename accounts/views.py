@@ -79,6 +79,11 @@ class UsuarioUpdateView(StaffRequiredMixin, UpdateView):
         ctx["titulo"] = f"Editar {self.object}"
         return ctx
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["editor"] = self.request.user
+        return kwargs
+
     def form_valid(self, form):
         messages.success(self.request, "Usuário atualizado.")
         return super().form_valid(form)

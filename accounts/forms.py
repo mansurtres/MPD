@@ -67,6 +67,23 @@ class UsuarioUpdateForm(forms.ModelForm):
             "cargo": forms.TextInput(attrs={"class": "input"}),
         }
 
+    def __init__(self, *args, editor=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._editor = editor
+
+    def clean_is_staff(self):
+        """Mitigação tática (ADR 0040): bloqueia auto-rebaixamento/auto-promoção
+        de `is_staff`. Proteção contra perda de acesso por engano. Solução
+        arquitetural completa em DT-011."""
+        novo = self.cleaned_data.get("is_staff", False)
+        if (
+            self._editor is not None
+            and self.instance.pk == self._editor.pk
+            and novo != self.instance.is_staff
+        ):
+            raise ValidationError("Você não pode alterar a sua própria permissão de administrador.")
+        return novo
+
 
 class PerfilForm(forms.ModelForm):
     class Meta:
