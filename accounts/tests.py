@@ -39,6 +39,15 @@ def test_usuario_str_usa_email_quando_sem_nome(db):
     assert str(u) == "x@test.com"
 
 
+def test_create_user_sem_senha_levanta_value_error(db):
+    # DT-012: antes, create_user(password=None) criava conta com hash inválido
+    # silenciosamente — usuário fantasma sem login. Agora exige senha.
+    with pytest.raises(ValueError):
+        Usuario.objects.create_user(email="semsenha@test.com")
+    with pytest.raises(ValueError):
+        Usuario.objects.create_user(email="semsenha@test.com", password="")
+
+
 def test_usuario_username_preenchido_automaticamente(db):
     u = Usuario.objects.create_user(email="auto@test.com", password="p")
     assert u.username == "auto@test.com"
