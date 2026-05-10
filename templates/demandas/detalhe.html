@@ -1,0 +1,287 @@
+{% extends "layouts/app.html" %}
+
+{% block app_conteudo %}
+<div class="flex items-center gap-3 mb-2">
+  <a href="{% url 'demandas:demanda_lista' %}" class="text-sm text-slate-500 hover:text-slate-800">← Demandas</a>
+  <span class="text-slate-300">/</span>
+  <span class="font-mono text-sm text-slate-600">{{ demanda.numero }}</span>
+  {% if demanda.restrito %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">restrita</span>{% endif %}
+</div>
+<h1 class="text-xl font-semibold text-slate-900 mb-1">{{ demanda.titulo }}</h1>
+<div class="flex flex-wrap items-center gap-3 mb-6 text-sm text-slate-600">
+  <span>Status: <strong>{{ demanda.get_status_display }}</strong></span>
+  <span>•</span>
+  <span>Resultado:
+    {% if demanda.resultado == 'pendente' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">Pendente</span>
+    {% elif demanda.resultado == 'atendido' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Atendido</span>
+    {% elif demanda.resultado == 'atendido_parcialmente' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800">Parcial</span>
+    {% elif demanda.resultado == 'nao_atendido' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">Não atendido</span>
+    {% elif demanda.resultado == 'inviavel' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">Inviável</span>
+    {% else %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-200 text-slate-700">{{ demanda.get_resultado_display }}</span>{% endif %}
+  </span>
+  <span>•</span>
+  <span>Coordenação: <strong>{{ demanda.get_coordenacao_responsavel_display }}</strong></span>
+  {% if demanda.responsavel %}<span>•</span><span>Resp.: <strong>{{ demanda.responsavel.nome_completo|default:demanda.responsavel.email }}</strong></span>{% endif %}
+  {% if demanda.prazo %}<span>•</span><span>Prazo: <strong>{{ demanda.prazo|date:"d/m/Y" }}</strong></span>{% endif %}
+</div>
+
+<div class="flex flex-wrap items-center gap-3 mb-6">
+  {% if pode_editar and demanda.status != 'arquivado' %}
+  <a href="{% url 'demandas:demanda_editar' demanda.pk %}" class="text-sm text-slate-700 hover:text-slate-900 underline">Editar</a>
+  {% endif %}
+  {% if pode_editar and demanda.status not in 'respondido,arquivado'|stringformat:'s'|slice:0 %}{% endif %}
+  {% if pode_editar and demanda.status != 'respondido' and demanda.status != 'arquivado' %}
+  <button type="button" data-modal="modal-responder" class="text-sm text-slate-700 hover:text-slate-900 underline modal-trigger">Marcar como respondida</button>
+  {% endif %}
+  {% if pode_arquivar and demanda.status != 'arquivado' %}
+  <button type="button" data-modal="modal-arquivar" class="text-sm text-slate-700 hover:text-slate-900 underline modal-trigger">Arquivar</button>
+  {% endif %}
+  {% if pode_reabrir and demanda.status == 'respondido' %}
+  <form method="post" action="{% url 'demandas:demanda_reabrir' demanda.pk %}" class="inline">
+    {% csrf_token %}<button type="submit" class="text-sm text-slate-700 hover:text-slate-900 underline">Reabrir</button>
+  </form>
+  {% endif %}
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <div class="lg:col-span-2 space-y-6">
+
+    <section class="bg-white border border-slate-200 rounded-xl p-6">
+      <h2 class="text-base font-semibold text-slate-900 mb-3">Descrição</h2>
+      <p class="text-sm text-slate-700 whitespace-pre-line">{{ demanda.descricao }}</p>
+    </section>
+
+    {% if pode_editar %}
+    <section class="bg-white border border-slate-200 rounded-xl p-6">
+      <h2 class="text-base font-semibold text-slate-900 mb-3">Resultado</h2>
+      <form method="post" action="{% url 'demandas:demanda_resultado' demanda.pk %}" class="space-y-3">
+        {% csrf_token %}
+        <select name="resultado" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400">
+          {% for v, label in resultado_choices %}<option value="{{ v }}" {% if demanda.resultado == v %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+        <textarea name="resultado_observacao" rows="2" placeholder="Observação sobre o desfecho (opcional)" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400">{{ demanda.resultado_observacao }}</textarea>
+        <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2 rounded-lg">Atualizar resultado</button>
+      </form>
+    </section>
+    {% endif %}
+
+    {% if demanda.retorno_data or demanda.retorno_conteudo %}
+    <section class="bg-emerald-50 border border-emerald-200 rounded-xl p-6">
+      <h2 class="text-base font-semibold text-emerald-900 mb-2">Retorno à pessoa</h2>
+      <p class="text-xs text-emerald-700 mb-1">Data: {{ demanda.retorno_data|date:"d/m/Y" }}{% if demanda.retorno_canal %} · Canal: {{ demanda.get_retorno_canal_display }}{% endif %}</p>
+      <p class="text-sm text-emerald-900 whitespace-pre-line">{{ demanda.retorno_conteudo }}</p>
+    </section>
+    {% endif %}
+
+    <section class="bg-white border border-slate-200 rounded-xl p-6">
+      <h2 class="text-base font-semibold text-slate-900 mb-4">Timeline</h2>
+      <ul class="space-y-4">
+        {% for i in interacoes %}
+        <li class="border-l-2 {% if i.automatica %}border-slate-300{% else %}border-blue-300{% endif %} pl-4">
+          <div class="flex items-center gap-2 text-xs text-slate-500 mb-1">
+            <span>{{ i.data_ocorrencia|date:"d/m/Y H:i" }}</span>
+            <span>·</span>
+            <span>{{ i.get_tipo_display }}</span>
+            <span>·</span>
+            <span>{{ i.autor.nome_completo|default:i.autor.email }}</span>
+            {% if i.automatica %}<span class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600">automática</span>{% endif %}
+            {% if i.status == 'agendada' %}<span class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium {% if i.vencida %}bg-red-100 text-red-700{% else %}bg-amber-100 text-amber-700{% endif %}">{% if i.vencida %}vencida{% else %}agendada{% endif %}</span>{% endif %}
+            {% if i.status == 'cancelada' %}<span class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-500">cancelada</span>{% endif %}
+          </div>
+          <div class="text-sm text-slate-800 whitespace-pre-line">{{ i.conteudo }}</div>
+          {% if i.status == 'agendada' and not i.automatica %}
+          <div class="mt-1 flex gap-2 text-xs">
+            <form method="post" action="{% url 'demandas:interacao_realizada' i.pk %}" class="inline">{% csrf_token %}<button class="text-slate-600 hover:text-slate-900 underline">marcar realizada</button></form>
+            <form method="post" action="{% url 'demandas:interacao_cancelar' i.pk %}" class="inline">{% csrf_token %}<button class="text-slate-600 hover:text-slate-900 underline">cancelar</button></form>
+          </div>
+          {% endif %}
+        </li>
+        {% empty %}
+        <li class="text-sm text-slate-500">Nenhuma interação registrada.</li>
+        {% endfor %}
+      </ul>
+
+      {% if perms.demandas.add_interacao and demanda.status != 'arquivado' %}
+      <details class="mt-6">
+        <summary class="cursor-pointer text-sm font-medium text-slate-700">+ Adicionar interação</summary>
+        <form method="post" action="{% url 'demandas:interacao_nova' demanda.pk %}" class="mt-3 space-y-3 border-t border-slate-200 pt-4">
+          {% csrf_token %}
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+            <div><label class="block text-xs font-medium text-slate-600 mb-1">Tipo</label>{{ form_interacao.tipo }}</div>
+            <div><label class="block text-xs font-medium text-slate-600 mb-1">Status</label>{{ form_interacao.status }}</div>
+            <div><label class="block text-xs font-medium text-slate-600 mb-1">Data/Hora</label>{{ form_interacao.data_ocorrencia }}</div>
+          </div>
+          <div><label class="block text-xs font-medium text-slate-600 mb-1">Conteúdo</label>{{ form_interacao.conteudo }}</div>
+          <details class="text-sm">
+            <summary class="cursor-pointer text-slate-600">Schedule follow-up</summary>
+            <div class="mt-2 grid grid-cols-1 md:grid-cols-3 gap-2 border-t pt-2">
+              <label class="inline-flex items-center gap-2 md:col-span-3">{{ form_followup.criar }} Criar follow-up agendado</label>
+              <div><label class="block text-xs font-medium text-slate-600 mb-1">Tipo</label>{{ form_followup.tipo }}</div>
+              <div><label class="block text-xs font-medium text-slate-600 mb-1">Data/Hora</label>{{ form_followup.data_ocorrencia }}</div>
+              <div class="md:col-span-3"><label class="block text-xs font-medium text-slate-600 mb-1">Conteúdo</label>{{ form_followup.conteudo }}</div>
+            </div>
+          </details>
+          <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2 rounded-lg">Registrar interação</button>
+        </form>
+      </details>
+      {% endif %}
+    </section>
+
+    <section class="bg-white border border-slate-200 rounded-xl p-6">
+      <h2 class="text-base font-semibold text-slate-900 mb-3">Encaminhamentos</h2>
+      <ul class="space-y-3">
+        {% for e in encaminhamentos %}
+        <li class="border border-slate-100 rounded-lg p-3">
+          <div class="text-sm font-medium text-slate-900">{{ e.get_tipo_documento_display }} → {{ e.destinatario_orgao }}</div>
+          <div class="text-xs text-slate-500">Enviado: {{ e.data_envio|date:"d/m/Y" }}{% if e.prazo_resposta %} · Prazo: {{ e.prazo_resposta|date:"d/m/Y" }}{% endif %} · Status: {{ e.get_status_display }}</div>
+          {% if e.conteudo_resposta %}<div class="text-sm text-slate-700 mt-2 whitespace-pre-line">{{ e.conteudo_resposta }}</div>{% endif %}
+          {% if e.status == 'enviado' or e.status == 'prazo_vencido' %}
+          <details class="mt-2 text-sm">
+            <summary class="cursor-pointer text-slate-600">Registrar resposta</summary>
+            <form method="post" action="{% url 'demandas:encaminhamento_responder' e.pk %}" class="mt-2 space-y-2">
+              {% csrf_token %}
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <select name="status" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+                  <option value="respondido_satisfatorio">Respondido (satisfatório)</option>
+                  <option value="respondido_insatisfatorio">Respondido (insatisfatório)</option>
+                  <option value="sem_resposta">Sem resposta (encerrar)</option>
+                </select>
+                <input type="date" name="data_resposta" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+              </div>
+              <textarea name="conteudo_resposta" rows="2" placeholder="Conteúdo da resposta" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"></textarea>
+              <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2 rounded-lg">Salvar resposta</button>
+            </form>
+          </details>
+          {% endif %}
+        </li>
+        {% empty %}
+        <li class="text-sm text-slate-500">Nenhum encaminhamento.</li>
+        {% endfor %}
+      </ul>
+      {% if perms.demandas.add_encaminhamento and demanda.status != 'arquivado' %}
+      <details class="mt-4">
+        <summary class="cursor-pointer text-sm font-medium text-slate-700">+ Novo encaminhamento</summary>
+        <form method="post" action="{% url 'demandas:encaminhamento_novo' demanda.pk %}" class="mt-3 space-y-2 border-t border-slate-200 pt-4">
+          {% csrf_token %}
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div><label class="block text-xs font-medium text-slate-600 mb-1">Órgão *</label>{{ form_encaminhamento.destinatario_orgao }}</div>
+            <div><label class="block text-xs font-medium text-slate-600 mb-1">Pessoa contato</label>{{ form_encaminhamento.destinatario_pessoa }}</div>
+            <div><label class="block text-xs font-medium text-slate-600 mb-1">Tipo de documento *</label>{{ form_encaminhamento.tipo_documento }}</div>
+            <div><label class="block text-xs font-medium text-slate-600 mb-1">Número/protocolo</label>{{ form_encaminhamento.numero_documento }}</div>
+            <div><label class="block text-xs font-medium text-slate-600 mb-1">Data envio *</label>{{ form_encaminhamento.data_envio }}</div>
+            <div><label class="block text-xs font-medium text-slate-600 mb-1">Prazo resposta</label>{{ form_encaminhamento.prazo_resposta }}</div>
+          </div>
+          <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2 rounded-lg">Adicionar encaminhamento</button>
+        </form>
+      </details>
+      {% endif %}
+    </section>
+
+  </div>
+
+  <aside class="space-y-6">
+    <section class="bg-white border border-slate-200 rounded-xl p-6">
+      <h2 class="text-base font-semibold text-slate-900 mb-3">Partes</h2>
+      {% if partes_pessoas %}<h3 class="text-xs font-medium text-slate-500 uppercase mb-1">Pessoas</h3>
+      <ul class="space-y-1 text-sm mb-3">
+        {% for dp in partes_pessoas %}<li><a href="{% url 'pessoas:pessoa_detalhe' dp.pessoa.slug_publico %}" class="text-slate-800 hover:underline">{{ dp.pessoa.nome_exibicao }}</a>{% if dp.papel %} <span class="text-slate-500">({{ dp.papel }})</span>{% endif %}</li>{% endfor %}
+      </ul>{% endif %}
+      {% if partes_entidades %}<h3 class="text-xs font-medium text-slate-500 uppercase mb-1">Entidades</h3>
+      <ul class="space-y-1 text-sm mb-3">
+        {% for de in partes_entidades %}<li><a href="{% url 'pessoas:entidade_detalhe' de.entidade.slug_publico %}" class="text-slate-800 hover:underline">{{ de.entidade.nome }}</a>{% if de.papel %} <span class="text-slate-500">({{ de.papel }})</span>{% endif %}</li>{% endfor %}
+      </ul>{% endif %}
+      {% if not partes_pessoas and not partes_entidades %}
+      {% if demanda.anonimo %}<p class="text-sm text-slate-500">Demanda anônima.</p>
+      {% else %}<p class="text-sm text-slate-500">Sem partes.</p>{% endif %}
+      {% endif %}
+    </section>
+
+    {% if demanda.tags.all %}
+    <section class="bg-white border border-slate-200 rounded-xl p-6">
+      <h2 class="text-base font-semibold text-slate-900 mb-3">Tags</h2>
+      <div class="flex flex-wrap gap-1">
+        {% for t in demanda.tags.all %}{% if t.cor %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium" style="background: color-mix(in srgb, {{ t.cor }} 18%, white); color: color-mix(in srgb, {{ t.cor }} 75%, black);">{{ t.nome }}</span>{% else %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">{{ t.nome }}</span>{% endif %}{% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
+    <section class="bg-white border border-slate-200 rounded-xl p-6">
+      <h2 class="text-base font-semibold text-slate-900 mb-3">Anexos</h2>
+      <ul class="space-y-2 mb-3">
+        {% for a in anexos %}
+        <li class="text-sm flex items-center justify-between gap-2">
+          <a href="{{ a.arquivo.url }}" class="text-slate-800 hover:underline truncate" target="_blank" rel="noopener">{{ a.nome_original }}</a>
+          <form method="post" action="{% url 'demandas:anexo_remover' a.pk %}" class="inline shrink-0" onsubmit="return confirm('Remover este anexo?');">{% csrf_token %}<button class="text-xs text-red-600 hover:text-red-700">remover</button></form>
+        </li>
+        {% empty %}
+        <li class="text-sm text-slate-500">Nenhum anexo.</li>
+        {% endfor %}
+      </ul>
+      {% if perms.demandas.add_anexo and demanda.status != 'arquivado' %}
+      <form method="post" enctype="multipart/form-data" action="{% url 'demandas:anexo_upload' 'demanda' demanda.pk %}" class="space-y-2">
+        {% csrf_token %}
+        {{ form_anexo.arquivo }}
+        {{ form_anexo.descricao }}
+        <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-3 py-1.5 rounded-lg">Enviar</button>
+      </form>
+      {% endif %}
+    </section>
+  </aside>
+</div>
+
+{# Modal: marcar respondida #}
+{% if pode_editar and demanda.status != 'respondido' and demanda.status != 'arquivado' %}
+<div id="modal-responder" class="hidden fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
+  <div class="bg-white rounded-xl max-w-2xl w-full p-6">
+    <h3 class="text-lg font-semibold text-slate-900 mb-4">Marcar como respondida</h3>
+    <p class="text-sm text-slate-600 mb-4">Status só vai para "respondido" se: retorno preenchido E resultado classificado (≠ pendente).</p>
+    <form method="post" action="{% url 'demandas:demanda_responder' demanda.pk %}" class="space-y-3">
+      {% csrf_token %}
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div><label class="block text-xs font-medium text-slate-600 mb-1">Data do retorno *</label>{{ form_responder.retorno_data }}</div>
+        <div><label class="block text-xs font-medium text-slate-600 mb-1">Canal *</label>{{ form_responder.retorno_canal }}</div>
+      </div>
+      <div><label class="block text-xs font-medium text-slate-600 mb-1">Conteúdo do retorno *</label>{{ form_responder.retorno_conteudo }}</div>
+      <div><label class="block text-xs font-medium text-slate-600 mb-1">Resultado *</label>{{ form_responder.resultado }}</div>
+      <div><label class="block text-xs font-medium text-slate-600 mb-1">Observação do resultado</label>{{ form_responder.resultado_observacao }}</div>
+      <div class="flex gap-2 justify-end pt-2">
+        <button type="button" data-close-modal class="text-sm text-slate-500 hover:text-slate-800 px-4 py-2">Cancelar</button>
+        <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2 rounded-lg">Confirmar</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+{# Modal: arquivar #}
+{% if pode_arquivar and demanda.status != 'arquivado' %}
+<div id="modal-arquivar" class="hidden fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
+  <div class="bg-white rounded-xl max-w-lg w-full p-6">
+    <h3 class="text-lg font-semibold text-slate-900 mb-2">Arquivar demanda</h3>
+    {% if demanda.status != 'respondido' %}<p class="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">Demanda ainda não respondida — justificativa obrigatória.</p>{% endif %}
+    <form method="post" action="{% url 'demandas:demanda_arquivar' demanda.pk %}" class="space-y-3">
+      {% csrf_token %}
+      <div><label class="block text-xs font-medium text-slate-600 mb-1">Observações</label>{{ form_arquivar.observacoes_arquivamento }}</div>
+      <div class="flex gap-2 justify-end pt-2">
+        <button type="button" data-close-modal class="text-sm text-slate-500 hover:text-slate-800 px-4 py-2">Cancelar</button>
+        <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2 rounded-lg">Arquivar</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<script>
+(function() {
+  document.querySelectorAll('.modal-trigger').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const modal = document.getElementById(btn.dataset.modal);
+      if (modal) modal.classList.remove('hidden');
+    });
+  });
+  document.querySelectorAll('[data-close-modal]').forEach(btn => {
+    btn.addEventListener('click', () => btn.closest('[id^="modal-"]').classList.add('hidden'));
+  });
+})();
+</script>
+{% endblock %}

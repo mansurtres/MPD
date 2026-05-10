@@ -301,28 +301,28 @@ Fase 2 concluída.
 
 #### 4.3.3. Critérios de Aceite
 
-- [ ] Criar demanda vinculando múltiplas pessoas funciona.
-- [ ] Criar demanda anônima funciona com flag.
-- [ ] Criar demanda vinculada apenas a entidade funciona.
-- [ ] Demanda recém-criada tem `resultado='pendente'` por default.
-- [ ] Mudar status para "respondido" sem retorno → bloqueado.
-- [ ] Mudar status para "respondido" com `resultado='pendente'` → bloqueado com mensagem clara.
-- [ ] Atualizar `resultado` em qualquer status da demanda funciona.
-- [ ] Mudança de `resultado` gera interação automática `mudanca_resultado` na timeline.
-- [ ] Adicionar interação `realizada` registra na timeline.
-- [ ] Adicionar interação `agendada` (com data futura) aparece em "minhas pendências".
-- [ ] Schedule Follow-up: ao encerrar interação, oferta cria follow-up agendado.
-- [ ] Cadeia de follow-up reconstrutível via `interacao_origem_id`.
-- [ ] Mudar status da demanda gera interação automática na timeline.
-- [ ] Mudar responsável gera interação automática.
-- [ ] Interação `automatica=TRUE` é imutável (não editável por ninguém).
-- [ ] Janela de 24h: editar interação própria recém-criada funciona; após 24h, bloqueada.
-- [ ] Adicionar encaminhamento aparece na timeline.
-- [ ] Anexo pendurado na Demanda aceito; anexo pendurado no Encaminhamento aceito.
-- [ ] Anexo de 30MB rejeitado; de 5MB aceito.
-- [ ] Detalhe da pessoa lista todas as demandas vinculadas.
-- [ ] Filtro "Minhas demandas" funciona.
-- [ ] Demanda restrita não aparece para CO de outra coordenação.
+- [x] Criar demanda vinculando múltiplas pessoas funciona.
+- [x] Criar demanda anônima funciona com flag.
+- [x] Criar demanda vinculada apenas a entidade funciona.
+- [x] Demanda recém-criada tem `resultado='pendente'` por default.
+- [x] Mudar status para "respondido" sem retorno → bloqueado.
+- [x] Mudar status para "respondido" com `resultado='pendente'` → bloqueado com mensagem clara.
+- [x] Atualizar `resultado` em qualquer status da demanda funciona.
+- [x] Mudança de `resultado` gera interação automática `mudanca_resultado` na timeline.
+- [x] Adicionar interação `realizada` registra na timeline.
+- [x] Adicionar interação `agendada` (com data futura) aparece em "minhas pendências".
+- [x] Schedule Follow-up: ao encerrar interação, oferta cria follow-up agendado.
+- [x] Cadeia de follow-up reconstrutível via `interacao_origem_id`.
+- [x] Mudar status da demanda gera interação automática na timeline.
+- [x] Mudar responsável gera interação automática.
+- [x] Interação `automatica=TRUE` é imutável (não editável por ninguém).
+- [x] Janela de 24h: editar interação própria recém-criada funciona; após 24h, bloqueada.
+- [x] Adicionar encaminhamento aparece na timeline.
+- [x] Anexo pendurado na Demanda aceito; anexo pendurado no Encaminhamento aceito.
+- [x] Anexo de 30MB rejeitado; de 5MB aceito.
+- [x] Detalhe da pessoa lista todas as demandas vinculadas.
+- [x] Filtro "Minhas demandas" funciona.
+- [x] Demanda restrita não aparece para CO de outra coordenação.
 
 #### 4.3.4. Validação
 

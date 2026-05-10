@@ -9,6 +9,9 @@
         <div class="flex items-center gap-6">
           <a href="/" class="font-semibold text-slate-800 tracking-tight">{{ NOME_CURTO_DO_MANDATO }}</a>
           <div class="flex items-center gap-4">
+            {% if perms.demandas.view_demanda %}
+            <a href="{% url 'demandas:demanda_lista' %}" class="text-sm text-slate-600 hover:text-slate-900">Demandas</a>
+            {% endif %}
             {% if perms.pessoas.view_pessoa %}
             <a href="{% url 'pessoas:pessoa_lista' %}" class="text-sm text-slate-600 hover:text-slate-900">Pessoas</a>
             {% endif %}

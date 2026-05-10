@@ -56,7 +56,7 @@ Ideia que parece "óbvia" e não está no doc → primeiro vira ADR ou backlog.
 
 ## 5. Estado atual
 
-**Fase corrente:** v0.3.6 — Fase 2 + hardening + polimento + limpeza pós-auditoria + fechamento de débito técnico + verificação de prontidão (manual + automática) **concluídos**. Pronto para Fase 3.
+**Fase corrente:** v0.4.0 — **Fase 3 (Demandas e Interações) concluída.**
 
 **Fundação (Fase 0/1, mantido):**
 - Django 5.2 + PostgreSQL 16 + Tailwind v4 standalone.
@@ -132,12 +132,29 @@ Ideia que parece "óbvia" e não está no doc → primeiro vira ADR ou backlog.
 - 2 fixes UX descobertos na verificação manual: botão "Cancelar" no form de Pessoa/Entidade volta para o detalhe quando editando (em vez de ir para a lista); template do form passa a renderizar `non_form_errors` dos formsets (erros tipo "duplicado" agora aparecem no topo).
 
 **Polimento pré-Fase 3 (revisão de repo, v0.3.6):**
-- `aplicar_tailwind` movido de `pessoas/forms.py` para `core/forms.py` — demandas/forms.py vai herdar o mesmo helper na Fase 3.
+- `aplicar_tailwind` movido de `pessoas/forms.py` para `core/forms.py` — demandas/forms.py herda o mesmo helper.
 - Dead code removido: `class="input"` em widgets de `accounts/forms.py` (templates do app renderizam HTML manual e ignoram widgets) e fallback `or self.kwargs.get("pk")` em `_PessoaFormMixin.post` (URLs sempre passam slug).
 - `validate_cnpj_tamanho` ganha comentário explicando por que não valida DV (assimetria deliberada com CPF).
 - `core/tests.py` deixa de ser placeholder: cobre `healthz`, `inicio` (anônimo vs autenticado) e `aplicar_tailwind` (idempotência).
 
-**Próximo marco:** v0.4 — Fase 3 (Demandas e Interações). Ver [`roadmap.md`](./roadmap.md) §4.3.
+**Fase 3 — Demandas e Interações (v0.4.0):**
+- App `demandas` com `Demanda`, `DemandaPessoa`, `DemandaEntidade`, `Interacao`, `Encaminhamento`, `Anexo` (polimórfico via GenericForeignKey), `ItemInbox` (modelo só; UX em Fase 4).
+- Demanda com 2 eixos independentes: `status` (novo→em_andamento→aguardando_*→respondido→arquivado) e `resultado` (pendente, atendido, parcial, não atendido, inviável, não se aplica). Regra de fechamento codificada em `clean()`: `respondido` exige retorno + resultado classificado. Resultado classificado não volta a pendente.
+- Geração de número thread-safe `MPD-AAAA-NNNNN` via `select_for_update`.
+- Mudanças de status/responsável/resultado disparam **Interacao automática** via `post_save`. Snapshot de estado original em `__init__`. Middleware `UsuarioAtualMiddleware` repassa `request.user` para os signals.
+- Schedule follow-up: ao salvar Interacao realizada, opcionalmente cria nova agendada com `interacao_origem` apontando para a anterior. Cadeia reconstruível.
+- Janela de edição de 24h codificada em `Interacao.pode_editar`. Automáticas são imutáveis para todos. ADM/CG editam alheia.
+- Encaminhamento com tipos de documento + status; resposta exige data + conteúdo. Reflete na timeline como interação manual.
+- Anexo polimórfico com whitelist de mime + 25 MB. Limpeza de órfãos via `pre_delete` em Demanda/Pessoa/Entidade/Encaminhamento (GenericForeignKey não cascateia).
+- Coordenação como atributo de `Usuario` (ADR 0041) — pré-requisito para regras de visibilidade restrita por coordenação.
+- Permissões customizadas: `pode_arquivar_demanda`, `pode_arquivar_sem_responder`, `pode_marcar_restrita`, `pode_atribuir_responsavel`, `pode_reabrir_demanda`, `pode_excluir_demanda`, `pode_editar_interacao_alheia`, `pode_excluir_encaminhamento`. Distribuídas aos 4 grupos via `0002_grupos_padrao_demandas`.
+- Auditlog: `Demanda`, `Encaminhamento`, `Anexo` registrados.
+- Templates: lista com 8 quick filters (minhas, da minha coordenação, vencidas, sem retorno +30d, atendidas, não atendidas, sem resultado), detalhe com timeline cronológica + partes + encaminhamentos + anexos + bloco de Resultado inline + modais de "Marcar respondida" e "Arquivar". Formulário com formsets de partes (pessoas + entidades) e validação cross-objeto via `transaction.atomic` (padrão herdado de Pessoa).
+- `criar_dados_teste` estendido com 2 demandas exemplo (responsiva + proativa).
+
+**142 testes passando** ao final da v0.4.0 (37 novos no app `demandas` cobrindo os 22 critérios de aceite). ADRs 0001–0041.
+
+**Próximo marco:** v0.5 — Fase 4 (Inbox GTD e Minhas Pendências). Ver [`roadmap.md`](./roadmap.md) §4.4.
 
 ---
 

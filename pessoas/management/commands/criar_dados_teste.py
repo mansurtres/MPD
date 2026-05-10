@@ -1,4 +1,4 @@
-"""Cria dados de teste de Pessoa/Entidade/Tag para verificação manual.
+"""Cria dados de teste de Pessoa/Entidade/Tag/Demanda para verificação manual.
 
 Idempotente: rodar duas vezes não duplica registros (busca por email/CNPJ/nome).
 Exige DEBUG=True — semear dados em produção é responsabilidade explícita do admin.
@@ -7,8 +7,10 @@ Exige DEBUG=True — semear dados em produção é responsabilidade explícita d
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
+from django.utils import timezone
 
 from accounts.models import Usuario
+from demandas.models import Demanda, DemandaPessoa, Encaminhamento
 from pessoas.models import (
     EmailPessoa,
     Entidade,
@@ -130,5 +132,39 @@ class Command(BaseCommand):
                 "criado_por": admin,
             },
         )
+
+        # --- Demandas exemplo (Fase 3) ---
+        if not Demanda.objects.filter(titulo="Pavimentação Rua das Flores").exists():
+            d1 = Demanda.objects.create(
+                titulo="Pavimentação Rua das Flores",
+                descricao="Moradores relatam buracos. Pedido de tapa-buracos urgente.",
+                origem=Demanda.ORIGEM_RESPONSIVA,
+                canal_entrada="whatsapp",
+                coordenacao_responsavel=Demanda.COORDENACAO_GABINETE,
+                criado_por=admin,
+                responsavel=admin,
+            )
+            DemandaPessoa.objects.create(demanda=d1, pessoa=maria, papel="solicitante")
+            Encaminhamento.objects.create(
+                demanda=d1,
+                destinatario_orgao="Secretaria de Obras",
+                tipo_documento="oficio",
+                data_envio=timezone.now().date(),
+                criado_por=admin,
+            )
+            self.stdout.write(self.style.SUCCESS(f"Demanda criada: {d1.numero}"))
+
+        if not Demanda.objects.filter(titulo="Moção de aplausos — coletivo cultural").exists():
+            d2 = Demanda.objects.create(
+                titulo="Moção de aplausos — coletivo cultural",
+                descricao="Reconhecimento ao trabalho do coletivo no carnaval do bairro.",
+                origem=Demanda.ORIGEM_PROATIVA,
+                canal_entrada="presencial",
+                coordenacao_responsavel=Demanda.COORDENACAO_COMUNICACAO,
+                criado_por=admin,
+                anonimo=True,
+                resultado=Demanda.RESULTADO_NAO_SE_APLICA,
+            )
+            self.stdout.write(self.style.SUCCESS(f"Demanda criada: {d2.numero}"))
 
         self.stdout.write(self.style.SUCCESS("Dados de teste sincronizados."))

@@ -1,0 +1,107 @@
+{% extends "layouts/app.html" %}
+
+{% block app_conteudo %}
+<div class="flex items-center justify-between mb-6">
+  <h1 class="text-xl font-semibold text-slate-900">Demandas</h1>
+  {% if perms.demandas.add_demanda %}
+  <a href="{% url 'demandas:demanda_nova' %}" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+    Nova demanda
+  </a>
+  {% endif %}
+</div>
+
+<div class="flex flex-wrap gap-2 mb-4 text-sm">
+  {% with f=filtro %}
+  <a href="?" class="px-3 py-1 rounded border {% if not f %}bg-slate-800 text-white border-slate-800{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-100{% endif %}">Todas</a>
+  <a href="?filtro=minhas" class="px-3 py-1 rounded border {% if f == 'minhas' %}bg-slate-800 text-white border-slate-800{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-100{% endif %}">Minhas</a>
+  <a href="?filtro=minha_coord" class="px-3 py-1 rounded border {% if f == 'minha_coord' %}bg-slate-800 text-white border-slate-800{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-100{% endif %}">Da minha coordenação</a>
+  <a href="?filtro=vencidas" class="px-3 py-1 rounded border {% if f == 'vencidas' %}bg-slate-800 text-white border-slate-800{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-100{% endif %}">Vencidas</a>
+  <a href="?filtro=sem_retorno_30d" class="px-3 py-1 rounded border {% if f == 'sem_retorno_30d' %}bg-slate-800 text-white border-slate-800{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-100{% endif %}">Sem retorno +30d</a>
+  <a href="?filtro=atendidas" class="px-3 py-1 rounded border {% if f == 'atendidas' %}bg-slate-800 text-white border-slate-800{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-100{% endif %}">Atendidas</a>
+  <a href="?filtro=nao_atendidas" class="px-3 py-1 rounded border {% if f == 'nao_atendidas' %}bg-slate-800 text-white border-slate-800{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-100{% endif %}">Não atendidas</a>
+  <a href="?filtro=sem_resultado" class="px-3 py-1 rounded border {% if f == 'sem_resultado' %}bg-slate-800 text-white border-slate-800{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-100{% endif %}">Sem resultado</a>
+  {% endwith %}
+</div>
+
+<form method="get" class="bg-white border border-slate-200 rounded-xl p-4 mb-4 flex flex-wrap items-end gap-3">
+  <div class="flex-1 min-w-[220px]">
+    <label class="block text-xs font-medium text-slate-600 mb-1">Buscar</label>
+    <input type="text" name="q" value="{{ q }}" placeholder="Número, título, descrição..." class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400">
+  </div>
+  <div class="min-w-[160px]">
+    <label class="block text-xs font-medium text-slate-600 mb-1">Status</label>
+    <select name="status" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400">
+      <option value="">Todos</option>
+      {% for v, label in status_choices %}<option value="{{ v }}" {% if status_atual == v %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="min-w-[160px]">
+    <label class="block text-xs font-medium text-slate-600 mb-1">Resultado</label>
+    <select name="resultado" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400">
+      <option value="">Todos</option>
+      {% for v, label in resultado_choices %}<option value="{{ v }}" {% if resultado_atual == v %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="min-w-[160px]">
+    <label class="block text-xs font-medium text-slate-600 mb-1">Coordenação</label>
+    <select name="coord" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400">
+      <option value="">Todas</option>
+      {% for v, label in coord_choices %}<option value="{{ v }}" {% if coord_atual == v %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+  </div>
+  <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2 rounded-lg">Filtrar</button>
+</form>
+
+<div class="bg-white border border-slate-200 rounded-xl overflow-hidden">
+  {% if demandas %}
+  <table class="w-full text-sm">
+    <thead>
+      <tr class="border-b border-slate-200 bg-slate-50">
+        <th class="text-left px-4 py-3 font-medium text-slate-600">Número</th>
+        <th class="text-left px-4 py-3 font-medium text-slate-600">Título</th>
+        <th class="text-left px-4 py-3 font-medium text-slate-600">Status</th>
+        <th class="text-left px-4 py-3 font-medium text-slate-600">Resultado</th>
+        <th class="text-left px-4 py-3 font-medium text-slate-600">Responsável</th>
+        <th class="text-left px-4 py-3 font-medium text-slate-600">Coordenação</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for d in demandas %}
+      <tr class="hover:bg-slate-50">
+        <td class="px-4 py-3 font-mono text-xs text-slate-700">
+          <a href="{% url 'demandas:demanda_detalhe' d.pk %}" class="hover:underline">{{ d.numero }}</a>
+          {% if d.restrito %}<span class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800">restrita</span>{% endif %}
+        </td>
+        <td class="px-4 py-3 font-medium text-slate-900">
+          <a href="{% url 'demandas:demanda_detalhe' d.pk %}" class="hover:underline">{{ d.titulo }}</a>
+        </td>
+        <td class="px-4 py-3 text-slate-600">{{ d.get_status_display }}</td>
+        <td class="px-4 py-3 text-slate-600">
+          {% if d.resultado == 'pendente' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">Pendente</span>
+          {% elif d.resultado == 'atendido' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Atendido</span>
+          {% elif d.resultado == 'atendido_parcialmente' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800">Parcial</span>
+          {% elif d.resultado == 'nao_atendido' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">Não atendido</span>
+          {% elif d.resultado == 'inviavel' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">Inviável</span>
+          {% else %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-200 text-slate-700">{{ d.get_resultado_display }}</span>{% endif %}
+        </td>
+        <td class="px-4 py-3 text-slate-600">{{ d.responsavel.nome_completo|default:d.responsavel.email|default:"—" }}</td>
+        <td class="px-4 py-3 text-slate-600">{{ d.get_coordenacao_responsavel_display }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="px-4 py-12 text-center text-sm text-slate-500">Nenhuma demanda encontrada.</div>
+  {% endif %}
+</div>
+
+{% if is_paginated %}
+<div class="flex items-center justify-between mt-4 text-sm text-slate-600">
+  <span>Página {{ page_obj.number }} de {{ paginator.num_pages }}</span>
+  <div class="flex gap-2">
+    {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-1 rounded border border-slate-300 hover:bg-slate-100">Anterior</a>{% endif %}
+    {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="px-3 py-1 rounded border border-slate-300 hover:bg-slate-100">Próxima</a>{% endif %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}
