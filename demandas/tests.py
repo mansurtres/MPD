@@ -572,3 +572,20 @@ def test_view_lista_acessivel_para_assessor(client, assessor):
     client.force_login(assessor)
     resp = client.get(reverse("demandas:demanda_lista"))
     assert resp.status_code == 200
+
+
+def test_view_lista_renderiza_demanda_sem_responsavel(client, admin_user):
+    # Regressão: template usava {{ d.responsavel.nome_completo|default:d.responsavel.email }}
+    # que falhava com VariableDoesNotExist quando responsavel era None.
+    Demanda.objects.create(
+        titulo="Sem responsável",
+        descricao="X",
+        canal_entrada="presencial",
+        coordenacao_responsavel="gabinete",
+        criado_por=admin_user,
+        anonimo=True,
+    )
+    client.force_login(admin_user)
+    resp = client.get(reverse("demandas:demanda_lista"))
+    assert resp.status_code == 200
+    assert b"Sem respons" in resp.content

@@ -84,7 +84,7 @@
           {% elif d.resultado == 'inviavel' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">Inviável</span>
           {% else %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-200 text-slate-700">{{ d.get_resultado_display }}</span>{% endif %}
         </td>
-        <td class="px-4 py-3 text-slate-600">{{ d.responsavel.nome_completo|default:d.responsavel.email|default:"—" }}</td>
+        <td class="px-4 py-3 text-slate-600">{% if d.responsavel %}{{ d.responsavel.nome_completo|default:d.responsavel.email }}{% else %}—{% endif %}</td>
         <td class="px-4 py-3 text-slate-600">{{ d.get_coordenacao_responsavel_display }}</td>
       </tr>
       {% endfor %}
