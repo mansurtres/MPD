@@ -18,12 +18,7 @@
             {% if perms.pessoas.view_entidade %}
             <a href="{% url 'pessoas:entidade_lista' %}" class="text-sm text-slate-600 hover:text-slate-900">Entidades</a>
             {% endif %}
-            {% if perms.pessoas.view_tag %}
-            <a href="{% url 'pessoas:tag_lista' %}" class="text-sm text-slate-600 hover:text-slate-900">Tags</a>
-            {% endif %}
-            {% if perms.demandas.view_tema %}
-            <a href="{% url 'demandas:tema_lista' %}" class="text-sm text-slate-600 hover:text-slate-900">Temas</a>
-            {% endif %}
+            <a href="{% url 'core:configuracoes' %}" class="text-sm text-slate-600 hover:text-slate-900">Configurações</a>
           </div>
         </div>
         <div class="flex items-center gap-5">

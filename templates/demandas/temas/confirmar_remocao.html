@@ -4,14 +4,25 @@
 <div class="max-w-lg">
   <h1 class="text-xl font-semibold text-slate-900 mb-4">Remover tema</h1>
   <div class="bg-white border border-slate-200 rounded-xl p-6">
+    {% if em_uso %}
+    <div class="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
+      <strong>Bloqueado.</strong> Este tema está em <strong>{{ em_uso }}</strong> demanda(s). Remoção apaga a classificação histórica delas sem trilha de auditoria.
+      Use <strong>Arquivar</strong> em vez disso — tira o tema de novos cadastros mas mantém nas demandas que o tinham.
+    </div>
+    <div class="flex gap-3">
+      <a href="{% url 'demandas:tema_editar' object.pk %}" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2 rounded-lg">Ir para "Editar / Arquivar"</a>
+      <a href="{% url 'demandas:tema_lista' %}" class="text-sm text-slate-500 hover:text-slate-800 px-4 py-2">Voltar à lista</a>
+    </div>
+    {% else %}
     <p class="text-sm text-slate-700 mb-4">
-      Confirma a remoção do tema <strong>{{ object.nome }}</strong>? Demandas que o usavam ficarão sem essa classificação.
+      Confirma a remoção do tema <strong>{{ object.nome }}</strong>? Nenhuma demanda está usando ele agora.
     </p>
     <form method="post" class="flex gap-3">
       {% csrf_token %}
       <button type="submit" class="bg-red-600 hover:bg-red-700 text-white text-sm font-medium px-4 py-2 rounded-lg">Remover</button>
       <a href="{% url 'demandas:tema_lista' %}" class="text-sm text-slate-500 hover:text-slate-800 px-4 py-2">Cancelar</a>
     </form>
+    {% endif %}
   </div>
 </div>
 {% endblock %}

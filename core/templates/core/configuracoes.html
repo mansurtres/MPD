@@ -1,0 +1,30 @@
+{% extends "layouts/app.html" %}
+
+{% block app_conteudo %}
+<h1 class="text-xl font-semibold text-slate-900 mb-6">Configurações</h1>
+
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
+  {% if perms.pessoas.view_tag %}
+  <a href="{% url 'pessoas:tag_lista' %}" class="block bg-white border border-slate-200 rounded-xl p-6 hover:border-slate-400 transition-colors">
+    <h2 class="text-base font-semibold text-slate-900 mb-1">Tags</h2>
+    <p class="text-sm text-slate-500">Etiquetas para caracterizar pessoas e entidades (Líder local, Microempresa, Gestante).</p>
+  </a>
+  {% endif %}
+
+  {% if perms.demandas.view_tema %}
+  <a href="{% url 'demandas:tema_lista' %}" class="block bg-white border border-slate-200 rounded-xl p-6 hover:border-slate-400 transition-colors">
+    <h2 class="text-base font-semibold text-slate-900 mb-1">Temas</h2>
+    <p class="text-sm text-slate-500">Categorias de demanda (Saúde, Educação, Mobilidade). Separadas das tags por <a href="#" class="underline">ADR 0042</a>.</p>
+  </a>
+  {% endif %}
+
+  {% if request.user.is_staff %}
+  <a href="{% url 'accounts:usuarios_lista' %}" class="block bg-white border border-slate-200 rounded-xl p-6 hover:border-slate-400 transition-colors">
+    <h2 class="text-base font-semibold text-slate-900 mb-1">Usuários</h2>
+    <p class="text-sm text-slate-500">Gerenciar a equipe — criar, editar, desativar contas, atribuir coordenação.</p>
+  </a>
+  {% endif %}
+
+</div>
+{% endblock %}

@@ -551,10 +551,30 @@ class TemaUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
 
 
 class TemaDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+    """Hard delete de Tema. Bloqueia se houver demanda vinculada — auditlog
+    não registra mudança em M:N quando o tema some, então perderia trilha
+    histórica silenciosamente. Caminho seguro: arquivar."""
+
     permission_required = "demandas.delete_tema"
     model = Tema
     success_url = reverse_lazy("demandas:tema_lista")
     template_name = "demandas/temas/confirmar_remocao.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["em_uso"] = self.object.demandas.count()
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        em_uso = self.object.demandas.count()
+        if em_uso:
+            messages.error(
+                request,
+                f"'{self.object.nome}' está em {em_uso} demanda(s). Arquive em vez de remover — mantém a classificação histórica.",
+            )
+            return redirect("demandas:tema_editar", pk=self.object.pk)
+        return super().post(request, *args, **kwargs)
 
 
 class TemaToggleArquivarView(LoginRequiredMixin, PermissionRequiredMixin, View):
