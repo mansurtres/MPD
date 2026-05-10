@@ -56,7 +56,7 @@ Ideia que parece "óbvia" e não está no doc → primeiro vira ADR ou backlog.
 
 ## 5. Estado atual
 
-**Fase corrente:** v0.3.2 — Fase 2 (Pessoas e Entidades) + hardening + polimento **concluídos**.
+**Fase corrente:** v0.3.3 — Fase 2 + hardening + polimento + limpeza pós-auditoria **concluídos**.
 
 **Fundação (Fase 0/1, mantido):**
 - Django 5.2 + PostgreSQL 16 + Tailwind v4 standalone.
@@ -104,7 +104,15 @@ Ideia que parece "óbvia" e não está no doc → primeiro vira ADR ou backlog.
 - fix: `PessoaForm` DateInput com `format="%Y-%m-%d"` — sem isso edição apagava `data_nascimento` silenciosamente.
 - Comando `criar_dados_teste` para popular dev (idempotente, exige `DEBUG=True`).
 
-**90 testes passando** ao final da v0.3.2. ADRs 0001–0039 em [`docs/decisoes.md`](./docs/decisoes.md).
+**Limpeza pós-auditoria v0.3.3 (ADR 0040, DT-011/012):**
+- `DeduplicacaoCheckView` JSON troca `id` por `slug_publico` — coerência com ADR 0038.
+- `CEPLookupView` agora exige `view_pessoa` — fecha endpoint que estava só com login.
+- `accounts.Usuario` registrado em auditlog (excluindo `password` e `last_login`) — fecha gap LGPD da gestão da equipe.
+- `UsuarioUpdateForm` bloqueia auto-edição de `is_staff` (ADR 0040, mitigação tática).
+- DT-011 registra refactor arquitetural pendente para gestão de usuários (Groups + permissão custom em `accounts`).
+- DT-012 registra `create_user(password=None)` cria conta inutilizável silenciosamente.
+
+**95 testes passando** ao final da v0.3.3. ADRs 0001–0040 em [`docs/decisoes.md`](./docs/decisoes.md).
 
 **Próximo marco:** v0.4 — Fase 3 (Demandas e Interações). Ver [`roadmap.md`](./roadmap.md) §4.3.
 
@@ -185,4 +193,4 @@ Para o histórico completo ver [`docs/decisoes.md`](./docs/decisoes.md). Decisõ
 
 ---
 
-*Atualizar este arquivo ao fim de cada fase. Última atualização: 2026-05-09 (v0.3.2 — Fase 2 + hardening + polimento).*
+*Atualizar este arquivo ao fim de cada fase. Última atualização: 2026-05-09 (v0.3.3 — limpeza pós-auditoria).*
