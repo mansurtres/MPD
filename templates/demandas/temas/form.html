@@ -29,6 +29,13 @@
       </div>
       <div class="flex items-center gap-2">
         {{ form.cor }}
+        <span class="relative group shrink-0">
+          <button type="button" id="cor-personalizar-btn" aria-label="Personalizar cor"
+            class="w-9 h-9 rounded-full border border-slate-200 cursor-pointer block shadow-sm hover:scale-105 transition-transform"
+            style="background: conic-gradient(from 0deg, #ef4444, #f59e0b, #eab308, #22c55e, #06b6d4, #3b82f6, #8b5cf6, #ec4899, #ef4444);"></button>
+          <span class="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-1 px-2 py-0.5 rounded text-xs font-medium bg-slate-900 text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10">Personalizar</span>
+        </span>
+        <input type="color" id="cor-picker" value="#475569" class="sr-only" tabindex="-1" aria-hidden="true">
       </div>
       <p class="mt-2 text-xs text-slate-500 flex items-center gap-2">Prévia:
         <span id="cor-preview" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">
@@ -52,14 +59,20 @@
   {% if form.instance.pk and perms.demandas.change_tema %}
   <div class="mt-4 bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-center justify-between gap-4">
     {% if form.instance.ativo %}
-    <p class="text-sm text-slate-600">Tema <strong>ativo</strong>. Arquivar tira ele de novos cadastros, mas mantém nas demandas que já o têm.</p>
+    <p class="text-sm text-slate-600">
+      Este tema está <strong>ativo</strong>. Arquivar tira ele de novos cadastros, mas mantém nas demandas que já o têm.
+    </p>
     <form method="post" action="{% url 'demandas:tema_arquivar' form.instance.pk %}" class="inline shrink-0">
-      {% csrf_token %}<button type="submit" class="text-sm font-medium text-slate-700 hover:text-slate-900 underline">Arquivar</button>
+      {% csrf_token %}
+      <button type="submit" class="text-sm font-medium text-slate-700 hover:text-slate-900 underline">Arquivar</button>
     </form>
     {% else %}
-    <p class="text-sm text-slate-600">Tema <strong>arquivado</strong>. Não aparece em novos cadastros, mas continua nas demandas que o tinham.</p>
+    <p class="text-sm text-slate-600">
+      Este tema está <strong>arquivado</strong>. Não aparece em novos cadastros, mas continua nas demandas que o tinham.
+    </p>
     <form method="post" action="{% url 'demandas:tema_arquivar' form.instance.pk %}" class="inline shrink-0">
-      {% csrf_token %}<button type="submit" class="text-sm font-medium text-slate-700 hover:text-slate-900 underline">Desarquivar</button>
+      {% csrf_token %}
+      <button type="submit" class="text-sm font-medium text-slate-700 hover:text-slate-900 underline">Desarquivar</button>
     </form>
     {% endif %}
   </div>
@@ -70,7 +83,10 @@
 (function() {
   const form = document.getElementById("tema-form");
   if (!form) return;
+
+  // --- Cor: paleta + input hex + color picker + preview ---
   const corInput = form.querySelector("input[name=cor]");
+  const corPicker = document.getElementById("cor-picker");
   const corPreview = document.getElementById("cor-preview");
   const nomeInput = form.querySelector("input[name=nome]");
   const swatches = form.querySelectorAll(".cor-swatch");
@@ -87,6 +103,7 @@
     corPreview.classList.remove("bg-slate-100", "text-slate-700");
     corPreview.style.background = `color-mix(in srgb, ${hex} 18%, white)`;
     corPreview.style.color = `color-mix(in srgb, ${hex} 75%, black)`;
+    corPicker.value = hex;
     swatches.forEach(s => {
       if (s.dataset.cor.toLowerCase() === hex.toLowerCase()) {
         s.classList.add("ring-2", "ring-offset-2", "ring-slate-400");
@@ -98,11 +115,22 @@
   function atualizarPreviewTexto() {
     if (corPreview && nomeInput) corPreview.textContent = (nomeInput.value || "tema").trim() || "tema";
   }
+
   swatches.forEach(s => {
-    s.addEventListener("click", () => { corInput.value = s.dataset.cor; aplicarCor(s.dataset.cor); });
+    s.addEventListener("click", () => {
+      corInput.value = s.dataset.cor;
+      aplicarCor(s.dataset.cor);
+    });
   });
+  document.getElementById("cor-personalizar-btn")?.addEventListener("click", () => corPicker?.click());
   corInput?.addEventListener("input", () => aplicarCor(corInput.value));
+  corPicker?.addEventListener("input", () => {
+    corInput.value = corPicker.value;
+    aplicarCor(corPicker.value);
+  });
   nomeInput?.addEventListener("input", atualizarPreviewTexto);
+
+  // Estado inicial
   atualizarPreviewTexto();
   if (corInput?.value) aplicarCor(corInput.value);
 })();

@@ -17,9 +17,9 @@ from django.db import transaction
 from django.db.models import Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect
-from django.urls import reverse
+from django.urls import reverse, reverse_lazy
 from django.utils import timezone
-from django.views.generic import CreateView, DetailView, ListView, UpdateView, View
+from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView, View
 
 from .forms import (
     AnexoForm,
@@ -515,15 +515,7 @@ class TemaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     context_object_name = "temas"
 
     def get_queryset(self):
-        qs = Tema.objects.all()
-        if self.request.GET.get("inativos") != "1":
-            qs = qs.filter(ativo=True)
-        return qs
-
-    def get_context_data(self, **kwargs):
-        ctx = super().get_context_data(**kwargs)
-        ctx["mostrar_inativos"] = self.request.GET.get("inativos") == "1"
-        return ctx
+        return Tema.objects.all().order_by("-ativo", "nome")
 
 
 class TemaCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
@@ -556,6 +548,13 @@ class TemaUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
         ctx["titulo"] = f"Editar — {self.object.nome}"
         ctx["cores_predefinidas"] = _CORES_TEMA
         return ctx
+
+
+class TemaDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+    permission_required = "demandas.delete_tema"
+    model = Tema
+    success_url = reverse_lazy("demandas:tema_lista")
+    template_name = "demandas/temas/confirmar_remocao.html"
 
 
 class TemaToggleArquivarView(LoginRequiredMixin, PermissionRequiredMixin, View):

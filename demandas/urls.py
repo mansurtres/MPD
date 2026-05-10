@@ -86,6 +86,11 @@ urlpatterns = [
         name="tema_editar",
     ),
     path(
+        "configuracoes/temas/<int:pk>/remover/",
+        views.TemaDeleteView.as_view(),
+        name="tema_remover",
+    ),
+    path(
         "configuracoes/temas/<int:pk>/arquivar/",
         views.TemaToggleArquivarView.as_view(),
         name="tema_arquivar",

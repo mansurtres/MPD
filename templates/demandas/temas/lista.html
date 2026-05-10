@@ -2,57 +2,59 @@
 
 {% block app_conteudo %}
 <div class="flex items-center justify-between mb-6">
-  <h1 class="text-xl font-semibold text-slate-900">Temas de Demanda</h1>
+  <h1 class="text-xl font-semibold text-slate-900">Temas</h1>
   {% if perms.demandas.add_tema %}
-  <a href="{% url 'demandas:tema_novo' %}" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+  <a href="{% url 'demandas:tema_novo' %}" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2 rounded-lg">
     Novo tema
   </a>
   {% endif %}
 </div>
-
-<p class="text-sm text-slate-500 mb-4">Categorizam o assunto de cada demanda (Saúde, Educação, Mobilidade...). Separados das tags de Pessoas/Entidades — ver ADR 0042.</p>
-
-<form method="get" class="bg-white border border-slate-200 rounded-xl p-4 mb-4 flex items-end gap-3">
-  <label class="flex items-center gap-2 text-sm text-slate-700">
-    <input type="checkbox" name="inativos" value="1" {% if mostrar_inativos %}checked{% endif %} class="rounded border-slate-300">
-    Mostrar arquivados
-  </label>
-  <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2 rounded-lg">Aplicar</button>
-</form>
 
 <div class="bg-white border border-slate-200 rounded-xl overflow-hidden">
   {% if temas %}
   <table class="w-full text-sm">
     <thead>
       <tr class="border-b border-slate-200 bg-slate-50">
-        <th class="text-left px-4 py-3 font-medium text-slate-600">Tema</th>
-        <th class="text-left px-4 py-3 font-medium text-slate-600">Descrição</th>
+        <th class="text-left px-4 py-3 font-medium text-slate-600">Nome</th>
         <th class="text-left px-4 py-3 font-medium text-slate-600">Status</th>
-        {% if perms.demandas.change_tema %}<th class="text-right px-4 py-3 font-medium text-slate-600">Ações</th>{% endif %}
+        <th class="px-4 py-3"></th>
       </tr>
     </thead>
     <tbody class="divide-y divide-slate-100">
       {% for t in temas %}
       <tr class="hover:bg-slate-50">
-        <td class="px-4 py-3">
-          {% if t.cor %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium" style="background: color-mix(in srgb, {{ t.cor }} 18%, white); color: color-mix(in srgb, {{ t.cor }} 75%, black);">{{ t.nome }}</span>{% else %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">{{ t.nome }}</span>{% endif %}
+        <td class="px-4 py-3 font-medium">
+          {% if t.cor %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium" style="background: color-mix(in srgb, {{ t.cor }} 18%, white); color: color-mix(in srgb, {{ t.cor }} 75%, black);">{{ t.nome }}</span>
+          {% else %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">{{ t.nome }}</span>
+          {% endif %}
         </td>
-        <td class="px-4 py-3 text-slate-600">{{ t.descricao|default:"—"|truncatechars:80 }}</td>
         <td class="px-4 py-3">
-          {% if t.ativo %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Ativo</span>
-          {% else %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-200 text-slate-600">Arquivado</span>{% endif %}
+          {% if t.ativo %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Ativo</span>
+          {% else %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-200 text-slate-600">Arquivado</span>
+          {% endif %}
         </td>
-        {% if perms.demandas.change_tema %}
         <td class="px-4 py-3 text-right">
-          <a href="{% url 'demandas:tema_editar' t.pk %}" class="text-sm text-slate-700 hover:text-slate-900 underline">Editar</a>
+          <div class="flex gap-3 justify-end items-center">
+            {% if perms.demandas.change_tema %}
+            <a href="{% url 'demandas:tema_editar' t.pk %}" class="text-slate-500 hover:text-slate-800">Editar</a>
+            {% endif %}
+            {% if perms.demandas.delete_tema %}
+            <a href="{% url 'demandas:tema_remover' t.pk %}" class="text-slate-500 hover:text-red-600">Remover</a>
+            {% endif %}
+          </div>
         </td>
-        {% endif %}
       </tr>
       {% endfor %}
     </tbody>
   </table>
   {% else %}
-  <div class="px-4 py-12 text-center text-sm text-slate-500">Nenhum tema cadastrado.</div>
+  <div class="px-4 py-12 text-center text-sm text-slate-500">
+    Nenhum tema cadastrado.
+  </div>
   {% endif %}
 </div>
 {% endblock %}
