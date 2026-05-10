@@ -339,14 +339,6 @@
   const form = document.getElementById("pessoa-form");
   if (!form) return;
 
-  // Tailwind nos widgets renderizados pelo Django
-  form.querySelectorAll("input[type=text], input[type=email], input[type=date], input[type=tel], input[type=url], select, textarea").forEach(el => {
-    el.classList.add("w-full", "rounded-lg", "border", "border-slate-300", "px-3", "py-2", "text-sm", "focus:outline-none", "focus:ring-2", "focus:ring-slate-400");
-  });
-  form.querySelectorAll("input[type=checkbox]").forEach(el => {
-    el.classList.add("rounded", "border-slate-300");
-  });
-
   // Máscara e validação de CPF: XXX.XXX.XXX-XX
   function mascaraCPF(valor) {
     const d = (valor || "").replace(/\D/g, "").slice(0, 11);

@@ -15,7 +15,7 @@
   {% if perms.pessoas.change_entidade %}
   <a href="{% url 'pessoas:entidade_editar' entidade.slug_publico %}" class="text-sm text-slate-700 hover:text-slate-900 underline">Editar</a>
   {% endif %}
-  {% if entidade.ativo and perms.pessoas.pode_desativar_entidade or not entidade.ativo and perms.pessoas.pode_reativar_entidade %}
+  {% if pode_alternar_ativo %}
   <form method="post" action="{% url 'pessoas:entidade_toggle_ativo' entidade.slug_publico %}" class="inline">
     {% csrf_token %}
     <button type="submit" class="text-sm text-slate-700 hover:text-slate-900 underline">

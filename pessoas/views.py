@@ -3,6 +3,7 @@
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.core.exceptions import PermissionDenied
+from django.db import transaction
 from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect
@@ -80,6 +81,10 @@ class PessoaDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
         ctx = super().get_context_data(**kwargs)
         ctx["vinculos"] = self.object.vinculos.select_related("entidade").all()
         ctx["form_vinculo"] = VinculoForm(pessoa=self.object)
+        u = self.request.user
+        ctx["pode_alternar_ativo"] = (
+            self.object.ativo and u.has_perm("pessoas.pode_desativar_pessoa")
+        ) or (not self.object.ativo and u.has_perm("pessoas.pode_reativar_pessoa"))
         return ctx
 
 
@@ -112,9 +117,9 @@ class _PessoaFormMixin:
         # CreateView: sem kwargs de URL; UpdateView: tem 'slug' (Pessoa) ou 'pk' (legado).
         eh_update = bool(self.kwargs.get("slug") or self.kwargs.get("pk"))
         self.object = self.get_object() if eh_update else None
-        # Se o POST chega sem os management forms (template velho em cache,
-        # resubmit do navegador), redireciona para GET limpo em vez de
-        # renderizar mensagens internas do Django.
+        # POST sem management forms = aba aberta antes de um deploy que mudou
+        # o template, ou submit duplicado do navegador. Redireciona para GET
+        # limpo em vez de exibir o erro interno do Django sobre ManagementForm.
         for chave, _, _ in self.FORMSETS:
             if f"{chave}-TOTAL_FORMS" not in request.POST:
                 messages.warning(
@@ -123,29 +128,34 @@ class _PessoaFormMixin:
                 return redirect(request.path)
         form = self.get_form()
         formsets = self._build_formsets(request.POST)
-        all_valid = form.is_valid() and all(fs.is_valid() for fs in formsets.values())
-        if all_valid:
-            tem_canal = any(
-                self._formset_tem_valor(formsets[chave], campo_obrigatorio)
-                for chave, _, campo_obrigatorio in self.FORMSETS
-            )
+        if not (form.is_valid() and all(fs.is_valid() for fs in formsets.values())):
+            return self.form_invalid_with_formsets(form, formsets)
+
+        # Salva tudo numa transação; se a regra cross-formset (pelo menos um
+        # canal preenchido) falhar, faz rollback. Regra mora em
+        # Pessoa.tem_meio_de_contato() — fonte única, ver DT-008.
+        with transaction.atomic():
+            self._salvar(form, formsets)
+            tem_canal = self.object.tem_meio_de_contato()
             if not tem_canal:
-                form.add_error(
-                    None,
-                    "Preencha pelo menos um canal de contato: telefone, e-mail ou rede social.",
-                )
-                return self.form_invalid_with_formsets(form, formsets)
-            return self.form_valid_with_formsets(form, formsets)
+                transaction.set_rollback(True)
+
+        if tem_canal:
+            return self._sucesso()
+        form.add_error(
+            None, "Preencha pelo menos um canal de contato: telefone, e-mail ou rede social."
+        )
         return self.form_invalid_with_formsets(form, formsets)
 
-    @staticmethod
-    def _formset_tem_valor(formset, campo_obrigatorio):
-        return any(
-            f.cleaned_data
-            and not f.cleaned_data.get("DELETE", False)
-            and f.cleaned_data.get(campo_obrigatorio)
-            for f in formset
-        )
+    def _salvar(self, form, formsets):
+        """Subclasses sobrescrevem para customizar (ex: criado_por)."""
+        self.object = form.save()
+        for fs in formsets.values():
+            fs.instance = self.object
+            fs.save()
+
+    def _sucesso(self):
+        return redirect("pessoas:pessoa_detalhe", slug=self.object.slug_publico)
 
     def form_invalid_with_formsets(self, form, formsets):
         return self.render_to_response(self.get_context_data(form=form, formsets_contato=formsets))
@@ -156,14 +166,13 @@ class PessoaCreateView(LoginRequiredMixin, PermissionRequiredMixin, _PessoaFormM
     model = Pessoa
     form_class = PessoaForm
 
-    def form_valid_with_formsets(self, form, formsets):
+    def _salvar(self, form, formsets):
         form.instance.criado_por = self.request.user
-        self.object = form.save()
-        for fs in formsets.values():
-            fs.instance = self.object
-            fs.save()
+        super()._salvar(form, formsets)
+
+    def _sucesso(self):
         messages.success(self.request, f"Pessoa cadastrada: {self.object.nome_exibicao}.")
-        return redirect("pessoas:pessoa_detalhe", slug=self.object.slug_publico)
+        return super()._sucesso()
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -178,13 +187,9 @@ class PessoaUpdateView(LoginRequiredMixin, PermissionRequiredMixin, _PessoaFormM
     slug_field = "slug_publico"
     slug_url_kwarg = "slug"
 
-    def form_valid_with_formsets(self, form, formsets):
-        self.object = form.save()
-        for fs in formsets.values():
-            fs.instance = self.object
-            fs.save()
+    def _sucesso(self):
         messages.success(self.request, "Pessoa atualizada.")
-        return redirect("pessoas:pessoa_detalhe", slug=self.object.slug_publico)
+        return super()._sucesso()
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -290,6 +295,10 @@ class EntidadeDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["vinculos"] = self.object.vinculos.select_related("pessoa").filter(pessoa__ativo=True)
+        u = self.request.user
+        ctx["pode_alternar_ativo"] = (
+            self.object.ativo and u.has_perm("pessoas.pode_desativar_entidade")
+        ) or (not self.object.ativo and u.has_perm("pessoas.pode_reativar_entidade"))
         return ctx
 
 

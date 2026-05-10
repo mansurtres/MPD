@@ -17,7 +17,7 @@
   {% if perms.pessoas.change_pessoa %}
   <a href="{% url 'pessoas:pessoa_editar' pessoa.slug_publico %}" class="text-sm text-slate-700 hover:text-slate-900 underline">Editar</a>
   {% endif %}
-  {% if pessoa.ativo and perms.pessoas.pode_desativar_pessoa or not pessoa.ativo and perms.pessoas.pode_reativar_pessoa %}
+  {% if pode_alternar_ativo %}
   <form method="post" action="{% url 'pessoas:pessoa_toggle_ativo' pessoa.slug_publico %}" class="inline">
     {% csrf_token %}
     <button type="submit" class="text-sm text-slate-700 hover:text-slate-900 underline">

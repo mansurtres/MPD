@@ -6,6 +6,38 @@ from django.forms import inlineformset_factory
 
 from .models import EmailPessoa, Entidade, Pessoa, RedeSocial, Tag, Telefone, Vinculo
 
+# Tailwind nos widgets — aplicado via __init__ para não duplicar attrs em cada
+# field. Evita manipulação client-side de classes (DT-006 resolvido).
+_TAILWIND_INPUT = (
+    "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm "
+    "focus:outline-none focus:ring-2 focus:ring-slate-400"
+)
+_TAILWIND_CHECKBOX = "rounded border-slate-300"
+
+
+def aplicar_tailwind(form):
+    """Injeta classes Tailwind nos widgets do form. Idempotente."""
+    inputs = (
+        forms.TextInput,
+        forms.EmailInput,
+        forms.NumberInput,
+        forms.DateInput,
+        forms.URLInput,
+        forms.Textarea,
+        forms.Select,
+        forms.PasswordInput,
+    )
+    for field in form.fields.values():
+        w = field.widget
+        if isinstance(w, forms.CheckboxInput):
+            existente = w.attrs.get("class", "")
+            if _TAILWIND_CHECKBOX not in existente:
+                w.attrs["class"] = (existente + " " + _TAILWIND_CHECKBOX).strip()
+        elif isinstance(w, inputs):
+            existente = w.attrs.get("class", "")
+            if _TAILWIND_INPUT not in existente:
+                w.attrs["class"] = (existente + " " + _TAILWIND_INPUT).strip()
+
 
 class PessoaForm(forms.ModelForm):
     class Meta:
@@ -41,6 +73,7 @@ class PessoaForm(forms.ModelForm):
         if self.instance and self.instance.pk:
             cond |= Q(pk__in=self.instance.tags.values_list("pk", flat=True))
         self.fields["tags"].queryset = Tag.objects.filter(cond).distinct()
+        aplicar_tailwind(self)
 
 
 class TelefoneForm(forms.ModelForm):
@@ -51,6 +84,10 @@ class TelefoneForm(forms.ModelForm):
             "numero": forms.TextInput(attrs={"placeholder": "(XX) XXXXX-XXXX"}),
             "rotulo": forms.TextInput(attrs={"placeholder": "Opcional"}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        aplicar_tailwind(self)
 
 
 TelefoneFormSet = inlineformset_factory(
@@ -72,6 +109,10 @@ class EmailPessoaForm(forms.ModelForm):
             "endereco": forms.EmailInput(attrs={"placeholder": "exemplo@dominio.com"}),
             "rotulo": forms.TextInput(attrs={"placeholder": 'Opcional. Ex: "trabalho"'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        aplicar_tailwind(self)
 
 
 EmailPessoaFormSet = inlineformset_factory(
@@ -95,6 +136,10 @@ class RedeSocialForm(forms.ModelForm):
                 attrs={"placeholder": 'Opcional (obrigatório se plataforma="Outro")'}
             ),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        aplicar_tailwind(self)
 
 
 RedeSocialFormSet = inlineformset_factory(
@@ -134,6 +179,10 @@ class EntidadeForm(forms.ModelForm):
             "tags": forms.CheckboxSelectMultiple,
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        aplicar_tailwind(self)
+
 
 class VinculoForm(forms.ModelForm):
     class Meta:
@@ -149,6 +198,7 @@ class VinculoForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self._pessoa = pessoa
         self.fields["entidade"].queryset = Entidade.objects.ativas()
+        aplicar_tailwind(self)
 
     def save(self, commit=True):
         instance = super().save(commit=False)
@@ -167,3 +217,7 @@ class TagForm(forms.ModelForm):
             "descricao": forms.Textarea(attrs={"rows": 2}),
             "cor": forms.TextInput(attrs={"placeholder": "#XXXXXX", "maxlength": 7}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        aplicar_tailwind(self)
