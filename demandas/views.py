@@ -17,10 +17,9 @@ from django.db import transaction
 from django.db.models import Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect
+from django.urls import reverse
 from django.utils import timezone
 from django.views.generic import CreateView, DetailView, ListView, UpdateView, View
-
-from pessoas.models import Tag
 
 from .forms import (
     AnexoForm,
@@ -33,8 +32,9 @@ from .forms import (
     FollowupForm,
     InteracaoForm,
     MarcarRespondidaForm,
+    TemaForm,
 )
-from .models import Anexo, Demanda, Encaminhamento, Interacao
+from .models import Anexo, Demanda, Encaminhamento, Interacao, Tema
 
 
 def _filtrar_visiveis(qs, user):
@@ -58,7 +58,7 @@ class DemandaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         qs = (
             Demanda.objects.all()
             .select_related("responsavel", "criado_por")
-            .prefetch_related("tags", "demanda_pessoas__pessoa", "demanda_entidades__entidade")
+            .prefetch_related("temas", "demanda_pessoas__pessoa", "demanda_entidades__entidade")
         )
         qs = _filtrar_visiveis(qs, self.request.user)
 
@@ -79,9 +79,9 @@ class DemandaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         coord = params.get("coord", "").strip()
         if coord:
             qs = qs.filter(coordenacao_responsavel=coord)
-        tag_id = params.get("tag", "").strip()
-        if tag_id:
-            qs = qs.filter(tags__id=tag_id)
+        tema_id = params.get("tema", "").strip()
+        if tema_id:
+            qs = qs.filter(temas__id=tema_id)
 
         quick = params.get("filtro", "").strip()
         if quick == "minhas":
@@ -109,7 +109,7 @@ class DemandaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         elif quick == "sem_resultado":
             qs = qs.filter(resultado=Demanda.RESULTADO_PENDENTE)
 
-        return qs.distinct() if (busca or tag_id) else qs
+        return qs.distinct() if (busca or tema_id) else qs
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -122,7 +122,7 @@ class DemandaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         ctx["status_choices"] = Demanda.STATUS_CHOICES
         ctx["resultado_choices"] = Demanda.RESULTADO_CHOICES
         ctx["coord_choices"] = Demanda.COORDENACAO_CHOICES
-        ctx["tags_disponiveis"] = Tag.objects.filter(ativo=True)
+        ctx["temas_disponiveis"] = Tema.objects.filter(ativo=True)
         return ctx
 
 
@@ -503,6 +503,91 @@ class EncaminhamentoRespostaView(LoginRequiredMixin, PermissionRequiredMixin, Vi
         )
         messages.success(request, "Resposta registrada.")
         return redirect("demandas:demanda_detalhe", pk=enc.demanda_id)
+
+
+# --- Temas (categorização de Demanda) ---
+
+
+class TemaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    permission_required = "demandas.view_tema"
+    model = Tema
+    template_name = "demandas/temas/lista.html"
+    context_object_name = "temas"
+
+    def get_queryset(self):
+        qs = Tema.objects.all()
+        if self.request.GET.get("inativos") != "1":
+            qs = qs.filter(ativo=True)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["mostrar_inativos"] = self.request.GET.get("inativos") == "1"
+        return ctx
+
+
+class TemaCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+    permission_required = "demandas.add_tema"
+    model = Tema
+    form_class = TemaForm
+    template_name = "demandas/temas/form.html"
+
+    def get_success_url(self):
+        return reverse("demandas:tema_lista")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["titulo"] = "Novo tema"
+        ctx["cores_predefinidas"] = _CORES_TEMA
+        return ctx
+
+
+class TemaUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+    permission_required = "demandas.change_tema"
+    model = Tema
+    form_class = TemaForm
+    template_name = "demandas/temas/form.html"
+
+    def get_success_url(self):
+        return reverse("demandas:tema_lista")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["titulo"] = f"Editar — {self.object.nome}"
+        ctx["cores_predefinidas"] = _CORES_TEMA
+        return ctx
+
+
+class TemaToggleArquivarView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    """Arquiva/desarquiva tema. FK para Demanda preserva temas arquivados em
+    demandas que já os tinham, mas não aparecem em novos formulários."""
+
+    permission_required = "demandas.change_tema"
+
+    def post(self, request, pk):
+        tema = get_object_or_404(Tema, pk=pk)
+        tema.ativo = not tema.ativo
+        tema.save()
+        messages.success(
+            request, f"Tema '{tema.nome}' {'reativado' if tema.ativo else 'arquivado'}."
+        )
+        return redirect("demandas:tema_lista")
+
+
+# Paleta de 11 cores fixas — mesma de pessoas.Tag para consistência visual.
+_CORES_TEMA = [
+    ("#d50000", "Tomate"),
+    ("#e67c73", "Flamingo"),
+    ("#f4511e", "Tangerina"),
+    ("#f6bf26", "Banana"),
+    ("#33b679", "Sálvia"),
+    ("#0b8043", "Manjericão"),
+    ("#039be5", "Pavão"),
+    ("#3f51b5", "Mirtilo"),
+    ("#7986cb", "Lavanda"),
+    ("#8e24aa", "Uva"),
+    ("#616161", "Grafite"),
+]
 
 
 # --- Anexos polimórficos ---

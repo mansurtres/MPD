@@ -21,6 +21,9 @@
             {% if perms.pessoas.view_tag %}
             <a href="{% url 'pessoas:tag_lista' %}" class="text-sm text-slate-600 hover:text-slate-900">Tags</a>
             {% endif %}
+            {% if perms.demandas.view_tema %}
+            <a href="{% url 'demandas:tema_lista' %}" class="text-sm text-slate-600 hover:text-slate-900">Temas</a>
+            {% endif %}
           </div>
         </div>
         <div class="flex items-center gap-5">

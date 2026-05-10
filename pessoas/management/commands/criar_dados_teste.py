@@ -10,7 +10,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from accounts.models import Usuario
-from demandas.models import Demanda, DemandaPessoa, Encaminhamento
+from demandas.models import Demanda, DemandaPessoa, Encaminhamento, Tema
 from pessoas.models import (
     EmailPessoa,
     Entidade,
@@ -133,6 +133,19 @@ class Command(BaseCommand):
             },
         )
 
+        # --- Temas (Fase 3 / ADR 0042) ---
+        temas_alvo = [
+            ("Mobilidade urbana", "#039be5"),
+            ("Saúde", "#33b679"),
+            ("Educação", "#3f51b5"),
+            ("Cultura", "#8e24aa"),
+            ("Infraestrutura", "#f4511e"),
+        ]
+        for nome, cor in temas_alvo:
+            tema, criado = Tema.objects.get_or_create(nome=nome, defaults={"cor": cor})
+            if criado:
+                self.stdout.write(self.style.SUCCESS(f"Tema criado: {nome}"))
+
         # --- Demandas exemplo (Fase 3) ---
         if not Demanda.objects.filter(titulo="Pavimentação Rua das Flores").exists():
             d1 = Demanda.objects.create(
@@ -145,6 +158,7 @@ class Command(BaseCommand):
                 responsavel=admin,
             )
             DemandaPessoa.objects.create(demanda=d1, pessoa=maria, papel="solicitante")
+            d1.temas.add(*Tema.objects.filter(nome__in=["Mobilidade urbana", "Infraestrutura"]))
             Encaminhamento.objects.create(
                 demanda=d1,
                 destinatario_orgao="Secretaria de Obras",
@@ -165,6 +179,7 @@ class Command(BaseCommand):
                 anonimo=True,
                 resultado=Demanda.RESULTADO_NAO_SE_APLICA,
             )
+            d2.temas.add(*Tema.objects.filter(nome="Cultura"))
             self.stdout.write(self.style.SUCCESS(f"Demanda criada: {d2.numero}"))
 
         self.stdout.write(self.style.SUCCESS("Dados de teste sincronizados."))

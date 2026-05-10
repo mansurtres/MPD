@@ -5,7 +5,6 @@ from django.db.models import Q
 from django.forms import inlineformset_factory
 
 from core.forms import aplicar_tailwind
-from pessoas.models import Tag
 
 from .models import (
     Anexo,
@@ -14,6 +13,7 @@ from .models import (
     DemandaPessoa,
     Encaminhamento,
     Interacao,
+    Tema,
 )
 
 
@@ -31,23 +31,37 @@ class DemandaForm(forms.ModelForm):
             "coordenacao_responsavel",
             "restrito",
             "prazo",
-            "tags",
+            "temas",
         ]
         widgets = {
             "descricao": forms.Textarea(attrs={"rows": 4}),
             "prazo": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
-            "tags": forms.CheckboxSelectMultiple,
+            "temas": forms.CheckboxSelectMultiple,
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Tags ativas + as já vinculadas (preserva arquivadas em edição).
+        # Temas ativos + os já vinculados (preserva arquivados em edição).
         cond = Q(ativo=True)
         if self.instance and self.instance.pk:
-            cond |= Q(pk__in=self.instance.tags.values_list("pk", flat=True))
-        self.fields["tags"].queryset = Tag.objects.filter(cond).distinct()
+            cond |= Q(pk__in=self.instance.temas.values_list("pk", flat=True))
+        self.fields["temas"].queryset = Tema.objects.filter(cond).distinct()
         self.fields["responsavel"].required = False
         self.fields["responsavel"].empty_label = "— Não atribuído —"
+        aplicar_tailwind(self)
+
+
+class TemaForm(forms.ModelForm):
+    class Meta:
+        model = Tema
+        fields = ["nome", "cor", "descricao"]
+        widgets = {
+            "descricao": forms.Textarea(attrs={"rows": 2}),
+            "cor": forms.TextInput(attrs={"placeholder": "#XXXXXX", "maxlength": 7}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         aplicar_tailwind(self)
 
 

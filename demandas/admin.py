@@ -8,6 +8,7 @@ from .models import (
     Encaminhamento,
     Interacao,
     ItemInbox,
+    Tema,
 )
 
 
@@ -38,7 +39,7 @@ class DemandaAdmin(admin.ModelAdmin):
     search_fields = ["numero", "titulo", "descricao"]
     readonly_fields = ["numero", "criado_em", "atualizado_em", "arquivado_em"]
     autocomplete_fields = ["responsavel", "criado_por"]
-    filter_horizontal = ["tags"]
+    filter_horizontal = ["temas"]
     inlines = [DemandaPessoaInline, DemandaEntidadeInline]
 
     fieldsets = (
@@ -54,7 +55,7 @@ class DemandaAdmin(admin.ModelAdmin):
             "Arquivamento",
             {"fields": ("observacoes_arquivamento", "arquivado_em"), "classes": ("collapse",)},
         ),
-        ("Metadados", {"fields": ("criado_por", "criado_em", "atualizado_em", "tags")}),
+        ("Metadados", {"fields": ("criado_por", "criado_em", "atualizado_em", "temas")}),
     )
 
 
@@ -89,6 +90,14 @@ class AnexoAdmin(admin.ModelAdmin):
     list_filter = ["content_type", "mime_type"]
     search_fields = ["nome_original", "descricao"]
     readonly_fields = ["enviado_em", "tamanho_bytes", "mime_type"]
+
+
+@admin.register(Tema)
+class TemaAdmin(admin.ModelAdmin):
+    list_display = ["nome", "cor", "ativo", "criado_em"]
+    list_filter = ["ativo"]
+    search_fields = ["nome", "descricao"]
+    readonly_fields = ["criado_em"]
 
 
 @admin.register(ItemInbox)

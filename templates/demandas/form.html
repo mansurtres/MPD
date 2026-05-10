@@ -130,11 +130,11 @@
       </div>
     </section>
 
-    {% if form.tags.field.queryset.exists %}
+    {% if form.temas.field.queryset.exists %}
     <section class="bg-white border border-slate-200 rounded-xl p-6">
-      <h2 class="text-base font-semibold text-slate-900 mb-3">Tags</h2>
+      <h2 class="text-base font-semibold text-slate-900 mb-3">Temas</h2>
       <div class="flex flex-wrap gap-3">
-        {% for choice in form.tags %}
+        {% for choice in form.temas %}
         <label class="inline-flex items-center gap-2 text-sm">
           {{ choice.tag }} <span>{{ choice.choice_label }}</span>
         </label>

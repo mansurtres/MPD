@@ -56,7 +56,7 @@ Ideia que parece "óbvia" e não está no doc → primeiro vira ADR ou backlog.
 
 ## 5. Estado atual
 
-**Fase corrente:** v0.4.0 — **Fase 3 (Demandas e Interações) concluída.**
+**Fase corrente:** v0.4.1 — **Fase 3 (Demandas e Interações) concluída.** ADR 0042 separa Tema de Tag.
 
 **Fundação (Fase 0/1, mantido):**
 - Django 5.2 + PostgreSQL 16 + Tailwind v4 standalone.

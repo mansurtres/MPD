@@ -7,6 +7,10 @@ Detalhes em docs/fluxos-de-estado.md §1-2.
 Geração de número thread-safe via select_for_update no método de classe
 Demanda.gerar_numero(). Mudanças de estado disparam signals que criam
 Interacoes automáticas (pessoas/signals.py para o pattern).
+
+Tema (model próprio) categoriza Demanda — diferente de pessoas.Tag que
+caracteriza Pessoa/Entidade. Decisão registrada em ADR 0042 (supersede
+parcialmente ADR 0039 para o domínio de demandas).
 """
 
 import uuid
@@ -20,6 +24,27 @@ from django.db import models, transaction
 from django.utils import timezone
 
 from core.mixins import AuditavelMixin
+
+
+class Tema(models.Model):
+    """Categoria/assunto de Demanda. Separado de pessoas.Tag por decisão de
+    produto: tema mede 'do que se trata' (Saúde, Educação, Mobilidade);
+    tag mede 'quem é' (Líder local, Microempresa). Ver ADR 0042."""
+
+    nome = models.CharField("nome", max_length=50, unique=True)
+    cor = models.CharField("cor", max_length=7, blank=True, help_text="Hex #RRGGBB")
+    descricao = models.TextField("descrição", blank=True)
+    ativo = models.BooleanField("ativo", default=True)
+    criado_em = models.DateTimeField("criado em", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "tema"
+        verbose_name_plural = "temas"
+        ordering = ["nome"]
+        indexes = [models.Index(fields=["ativo"])]
+
+    def __str__(self):
+        return self.nome
 
 
 class Demanda(AuditavelMixin, models.Model):
@@ -136,7 +161,7 @@ class Demanda(AuditavelMixin, models.Model):
     entidades = models.ManyToManyField(
         "pessoas.Entidade", through="DemandaEntidade", related_name="demandas"
     )
-    tags = models.ManyToManyField("pessoas.Tag", blank=True, related_name="demandas")
+    temas = models.ManyToManyField(Tema, blank=True, related_name="demandas")
 
     class Meta:
         verbose_name = "demanda"

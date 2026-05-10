@@ -59,4 +59,13 @@ urlpatterns = [
         views.AnexoDeleteView.as_view(),
         name="anexo_remover",
     ),
+    # Temas (administração de categorias de demanda)
+    path("temas/", views.TemaListView.as_view(), name="tema_lista"),
+    path("temas/novo/", views.TemaCreateView.as_view(), name="tema_novo"),
+    path("temas/<int:pk>/editar/", views.TemaUpdateView.as_view(), name="tema_editar"),
+    path(
+        "temas/<int:pk>/arquivar/",
+        views.TemaToggleArquivarView.as_view(),
+        name="tema_arquivar",
+    ),
 ]

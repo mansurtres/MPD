@@ -1323,4 +1323,58 @@ Adicionar campo `coordenacao` em `Usuario`:
 
 ---
 
+## ADR 0042 — Tema separado de Tag (supersede parcialmente ADR 0039)
+
+**Data:** 2026-05-10
+**Status:** Aceito
+
+### Contexto
+
+ADR 0039 estabeleceu Tag plana (sem categoria), compartilhada por Pessoa, Entidade e Demanda. A decisão era ergonômica para Fase 2 — naquela fase, só Pessoa e Entidade usavam Tag, e a separação por categoria ficava abstrata.
+
+A Fase 3 (Demanda) revelou um conflito empírico que a ADR 0039 não previu:
+
+| Tag de Pessoa/Entidade | Tag de Demanda |
+|---|---|
+| Caracteriza *quem é* (líder local, gestante, microempresa) | Caracteriza *do que se trata* (Saúde, Educação, Mobilidade) |
+| Filtro útil: "líderes locais do bairro X" | Filtro útil: "demandas de saúde no bairro X" |
+| Não faz sentido filtrar Pessoa por "Saúde" | Não faz sentido filtrar Demanda por "Líder local" |
+
+Pool único cria ruído: o seletor de tags em Demanda mistura "Líder local" e "Microempresa" com "Saúde"; o seletor em Pessoa mistura "Mobilidade urbana" com "Gestante". Em escala (50+ tags em 6 meses de uso real), vira dívida cognitiva.
+
+### Decisão
+
+Criar modelo `Tema` em `demandas/`, distinto de `pessoas.Tag`:
+
+- `Tema` tem nome, cor, descricao, ativo (estrutura simples, similar a Tag).
+- `Demanda.temas` substitui `Demanda.tags` (M:N para `demandas.Tema`).
+- `Pessoa.tags` e `Entidade.tags` continuam apontando para `pessoas.Tag` (sem alteração).
+- CRUD de Tema em `/demandas/temas/`, com paleta de cores fixas e fluxo de arquivar (mesma UX de Tag).
+- Permissões: ADM/CG/CO criam/editam tema; AS apenas atribui em demanda.
+- Auditlog registra Tema.
+
+### Alternativas consideradas e descartadas
+
+- **Reintroduzir `Tag.categoria` com 2 valores (`caracteristica` | `tema`):** restritivo demais. Pessoa pode legitimamente ter tag temática (Maria atua na pauta de Saúde), e categoria binária impede.
+- **3 booleans em Tag (`aplica_a_pessoa`, `aplica_a_entidade`, `aplica_a_demanda`):** flexível, mas Pedro avaliou como "difícil de gerir" — exige decisão fine-grained na criação de cada tag.
+- **Manter pool único e disciplinar pela equipe:** sem barreira técnica, vira dívida em escala.
+
+### Justificativa
+
+- **Domínios separados.** Caracterização de pessoa/entidade ≠ categorização de demanda. Modelos separados refletem a separação conceitual real.
+- **Gestão simplificada.** Quem administra temas (CG/CO) não polui o vocabulário de tags de pessoa, e vice-versa.
+- **Painel de análise (Fase 5) fica limpo.** "Demandas por tema" usa `Demanda.temas`; "Pessoas por característica" usa `Pessoa.tags`. Sem necessidade de filtro por categoria nas queries.
+- **Refactor barato.** Tema reaproveita 100% da UX de Tag (paleta de cores, archive flow, badges visuais com color-mix). É um modelo novo com lista/form/admin clonados.
+
+### Consequências
+
+- Migration `demandas/0003_separar_tema_de_tag` remove `Demanda.tags`, cria `Tema`, adiciona `Demanda.temas`. Como Fase 3 acabou de subir e ainda não tem dados em produção, não há perda real (seed é refeito).
+- Permissões `view_tema/add_tema/change_tema/delete_tema` adicionadas aos grupos via `0004_grupos_padrao_tema`.
+- `criar_dados_teste` cria 5 temas exemplo (Mobilidade urbana, Saúde, Educação, Cultura, Infraestrutura) e atribui nas demandas seedadas.
+- Templates de Demanda (lista, detalhe, form) referenciam temas em vez de tags.
+- Link "Temas" no menu superior, ao lado de "Tags" — torna a separação visível para o usuário.
+- ADR 0039 continua valendo no domínio de Pessoa/Entidade (Tag plana, sem categoria).
+
+---
+
 *Decisões adicionadas em ordem cronológica conforme surgem. Cada decisão registrada uma vez; alterações futuras criam nova ADR (não editam a anterior).*

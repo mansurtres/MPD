@@ -9,8 +9,9 @@ class DemandasConfig(AppConfig):
         from auditlog.registry import auditlog
 
         from . import signals  # noqa: F401  (registra receivers via @receiver)
-        from .models import Anexo, Demanda, Encaminhamento
+        from .models import Anexo, Demanda, Encaminhamento, Tema
 
         auditlog.register(Demanda)
         auditlog.register(Encaminhamento)
         auditlog.register(Anexo)
+        auditlog.register(Tema)
