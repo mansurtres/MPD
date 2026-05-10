@@ -654,6 +654,18 @@ def test_cep_endpoint_invalido_404(client, usuario_assessor):
     assert response.status_code == 404
 
 
+def test_cep_endpoint_sem_permissao_403(client, db):
+    """Usuário sem view_pessoa não pode consultar CEP via app."""
+    sem_grupo = Usuario.objects.create_user(
+        email="semgrupo_cep@test.com",
+        password="senha12345",  # pragma: allowlist secret
+        nome_completo="Sem Grupo",
+    )
+    client.force_login(sem_grupo)
+    response = client.get(reverse("pessoas:api_cep", args=["29010100"]))
+    assert response.status_code == 403
+
+
 # --- Grupos padrão da data migration ---
 
 

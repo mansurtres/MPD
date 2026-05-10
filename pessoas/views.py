@@ -450,8 +450,14 @@ class TagToggleArquivarView(LoginRequiredMixin, PermissionRequiredMixin, View):
 # --- Endpoints auxiliares ---
 
 
-class CEPLookupView(LoginRequiredMixin, View):
-    """GET /pessoas/cep/<cep>/ — retorna dados do ViaCEP em JSON."""
+class CEPLookupView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    """GET /pessoas/cep/<cep>/ — retorna dados do ViaCEP em JSON.
+
+    Gated em `view_pessoa` para coerência com o resto do app: quem está
+    consultando CEP está dentro do fluxo de cadastro/edição de pessoa.
+    """
+
+    permission_required = "pessoas.view_pessoa"
 
     def get(self, request, cep):
         dados = consultar_cep(cep)
