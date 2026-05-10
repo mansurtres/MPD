@@ -134,14 +134,14 @@ Python 3.12+, PostgreSQL 16+, Git, conta GitHub para repositório privado.
 
 #### 4.0.3. Critérios de Aceite
 
-- [ ] `python manage.py runserver` inicia sem erros.
-- [ ] `http://localhost:8000/` retorna página estilizada.
-- [ ] `python manage.py migrate` sem erros.
-- [ ] `python manage.py createsuperuser` funciona.
-- [ ] `pytest` passa.
-- [ ] `ruff check .` e `black --check .` passam.
-- [ ] README permite clonar e rodar do zero.
-- [ ] Tag `v0.1` no GitHub.
+- [x] `python manage.py runserver` inicia sem erros.
+- [x] `http://localhost:8000/` retorna página estilizada.
+- [x] `python manage.py migrate` sem erros.
+- [x] `python manage.py createsuperuser` funciona.
+- [x] `pytest` passa.
+- [x] `ruff check .` e `black --check .` passam.
+- [x] README permite clonar e rodar do zero.
+- [x] Tag `v0.1` no GitHub.
 
 #### 4.0.4. Validação
 
@@ -184,13 +184,13 @@ Fase 0 concluída.
 
 #### 4.1.3. Critérios de Aceite
 
-- [ ] URL não pública redireciona para login.
-- [ ] Usuário consegue logar e fazer logout.
-- [ ] Usuário `is_staff` consegue criar/editar/desativar outros usuários.
-- [ ] Usuário sem `is_staff` recebe 403 ao tentar gerenciar usuários.
-- [ ] Senhas fracas rejeitadas.
-- [ ] `criar_usuarios_iniciais` funciona.
-- [ ] Logout invalida sessão.
+- [x] URL não pública redireciona para login.
+- [x] Usuário consegue logar e fazer logout.
+- [x] Usuário `is_staff` consegue criar/editar/desativar outros usuários.
+- [x] Usuário sem `is_staff` recebe 403 ao tentar gerenciar usuários.
+- [x] Senhas fracas rejeitadas.
+- [x] `criar_usuarios_iniciais` funciona.
+- [x] Logout invalida sessão.
 
 #### 4.1.4. Validação
 
@@ -238,20 +238,20 @@ Fase 1 concluída.
 
 #### 4.2.3. Critérios de Aceite
 
-- [ ] Renomear apps concluído; migrate sem erros.
-- [ ] Cadastrar pessoa completa, sem demanda, funciona.
-- [ ] Cadastro sem nenhum canal (telefone, email, rede social) rejeitado com mensagem clara.
-- [ ] Pessoa aceita múltiplos telefones; celular com 9 e 11 dígitos válido; fixo com 10 dígitos válido.
-- [ ] Pessoa aceita múltiplos e-mails e múltiplas redes sociais.
-- [ ] Rede social com plataforma="Outro" exige rótulo.
+- [x] Renomear apps concluído; migrate sem erros.
+- [x] Cadastrar pessoa completa, sem demanda, funciona.
+- [x] Cadastro sem nenhum canal (telefone, email, rede social) rejeitado com mensagem clara.
+- [x] Pessoa aceita múltiplos telefones; celular com 9 e 11 dígitos válido; fixo com 10 dígitos válido.
+- [x] Pessoa aceita múltiplos e-mails e múltiplas redes sociais.
+- [x] Rede social com plataforma="Outro" exige rótulo.
 - [ ] CEP válido auto-preenche endereço.
-- [ ] CPF duplicado bloqueado.
+- [x] CPF duplicado bloqueado.
 - [ ] Email/telefone duplicado mostra alerta amarelo, mas permite criar.
-- [ ] Lista pagina, busca, filtra.
-- [ ] Cadastrar entidade (inclusive tipo `familia` ou `grupo_informal`) e vincular pessoa funciona.
-- [ ] Tag criada e atribuída.
-- [ ] Permissões respeitadas por perfil.
-- [ ] Soft delete remove de listagem mas preserva no banco.
+- [x] Lista pagina, busca, filtra.
+- [x] Cadastrar entidade (inclusive tipo `familia` ou `grupo_informal`) e vincular pessoa funciona.
+- [x] Tag criada e atribuída.
+- [x] Permissões respeitadas por perfil.
+- [x] Soft delete remove de listagem mas preserva no banco.
 
 #### 4.2.4. Validação
 

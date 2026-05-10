@@ -56,7 +56,7 @@ Ideia que parece "óbvia" e não está no doc → primeiro vira ADR ou backlog.
 
 ## 5. Estado atual
 
-**Fase corrente:** v0.3.5 — Fase 2 + hardening + polimento + limpeza pós-auditoria + fechamento de débito técnico + verificação de prontidão **concluídos**. Pronto para Fase 3.
+**Fase corrente:** v0.3.6 — Fase 2 + hardening + polimento + limpeza pós-auditoria + fechamento de débito técnico + verificação de prontidão (manual + automática) **concluídos**. Pronto para Fase 3.
 
 **Fundação (Fase 0/1, mantido):**
 - Django 5.2 + PostgreSQL 16 + Tailwind v4 standalone.
@@ -122,12 +122,14 @@ Ideia que parece "óbvia" e não está no doc → primeiro vira ADR ou backlog.
 
 **100 testes passando** ao final da v0.3.4. ADRs 0001–0040 em [`docs/decisoes.md`](./docs/decisoes.md).
 
-**Verificação de prontidão v0.3.5:**
+**Verificação de prontidão v0.3.5–v0.3.6:**
 - `pytest`: 100/100 verde.
 - `ruff` + `black`: limpo.
 - `manage.py check`: sem issues.
 - `manage.py makemigrations --check`: sincronizado (após gerar `accounts/0003_alter_usuario_managers` — registro do `UsuarioManager` no migration state, sem schema change).
 - `criar_dados_teste`: idempotente, OK.
+- Smoke test manual: criar pessoa, rollback de canal vazio (DT-008), unicidade de telefone (DT-010), Tailwind nos forms (DT-006), permissões de Assessor (DT-007). 5/5 ok.
+- 2 fixes UX descobertos na verificação manual: botão "Cancelar" no form de Pessoa/Entidade volta para o detalhe quando editando (em vez de ir para a lista); template do form passa a renderizar `non_form_errors` dos formsets (erros tipo "duplicado" agora aparecem no topo).
 
 **Próximo marco:** v0.4 — Fase 3 (Demandas e Interações). Ver [`roadmap.md`](./roadmap.md) §4.3.
 
