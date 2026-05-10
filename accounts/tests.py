@@ -227,6 +227,43 @@ def test_criar_usuarios_iniciais_aborta_em_producao(db, settings):
 # --- Rate limiting (django-axes) ---
 
 
+# --- Auditlog (LGPD) ---
+
+
+def test_auditlog_registra_criacao_de_usuario(db):
+    """Confirma que auditlog cria LogEntry ao criar Usuario.
+
+    Trilha LGPD para 'quem criou/desativou usuário'. Ref: DT-011.
+    """
+    from auditlog.models import LogEntry
+
+    user = Usuario.objects.create_user(
+        email="audit@test.com",
+        password="senha12345",  # pragma: allowlist secret
+        nome_completo="Audit",
+    )
+    entries = LogEntry.objects.get_for_object(user)
+    assert entries.filter(action=LogEntry.Action.CREATE).exists()
+
+
+def test_auditlog_nao_registra_password_em_changes(db):
+    """Password está no exclude_fields — alteração não pode vazar nem o hash."""
+    from auditlog.models import LogEntry
+
+    user = Usuario.objects.create_user(
+        email="audit_pwd@test.com",
+        password="senha12345",  # pragma: allowlist secret
+        nome_completo="Audit",
+    )
+    user.set_password("outraSenha123")  # pragma: allowlist secret
+    user.save()
+
+    entries = LogEntry.objects.get_for_object(user)
+    for entry in entries:
+        changes = entry.changes_dict or {}
+        assert "password" not in changes
+
+
 def test_axes_bloqueia_apos_5_falhas(client, usuario_comum, settings):
     """Axes bloqueia (IP+username) após 5 tentativas falhas — 6ª retorna 429."""
     settings.AXES_ENABLED = True
