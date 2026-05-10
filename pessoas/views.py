@@ -324,6 +324,22 @@ class EntidadeDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView
         ctx["pode_alternar_ativo"] = (
             self.object.ativo and u.has_perm("pessoas.pode_desativar_entidade")
         ) or (not self.object.ativo and u.has_perm("pessoas.pode_reativar_entidade"))
+        # Demandas em que esta entidade é parte (mesma regra de visibilidade
+        # restrita usada em PessoaDetailView).
+        if u.has_perm("demandas.view_demanda"):
+            demandas_qs = (
+                self.object.demandas.select_related("responsavel")
+                .prefetch_related("temas")
+                .order_by("-criado_em")
+            )
+            if (
+                not u.is_superuser
+                and not u.groups.filter(name__in=["Administrador", "Chefe de Gabinete"]).exists()
+            ):
+                demandas_qs = demandas_qs.filter(Q(restrito=False) | Q(responsavel=u))
+            ctx["demandas"] = demandas_qs
+        else:
+            ctx["demandas"] = []
         return ctx
 
 
