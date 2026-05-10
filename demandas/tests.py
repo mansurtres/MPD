@@ -600,3 +600,30 @@ def test_view_lista_renderiza_demanda_sem_responsavel(client, admin_user):
     resp = client.get(reverse("demandas:demanda_lista"))
     assert resp.status_code == 200
     assert b"Sem respons" in resp.content
+
+
+def test_pessoa_detalhe_lista_demandas_vinculadas(client, demanda, pessoa, admin_user):
+    # Critério §22 do roadmap §4.3.3: detalhe da pessoa lista demandas vinculadas.
+    client.force_login(admin_user)
+    resp = client.get(reverse("pessoas:pessoa_detalhe", args=[pessoa.slug_publico]))
+    assert resp.status_code == 200
+    assert demanda.numero.encode() in resp.content
+
+
+def test_pessoa_detalhe_oculta_demanda_restrita_de_outra_coord(
+    client, admin_user, pessoa, coord_juridico
+):
+    d = Demanda.objects.create(
+        titulo="Restrita comunicacao",
+        descricao="X",
+        canal_entrada="email",
+        coordenacao_responsavel="comunicacao",
+        restrito=True,
+        criado_por=admin_user,
+        responsavel=admin_user,
+    )
+    DemandaPessoa.objects.create(demanda=d, pessoa=pessoa)
+    client.force_login(coord_juridico)
+    resp = client.get(reverse("pessoas:pessoa_detalhe", args=[pessoa.slug_publico]))
+    assert resp.status_code == 200
+    assert d.numero.encode() not in resp.content

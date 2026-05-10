@@ -97,6 +97,39 @@
       </p>
     </section>
 
+    {% if perms.demandas.view_demanda %}
+    <section class="bg-white border border-slate-200 rounded-xl p-6">
+      <h2 class="text-base font-semibold text-slate-900 mb-2">Demandas</h2>
+      {% if demandas %}
+      <ul class="divide-y divide-slate-100">
+        {% for d in demandas %}
+        <li class="py-2 text-sm">
+          <div class="flex items-center justify-between gap-3">
+            <a href="{% url 'demandas:demanda_detalhe' d.pk %}" class="font-medium text-slate-900 hover:underline">{{ d.numero }} — {{ d.titulo }}</a>
+            <div class="flex items-center gap-2 shrink-0">
+              <span class="text-xs text-slate-500">{{ d.get_status_display }}</span>
+              {% if d.resultado == 'pendente' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">Pendente</span>
+              {% elif d.resultado == 'atendido' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Atendido</span>
+              {% elif d.resultado == 'atendido_parcialmente' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800">Parcial</span>
+              {% elif d.resultado == 'nao_atendido' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">Não atendido</span>
+              {% elif d.resultado == 'inviavel' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">Inviável</span>
+              {% else %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-200 text-slate-700">{{ d.get_resultado_display }}</span>{% endif %}
+            </div>
+          </div>
+          {% if d.temas.all %}
+          <div class="mt-1 flex flex-wrap gap-1">
+            {% for t in d.temas.all %}{% if t.cor %}<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium" style="background: color-mix(in srgb, {{ t.cor }} 18%, white); color: color-mix(in srgb, {{ t.cor }} 75%, black);">{{ t.nome }}</span>{% else %}<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600">{{ t.nome }}</span>{% endif %}{% endfor %}
+          </div>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="text-sm text-slate-500">Nenhuma demanda vinculada.</p>
+      {% endif %}
+    </section>
+    {% endif %}
+
     <section class="bg-white border border-slate-200 rounded-xl p-6">
       <h2 class="text-base font-semibold text-slate-900 mb-2">Vínculos com entidades</h2>
       {% if vinculos %}
