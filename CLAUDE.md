@@ -56,7 +56,7 @@ Ideia que parece "óbvia" e não está no doc → primeiro vira ADR ou backlog.
 
 ## 5. Estado atual
 
-**Fase corrente:** v0.3.4 — Fase 2 + hardening + polimento + limpeza pós-auditoria + fechamento de débito técnico **concluídos**.
+**Fase corrente:** v0.3.5 — Fase 2 + hardening + polimento + limpeza pós-auditoria + fechamento de débito técnico + verificação de prontidão **concluídos**. Pronto para Fase 3.
 
 **Fundação (Fase 0/1, mantido):**
 - Django 5.2 + PostgreSQL 16 + Tailwind v4 standalone.
@@ -121,6 +121,13 @@ Ideia que parece "óbvia" e não está no doc → primeiro vira ADR ou backlog.
 - DT-009 (toggle duplicado, YAGNI) e DT-011 (gestão usuários arquitetural, antes de produção) ficam adiados.
 
 **100 testes passando** ao final da v0.3.4. ADRs 0001–0040 em [`docs/decisoes.md`](./docs/decisoes.md).
+
+**Verificação de prontidão v0.3.5:**
+- `pytest`: 100/100 verde.
+- `ruff` + `black`: limpo.
+- `manage.py check`: sem issues.
+- `manage.py makemigrations --check`: sincronizado (após gerar `accounts/0003_alter_usuario_managers` — registro do `UsuarioManager` no migration state, sem schema change).
+- `criar_dados_teste`: idempotente, OK.
 
 **Próximo marco:** v0.4 — Fase 3 (Demandas e Interações). Ver [`roadmap.md`](./roadmap.md) §4.3.
 
