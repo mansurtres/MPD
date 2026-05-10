@@ -16,7 +16,10 @@ Schema do banco de dados do MPD. Foco em mínimo viável: apenas tabelas, campos
 └─────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────┐
-│   pessoas ──┬── tags (M:N)                                  │
+│   pessoas ──┬── telefones (1:N — celular/fixo, eh_whatsapp) │
+│             ├── emails (1:N)                                │
+│             ├── redes_sociais (1:N — instagram/fb/li/x/...) │
+│             ├── tags (M:N)                                  │
 │             └── vinculos ──── entidades ── tags (M:N)       │
 └─────────────────────────────────────────────────────────────┘
 
@@ -26,7 +29,7 @@ Schema do banco de dados do MPD. Foco em mínimo viável: apenas tabelas, campos
 │              ├── interacoes (status: realizada/agendada/...)│
 │              ├── encaminhamentos                            │
 │              ├── anexos (polimórficos)                      │
-│              └── tags (M:N) ── (categoria='tema' = tema)    │
+│              └── tags (M:N — etiquetas livres)             │
 │                                                             │
 │   itens_inbox ──── (FK opcional para demandas)              │
 └─────────────────────────────────────────────────────────────┘
@@ -38,7 +41,7 @@ Schema do banco de dados do MPD. Foco em mínimo viável: apenas tabelas, campos
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**Total:** 13 tabelas próprias + tabelas associativas M:N criadas pelo Django automaticamente + tabela de auditoria gerenciada pela biblioteca.
+**Total:** 16 tabelas próprias (incluindo `pessoas_telefone`, `pessoas_email`, `pessoas_redesocial`) + tabelas associativas M:N criadas pelo Django automaticamente + tabela de auditoria gerenciada pela biblioteca.
 
 ---
 
@@ -48,9 +51,9 @@ Schema do banco de dados do MPD. Foco em mínimo viável: apenas tabelas, campos
 
 **Endereço inline em `pessoas` e `entidades`.** Um endereço por pessoa/entidade no MVP. Refatorar quando precisar de múltiplos.
 
-**Tabela `tags` única, compartilhada** entre pessoas, entidades e demandas. Categoria distingue uso.
+**Tabela `tags` única, compartilhada** entre pessoas, entidades e demandas. Etiqueta livre, sem hierarquia (ver ADR 0039).
 
-**Tema da demanda é uma tag de categoria `tema`.** Sem campo dedicado.
+**Tema da demanda é uma tag** (sem categoria fixa). Critério de "qual tag pode ser tema" será definido na ADR de implementação da Demanda (Fase 3).
 
 **Auditoria via `django-auditlog`.** Não modelamos tabela própria.
 
@@ -109,10 +112,6 @@ Núcleo do sistema. Endereço inline.
 | 🔒 `cpf` | VARCHAR(14) | UNIQUE NULLS DISTINCT | Validado por algoritmo |
 | `data_nascimento` | DATE | NULL | |
 | `genero` | VARCHAR(30) | NULL | CHECK IN ('mulher','homem','nao_binario','outro','prefere_nao_dizer') |
-| `email` | VARCHAR(254) | NULL | |
-| `telefone` | VARCHAR(20) | NULL | Normalizado |
-| `whatsapp` | VARCHAR(20) | NULL | Pode ser igual ao telefone, mas separado por ser canal frequente |
-| `instagram` | VARCHAR(50) | NULL | Handle público sem @ |
 | `cep` | VARCHAR(9) | NULL | |
 | `logradouro` | VARCHAR(200) | NULL | |
 | `numero` | VARCHAR(20) | NULL | |
@@ -120,10 +119,6 @@ Núcleo do sistema. Endereço inline.
 | `bairro` * | VARCHAR(100) | NOT NULL | |
 | `cidade` * | VARCHAR(100) | NOT NULL | |
 | `estado` * | VARCHAR(2) | NOT NULL, DEFAULT 'ES' | |
-| `nao_telefonar` * | BOOLEAN | NOT NULL, DEFAULT FALSE | LGPD: opt-out de ligações |
-| `nao_enviar_email` * | BOOLEAN | NOT NULL, DEFAULT FALSE | LGPD: opt-out de email em massa |
-| `nao_enviar_sms` * | BOOLEAN | NOT NULL, DEFAULT FALSE | LGPD: opt-out de SMS/WhatsApp em massa |
-| `nao_compartilhar_dados` * | BOOLEAN | NOT NULL, DEFAULT FALSE | LGPD: opt-out de compartilhamento com terceiros |
 | `observacoes` | TEXT | NULL | |
 | `origem_cadastro` * | VARCHAR(20) | NOT NULL | CHECK IN ('manual','inbox','importacao') |
 | `ativo` * | BOOLEAN | NOT NULL, DEFAULT TRUE | Soft delete |
@@ -132,19 +127,78 @@ Núcleo do sistema. Endereço inline.
 | `criado_em` * | TIMESTAMP | NOT NULL, DEFAULT NOW() | |
 | `atualizado_em` * | TIMESTAMP | NOT NULL, DEFAULT NOW() | |
 
-**Constraint de aplicação** (validada no `clean()`):
-```
-CHECK (email IS NOT NULL OR telefone IS NOT NULL OR whatsapp IS NOT NULL)
-```
-Pelo menos um meio de contato deve estar preenchido.
+**Constraint de aplicação** (validada na view, não no model — depende dos formsets):
+
+Pelo menos um canal de contato cadastrado: ao menos um `Telefone` em `pessoas_telefone` (§4.1), ou um `EmailPessoa` em `pessoas_email` (§4.2), ou um `RedeSocial` em `pessoas_redesocial` (§4.3). Ver ADR 0037.
 
 **Índices:**
-- `email`, `telefone`, `whatsapp`, `cpf` (busca e deduplicação)
+- `email`, `cpf` (busca e deduplicação)
 - `(nome, sobrenome)` composto
 - `bairro`, `(ativo)`
 - GIN em `to_tsvector('portuguese', nome || ' ' || sobrenome || ' ' || COALESCE(nome_social, ''))` para busca full-text
 
-**Anonimização (LGPD):** `nome` vira `'[Pessoa Removida]'`, `sobrenome` vira `''`, `email`, `telefone`, `whatsapp`, `instagram`, `cpf`, `data_nascimento`, `observacoes` viram NULL. `anonimizado=TRUE`. Demandas vinculadas permanecem com FK preservada.
+**Anonimização (LGPD):** `nome` vira `'[Pessoa Removida]'`, `sobrenome` vira `''`, `cpf`, `data_nascimento`, `observacoes` viram NULL. Telefones, e-mails e redes sociais vinculados são deletados em cascade. `anonimizado=TRUE`. Demandas vinculadas permanecem com FK preservada.
+
+---
+
+## 4.1. Tabela: `pessoas_telefone`
+
+Números de telefone de uma pessoa. Tipo distingue celular de fixo. Ver ADR 0035.
+
+| Campo | Tipo | Constraints | Notas |
+|---|---|---|---|
+| 🔑 `id` | BIGSERIAL | PRIMARY KEY | |
+| 🔗 `pessoa_id` * | BIGINT | FK → pessoas(id), ON DELETE CASCADE | |
+| `numero` * | VARCHAR(20) | NOT NULL | Armazenado só com dígitos. Celular: 11; fixo: 10 |
+| `tipo` * | VARCHAR(10) | NOT NULL | CHECK IN ('celular','fixo') |
+| `eh_whatsapp` * | BOOLEAN | NOT NULL, DEFAULT FALSE | Só pode ser TRUE quando `tipo='celular'` |
+| `rotulo` | VARCHAR(50) | NULL | Texto livre. Ex: "trabalho", "recado da mãe" |
+| `criado_em` * | TIMESTAMP | NOT NULL, DEFAULT NOW() | |
+
+**Validações** (`clean()`):
+- `tipo='celular'` → 11 dígitos com `9` na primeira posição após DDD (regra Anatel para móveis).
+- `tipo='fixo'` → 10 dígitos.
+- `eh_whatsapp=TRUE` exige `tipo='celular'`.
+
+**Índices:** `numero`, `pessoa_id`.
+
+**Ordenação default:** WhatsApp primeiro, depois por ordem de cadastro.
+
+---
+
+## 4.2. Tabela: `pessoas_email`
+
+E-mails de uma pessoa. Pessoa pode ter múltiplos. Ver ADR 0037.
+
+| Campo | Tipo | Constraints | Notas |
+|---|---|---|---|
+| 🔑 `id` | BIGSERIAL | PRIMARY KEY | |
+| 🔗 `pessoa_id` * | BIGINT | FK → pessoas(id), ON DELETE CASCADE | |
+| `endereco` * | VARCHAR(254) | NOT NULL | Validação Django EmailField. Normalizado lowercase no save. |
+| `rotulo` | VARCHAR(50) | NULL | Texto livre. Ex: "trabalho", "pessoal" |
+| `criado_em` * | TIMESTAMP | NOT NULL, DEFAULT NOW() | |
+
+**Índices:** `endereco`, `pessoa_id`.
+
+---
+
+## 4.3. Tabela: `pessoas_redesocial`
+
+Presença em rede social. Pessoa pode ter várias. Ver ADR 0037.
+
+| Campo | Tipo | Constraints | Notas |
+|---|---|---|---|
+| 🔑 `id` | BIGSERIAL | PRIMARY KEY | |
+| 🔗 `pessoa_id` * | BIGINT | FK → pessoas(id), ON DELETE CASCADE | |
+| `plataforma` * | VARCHAR(20) | NOT NULL | CHECK IN ('instagram','facebook','linkedin','x_twitter','outro') |
+| `valor` * | VARCHAR(255) | NOT NULL | @handle ou URL. `@` removido no save. |
+| `rotulo` | VARCHAR(50) | NULL | Texto livre. **Obrigatório** quando `plataforma='outro'`. |
+| `criado_em` * | TIMESTAMP | NOT NULL, DEFAULT NOW() | |
+
+**Validações** (`clean()`):
+- Quando `plataforma='outro'`, `rotulo` deve ser preenchido (qual rede é).
+
+**Índices:** `plataforma`, `pessoa_id`, `valor`.
 
 ---
 
@@ -217,7 +271,6 @@ Tabela única, compartilhada por pessoas, entidades e demandas.
 |---|---|---|---|
 | 🔑 `id` | UUID | PRIMARY KEY | |
 | 🔒 `nome` * | VARCHAR(50) | NOT NULL, UNIQUE | Case-insensitive |
-| `categoria` * | VARCHAR(15) | NOT NULL | CHECK IN ('tema','perfil','territorio','livre') |
 | `cor` | VARCHAR(7) | NULL | Hex `#RRGGBB` |
 | `descricao` | TEXT | NULL | |
 | `ativo` * | BOOLEAN | NOT NULL, DEFAULT TRUE | |
@@ -228,7 +281,7 @@ Tabela única, compartilhada por pessoas, entidades e demandas.
 - `entidades_tags`
 - `demandas_tags`
 
-**Índices:** `nome` UNIQUE, `categoria`, `ativo`.
+**Índices:** `nome` UNIQUE, `ativo`.
 
 ---
 
@@ -508,7 +561,7 @@ A biblioteca cria a tabela `auditlog_logentry` com: ação, objeto, usuário, mu
 | Entidade | N : M | Demanda | Via `demanda_entidades` |
 | Demanda | 1 : N | Interacao | Manuais e automáticas |
 | Demanda | 1 : N | Encaminhamento | |
-| Demanda | N : M | Tag | Via `demandas_tags`. Tema = tag de categoria 'tema'. |
+| Demanda | N : M | Tag | Via `demandas_tags`. Critério de "tag-tema" definido na Fase 3 (ADR 0039). |
 | Interacao | 1 : N | Interacao (auto) | Follow-up via `interacao_origem_id` |
 | ItemInbox | 1 : 1 | Demanda | Quando processado |
 | Anexo | N : 1 | *qualquer* | Via GenericForeignKey (Demanda, Pessoa, Entidade, Encaminhamento) |

@@ -385,7 +385,7 @@ wheels = [
 
 [[package]]
 name = "mpd"
-version = "0.3.1"
+version = "0.3.2"
 source = { virtual = "." }
 dependencies = [
     { name = "django" },

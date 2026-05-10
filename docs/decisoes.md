@@ -952,4 +952,285 @@ Default seguro. Ativação consciente. Documentação no próprio exemplo evita 
 
 ---
 
+## ADR 0034 — Remoção das preferências de comunicação em massa (supersede ADR 0012)
+
+**Data:** 2026-05-09
+**Status:** Aceito (supersede ADR 0012)
+
+### Contexto
+
+ADR 0012 introduziu 4 booleans em `Pessoa` (`nao_telefonar`, `nao_enviar_email`, `nao_enviar_sms`, `nao_compartilhar_dados`) inspirados no CiviCRM, com o argumento de "preparar para newsletter da v1.x". O MVP, porém, não tem disparo em massa nem está no escopo das próximas fases — as flags não impedem nada hoje, e ocupam espaço cognitivo no formulário e no detalhe da pessoa.
+
+Pedro questionou o valor de manter campos que "não servem de nada" no sistema atual.
+
+### Decisão
+
+Remover as 4 flags do model `Pessoa`, do form, do admin, dos templates e dos docs. Reintroduzir quando (e se) o disparo em massa entrar no produto — cada uma volta com semântica clara, validada na implementação concreta.
+
+### Justificativa
+
+- **YAGNI:** schema deve refletir capacidades atuais. Campo que não tem código que o consulte é ruído.
+- **UX:** 4 checkboxes sem efeito hoje confundem quem cadastra. Pior que ausência.
+- **Custo de readicionar é trivial:** uma migration, um campo por vez, com a regra real codificada na hora.
+- **`nao_compartilhar_dados` foi avaliado separadamente:** apesar de aplicável a casos manuais (indicação a terceiros), Pedro optou por remover também — a prática de compartilhamento manual será governada por orientação de equipe e auditoria de log, não por flag por pessoa.
+
+### Consequências
+
+- Migration drop columns nas 4 colunas; LGPD permanece coberta via auditlog (ADR 0029).
+- ADR 0012 fica registrada como histórico, supersedida.
+- Anonimização (`Pessoa.anonimizar()`) deixa de zerar essas flags.
+- Quando newsletter entrar no roadmap (v1.x), nova ADR específica decide quais flags retornam e como.
+
+---
+
+## ADR 0035 — Números de telefone como entidade própria, com tipo
+
+**Data:** 2026-05-09
+**Status:** Aceito
+
+### Contexto
+
+O design original tinha dois campos diretos em `Pessoa`: `telefone` e `whatsapp`. Pedro identificou na verificação manual que isso confunde categorias diferentes: **número de telefone é dado**, **canal de comunicação é tipo**. Pessoa pode ter mais de um número, e cada número tem natureza própria (celular, fixo) e capacidade de WhatsApp. A analogia da agenda do celular foi explícita: cadastra-se um número e marca-se o que ele é.
+
+### Decisão
+
+Substituir os campos `telefone` e `whatsapp` por um modelo `Telefone` em relação 1:N com `Pessoa`:
+
+```
+Telefone
+  ├── pessoa (FK → Pessoa, CASCADE)
+  ├── numero (10 ou 11 dígitos, normalizado)
+  ├── tipo ("celular" | "fixo")
+  ├── eh_whatsapp (boolean; só vale com tipo=celular)
+  ├── rotulo (opcional — "trabalho", "recado", etc.)
+  └── criado_em
+```
+
+**Validação por tipo:**
+- `celular`: exatamente 11 dígitos, com `9` na primeira posição após DDD (regra Anatel para móveis).
+- `fixo`: exatamente 10 dígitos.
+- `eh_whatsapp=True` exige `tipo=celular`.
+
+A regra "pelo menos um meio de contato" passa a ser: `email` preenchido **ou** ao menos um `Telefone` cadastrado. Validada na view (precisa do formset processado) — não no `clean()` do model.
+
+### Alternativas consideradas
+
+- **Manter `telefone` e `whatsapp` como campos diretos:** simples, mas mistura dado com canal e impede múltiplos números por pessoa.
+- **Um campo `telefone` + boolean `eh_whatsapp`:** ergonômico para o caso comum (mesmo número), mas exclui o cenário real de WhatsApp Business em número diferente do celular pessoal.
+
+### Justificativa
+
+- Modelo reflete a realidade: número é dado, canal é tipo.
+- Cobre múltiplos números por pessoa sem reabrir o esquema depois (cenário comum: celular pessoal + recado da família + comercial).
+- Validação por tipo elimina entrada de número sem DDD.
+- Formatação para exibição vira propriedade derivada (`numero_formatado`), não estado.
+
+### Consequências
+
+- **Schema reescrito (não migrado):** Fase 2 ainda em verificação manual; migration `0001` é editada para já nascer com a estrutura nova. Migration `0003_remover_preferencias_comunicacao` (drop das flags LGPD) é absorvida na nova `0001` e deletada. Banco de dev é resetado (`migrate pessoas zero && migrate`). Ver memory `feedback_refazer_vs_migrar.md`.
+- Form de Pessoa passa a ter formset inline de telefones (adicionar/remover linhas via JS).
+- Detalhe lista os números formatados com badge de tipo e ícone de WhatsApp.
+- Lista mostra o primeiro telefone disponível (preferência: celular com WhatsApp).
+- Deduplicação busca em `Telefone` ao invés de `Pessoa.telefone`/`whatsapp`.
+- Auditlog registra `Telefone` (LGPD, mesmo motivo de ADR 0029).
+- Doc `modelo-de-dados.md` atualizado: `Pessoa` perde `telefone` e `whatsapp`; nova tabela `pessoas_telefone`.
+
+---
+
+## ADR 0036 — Geocodificação de endereços de Pessoa e Entidade (programado para v2.x)
+
+**Data:** 2026-05-09
+**Status:** Aceito — implementação programada para v2.x (pós-MVP)
+
+### Contexto
+
+`Pessoa` e `Entidade` têm endereço estruturado (logradouro, número, bairro, cidade, UF, CEP), mas hoje só como texto. Para um mandato municipal, a dimensão territorial é estratégica: identificar concentrações de demandas por bairro/região, mapear base de relacionamento, cruzar com microrregiões eleitorais, validar plausibilidade do endereço (CEP de Recife com cidade declarada como Olinda, por exemplo), e habilitar mapas/heatmaps em dashboards.
+
+Nada disso é viável sem coordenadas (lat/long). Texto de endereço não permite agregação espacial, distância, raio de busca, ou visualização cartográfica.
+
+A decisão hoje é **registrar o compromisso**, não implementar agora — o MVP entrega o relacionamento básico, e geocodificação fora de hora vira complexidade prematura (escolha de provedor, signals, retry, fallback, custo).
+
+### Decisão
+
+**Adicionar geocodificação no v2.x**, no mesmo ciclo de **multi-endereço por cidadão** (já listado em `roadmap.md` §5 v2.x). Multi-endereço sem geocodificação é desperdício; geocodificação sem multi-endereço cobre só metade do uso real.
+
+**Escopo proposto para v2.x:**
+- `Pessoa` e `Entidade` (e o futuro modelo de endereço múltiplo) ganham `latitude` e `longitude` (`DecimalField`, nulláveis), `geocodificado_em` (timestamp) e `geocodificacao_status` (`pendente | sucesso | falha | manual`).
+- Geocodificação acionada por signal `post_save` quando os campos de endereço mudam, executada **assíncrona** (Celery ou `django-q2` — decisão de provider de fila fica para a ADR de implementação).
+- Comando de management `geocodificar_pendentes` para backfill e re-tentativa de falhas.
+- Possibilidade de override manual (operador ajusta lat/long quando o provedor erra) — daí o status `manual`, que o signal não sobrescreve.
+
+**Provedor primário proposto: Nominatim (OpenStreetMap)** — gratuito, sem chave, sem custo recorrente. Aceita `User-Agent` identificável e respeita 1 req/s. Cobertura de Brasil é aceitável para municípios médios e capitais; cai em zona rural e endereços incompletos.
+
+**Fallback opcional configurável via env: Google Geocoding API** — chamado apenas para endereços com `geocodificacao_status=falha` após N tentativas no Nominatim. Permite ao mandato escolher entre custo zero (só Nominatim) ou cobertura quase total (paga ~US$ 5/1.000 reqs no fallback).
+
+A escolha definitiva de provedor — e se o fallback será ativado — é decisão da ADR de implementação no v2.x, com base em volume real de cadastros e disponibilidade de orçamento.
+
+### Alternativas consideradas
+
+- **Implementar agora (na Fase 2/3):** descartado. Não há tela de mapa, dashboard territorial, nem multi-endereço para justificar — coordenadas ficariam guardadas sem consumidor. Viola "produto sobre técnica" e YAGNI.
+- **Geocodificação on-demand (apenas quando uma tela pedir):** descartado. Adiciona latência imprevisível à navegação e não cobre análises em lote (heatmap precisa de tudo geocodificado de antemão).
+- **Provedor único Google desde o início:** descartado como default. Custo recorrente injustificado para um mandato municipal cujo volume cabe na cota gratuita do Nominatim. Fica como opção via env.
+- **Provedor único Nominatim, sem fallback:** descartado. Endereços rurais e periferias têm taxa de falha relevante; sem fallback, o mandato fica cego nessa fatia.
+- **Cálculo de coordenadas a partir do CEP via base do IBGE/Correios:** descartado. CEP brasileiro é genérico (uma rua inteira pode ter um único CEP); precisão ao nível de quarteirão exige geocodificador real.
+
+### Consequências
+
+- **Schema (v2.x):** novos campos `latitude`, `longitude`, `geocodificado_em`, `geocodificacao_status` no modelo de endereço (provavelmente um novo `Endereco` quando multi-endereço entrar; senão, em `Pessoa` e `Entidade` diretamente).
+- **Dependências novas:** biblioteca cliente HTTP já existente (`httpx` ou `requests`); fila assíncrona (`django-q2` é o candidato simples — decisão de implementação). Não exige PostGIS no MVP do v2.x: `DecimalField` e cálculo Haversine em Python cobrem distância. PostGIS vira ADR separada se análise espacial complexa surgir.
+- **LGPD:** coordenadas são representação transformada do endereço (já consentido no cadastro), não criam categoria nova de dado. Mas habilitam análise em massa que texto não permitia. Auditlog já cobre `Pessoa` e `Entidade` (ADR 0029); ao virar campo persistido, a alteração entra no log automaticamente. Política de retenção segue a do registro principal (anonimização zera lat/long junto).
+- **Falha do provedor:** sistema funciona com `latitude=NULL`. Telas que dependem de mapa filtram o que está geocodificado; cadastro nunca é bloqueado por falha de geocodificador.
+- **Custo zero por padrão:** Nominatim é gratuito. Mandato só paga se ativar Google explicitamente.
+- **Dependência externa:** Nominatim pode ficar fora do ar ou mudar políticas. Aceitável: campo é nulável e o backfill pode rodar a qualquer momento depois.
+
+### Aberto para a ADR de implementação (v2.x)
+
+- Provedor de fila assíncrona (`django-q2` vs Celery vs RQ).
+- Política de re-tentativa (quantas vezes? backoff?).
+- Cache de respostas (mesmo endereço cadastrado duas vezes → uma chamada só).
+- Tela de revisão para endereços com baixa confiança.
+
+---
+
+## ADR 0037 — Contatos como entidades plurais (Email e RedeSocial), agrupados sob "Contatos"
+
+**Data:** 2026-05-09
+**Status:** Aceito
+
+### Contexto
+
+Após reorganizar telefones em entidade própria (ADR 0035), Pedro identificou na verificação manual que email e instagram permaneciam como campos diretos em `Pessoa` — quebrando a coerência. Pessoa pode ter múltiplos emails (pessoal, trabalho), e a presença em redes sociais raramente se limita ao Instagram (Facebook, LinkedIn, X são canais frequentes em mandato municipal). Tratar email como campo único e instagram como o único canal de rede social nomeado distorce a realidade.
+
+### Decisão
+
+Aplicar o mesmo padrão de Telefone aos demais canais. Pessoa passa a ter três coleções 1:N:
+
+```
+Pessoa
+  ├── telefones    (já existente — ADR 0035)
+  ├── emails       (NOVO: EmailPessoa)
+  └── redes_sociais (NOVO: RedeSocial)
+```
+
+Campos `Pessoa.email` e `Pessoa.instagram` são removidos.
+
+**`EmailPessoa`:** `endereco` (EmailField, validação nativa), `rotulo` opcional (livre).
+**`RedeSocial`:** `plataforma` (enum: `instagram`, `facebook`, `linkedin`, `x_twitter`, `outro`), `valor` (handle ou URL), `rotulo` opcional (especialmente útil quando `plataforma=outro` para indicar qual rede).
+
+**Regra de canal mínimo:** pelo menos 1 telefone OU 1 email OU 1 rede social. Validada na view (depende dos formsets processados).
+
+**UI:** uma seção única "Contatos" no formulário, com três sub-blocos (Telefones, E-mails, Redes sociais) — cada um com lista + botão "+ adicionar". Mesma mecânica de formset inline.
+
+### Alternativas consideradas
+
+- **Tabela única `CanalContato` polimórfica** (telefone, email e rede social na mesma tabela com tipo + valor): unifica modelo mas perde validação específica (email tem `@`, celular tem 11 dígitos com 9). Descartado em favor de clareza e validação por tipo.
+- **Manter email/instagram diretos:** simples, mas inconsistente — alguns canais como entidades, outros como campo. UX confusa ("por que telefone tem múltiplos e email não?").
+- **Plataforma como texto livre em vez de enum:** flexível mas degrada análise (mesmo Instagram cadastrado como "Instagram", "instagram", "IG"). Enum + opção "Outro" com rótulo livre cobre os dois cenários.
+
+### Justificativa
+
+- Coerência interna: três canais, três entidades, mesma mecânica.
+- Realidade do mandato: pessoas têm presença em múltiplas redes; ter só Instagram como campo nomeado é viés.
+- Custo de adicionar agora é baixo (fase ainda não tagueada — migration 0001 é editada, sem migration de drop).
+
+### Consequências
+
+- Drop dos campos `email` e `instagram` em `Pessoa`. Schema reescrito na 0001 (sem migration de remoção).
+- 3 novos models registrados em `auditlog` (LGPD, mesmo motivo de ADR 0029).
+- Form de Pessoa ganha 2 novos formsets além do de Telefone.
+- View processa 3 formsets e valida "ao menos 1 canal".
+- Deduplicação busca em telefones, emails e redes sociais.
+- Admin tem inlines para os 3 canais.
+- Lista mostra primeiro email + primeiro telefone (ou primeira rede social, se nada mais).
+- Anonimização (LGPD) deleta os 3 conjuntos em cascade.
+
+---
+
+## ADR 0038 — UUID como PK nos models de domínio (supersede ADR 0025 parcialmente)
+
+**Data:** 2026-05-09
+**Status:** Aceito (supersede ADR 0025 para os models de domínio; mantém BigAutoField em `Usuario`)
+
+### Contexto
+
+ADR 0025 (minha decisão) substituiu o UUID prescrito por ADR 0002 por `BigAutoField` em todos os models, justificando com "trocar depois é uma migration por tabela". Pedro questionou na verificação manual: a primeira pessoa cadastrada gerou URL `/pessoas/1/`, expondo volume da base e ordem de cadastro — exatamente o cenário que ADR 0002 buscava evitar.
+
+A justificativa de "trocar depois" é tecnicamente correta mas operacionalmente cara: depois que URLs forem compartilhadas em mensagens, bookmarks, ofícios internos, ou indexadas em dashboards, mudar o tipo de PK quebra todo o histórico. **Agora — fase ainda não tagueada, banco de dev resetável, zero registros em produção — é o momento mais barato para fazer a migração.** Adiar é economizar 10 minutos hoje para pagar 10x ou 100x amanhã.
+
+### Decisão
+
+**UUID v4 como PK em todos os models de domínio:**
+
+- `Pessoa`, `Telefone`, `EmailPessoa`, `RedeSocial`, `Entidade`, `Vinculo`, `Tag`
+- E em todos os models que entrarem nas Fases 3+ (`Demanda`, `Interacao`, `Encaminhamento`, `Anexo`, `ItemInbox`, `SolicitacaoLGPD`).
+
+**`Usuario` permanece com `BigAutoField`:**
+
+- Nunca aparece em URL pública (apenas em `/configuracoes/usuarios/<id>/editar/`, restrita a staff).
+- Está em produção desde Fase 1; mudar exigiria drop+recreate da tabela auth com perda dos usuários cadastrados.
+- O risco que UUID mitiga (volume da base) não se aplica: ninguém compartilha URL de `/configuracoes/usuarios/`.
+
+### Consequências
+
+- Models do app `pessoas` ganham `id = UUIDField(primary_key=True, default=uuid.uuid4, editable=False)`.
+- URLs de `/pessoas/<int:pk>/` viram `/pessoas/<uuid:pk>/` (idem para entidades, telefones, etc.).
+- Schema é reescrito na migration `0001` (fase ainda não tagueada — ver memory `feedback_refazer_vs_migrar.md`).
+- FKs entre Usuario (int) e Pessoa (uuid) seguem funcionando — Django armazena o valor da PK referenciada, sem exigir tipo idêntico nas duas pontas.
+- ADR 0025 fica como histórico parcialmente supersedida.
+- ADR 0002 (UUID universal) volta a vigorar para o domínio, mas com a exceção registrada de `Usuario`.
+
+---
+
+## ADR 0039 — Drop do campo `categoria` em Tag (supersede ADR 0005 parcialmente; revisita ADR 0006)
+
+**Data:** 2026-05-09
+**Status:** Aceito
+
+### Contexto
+
+ADR 0005 introduziu Tag como tabela única com campo `categoria` (`tema`/`perfil`/`territorio`/`livre`) — argumento principal: unificar curadoria entre Pessoa, Entidade, Demanda. ADR 0006 acrescentou que **o tema da Demanda é uma tag de categoria `tema`**, criando o único uso estrutural real desse campo.
+
+Na verificação manual da Fase 2, Pedro questionou a razão de ser das categorias. Conclusão honesta: dos 4 valores existentes, apenas `tema` carrega comportamento codificado (Fase 3); os outros 3 (`perfil`, `territorio`, `livre`) são só rótulo visual sem efeito no sistema. O custo cognitivo (dropdown obrigatório no cadastro de tag, refactor pra editar a lista, mais um eixo de filtragem) não se paga.
+
+Pedro descreveu o uso real que ele enxerga: tags servem para "agrupar pessoas que não fazem parte da mesma entidade mas têm interesses em comum, ou compartilham uma origem (estudaram na mesma escola, na mesma faculdade)" — **forma fluida e dinâmica de agrupar pessoas sem enrijecer o cadastro**. Esse mental model é incompatível com categorização hierárquica fixa.
+
+### Decisão
+
+Remover o campo `categoria` de `Tag`. Tag passa a ter apenas `nome`, `cor`, `descricao`, `ativo`, `criado_em`. Sem hierarquia, sem dropdown, sem agrupamento conceitual.
+
+ADR 0005 fica supersedida no que toca à categoria; o argumento "tabela única e compartilhada" continua valendo.
+
+ADR 0006 ("tema da demanda é uma tag") **continua válida em essência** — mas o critério de "qual tag pode ser tema" será redefinido na implementação da Fase 3. Opções a serem decididas na ADR de implementação da Demanda:
+
+- (a) qualquer tag pode ser tema — Demanda tem M:N para Tag, sem distinção;
+- (b) flag `usar_como_tema_de_demanda` em Tag — explícito, sem categoria;
+- (c) modelo `Tema` separado — mais rígido, descartável.
+
+Decidir quando a Demanda existir, com caso de uso real à mão.
+
+### Alternativas consideradas
+
+- **Reduzir para 2 categorias** (`tema` e `outro`): meio caminho, ainda paga preço por pouco ganho.
+- **Tornar categorias editáveis via modelo `CategoriaTag`**: adiciona complexidade pra resolver problema que não é real (curadoria visual de tags).
+- **Manter como está**: Pedro se convenceu de que enrijece o uso pretendido (tags como agrupamentos fluídos).
+
+### Justificativa
+
+- Sistemas comparáveis (GitHub labels, Linear, Notion tags, Trello) usam tags lisas.
+- Mental model do produto é "etiquetar livremente", não "classificar em famílias".
+- Refactor pra reintroduzir categorização (se algum dia precisar) é barato — adicionar coluna numa única tabela, com dados existentes preservados.
+
+### Consequências
+
+- `Tag.categoria` removido. Choices `CATEGORIA_*` removidas do model.
+- Form de tag perde o select de categoria.
+- Admin perde `list_filter` por categoria.
+- Lista `/configuracoes/tags/` perde a coluna categoria.
+- Filtro de tags na lista de pessoas continua igual (filtra pelo nome/id da tag).
+- Tag passa a ordenar por `nome`.
+- Schema reescrito na migration 0001 (Fase 2 ainda não tagueada — ver memory `feedback_refazer_vs_migrar.md`).
+- Pra Fase 3, ADR de Demanda decide critério de "tag pode ser tema" entre as opções (a/b/c).
+
+---
+
 *Decisões adicionadas em ordem cronológica conforme surgem. Cada decisão registrada uma vez; alterações futuras criam nova ADR (não editam a anterior).*

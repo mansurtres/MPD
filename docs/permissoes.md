@@ -51,7 +51,6 @@ Quatro perfis, atribuídos via Django Group. Cada usuário pertence a exatamente
 | Anonimizar (LGPD) | ✅ | ✅ | ✅ | ❌ |
 | Adicionar tag | ✅ | ✅ | ✅ | ✅ |
 | Adicionar vínculo com entidade | ✅ | ✅ | ✅ | ✅ |
-| Editar preferências de comunicação | ✅ | ✅ | ✅ | ✅ |
 | Exportar lista para CSV | ✅ | ✅ | ✅ | ❌ |
 | Fazer upload de anexo | ✅ | ✅ | ✅ | ✅ |
 | Excluir anexo | ✅ | ✅ | ✅ (próprios) | ❌ |

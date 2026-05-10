@@ -102,7 +102,7 @@ Todas as rotas do sistema na `v1.0`. Para cada tela: rota, perfis com acesso, fu
 - **Perfis:** todos logados (respeitando demandas restritas)
 - **Fase:** 2 (básico) → 3 (lista de demandas)
 - **Função:** ficha completa com toda a história relacional.
-- **Componentes:** dados pessoais, endereço, preferências de comunicação, vínculos com entidades, lista de demandas cronológica reversa, histórico de alterações, **anexos da pessoa**.
+- **Componentes:** dados pessoais, endereço, vínculos com entidades, lista de demandas cronológica reversa, histórico de alterações, **anexos da pessoa**.
 
 ### 6.3 Nova / Editar
 - **Rota:** `/pessoas/nova`, `/pessoas/<id>/editar`

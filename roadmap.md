@@ -221,28 +221,32 @@ Fase 1 concluída.
 #### 4.2.2. Especificações
 
 0. **Renomear apps:** `cidadaos/` → `pessoas/`, `casos/` → `demandas/` (antes de criar qualquer model). Atualizar `INSTALLED_APPS`.
-1. App `pessoas` com modelos: `Pessoa`, `Entidade`, `Vinculo`, `Tag`.
+1. App `pessoas` com modelos: `Pessoa`, `Telefone`, `EmailPessoa`, `RedeSocial`, `Entidade`, `Vinculo`, `Tag`.
 2. **Endereço inline** em `Pessoa` e `Entidade`.
-3. **Preferências de comunicação** em `Pessoa`: 4 booleans (`nao_telefonar`, `nao_enviar_email`, `nao_enviar_sms`, `nao_compartilhar_dados`).
-4. **Campos extras de canal:** `whatsapp` e `instagram` em Pessoa.
-5. Validações: pelo menos um entre email/telefone/whatsapp; bairro/cidade obrigatórios; CPF válido por algoritmo.
-6. **Integração ViaCEP**: módulo `pessoas/viacep.py`. Tolerante a falha.
-7. **Deduplicação**: CPF UNIQUE NULLS DISTINCT; alerta AJAX por similaridade em email/telefone/whatsapp.
-8. Tags com 4 categorias (`tema`, `perfil`, `territorio`, `livre`).
-9. Telas conforme `docs/mapa-de-telas.md` (seções 6 e 7).
-10. **Criar grupos padrão** (Administrador, Chefe de Gabinete, Coordenador, Assessor) via data migration com as permissões dos models desta fase. Permissões de `demandas` adicionadas na Fase 3. Matriz completa em `docs/permissoes.md`.
-11. Soft delete via campo `ativo`.
-12. Django Admin com fieldsets organizados.
+3. **Contatos como entidades plurais** agrupados na seção "Contatos" do form (ADR 0037):
+   - **Telefones** (M:1): tipo (`celular`/`fixo`), `eh_whatsapp`, rótulo opcional (ADR 0035).
+   - **E-mails** (M:1): endereço + rótulo opcional.
+   - **Redes sociais** (M:1): plataforma (`instagram`/`facebook`/`linkedin`/`x_twitter`/`outro`) + valor + rótulo (obrigatório se `outro`).
+4. Validações: pelo menos 1 canal (qualquer dos 3); bairro/cidade obrigatórios; CPF válido por algoritmo; celular com 11 dígitos começando com 9 após DDD; fixo com 10 dígitos.
+5. **Integração ViaCEP**: módulo `pessoas/viacep.py`. Tolerante a falha.
+6. **Deduplicação**: CPF UNIQUE NULLS DISTINCT; alerta AJAX por similaridade em email, telefone ou rede social.
+7. Tags livres (sem categoria) — etiquetas dinâmicas para agrupar pessoas/entidades/demandas. Ver ADR 0039.
+8. Telas conforme `docs/mapa-de-telas.md` (seções 6 e 7).
+9. **Criar grupos padrão** (Administrador, Chefe de Gabinete, Coordenador, Assessor) via data migration com as permissões dos models desta fase. Permissões de `demandas` adicionadas na Fase 3. Matriz completa em `docs/permissoes.md`.
+10. Soft delete via campo `ativo`.
+11. Django Admin com fieldsets organizados.
 
 #### 4.2.3. Critérios de Aceite
 
 - [ ] Renomear apps concluído; migrate sem erros.
 - [ ] Cadastrar pessoa completa, sem demanda, funciona.
-- [ ] Cadastro sem email/telefone/whatsapp rejeitado com mensagem clara.
+- [ ] Cadastro sem nenhum canal (telefone, email, rede social) rejeitado com mensagem clara.
+- [ ] Pessoa aceita múltiplos telefones; celular com 9 e 11 dígitos válido; fixo com 10 dígitos válido.
+- [ ] Pessoa aceita múltiplos e-mails e múltiplas redes sociais.
+- [ ] Rede social com plataforma="Outro" exige rótulo.
 - [ ] CEP válido auto-preenche endereço.
 - [ ] CPF duplicado bloqueado.
 - [ ] Email/telefone duplicado mostra alerta amarelo, mas permite criar.
-- [ ] Preferências de comunicação salvam e são exibidas no detalhe.
 - [ ] Lista pagina, busca, filtra.
 - [ ] Cadastrar entidade (inclusive tipo `familia` ou `grupo_informal`) e vincular pessoa funciona.
 - [ ] Tag criada e atribuída.
@@ -261,11 +265,10 @@ pytest pessoas/ -v --cov=pessoas
 2. Tentar duplicado e ver alerta.
 3. Cadastrar "Família Silva" como Entidade tipo `familia` e vincular 3 pessoas.
 4. Cadastrar associação fictícia com CNPJ e vincular pessoas.
-5. Marcar `nao_enviar_email` em uma pessoa.
-6. Criar tags e atribuir.
-7. Buscar por nome, bairro, tag.
-8. Logar como diferentes perfis e verificar permissões.
-9. Desativar pessoa.
+5. Criar tags e atribuir.
+6. Buscar por nome, bairro, tag.
+7. Logar como diferentes perfis e verificar permissões.
+8. Desativar pessoa.
 
 ---
 
@@ -284,7 +287,7 @@ Fase 2 concluída.
 2. **Regra de fechamento** codificada conforme `docs/fluxos-de-estado.md`: status `respondido` exige `retorno_data`, `retorno_conteudo` E `resultado` ≠ `pendente`.
 3. **Partes M:N**: formulário de criação exige ao menos uma parte (pessoa ou entidade) vinculada, ou flag `anonimo=True`. Validado no formulário/view.
 4. **Geração de número** thread-safe. Formato `MPD-AAAA-NNNNN`.
-5. **Tema da demanda** = uma tag de categoria `tema` vinculada via M:N.
+5. **Tema da demanda** = uma tag vinculada via M:N. Critério de "qual tag pode ser tema" decidido na ADR de implementação (ver ADR 0039).
 6. **Visibilidade** via boolean `restrito`.
 7. **Resultado da demanda**: campo `resultado` com 6 valores + campo `resultado_observacao`. Editável a qualquer momento por quem pode editar a demanda.
 8. **Interação com status `agendada`/`realizada`/`cancelada`**.
@@ -546,12 +549,13 @@ A partir de `v1.0`, evolução guiada por uso real.
 - Notificações por e-mail (caso atribuído, prazo próximo, retorno recebido).
 - Dashboards visuais (Chart.js).
 - Importação em lote via CSV.
-- Newsletter para a base (respeitando communication preferences).
+- Newsletter para a base (preferências de comunicação serão reintroduzidas conforme regra real do disparo — ver ADR 0034).
 
 ### v2.x — Mandato
 - **Proposições legislativas** (PL, RI, indicação, moção) com vínculo N:N a casos.
 - **Agenda do mandato** como módulo dedicado, com calendário visual e integração Google Calendar.
 - **Multi-endereço** por cidadão.
+- **Geocodificação de endereços** de Pessoa e Entidade (lat/long persistidos, signal assíncrono, Nominatim como provedor padrão e Google como fallback opcional). Habilita heatmaps territoriais e análise por bairro/região. Ver ADR 0036.
 - **Multi-tenant** (ativação para virar SaaS).
 
 ### v3.x — Inteligência e Integrações
@@ -597,7 +601,7 @@ A partir de `v1.0`, evolução guiada por uso real.
 - **Interação automática** — gerada pelo sistema em mudanças da demanda. Imutável.
 - **MPD** — Mandato Parlamentar Digital.
 - **Origem responsiva / proativa** — responsiva nasce de uma necessidade trazida por pessoa; proativa nasce da iniciativa do mandato.
-- **Tag tema** — tag de categoria `tema`, usada para classificar a área temática da demanda.
+- **Tag tema** — tag vinculada à demanda como classificador de área temática. Critério de seleção definido na Fase 3 (ADR 0039).
 - **Vínculo** — relação entre Pessoa e Entidade, com papel e período.
 
 ---

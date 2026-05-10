@@ -39,6 +39,7 @@ Ideia que parece "óbvia" e não está no doc → primeiro vira ADR ou backlog.
 | [`docs/permissoes.md`](./docs/permissoes.md) | Matriz de permissões por perfil/ação. |
 | [`docs/fluxos-de-estado.md`](./docs/fluxos-de-estado.md) | Transições válidas de status, resultado, etc. |
 | [`docs/decisoes.md`](./docs/decisoes.md) | ADRs cronológicas. Cada decisão arquitetural vira uma entrada aqui. |
+| [`docs/debito-tecnico.md`](./docs/debito-tecnico.md) | Cheiros e refactors pendentes (`DT-NNN`). Por prioridade e gatilho de quando atacar. |
 | [`docs/estrutura-do-repositorio.md`](./docs/estrutura-do-repositorio.md) | Organização de pastas, convenções, padrões de commit. |
 
 ---
@@ -55,7 +56,7 @@ Ideia que parece "óbvia" e não está no doc → primeiro vira ADR ou backlog.
 
 ## 5. Estado atual
 
-**Fase corrente:** v0.3.1 — Fase 2 (Pessoas e Entidades) + ciclo de hardening **concluídos**.
+**Fase corrente:** v0.3.2 — Fase 2 (Pessoas e Entidades) + hardening + polimento **concluídos**.
 
 **Fundação (Fase 0/1, mantido):**
 - Django 5.2 + PostgreSQL 16 + Tailwind v4 standalone.
@@ -65,13 +66,21 @@ Ideia que parece "óbvia" e não está no doc → primeiro vira ADR ou backlog.
 - Política de senha: mínimo 8 chars, sem complexidade obrigatória (ADR 0023).
 
 **Fase 2 (pessoas):**
-- Models `Pessoa`, `Entidade`, `Vinculo`, `Tag`. Pessoa com endereço inline, 4 booleans LGPD, validação de CPF, soft delete, anonimização.
+- Models `Pessoa`, `Telefone`, `EmailPessoa`, `RedeSocial`, `Entidade`, `Vinculo`, `Tag`. Pessoa com endereço inline, validação de CPF, soft delete, anonimização. Contatos como entidades plurais (telefones, e-mails, redes sociais) — UI agrupa em seção "Contatos" com 3 sub-blocos dinâmicos. Validação por tipo: celular 11 dígitos com 9 após DDD, fixo 10 dígitos; rede social "Outro" exige rótulo. Pelo menos 1 canal de qualquer tipo é obrigatório. Ver ADR 0035 e ADR 0037.
 - Entidade com 14 tipos (formais a `familia`/`grupo_informal`); CNPJ opcional UNIQUE NULLS DISTINCT.
 - CRUDs com `PermissionRequiredMixin`, listas paginadas (25/pg), busca, filtros.
 - ViaCEP em `pessoas/viacep.py` (tolerante a falha); deduplicação em `pessoas/deduplicacao.py`.
 - Django Admin com fieldsets.
 - 4 grupos padrão (ADM, CG, CO, AS) via data migration com permissões customizadas (`pode_desativar_*`, `pode_reativar_*`, `pode_anonimizar_pessoa`).
 - ADR 0025: `BigAutoField` (supersede ADR 0002).
+
+**Refactor de débito técnico (concluído na v0.3.2):**
+- `core/utils.py` — formatação e validação de CPF/CNPJ/CEP/dígitos consolidadas. Resolve [DT-003](docs/debito-tecnico.md).
+- `core/mixins.py` — `EnderecavelMixin` (7 campos de endereço) e `AuditavelMixin` (timestamps). Pessoa e Entidade herdam. Resolve [DT-002](docs/debito-tecnico.md).
+- `pessoas/signals.py` — normalização via `pre_save` cobre todas as portas (ORM, Admin, Forms). Resolve [DT-001](docs/debito-tecnico.md).
+- `Pessoa.anonimizar()` agora atômica (`@transaction.atomic`). Resolve [DT-004](docs/debito-tecnico.md).
+- Migration `0001_initial` regenerada do zero (sem produção, ADR 0026).
+- `slug_publico` (CharField hex de 12 chars, único, gerado por uuid4 no `pre_save`) implementado em Pessoa e Entidade — completa o trabalho de URLs com slug que estava parcial em views/urls/templates/tests.
 
 **Hardening v0.3.1 (ADRs 0026–0033):**
 - `DeduplicacaoCheckView` exige `view_pessoa` (fechou vazamento de PII) — ADR 0028.
@@ -84,7 +93,18 @@ Ideia que parece "óbvia" e não está no doc → primeiro vira ADR ou backlog.
 - Tabela de credenciais permanece no `.env` local por escolha do proprietário — ADR 0026.
 - Link `/admin/` removido da home pública.
 
-**72 testes passando.** ADRs 0001–0033 em [`docs/decisoes.md`](./docs/decisoes.md).
+**Polimento v0.3.2 (ADRs 0034–0039):**
+- 4 flags LGPD (`nao_telefonar` etc.) removidas — YAGNI até newsletter (ADR 0034 supersede ADR 0012).
+- `Telefone` como entidade própria 1:N com tipo (celular/fixo) e `eh_whatsapp` — ADR 0035.
+- Geocodificação registrada como compromisso para v2.x junto com multi-endereço — ADR 0036.
+- `EmailPessoa` e `RedeSocial` como entidades plurais sob seção "Contatos" — ADR 0037.
+- `Tag.categoria` removida — agrupamento via tag plana é mais fluido (ADR 0039).
+- Auditlog Correlation ID via middleware (`core/auditlog.py`) — cascata de delete aparece como conjunto único de LogEntries.
+- UI: paleta de 11 cores fixas para Tag, fluxo de arquivar (não deletar), WhatsApp como ícone wa.me em listas, home autenticada com cards.
+- fix: `PessoaForm` DateInput com `format="%Y-%m-%d"` — sem isso edição apagava `data_nascimento` silenciosamente.
+- Comando `criar_dados_teste` para popular dev (idempotente, exige `DEBUG=True`).
+
+**90 testes passando** ao final da v0.3.2. ADRs 0001–0039 em [`docs/decisoes.md`](./docs/decisoes.md).
 
 **Próximo marco:** v0.4 — Fase 3 (Demandas e Interações). Ver [`roadmap.md`](./roadmap.md) §4.3.
 
@@ -165,4 +185,4 @@ Para o histórico completo ver [`docs/decisoes.md`](./docs/decisoes.md). Decisõ
 
 ---
 
-*Atualizar este arquivo ao fim de cada fase. Última atualização: 2026-05-08 (v0.3.1 — Fase 2 + hardening).*
+*Atualizar este arquivo ao fim de cada fase. Última atualização: 2026-05-09 (v0.3.2 — Fase 2 + hardening + polimento).*
