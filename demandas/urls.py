@@ -1,3 +1,8 @@
+"""URLs do app demandas. Caminhos absolutos para permitir que temas vivam
+em /configuracoes/temas/ (administração) enquanto demandas vivem em
+/demandas/. Padrão herdado de pessoas/urls.py (tags em /configuracoes/tags/).
+"""
+
 from django.urls import path
 
 from . import views
@@ -5,66 +10,83 @@ from . import views
 app_name = "demandas"
 
 urlpatterns = [
-    path("", views.DemandaListView.as_view(), name="demanda_lista"),
-    path("nova/", views.DemandaCreateView.as_view(), name="demanda_nova"),
-    path("<uuid:pk>/", views.DemandaDetailView.as_view(), name="demanda_detalhe"),
-    path("<uuid:pk>/editar/", views.DemandaUpdateView.as_view(), name="demanda_editar"),
+    # --- Demandas (CRUD) ---
+    path("demandas/", views.DemandaListView.as_view(), name="demanda_lista"),
+    path("demandas/nova/", views.DemandaCreateView.as_view(), name="demanda_nova"),
+    path("demandas/<uuid:pk>/", views.DemandaDetailView.as_view(), name="demanda_detalhe"),
     path(
-        "<uuid:pk>/resultado/",
+        "demandas/<uuid:pk>/editar/",
+        views.DemandaUpdateView.as_view(),
+        name="demanda_editar",
+    ),
+    path(
+        "demandas/<uuid:pk>/resultado/",
         views.AtualizarResultadoView.as_view(),
         name="demanda_resultado",
     ),
     path(
-        "<uuid:pk>/responder/",
+        "demandas/<uuid:pk>/responder/",
         views.MarcarRespondidaView.as_view(),
         name="demanda_responder",
     ),
-    path("<uuid:pk>/arquivar/", views.ArquivarView.as_view(), name="demanda_arquivar"),
-    path("<uuid:pk>/reabrir/", views.ReabrirView.as_view(), name="demanda_reabrir"),
-    # Interações
     path(
-        "<uuid:pk>/interacoes/nova/",
+        "demandas/<uuid:pk>/arquivar/",
+        views.ArquivarView.as_view(),
+        name="demanda_arquivar",
+    ),
+    path(
+        "demandas/<uuid:pk>/reabrir/",
+        views.ReabrirView.as_view(),
+        name="demanda_reabrir",
+    ),
+    # --- Interações ---
+    path(
+        "demandas/<uuid:pk>/interacoes/nova/",
         views.AdicionarInteracaoView.as_view(),
         name="interacao_nova",
     ),
     path(
-        "interacoes/<uuid:pk>/realizada/",
+        "demandas/interacoes/<uuid:pk>/realizada/",
         views.InteracaoMarcarRealizadaView.as_view(),
         name="interacao_realizada",
     ),
     path(
-        "interacoes/<uuid:pk>/cancelar/",
+        "demandas/interacoes/<uuid:pk>/cancelar/",
         views.InteracaoCancelarView.as_view(),
         name="interacao_cancelar",
     ),
-    # Encaminhamentos
+    # --- Encaminhamentos ---
     path(
-        "<uuid:pk>/encaminhamentos/novo/",
+        "demandas/<uuid:pk>/encaminhamentos/novo/",
         views.AdicionarEncaminhamentoView.as_view(),
         name="encaminhamento_novo",
     ),
     path(
-        "encaminhamentos/<uuid:pk>/responder/",
+        "demandas/encaminhamentos/<uuid:pk>/responder/",
         views.EncaminhamentoRespostaView.as_view(),
         name="encaminhamento_responder",
     ),
-    # Anexos polimórficos
+    # --- Anexos polimórficos ---
     path(
-        "anexos/<str:tipo>/<uuid:object_id>/",
+        "demandas/anexos/<str:tipo>/<uuid:object_id>/",
         views.AnexoUploadView.as_view(),
         name="anexo_upload",
     ),
     path(
-        "anexos/<uuid:pk>/remover/",
+        "demandas/anexos/<uuid:pk>/remover/",
         views.AnexoDeleteView.as_view(),
         name="anexo_remover",
     ),
-    # Temas (administração de categorias de demanda)
-    path("temas/", views.TemaListView.as_view(), name="tema_lista"),
-    path("temas/novo/", views.TemaCreateView.as_view(), name="tema_novo"),
-    path("temas/<int:pk>/editar/", views.TemaUpdateView.as_view(), name="tema_editar"),
+    # --- Temas (administração) ---
+    path("configuracoes/temas/", views.TemaListView.as_view(), name="tema_lista"),
+    path("configuracoes/temas/novo/", views.TemaCreateView.as_view(), name="tema_novo"),
     path(
-        "temas/<int:pk>/arquivar/",
+        "configuracoes/temas/<int:pk>/editar/",
+        views.TemaUpdateView.as_view(),
+        name="tema_editar",
+    ),
+    path(
+        "configuracoes/temas/<int:pk>/arquivar/",
         views.TemaToggleArquivarView.as_view(),
         name="tema_arquivar",
     ),
