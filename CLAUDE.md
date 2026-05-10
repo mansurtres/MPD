@@ -56,7 +56,7 @@ Ideia que parece "óbvia" e não está no doc → primeiro vira ADR ou backlog.
 
 ## 5. Estado atual
 
-**Fase corrente:** v0.3.3 — Fase 2 + hardening + polimento + limpeza pós-auditoria **concluídos**.
+**Fase corrente:** v0.3.4 — Fase 2 + hardening + polimento + limpeza pós-auditoria + fechamento de débito técnico **concluídos**.
 
 **Fundação (Fase 0/1, mantido):**
 - Django 5.2 + PostgreSQL 16 + Tailwind v4 standalone.
@@ -112,7 +112,15 @@ Ideia que parece "óbvia" e não está no doc → primeiro vira ADR ou backlog.
 - DT-011 registra refactor arquitetural pendente para gestão de usuários (Groups + permissão custom em `accounts`).
 - DT-012 registra `create_user(password=None)` cria conta inutilizável silenciosamente.
 
-**95 testes passando** ao final da v0.3.3. ADRs 0001–0040 em [`docs/decisoes.md`](./docs/decisoes.md).
+**Fechamento de débito técnico v0.3.4 (DT-005, 006, 007, 008, 010, 012):**
+- Unicidade de canais por pessoa: `UniqueConstraint` em Telefone(pessoa, numero), EmailPessoa(pessoa, endereco), RedeSocial(pessoa, plataforma, valor). Decisão de produto: rede social pode repetir handle em plataformas diferentes.
+- Tailwind nos forms via `aplicar_tailwind()` em `pessoas/forms.py` — JS de injeção de classes removido dos 3 templates de form. Padrão herdável por Demanda.
+- `pode_alternar_ativo` calculado nas DetailViews (Pessoa/Entidade) — templates simplificados.
+- `_PessoaFormMixin.post()` em `transaction.atomic`: salva tudo, chama `pessoa.tem_meio_de_contato()`, rollback se falhar. Regra mora só no model.
+- `create_user(password=None)` agora levanta `ValueError` em vez de criar conta sem login utilizável.
+- DT-009 (toggle duplicado, YAGNI) e DT-011 (gestão usuários arquitetural, antes de produção) ficam adiados.
+
+**100 testes passando** ao final da v0.3.4. ADRs 0001–0040 em [`docs/decisoes.md`](./docs/decisoes.md).
 
 **Próximo marco:** v0.4 — Fase 3 (Demandas e Interações). Ver [`roadmap.md`](./roadmap.md) §4.3.
 
