@@ -1146,38 +1146,52 @@ Campos `Pessoa.email` e `Pessoa.instagram` são removidos.
 
 ---
 
-## ADR 0038 — UUID como PK nos models de domínio (supersede ADR 0025 parcialmente)
+## ADR 0038 — `slug_publico` em URLs públicas (mantém ADR 0025; resolve ADR 0002)
 
 **Data:** 2026-05-09
-**Status:** Aceito (supersede ADR 0025 para os models de domínio; mantém BigAutoField em `Usuario`)
+**Status:** Aceito (não supersede ADR 0025; soma uma camada de slug a ela)
 
 ### Contexto
 
-ADR 0025 (minha decisão) substituiu o UUID prescrito por ADR 0002 por `BigAutoField` em todos os models, justificando com "trocar depois é uma migration por tabela". Pedro questionou na verificação manual: a primeira pessoa cadastrada gerou URL `/pessoas/1/`, expondo volume da base e ordem de cadastro — exatamente o cenário que ADR 0002 buscava evitar.
+ADR 0025 padronizou `BigAutoField` como PK em todos os models. Pedro questionou na verificação manual: a primeira pessoa cadastrada gerou URL `/pessoas/1/`, expondo volume da base e ordem de cadastro — exatamente o cenário que ADR 0002 (UUID universal) buscava evitar.
 
-A justificativa de "trocar depois" é tecnicamente correta mas operacionalmente cara: depois que URLs forem compartilhadas em mensagens, bookmarks, ofícios internos, ou indexadas em dashboards, mudar o tipo de PK quebra todo o histórico. **Agora — fase ainda não tagueada, banco de dev resetável, zero registros em produção — é o momento mais barato para fazer a migração.** Adiar é economizar 10 minutos hoje para pagar 10x ou 100x amanhã.
+O problema real era a **URL pública**, não a PK em si. Trocar PK por UUID resolveria, mas ao custo de URLs de 36 caracteres, índice de PK 2x maior, e fricção em integrações que esperam PK numérica (admin, FKs, formulários, auditlog). Existe alternativa mais barata: manter `BigAutoField` como PK interna e adicionar um identificador público separado.
 
 ### Decisão
 
-**UUID v4 como PK em todos os models de domínio:**
+**`BigAutoField` continua sendo a PK de todos os models do MVP** (mantém ADR 0025 sem alteração).
 
-- `Pessoa`, `Telefone`, `EmailPessoa`, `RedeSocial`, `Entidade`, `Vinculo`, `Tag`
-- E em todos os models que entrarem nas Fases 3+ (`Demanda`, `Interacao`, `Encaminhamento`, `Anexo`, `ItemInbox`, `SolicitacaoLGPD`).
+**Adicionar campo `slug_publico` em models cuja URL aparece para o usuário final:**
 
-**`Usuario` permanece com `BigAutoField`:**
+- `slug_publico = models.CharField(max_length=12, unique=True, blank=True, editable=False)`.
+- Gerado em `pre_save` via `uuid.uuid4().hex[:12]` (12 caracteres hexadecimais), com retry em colisão.
+- Aplicado em `Pessoa` e `Entidade` na Fase 2; aplicar nos models de Fase 3+ que ganharem URL pública (`Demanda` etc.).
+- **Não** aplicar em models internos ao fluxo (`Telefone`, `EmailPessoa`, `RedeSocial`, `Vinculo`, `Tag`) que não têm rota pública dedicada.
 
-- Nunca aparece em URL pública (apenas em `/configuracoes/usuarios/<id>/editar/`, restrita a staff).
-- Está em produção desde Fase 1; mudar exigiria drop+recreate da tabela auth com perda dos usuários cadastrados.
-- O risco que UUID mitiga (volume da base) não se aplica: ninguém compartilha URL de `/configuracoes/usuarios/`.
+**URLs públicas usam `slug_publico`:**
+
+- `/pessoas/<slug>/`, `/pessoas/<slug>/editar/`, `/entidades/<slug>/`.
+- Views resolvem por `slug_field = "slug_publico"` (`DetailView`/`UpdateView`) ou `get_object_or_404(Pessoa, slug_publico=slug)` (views `View`).
+
+### Alternativas consideradas
+
+- **`UUIDField` como PK (proposta inicial desta ADR):** atinge o mesmo objetivo de não vazar volume, mas: URL 3x mais longa (36 chars vs 12), índice de PK 2x maior (16 bytes vs 8), fricção com auditlog/admin/forms que esperam PK numérica, FKs maiores em todas as tabelas relacionadas. O ganho marginal sobre slug separado não compensa.
+- **Slug textual (ex.: `nome-sobrenome`):** legível, mas vaza identidade. Inaceitável para PII.
+- **Hash mais longo (ex.: 16 chars):** desnecessário para a escala (12 chars hex = 281 trilhões de combinações; colisão antes do mandato encerrar é improvável).
+
+### Justificativa
+
+- **Mantém o pipeline padrão Django** (BigAutoField, FKs numéricas, admin natural).
+- **URL pública não revela volume**: `/pessoas/a3f9b1c4d2e5/` não conta nada sobre quantas pessoas existem.
+- **URLs curtas**: 12 chars cabem em SMS, e-mails, anotações, sem quebrar layouts.
+- **Migração interna invisível**: caso o slug precise crescer (16 chars no futuro), é alteração isolada — PKs e FKs internas não são afetadas.
 
 ### Consequências
 
-- Models do app `pessoas` ganham `id = UUIDField(primary_key=True, default=uuid.uuid4, editable=False)`.
-- URLs de `/pessoas/<int:pk>/` viram `/pessoas/<uuid:pk>/` (idem para entidades, telefones, etc.).
-- Schema é reescrito na migration `0001` (fase ainda não tagueada — ver memory `feedback_refazer_vs_migrar.md`).
-- FKs entre Usuario (int) e Pessoa (uuid) seguem funcionando — Django armazena o valor da PK referenciada, sem exigir tipo idêntico nas duas pontas.
-- ADR 0025 fica como histórico parcialmente supersedida.
-- ADR 0002 (UUID universal) volta a vigorar para o domínio, mas com a exceção registrada de `Usuario`.
+- `Pessoa` e `Entidade` têm `slug_publico` (12 chars hex), gerado por `pessoas/signals.py` no `pre_save` antes do primeiro save.
+- URLs em [pessoas/urls.py](../pessoas/urls.py) usam `<slug:slug>` em vez de `<int:pk>`.
+- ADR 0002 (UUID universal) fica registrada como ideia inicial, mas a abordagem que vigora é `BigAutoField` + slug separado, conforme esta ADR e ADR 0025.
+- Fase 3 deve aplicar o mesmo padrão a `Demanda` (a primeira coisa que será compartilhada via URL).
 
 ---
 
