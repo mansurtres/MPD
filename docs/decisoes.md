@@ -1284,4 +1284,43 @@ A solução completa (mover gestão de usuários para `PermissionRequiredMixin` 
 
 ---
 
+## ADR 0041 — Coordenação como atributo do Usuário
+
+**Data:** 2026-05-10
+**Status:** Aceito
+
+### Contexto
+
+A Fase 3 introduz `Demanda.coordenacao_responsavel` (`gabinete | juridico | comunicacao`) e regras de visibilidade que dependem dela: Coordenador (CO) só pode editar demandas da própria coordenação; Assessor (AS) de outra coordenação não vê demandas restritas a menos que seja o responsável. `permissoes.md` §3.3 codifica esse comportamento.
+
+Para que essas regras sejam aplicáveis no código, é preciso saber qual a coordenação de cada usuário. O modelo atual `accounts.Usuario` tem `cargo` (texto livre, não estruturado) — insuficiente para checagem programática.
+
+### Decisão
+
+Adicionar campo `coordenacao` em `Usuario`:
+
+- `CharField(max_length=15, blank=True, default="")` com choices `gabinete | juridico | comunicacao`.
+- Vazio significa "não atribuído a coordenação" (admins, superusers, ou usuários inativos).
+- Exposto em `UsuarioCreateForm`, `UsuarioUpdateForm` e Django Admin.
+
+### Alternativas consideradas
+
+- **Inferir coordenação por grupo Django:** criar grupos por coordenação (ex: `Coordenador-Juridico`). Rejeitado: mistura permissão (o que pode fazer) com escopo (de qual time). Grupo já carrega o perfil (CO, AS); somar coordenação ao nome do grupo cria explosão combinatória.
+- **Tabela separada `MembroCoordenacao`:** overhead. Coordenação é atributo singular do usuário (cada usuário pertence a no máximo uma).
+- **Adiar até Fase 4 simplificando regras:** rejeitado. As regras de coordenação fazem parte do critério de aceite da Fase 3 (referência a `permissoes.md` §3.3 no roadmap §4.3.2).
+
+### Justificativa
+
+- Usuário pertence a uma coordenação singular — atributo direto é o modelado correto.
+- `cargo` continua existindo para texto livre, separado de `coordenacao` (estrutural).
+- Permite query direta: `Demanda.objects.filter(coordenacao_responsavel=user.coordenacao)`.
+
+### Consequências
+
+- Migration `accounts/0004_adicionar_coordenacao` adiciona coluna nullable — usuários existentes não são afetados.
+- `permissoes.md` referencia `user.coordenacao` para checks de visibilidade.
+- Mudança de coordenação de um usuário não desvincula das demandas atribuídas (assessor pode trocar de time mantendo demandas em transição).
+
+---
+
 *Decisões adicionadas em ordem cronológica conforme surgem. Cada decisão registrada uma vez; alterações futuras criam nova ADR (não editam a anterior).*
