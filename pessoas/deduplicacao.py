@@ -24,18 +24,14 @@ def buscar_similares(*, email="", telefone="", rede_social="", excluir_pk=None):
     rede_n = _normalizar_texto(rede_social).lstrip("@")
 
     q = Q()
-    matched = False
     if email_n:
         q |= Q(emails__endereco__iexact=email_n)
-        matched = True
     if telefone_n:
         q |= Q(telefones__numero=telefone_n)
-        matched = True
     if rede_n:
         q |= Q(redes_sociais__valor__iexact=rede_n)
-        matched = True
 
-    if not matched:
+    if not q:
         return Pessoa.objects.none()
 
     qs = Pessoa.objects.filter(q).filter(ativo=True).distinct()

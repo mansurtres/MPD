@@ -10,6 +10,8 @@ from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView, View
 
+from core.utils import somente_digitos
+
 from .deduplicacao import buscar_similares
 from .forms import (
     EmailPessoaFormSet,
@@ -34,12 +36,12 @@ class PessoaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     paginate_by = 25
 
     def get_queryset(self):
-        qs = Pessoa.objects.all().prefetch_related("tags")
+        qs = Pessoa.objects.all().prefetch_related("tags", "telefones", "emails")
         if self.request.GET.get("inativos") != "1":
             qs = qs.filter(ativo=True)
         busca = self.request.GET.get("q", "").strip()
         if busca:
-            digitos = "".join(c for c in busca if c.isdigit())
+            digitos = somente_digitos(busca)
             condicoes = (
                 Q(nome__icontains=busca)
                 | Q(sobrenome__icontains=busca)
@@ -57,7 +59,10 @@ class PessoaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         tag = self.request.GET.get("tag", "").strip()
         if tag:
             qs = qs.filter(tags__id=tag)
-        return qs.distinct()
+        # distinct só quando há joins M:N (busca cruza emails/telefones/redes_sociais; tag é M:N).
+        if busca or tag:
+            qs = qs.distinct()
+        return qs
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -77,6 +82,9 @@ class PessoaDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
     slug_field = "slug_publico"
     slug_url_kwarg = "slug"
 
+    def get_queryset(self):
+        return super().get_queryset().select_related("criado_por")
+
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["vinculos"] = self.object.vinculos.select_related("entidade").all()
@@ -95,16 +103,15 @@ class _PessoaFormMixin:
     template_name = "pessoas/form.html"
 
     FORMSETS = [
-        ("telefones", TelefoneFormSet, "numero"),
-        ("emails", EmailPessoaFormSet, "endereco"),
-        ("redes_sociais", RedeSocialFormSet, "valor"),
+        ("telefones", TelefoneFormSet),
+        ("emails", EmailPessoaFormSet),
+        ("redes_sociais", RedeSocialFormSet),
     ]
 
     def _build_formsets(self, post_data=None):
         instance = self.object if hasattr(self, "object") else None
         return {
-            chave: cls(post_data, instance=instance, prefix=chave)
-            for chave, cls, _ in self.FORMSETS
+            chave: cls(post_data, instance=instance, prefix=chave) for chave, cls in self.FORMSETS
         }
 
     def get_context_data(self, **kwargs):
@@ -119,7 +126,7 @@ class _PessoaFormMixin:
         # POST sem management forms = aba aberta antes de um deploy que mudou
         # o template, ou submit duplicado do navegador. Redireciona para GET
         # limpo em vez de exibir o erro interno do Django sobre ManagementForm.
-        for chave, _, _ in self.FORMSETS:
+        for chave, _ in self.FORMSETS:
             if f"{chave}-TOTAL_FORMS" not in request.POST:
                 messages.warning(
                     request, "A página estava desatualizada. Recarregue e preencha novamente."
@@ -272,7 +279,7 @@ class EntidadeListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         tipo = self.request.GET.get("tipo", "").strip()
         if tipo:
             qs = qs.filter(tipo=tipo)
-        return qs.distinct()
+        return qs
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -290,6 +297,9 @@ class EntidadeDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView
     context_object_name = "entidade"
     slug_field = "slug_publico"
     slug_url_kwarg = "slug"
+
+    def get_queryset(self):
+        return super().get_queryset().select_related("criado_por")
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -489,17 +499,17 @@ class DeduplicacaoCheckView(LoginRequiredMixin, PermissionRequiredMixin, View):
             telefone=request.GET.get("telefone", ""),
             rede_social=request.GET.get("rede_social", ""),
             excluir_pk=excluir_pk,
-        )[:5]
+        ).prefetch_related("telefones", "emails")[:5]
         dados = []
         for p in similares:
-            tel = p.telefones.first()
-            email = p.emails.first()
+            telefones = list(p.telefones.all())
+            emails = list(p.emails.all())
             dados.append(
                 {
                     "slug": p.slug_publico,
                     "nome": p.nome_exibicao,
-                    "email": email.endereco if email else "",
-                    "telefone": tel.numero_formatado if tel else "",
+                    "email": emails[0].endereco if emails else "",
+                    "telefone": telefones[0].numero_formatado if telefones else "",
                     "url": reverse("pessoas:pessoa_detalhe", kwargs={"slug": p.slug_publico}),
                 }
             )

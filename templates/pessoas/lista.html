@@ -56,9 +56,9 @@
         <td class="px-4 py-3 font-medium text-slate-900">
           <a href="{% url 'pessoas:pessoa_detalhe' p.slug_publico %}" class="hover:underline">{{ p.nome_exibicao }}</a>
         </td>
-        <td class="px-4 py-3 text-slate-600">{% with em=p.emails.first %}{% if em %}{{ em.endereco }}{% else %}—{% endif %}{% endwith %}</td>
+        <td class="px-4 py-3 text-slate-600">{% with em=p.emails.all|first %}{% if em %}{{ em.endereco }}{% else %}—{% endif %}{% endwith %}</td>
         <td class="px-4 py-3 text-slate-600">
-          {% with tel=p.telefones.first %}
+          {% with tel=p.telefones.all|first %}
           {% if tel %}
           <span class="inline-flex items-center gap-1.5">
             {{ tel.numero_formatado }}
