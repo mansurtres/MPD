@@ -574,6 +574,17 @@ def test_view_lista_acessivel_para_assessor(client, assessor):
     assert resp.status_code == 200
 
 
+def test_view_form_create_cancelar_aponta_para_lista(client, admin_user):
+    # Regressão: UUIDField com default=uuid4 popula form.instance.pk antes do
+    # save. Antes do fix, "Cancelar" gerava URL para /demandas/<uuid-fictício>/.
+    client.force_login(admin_user)
+    resp = client.get(reverse("demandas:demanda_nova"))
+    assert resp.status_code == 200
+    # Cancelar deve apontar para a lista, não para detalhe.
+    assert reverse("demandas:demanda_lista").encode() in resp.content
+    assert b"Cancelar" in resp.content
+
+
 def test_view_lista_renderiza_demanda_sem_responsavel(client, admin_user):
     # Regressão: template usava {{ d.responsavel.nome_completo|default:d.responsavel.email }}
     # que falhava com VariableDoesNotExist quando responsavel era None.
