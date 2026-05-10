@@ -16,8 +16,6 @@
     <thead>
       <tr class="border-b border-slate-200 bg-slate-50">
         <th class="text-left px-4 py-3 font-medium text-slate-600">Nome</th>
-        <th class="text-left px-4 py-3 font-medium text-slate-600">Categoria</th>
-        <th class="text-left px-4 py-3 font-medium text-slate-600">Cor</th>
         <th class="text-left px-4 py-3 font-medium text-slate-600">Status</th>
         <th class="px-4 py-3"></th>
       </tr>
@@ -25,23 +23,22 @@
     <tbody class="divide-y divide-slate-100">
       {% for t in tags %}
       <tr class="hover:bg-slate-50">
-        <td class="px-4 py-3 font-medium text-slate-900">{{ t.nome }}</td>
-        <td class="px-4 py-3 text-slate-600">{{ t.get_categoria_display }}</td>
-        <td class="px-4 py-3 text-slate-600">
+        <td class="px-4 py-3 font-medium">
           {% if t.cor %}
-          <span class="inline-block w-4 h-4 rounded align-middle" style="background:{{ t.cor }}"></span>
-          <span class="ml-1">{{ t.cor }}</span>
-          {% else %}—{% endif %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium" style="background: color-mix(in srgb, {{ t.cor }} 18%, white); color: color-mix(in srgb, {{ t.cor }} 75%, black);">{{ t.nome }}</span>
+          {% else %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">{{ t.nome }}</span>
+          {% endif %}
         </td>
         <td class="px-4 py-3">
           {% if t.ativo %}
           <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Ativa</span>
           {% else %}
-          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-200 text-slate-600">Inativa</span>
+          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-200 text-slate-600">Arquivada</span>
           {% endif %}
         </td>
         <td class="px-4 py-3 text-right">
-          <div class="flex gap-3 justify-end">
+          <div class="flex gap-3 justify-end items-center">
             {% if perms.pessoas.change_tag %}
             <a href="{% url 'pessoas:tag_editar' t.pk %}" class="text-slate-500 hover:text-slate-800">Editar</a>
             {% endif %}

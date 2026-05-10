@@ -38,6 +38,7 @@
         <div>
           <label class="block text-sm font-medium text-slate-700 mb-1">CPF</label>
           {{ form.cpf }}
+          <p id="cpf-status" class="mt-1 text-xs hidden"></p>
           {% for e in form.cpf.errors %}<p class="mt-1 text-xs text-red-600">{{ e }}</p>{% endfor %}
         </div>
         <div>
@@ -52,28 +53,217 @@
     </section>
 
     <section class="bg-white border border-slate-200 rounded-xl p-6">
-      <h2 class="text-base font-semibold text-slate-900 mb-1">Contato</h2>
-      <p class="text-xs text-slate-500 mb-4">Pelo menos um entre e-mail, telefone ou WhatsApp é obrigatório.</p>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">E-mail</label>
-          {{ form.email }}
-          {% for e in form.email.errors %}<p class="mt-1 text-xs text-red-600">{{ e }}</p>{% endfor %}
+      <h2 class="text-base font-semibold text-slate-900 mb-1">Contatos</h2>
+      <p class="text-xs text-slate-500 mb-4">Pelo menos um canal preenchido (telefone, e-mail ou rede social).</p>
+
+      {# --- Telefones --- #}
+      {% with fs=formsets_contato.telefones %}
+      <input type="hidden" name="telefones-TOTAL_FORMS" value="{{ fs.total_form_count }}">
+      <input type="hidden" name="telefones-INITIAL_FORMS" value="{{ fs.initial_form_count }}">
+      <input type="hidden" name="telefones-MIN_NUM_FORMS" value="{{ fs.min_num }}">
+      <input type="hidden" name="telefones-MAX_NUM_FORMS" value="{{ fs.max_num }}">
+
+      <div class="mb-6" data-formset="telefones">
+        <div class="flex items-center justify-between mb-1">
+          <h3 class="text-sm font-semibold text-slate-800">Telefones</h3>
+          <button type="button" class="add-row text-sm text-slate-700 hover:text-slate-900 underline">+ adicionar telefone</button>
         </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">Telefone</label>
-          {{ form.telefone }}
+        <p class="text-xs text-slate-500 mb-3">Celular: 11 dígitos com DDD (começa com 9). Fixo: 10 dígitos com DDD.</p>
+        <div class="rows-list space-y-3">
+          {% for tform in fs %}
+          <div class="formset-row border border-slate-200 rounded-lg p-3">
+            {% for hidden in tform.hidden_fields %}{{ hidden }}{% endfor %}
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-2 items-start">
+              <div class="md:col-span-4">
+                <label class="block text-xs text-slate-600 mb-1">Número</label>
+                {{ tform.numero }}
+                {% for e in tform.numero.errors %}<p class="mt-1 text-xs text-red-600">{{ e }}</p>{% endfor %}
+              </div>
+              <div class="md:col-span-2">
+                <label class="block text-xs text-slate-600 mb-1">Tipo</label>
+                {{ tform.tipo }}
+                {% for e in tform.tipo.errors %}<p class="mt-1 text-xs text-red-600">{{ e }}</p>{% endfor %}
+              </div>
+              <div class="md:col-span-2 pt-5">
+                <label class="inline-flex items-center gap-2 text-sm">{{ tform.eh_whatsapp }} WhatsApp</label>
+                {% for e in tform.eh_whatsapp.errors %}<p class="mt-1 text-xs text-red-600">{{ e }}</p>{% endfor %}
+              </div>
+              <div class="md:col-span-3">
+                <label class="block text-xs text-slate-600 mb-1">Rótulo</label>
+                {{ tform.rotulo }}
+              </div>
+              <div class="md:col-span-1 pt-5 text-right">
+                {% if tform.instance.pk %}
+                <label class="inline-flex items-center gap-1 text-xs text-red-600">{{ tform.DELETE }} remover</label>
+                {% else %}
+                <button type="button" class="remove-row text-xs text-slate-400 hover:text-red-600">remover</button>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          {% endfor %}
         </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">WhatsApp</label>
-          {{ form.whatsapp }}
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">Instagram</label>
-          {{ form.instagram }}
-          <p class="text-xs text-slate-400 mt-1">Sem o @.</p>
-        </div>
+        <template class="row-template" data-prefix="telefones">
+          <div class="formset-row border border-slate-200 rounded-lg p-3">
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-2 items-start">
+              <div class="md:col-span-4">
+                <label class="block text-xs text-slate-600 mb-1">Número</label>
+                <input type="text" name="telefones-__INDEX__-numero" placeholder="(XX) XXXXX-XXXX" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400">
+              </div>
+              <div class="md:col-span-2">
+                <label class="block text-xs text-slate-600 mb-1">Tipo</label>
+                <select name="telefones-__INDEX__-tipo" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400">
+                  <option value="celular" selected>Celular</option>
+                  <option value="fixo">Fixo</option>
+                </select>
+              </div>
+              <div class="md:col-span-2 pt-5">
+                <label class="inline-flex items-center gap-2 text-sm">
+                  <input type="checkbox" name="telefones-__INDEX__-eh_whatsapp" class="rounded border-slate-300"> WhatsApp
+                </label>
+              </div>
+              <div class="md:col-span-3">
+                <label class="block text-xs text-slate-600 mb-1">Rótulo</label>
+                <input type="text" name="telefones-__INDEX__-rotulo" placeholder="Opcional" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400">
+              </div>
+              <div class="md:col-span-1 pt-5 text-right">
+                <button type="button" class="remove-row text-xs text-slate-400 hover:text-red-600">remover</button>
+              </div>
+            </div>
+          </div>
+        </template>
       </div>
+      {% endwith %}
+
+      {# --- E-mails --- #}
+      {% with fs=formsets_contato.emails %}
+      <input type="hidden" name="emails-TOTAL_FORMS" value="{{ fs.total_form_count }}">
+      <input type="hidden" name="emails-INITIAL_FORMS" value="{{ fs.initial_form_count }}">
+      <input type="hidden" name="emails-MIN_NUM_FORMS" value="{{ fs.min_num }}">
+      <input type="hidden" name="emails-MAX_NUM_FORMS" value="{{ fs.max_num }}">
+
+      <div class="mb-6" data-formset="emails">
+        <div class="flex items-center justify-between mb-1">
+          <h3 class="text-sm font-semibold text-slate-800">E-mails</h3>
+          <button type="button" class="add-row text-sm text-slate-700 hover:text-slate-900 underline">+ adicionar e-mail</button>
+        </div>
+        <div class="rows-list space-y-3 mt-3">
+          {% for eform in fs %}
+          <div class="formset-row border border-slate-200 rounded-lg p-3">
+            {% for hidden in eform.hidden_fields %}{{ hidden }}{% endfor %}
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-2 items-start">
+              <div class="md:col-span-7">
+                <label class="block text-xs text-slate-600 mb-1">E-mail</label>
+                {{ eform.endereco }}
+                {% for e in eform.endereco.errors %}<p class="mt-1 text-xs text-red-600">{{ e }}</p>{% endfor %}
+              </div>
+              <div class="md:col-span-4">
+                <label class="block text-xs text-slate-600 mb-1">Rótulo</label>
+                {{ eform.rotulo }}
+              </div>
+              <div class="md:col-span-1 pt-5 text-right">
+                {% if eform.instance.pk %}
+                <label class="inline-flex items-center gap-1 text-xs text-red-600">{{ eform.DELETE }} remover</label>
+                {% else %}
+                <button type="button" class="remove-row text-xs text-slate-400 hover:text-red-600">remover</button>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        <template class="row-template" data-prefix="emails">
+          <div class="formset-row border border-slate-200 rounded-lg p-3">
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-2 items-start">
+              <div class="md:col-span-7">
+                <label class="block text-xs text-slate-600 mb-1">E-mail</label>
+                <input type="email" name="emails-__INDEX__-endereco" placeholder="exemplo@dominio.com" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400">
+              </div>
+              <div class="md:col-span-4">
+                <label class="block text-xs text-slate-600 mb-1">Rótulo</label>
+                <input type="text" name="emails-__INDEX__-rotulo" placeholder='Opcional. Ex: "trabalho"' class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400">
+              </div>
+              <div class="md:col-span-1 pt-5 text-right">
+                <button type="button" class="remove-row text-xs text-slate-400 hover:text-red-600">remover</button>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+      {% endwith %}
+
+      {# --- Redes sociais --- #}
+      {% with fs=formsets_contato.redes_sociais %}
+      <input type="hidden" name="redes_sociais-TOTAL_FORMS" value="{{ fs.total_form_count }}">
+      <input type="hidden" name="redes_sociais-INITIAL_FORMS" value="{{ fs.initial_form_count }}">
+      <input type="hidden" name="redes_sociais-MIN_NUM_FORMS" value="{{ fs.min_num }}">
+      <input type="hidden" name="redes_sociais-MAX_NUM_FORMS" value="{{ fs.max_num }}">
+
+      <div class="mb-2" data-formset="redes_sociais">
+        <div class="flex items-center justify-between mb-1">
+          <h3 class="text-sm font-semibold text-slate-800">Redes sociais</h3>
+          <button type="button" class="add-row text-sm text-slate-700 hover:text-slate-900 underline">+ adicionar rede</button>
+        </div>
+        <div class="rows-list space-y-3 mt-3">
+          {% for rform in fs %}
+          <div class="formset-row border border-slate-200 rounded-lg p-3">
+            {% for hidden in rform.hidden_fields %}{{ hidden }}{% endfor %}
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-2 items-start">
+              <div class="md:col-span-3">
+                <label class="block text-xs text-slate-600 mb-1">Plataforma</label>
+                {{ rform.plataforma }}
+                {% for e in rform.plataforma.errors %}<p class="mt-1 text-xs text-red-600">{{ e }}</p>{% endfor %}
+              </div>
+              <div class="md:col-span-5">
+                <label class="block text-xs text-slate-600 mb-1">Usuário ou URL</label>
+                {{ rform.valor }}
+                {% for e in rform.valor.errors %}<p class="mt-1 text-xs text-red-600">{{ e }}</p>{% endfor %}
+              </div>
+              <div class="md:col-span-3">
+                <label class="block text-xs text-slate-600 mb-1">Rótulo</label>
+                {{ rform.rotulo }}
+                {% for e in rform.rotulo.errors %}<p class="mt-1 text-xs text-red-600">{{ e }}</p>{% endfor %}
+              </div>
+              <div class="md:col-span-1 pt-5 text-right">
+                {% if rform.instance.pk %}
+                <label class="inline-flex items-center gap-1 text-xs text-red-600">{{ rform.DELETE }} remover</label>
+                {% else %}
+                <button type="button" class="remove-row text-xs text-slate-400 hover:text-red-600">remover</button>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        <template class="row-template" data-prefix="redes_sociais">
+          <div class="formset-row border border-slate-200 rounded-lg p-3">
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-2 items-start">
+              <div class="md:col-span-3">
+                <label class="block text-xs text-slate-600 mb-1">Plataforma</label>
+                <select name="redes_sociais-__INDEX__-plataforma" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400">
+                  <option value="instagram" selected>Instagram</option>
+                  <option value="facebook">Facebook</option>
+                  <option value="linkedin">LinkedIn</option>
+                  <option value="x_twitter">X (Twitter)</option>
+                  <option value="outro">Outro</option>
+                </select>
+              </div>
+              <div class="md:col-span-5">
+                <label class="block text-xs text-slate-600 mb-1">Usuário ou URL</label>
+                <input type="text" name="redes_sociais-__INDEX__-valor" placeholder="@usuario ou URL" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400">
+              </div>
+              <div class="md:col-span-3">
+                <label class="block text-xs text-slate-600 mb-1">Rótulo</label>
+                <input type="text" name="redes_sociais-__INDEX__-rotulo" placeholder='Obrigatório se "Outro"' class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400">
+              </div>
+              <div class="md:col-span-1 pt-5 text-right">
+                <button type="button" class="remove-row text-xs text-slate-400 hover:text-red-600">remover</button>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+      {% endwith %}
 
       <div id="duplicatas-alerta" class="hidden mt-4 bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-3">
         <p class="text-sm font-medium text-yellow-800 mb-2">Possíveis duplicatas:</p>
@@ -133,17 +323,6 @@
     </section>
 
     <section class="bg-white border border-slate-200 rounded-xl p-6">
-      <h2 class="text-base font-semibold text-slate-900 mb-1">Preferências de comunicação (LGPD)</h2>
-      <p class="text-xs text-slate-500 mb-4">Aplicam-se a comunicações em massa, não a respostas de demandas específicas.</p>
-      <div class="space-y-2">
-        <label class="flex items-center gap-2 text-sm text-slate-700">{{ form.nao_telefonar }} Não telefonar</label>
-        <label class="flex items-center gap-2 text-sm text-slate-700">{{ form.nao_enviar_email }} Não enviar e-mail em massa</label>
-        <label class="flex items-center gap-2 text-sm text-slate-700">{{ form.nao_enviar_sms }} Não enviar SMS/WhatsApp em massa</label>
-        <label class="flex items-center gap-2 text-sm text-slate-700">{{ form.nao_compartilhar_dados }} Não compartilhar dados com terceiros</label>
-      </div>
-    </section>
-
-    <section class="bg-white border border-slate-200 rounded-xl p-6">
       <h2 class="text-base font-semibold text-slate-900 mb-4">Observações</h2>
       {{ form.observacoes }}
     </section>
@@ -160,12 +339,108 @@
   const form = document.getElementById("pessoa-form");
   if (!form) return;
 
-  // Aplica classes Tailwind nos widgets do form Django
+  // Tailwind nos widgets renderizados pelo Django
   form.querySelectorAll("input[type=text], input[type=email], input[type=date], input[type=tel], input[type=url], select, textarea").forEach(el => {
     el.classList.add("w-full", "rounded-lg", "border", "border-slate-300", "px-3", "py-2", "text-sm", "focus:outline-none", "focus:ring-2", "focus:ring-slate-400");
   });
   form.querySelectorAll("input[type=checkbox]").forEach(el => {
     el.classList.add("rounded", "border-slate-300");
+  });
+
+  // Máscara e validação de CPF: XXX.XXX.XXX-XX
+  function mascaraCPF(valor) {
+    const d = (valor || "").replace(/\D/g, "").slice(0, 11);
+    if (d.length === 0) return "";
+    if (d.length <= 3) return d;
+    if (d.length <= 6) return d.slice(0, 3) + "." + d.slice(3);
+    if (d.length <= 9) return d.slice(0, 3) + "." + d.slice(3, 6) + "." + d.slice(6);
+    return d.slice(0, 3) + "." + d.slice(3, 6) + "." + d.slice(6, 9) + "-" + d.slice(9);
+  }
+  function cpfValido(valor) {
+    const d = (valor || "").replace(/\D/g, "");
+    if (d.length !== 11) return false;
+    if (/^(\d)\1{10}$/.test(d)) return false;
+    for (const tamanho of [9, 10]) {
+      let soma = 0;
+      for (let i = 0; i < tamanho; i++) soma += parseInt(d[i], 10) * (tamanho + 1 - i);
+      let dv = (soma * 10) % 11;
+      if (dv === 10) dv = 0;
+      if (dv !== parseInt(d[tamanho], 10)) return false;
+    }
+    return true;
+  }
+  const cpfInput = form.querySelector("input[name=cpf]");
+  const cpfStatus = document.getElementById("cpf-status");
+  if (cpfInput && cpfStatus) {
+    if (cpfInput.value) cpfInput.value = mascaraCPF(cpfInput.value);
+    cpfInput.addEventListener("input", () => {
+      const masked = mascaraCPF(cpfInput.value);
+      if (masked !== cpfInput.value) cpfInput.value = masked;
+      cpfStatus.classList.add("hidden");
+    });
+    cpfInput.addEventListener("blur", () => {
+      const v = cpfInput.value.trim();
+      cpfStatus.classList.remove("hidden");
+      if (!v) {
+        cpfStatus.classList.add("hidden");
+      } else if (cpfValido(v)) {
+        cpfStatus.textContent = "CPF válido.";
+        cpfStatus.classList.remove("text-red-600");
+        cpfStatus.classList.add("text-green-600");
+      } else {
+        cpfStatus.textContent = "CPF inválido.";
+        cpfStatus.classList.remove("text-green-600");
+        cpfStatus.classList.add("text-red-600");
+      }
+    });
+  }
+
+  // Máscara dinâmica de telefone: (XX) XXXXX-XXXX (cel) ou (XX) XXXX-XXXX (fixo)
+  function mascaraTelefone(valor) {
+    const d = (valor || "").replace(/\D/g, "").slice(0, 11);
+    if (d.length === 0) return "";
+    if (d.length <= 2) return "(" + d;
+    if (d.length <= 6) return "(" + d.slice(0, 2) + ") " + d.slice(2);
+    if (d.length <= 10) return "(" + d.slice(0, 2) + ") " + d.slice(2, 6) + "-" + d.slice(6);
+    return "(" + d.slice(0, 2) + ") " + d.slice(2, 7) + "-" + d.slice(7);
+  }
+  // Aplica nos inputs já renderizados (edição) e em novos via event delegation
+  form.querySelectorAll("input[name$='-numero']").forEach(el => {
+    if (el.value) el.value = mascaraTelefone(el.value);
+  });
+  form.addEventListener("input", ev => {
+    const t = ev.target;
+    if (t && t.matches && t.matches("input[name$='-numero']")) {
+      const before = t.value;
+      const masked = mascaraTelefone(before);
+      if (masked !== before) t.value = masked;
+    }
+  });
+
+  // Inicializa todos os formsets com data-formset="<prefix>"
+  form.querySelectorAll("[data-formset]").forEach(bloco => {
+    const prefix = bloco.dataset.formset;
+    const totalForms = form.querySelector(`input[name="${prefix}-TOTAL_FORMS"]`);
+    const lista = bloco.querySelector(".rows-list");
+    const tpl = bloco.querySelector(".row-template");
+    const addBtn = bloco.querySelector(".add-row");
+    if (!totalForms || !lista || !tpl) return;
+
+    addBtn?.addEventListener("click", () => {
+      const idx = parseInt(totalForms.value, 10);
+      const html = tpl.innerHTML.replaceAll("__INDEX__", String(idx));
+      const wrapper = document.createElement("div");
+      wrapper.innerHTML = html.trim();
+      lista.appendChild(wrapper.firstElementChild);
+      totalForms.value = idx + 1;
+    });
+
+    lista.addEventListener("click", ev => {
+      const btn = ev.target.closest(".remove-row");
+      if (!btn) return;
+      const row = btn.closest(".formset-row");
+      if (row) row.remove();
+    });
   });
 
   // Lookup CEP
@@ -194,37 +469,44 @@
     });
   }
 
-  // Deduplicação ao desfocar email/telefone/whatsapp
-  const emailEl = form.querySelector("input[name=email]");
-  const telEl = form.querySelector("input[name=telefone]");
-  const waEl = form.querySelector("input[name=whatsapp]");
+  // Deduplicação ao desfocar telefone, email ou rede social
   const alerta = document.getElementById("duplicatas-alerta");
-  const lista = document.getElementById("duplicatas-lista");
+  const listaDup = document.getElementById("duplicatas-lista");
   const url = new URL(window.location.href);
-  const excluir = url.pathname.match(/\/pessoas\/(\d+)\/editar/);
+  const excluir = url.pathname.match(/\/pessoas\/([0-9a-f-]+)\/editar/);
 
-  async function checkDup() {
+  async function checkDup({ telefone = "", email = "", rede = "" } = {}) {
     const params = new URLSearchParams();
-    if (emailEl?.value) params.set("email", emailEl.value);
-    if (telEl?.value) params.set("telefone", telEl.value);
-    if (waEl?.value) params.set("whatsapp", waEl.value);
+    if (email) params.set("email", email);
+    if (telefone) params.set("telefone", telefone);
+    if (rede) params.set("rede_social", rede);
     if (excluir) params.set("exclude", excluir[1]);
-    if ([...params].length === 0) { alerta.classList.add("hidden"); return; }
+    if ([...params].length === 0 || (excluir && [...params].length === 1)) {
+      alerta.classList.add("hidden");
+      return;
+    }
     try {
       const resp = await fetch(`{% url 'pessoas:api_deduplicar' %}?` + params.toString());
       const data = await resp.json();
       if (!data.resultados || data.resultados.length === 0) { alerta.classList.add("hidden"); return; }
-      lista.innerHTML = "";
+      listaDup.innerHTML = "";
       data.resultados.forEach(r => {
         const li = document.createElement("li");
-        const contato = [r.email, r.telefone, r.whatsapp].filter(Boolean).join(" • ");
-        li.innerHTML = `<a class="underline" href="${r.url}">${r.nome}</a>${contato ? ' — ' + contato : ''}`;
-        lista.appendChild(li);
+        const contato = [r.email, r.telefone].filter(Boolean).join(" • ");
+        li.innerHTML = `<a class="underline" href="${r.url}" target="_blank" rel="noopener">${r.nome}</a>${contato ? ' — ' + contato : ''}`;
+        listaDup.appendChild(li);
       });
       alerta.classList.remove("hidden");
     } catch {}
   }
-  [emailEl, telEl, waEl].forEach(el => el && el.addEventListener("blur", checkDup));
+
+  form.addEventListener("blur", ev => {
+    const t = ev.target;
+    if (!t || !t.matches) return;
+    if (t.matches("input[name$='-numero']")) checkDup({ telefone: t.value });
+    else if (t.matches("input[name$='-endereco']")) checkDup({ email: t.value });
+    else if (t.matches("input[name$='-valor']")) checkDup({ rede: t.value });
+  }, true);
 })();
 </script>
 {% endblock %}

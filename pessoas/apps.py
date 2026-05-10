@@ -8,9 +8,13 @@ class PessoasConfig(AppConfig):
     def ready(self):
         from auditlog.registry import auditlog
 
-        from .models import Entidade, Pessoa, Tag, Vinculo
+        from . import signals  # noqa: F401  (registra receivers via @receiver)
+        from .models import EmailPessoa, Entidade, Pessoa, RedeSocial, Tag, Telefone, Vinculo
 
         auditlog.register(Pessoa)
         auditlog.register(Entidade)
         auditlog.register(Vinculo)
         auditlog.register(Tag)
+        auditlog.register(Telefone)
+        auditlog.register(EmailPessoa)
+        auditlog.register(RedeSocial)

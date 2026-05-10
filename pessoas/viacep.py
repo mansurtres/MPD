@@ -1,9 +1,9 @@
 """Cliente ViaCEP. Tolerante a falha — qualquer erro retorna None silenciosamente."""
 
-import re
-
 import requests
 from django.conf import settings
+
+from core.utils import formatar_cep, somente_digitos
 
 
 def consultar(cep):
@@ -14,13 +14,13 @@ def consultar(cep):
 
     Não levanta exceção. Em caso de timeout/erro/HTTP/CEP inválido, retorna None.
     """
-    digits = re.sub(r"\D", "", cep or "")
-    if len(digits) != 8:
+    digitos = somente_digitos(cep)
+    if len(digitos) != 8:
         return None
 
     timeout = getattr(settings, "VIACEP_TIMEOUT", 3)
     try:
-        response = requests.get(f"https://viacep.com.br/ws/{digits}/json/", timeout=timeout)
+        response = requests.get(f"https://viacep.com.br/ws/{digitos}/json/", timeout=timeout)
         response.raise_for_status()
         data = response.json()
     except (requests.RequestException, ValueError):
@@ -30,7 +30,7 @@ def consultar(cep):
         return None
 
     return {
-        "cep": f"{digits[:5]}-{digits[5:]}",
+        "cep": formatar_cep(digitos),
         "logradouro": data.get("logradouro", ""),
         "complemento": data.get("complemento", ""),
         "bairro": data.get("bairro", ""),

@@ -10,7 +10,15 @@ from django.urls import reverse, reverse_lazy
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView, View
 
 from .deduplicacao import buscar_similares
-from .forms import EntidadeForm, PessoaForm, TagForm, VinculoForm
+from .forms import (
+    EmailPessoaFormSet,
+    EntidadeForm,
+    PessoaForm,
+    RedeSocialFormSet,
+    TagForm,
+    TelefoneFormSet,
+    VinculoForm,
+)
 from .models import Entidade, Pessoa, Tag, Vinculo
 from .viacep import consultar as consultar_cep
 
@@ -30,15 +38,18 @@ class PessoaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
             qs = qs.filter(ativo=True)
         busca = self.request.GET.get("q", "").strip()
         if busca:
-            qs = qs.filter(
+            digitos = "".join(c for c in busca if c.isdigit())
+            condicoes = (
                 Q(nome__icontains=busca)
                 | Q(sobrenome__icontains=busca)
                 | Q(nome_social__icontains=busca)
-                | Q(email__icontains=busca)
-                | Q(telefone__icontains=busca)
-                | Q(whatsapp__icontains=busca)
+                | Q(emails__endereco__icontains=busca)
+                | Q(redes_sociais__valor__icontains=busca)
                 | Q(bairro__icontains=busca)
             )
+            if digitos:
+                condicoes |= Q(telefones__numero__contains=digitos)
+            qs = qs.filter(condicoes)
         bairro = self.request.GET.get("bairro", "").strip()
         if bairro:
             qs = qs.filter(bairro__iexact=bairro)
@@ -62,6 +73,8 @@ class PessoaDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
     model = Pessoa
     template_name = "pessoas/detalhe.html"
     context_object_name = "pessoa"
+    slug_field = "slug_publico"
+    slug_url_kwarg = "slug"
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -70,20 +83,87 @@ class PessoaDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
         return ctx
 
 
-class PessoaCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class _PessoaFormMixin:
+    """Lógica comum a Create e Update: processa 3 formsets (telefones, emails,
+    redes sociais) e exige pelo menos um canal preenchido."""
+
+    template_name = "pessoas/form.html"
+
+    FORMSETS = [
+        ("telefones", TelefoneFormSet, "numero"),
+        ("emails", EmailPessoaFormSet, "endereco"),
+        ("redes_sociais", RedeSocialFormSet, "valor"),
+    ]
+
+    def _build_formsets(self, post_data=None):
+        instance = self.object if hasattr(self, "object") else None
+        return {
+            chave: cls(post_data, instance=instance, prefix=chave)
+            for chave, cls, _ in self.FORMSETS
+        }
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        if "formsets_contato" not in ctx:
+            ctx["formsets_contato"] = self._build_formsets()
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        # CreateView: sem kwargs de URL; UpdateView: tem 'slug' (Pessoa) ou 'pk' (legado).
+        eh_update = bool(self.kwargs.get("slug") or self.kwargs.get("pk"))
+        self.object = self.get_object() if eh_update else None
+        # Se o POST chega sem os management forms (template velho em cache,
+        # resubmit do navegador), redireciona para GET limpo em vez de
+        # renderizar mensagens internas do Django.
+        for chave, _, _ in self.FORMSETS:
+            if f"{chave}-TOTAL_FORMS" not in request.POST:
+                messages.warning(
+                    request, "A página estava desatualizada. Recarregue e preencha novamente."
+                )
+                return redirect(request.path)
+        form = self.get_form()
+        formsets = self._build_formsets(request.POST)
+        all_valid = form.is_valid() and all(fs.is_valid() for fs in formsets.values())
+        if all_valid:
+            tem_canal = any(
+                self._formset_tem_valor(formsets[chave], campo_obrigatorio)
+                for chave, _, campo_obrigatorio in self.FORMSETS
+            )
+            if not tem_canal:
+                form.add_error(
+                    None,
+                    "Preencha pelo menos um canal de contato: telefone, e-mail ou rede social.",
+                )
+                return self.form_invalid_with_formsets(form, formsets)
+            return self.form_valid_with_formsets(form, formsets)
+        return self.form_invalid_with_formsets(form, formsets)
+
+    @staticmethod
+    def _formset_tem_valor(formset, campo_obrigatorio):
+        return any(
+            f.cleaned_data
+            and not f.cleaned_data.get("DELETE", False)
+            and f.cleaned_data.get(campo_obrigatorio)
+            for f in formset
+        )
+
+    def form_invalid_with_formsets(self, form, formsets):
+        return self.render_to_response(self.get_context_data(form=form, formsets_contato=formsets))
+
+
+class PessoaCreateView(LoginRequiredMixin, PermissionRequiredMixin, _PessoaFormMixin, CreateView):
     permission_required = "pessoas.add_pessoa"
     model = Pessoa
     form_class = PessoaForm
-    template_name = "pessoas/form.html"
 
-    def form_valid(self, form):
+    def form_valid_with_formsets(self, form, formsets):
         form.instance.criado_por = self.request.user
-        response = super().form_valid(form)
+        self.object = form.save()
+        for fs in formsets.values():
+            fs.instance = self.object
+            fs.save()
         messages.success(self.request, f"Pessoa cadastrada: {self.object.nome_exibicao}.")
-        return response
-
-    def get_success_url(self):
-        return reverse("pessoas:pessoa_detalhe", args=[self.object.pk])
+        return redirect("pessoas:pessoa_detalhe", slug=self.object.slug_publico)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -91,19 +171,20 @@ class PessoaCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
         return ctx
 
 
-class PessoaUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class PessoaUpdateView(LoginRequiredMixin, PermissionRequiredMixin, _PessoaFormMixin, UpdateView):
     permission_required = "pessoas.change_pessoa"
     model = Pessoa
     form_class = PessoaForm
-    template_name = "pessoas/form.html"
+    slug_field = "slug_publico"
+    slug_url_kwarg = "slug"
 
-    def form_valid(self, form):
-        response = super().form_valid(form)
+    def form_valid_with_formsets(self, form, formsets):
+        self.object = form.save()
+        for fs in formsets.values():
+            fs.instance = self.object
+            fs.save()
         messages.success(self.request, "Pessoa atualizada.")
-        return response
-
-    def get_success_url(self):
-        return reverse("pessoas:pessoa_detalhe", args=[self.object.pk])
+        return redirect("pessoas:pessoa_detalhe", slug=self.object.slug_publico)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -116,8 +197,8 @@ class PessoaToggleAtivoView(LoginRequiredMixin, PermissionRequiredMixin, View):
 
     permission_required = "pessoas.change_pessoa"
 
-    def post(self, request, pk):
-        pessoa = get_object_or_404(Pessoa, pk=pk)
+    def post(self, request, slug):
+        pessoa = get_object_or_404(Pessoa, slug_publico=slug)
         if pessoa.ativo:
             if not request.user.has_perm("pessoas.pode_desativar_pessoa"):
                 raise PermissionDenied("Sem permissão para desativar pessoa.")
@@ -130,7 +211,7 @@ class PessoaToggleAtivoView(LoginRequiredMixin, PermissionRequiredMixin, View):
             pessoa.ativo = True
             pessoa.save()
             messages.success(request, f"{pessoa.nome_exibicao} reativada.")
-        return redirect("pessoas:pessoa_detalhe", pk=pk)
+        return redirect("pessoas:pessoa_detalhe", slug=pessoa.slug_publico)
 
 
 # --- Vínculos ---
@@ -139,8 +220,8 @@ class PessoaToggleAtivoView(LoginRequiredMixin, PermissionRequiredMixin, View):
 class VinculoCreateView(LoginRequiredMixin, PermissionRequiredMixin, View):
     permission_required = "pessoas.add_vinculo"
 
-    def post(self, request, pessoa_pk):
-        pessoa = get_object_or_404(Pessoa, pk=pessoa_pk)
+    def post(self, request, slug):
+        pessoa = get_object_or_404(Pessoa, slug_publico=slug)
         form = VinculoForm(request.POST, pessoa=pessoa)
         if form.is_valid():
             form.save()
@@ -148,7 +229,7 @@ class VinculoCreateView(LoginRequiredMixin, PermissionRequiredMixin, View):
         else:
             for err in form.errors.values():
                 messages.error(request, "; ".join(err))
-        return redirect("pessoas:pessoa_detalhe", pk=pessoa.pk)
+        return redirect("pessoas:pessoa_detalhe", slug=pessoa.slug_publico)
 
 
 class VinculoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, View):
@@ -156,10 +237,10 @@ class VinculoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, View):
 
     def post(self, request, pk):
         vinculo = get_object_or_404(Vinculo, pk=pk)
-        pessoa_pk = vinculo.pessoa_id
+        slug = vinculo.pessoa.slug_publico
         vinculo.delete()
         messages.success(request, "Vínculo removido.")
-        return redirect("pessoas:pessoa_detalhe", pk=pessoa_pk)
+        return redirect("pessoas:pessoa_detalhe", slug=slug)
 
 
 # --- Entidades ---
@@ -203,6 +284,8 @@ class EntidadeDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView
     model = Entidade
     template_name = "pessoas/entidades/detalhe.html"
     context_object_name = "entidade"
+    slug_field = "slug_publico"
+    slug_url_kwarg = "slug"
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -223,7 +306,7 @@ class EntidadeCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView
         return response
 
     def get_success_url(self):
-        return reverse("pessoas:entidade_detalhe", args=[self.object.pk])
+        return reverse("pessoas:entidade_detalhe", kwargs={"slug": self.object.slug_publico})
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -236,6 +319,8 @@ class EntidadeUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView
     model = Entidade
     form_class = EntidadeForm
     template_name = "pessoas/entidades/form.html"
+    slug_field = "slug_publico"
+    slug_url_kwarg = "slug"
 
     def form_valid(self, form):
         response = super().form_valid(form)
@@ -243,7 +328,7 @@ class EntidadeUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView
         return response
 
     def get_success_url(self):
-        return reverse("pessoas:entidade_detalhe", args=[self.object.pk])
+        return reverse("pessoas:entidade_detalhe", kwargs={"slug": self.object.slug_publico})
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -254,8 +339,8 @@ class EntidadeUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView
 class EntidadeToggleAtivoView(LoginRequiredMixin, PermissionRequiredMixin, View):
     permission_required = "pessoas.change_entidade"
 
-    def post(self, request, pk):
-        entidade = get_object_or_404(Entidade, pk=pk)
+    def post(self, request, slug):
+        entidade = get_object_or_404(Entidade, slug_publico=slug)
         if entidade.ativo:
             if not request.user.has_perm("pessoas.pode_desativar_entidade"):
                 raise PermissionDenied("Sem permissão para desativar entidade.")
@@ -268,7 +353,7 @@ class EntidadeToggleAtivoView(LoginRequiredMixin, PermissionRequiredMixin, View)
             entidade.ativo = True
             entidade.save()
             messages.success(request, f"{entidade.nome} reativada.")
-        return redirect("pessoas:entidade_detalhe", pk=pk)
+        return redirect("pessoas:entidade_detalhe", slug=slug)
 
 
 # --- Tags ---
@@ -281,7 +366,23 @@ class TagListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     context_object_name = "tags"
 
     def get_queryset(self):
-        return Tag.objects.all().order_by("categoria", "nome")
+        return Tag.objects.all().order_by("-ativo", "nome")
+
+
+# Paleta de cores nomeadas (referência: Google Calendar) — usada nos forms de Tag.
+CORES_PREDEFINIDAS = [
+    ("#d50000", "Tomate"),
+    ("#e67c73", "Flamingo"),
+    ("#f4511e", "Tangerina"),
+    ("#f6bf26", "Banana"),
+    ("#33b679", "Sálvia"),
+    ("#0b8043", "Manjericão"),
+    ("#039be5", "Pavão"),
+    ("#3f51b5", "Mirtilo"),
+    ("#7986cb", "Lavanda"),
+    ("#8e24aa", "Uva"),
+    ("#616161", "Grafite"),
+]
 
 
 class TagCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
@@ -299,6 +400,7 @@ class TagCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["titulo"] = "Nova tag"
+        ctx["cores_predefinidas"] = CORES_PREDEFINIDAS
         return ctx
 
 
@@ -317,6 +419,7 @@ class TagUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["titulo"] = f"Editar — {self.object.nome}"
+        ctx["cores_predefinidas"] = CORES_PREDEFINIDAS
         return ctx
 
 
@@ -325,6 +428,23 @@ class TagDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
     model = Tag
     success_url = reverse_lazy("pessoas:tag_lista")
     template_name = "pessoas/tags/confirmar_remocao.html"
+
+
+class TagToggleArquivarView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    """Alterna `ativo` da tag. Tag arquivada some das telas de atribuição/filtro
+    mas continua nas pessoas/entidades que já a tinham."""
+
+    permission_required = "pessoas.change_tag"
+
+    def post(self, request, pk):
+        tag = get_object_or_404(Tag, pk=pk)
+        tag.ativo = not tag.ativo
+        tag.save()
+        if tag.ativo:
+            messages.success(request, f"Tag '{tag.nome}' desarquivada.")
+        else:
+            messages.success(request, f"Tag '{tag.nome}' arquivada.")
+        return redirect("pessoas:tag_lista")
 
 
 # --- Endpoints auxiliares ---
@@ -341,7 +461,10 @@ class CEPLookupView(LoginRequiredMixin, View):
 
 
 class DeduplicacaoCheckView(LoginRequiredMixin, PermissionRequiredMixin, View):
-    """GET /pessoas/deduplicar/?email=&telefone=&whatsapp=&exclude="""
+    """GET /pessoas/deduplicar/?email=&telefone=&rede_social=&exclude=
+
+    Busca match em qualquer um dos 3 canais. Retorna até 5 pessoas similares.
+    """
 
     permission_required = "pessoas.view_pessoa"
 
@@ -350,18 +473,20 @@ class DeduplicacaoCheckView(LoginRequiredMixin, PermissionRequiredMixin, View):
         similares = buscar_similares(
             email=request.GET.get("email", ""),
             telefone=request.GET.get("telefone", ""),
-            whatsapp=request.GET.get("whatsapp", ""),
+            rede_social=request.GET.get("rede_social", ""),
             excluir_pk=excluir_pk,
         )[:5]
-        dados = [
-            {
-                "id": p.pk,
-                "nome": p.nome_exibicao,
-                "email": p.email,
-                "telefone": p.telefone,
-                "whatsapp": p.whatsapp,
-                "url": reverse("pessoas:pessoa_detalhe", args=[p.pk]),
-            }
-            for p in similares
-        ]
+        dados = []
+        for p in similares:
+            tel = p.telefones.first()
+            email = p.emails.first()
+            dados.append(
+                {
+                    "id": p.pk,
+                    "nome": p.nome_exibicao,
+                    "email": email.endereco if email else "",
+                    "telefone": tel.numero_formatado if tel else "",
+                    "url": reverse("pessoas:pessoa_detalhe", kwargs={"slug": p.slug_publico}),
+                }
+            )
         return JsonResponse({"resultados": dados})

@@ -1,8 +1,10 @@
-"""Forms para Pessoa, Entidade, Vínculo e Tag."""
+"""Forms para Pessoa, Entidade, Vínculo, Tag, Telefone, Email e RedeSocial."""
 
 from django import forms
+from django.db.models import Q
+from django.forms import inlineformset_factory
 
-from .models import Entidade, Pessoa, Tag, Vinculo
+from .models import EmailPessoa, Entidade, Pessoa, RedeSocial, Tag, Telefone, Vinculo
 
 
 class PessoaForm(forms.ModelForm):
@@ -15,10 +17,6 @@ class PessoaForm(forms.ModelForm):
             "cpf",
             "data_nascimento",
             "genero",
-            "email",
-            "telefone",
-            "whatsapp",
-            "instagram",
             "cep",
             "logradouro",
             "numero",
@@ -27,17 +25,87 @@ class PessoaForm(forms.ModelForm):
             "cidade",
             "estado",
             "tags",
-            "nao_telefonar",
-            "nao_enviar_email",
-            "nao_enviar_sms",
-            "nao_compartilhar_dados",
             "observacoes",
         ]
         widgets = {
-            "data_nascimento": forms.DateInput(attrs={"type": "date"}),
+            "data_nascimento": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
             "observacoes": forms.Textarea(attrs={"rows": 3}),
             "tags": forms.CheckboxSelectMultiple,
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Mostra tags ativas + arquivadas que esta pessoa já tem (preserva
+        # vínculos pré-arquivamento para não somem ao salvar).
+        cond = Q(ativo=True)
+        if self.instance and self.instance.pk:
+            cond |= Q(pk__in=self.instance.tags.values_list("pk", flat=True))
+        self.fields["tags"].queryset = Tag.objects.filter(cond).distinct()
+
+
+class TelefoneForm(forms.ModelForm):
+    class Meta:
+        model = Telefone
+        fields = ["numero", "tipo", "eh_whatsapp", "rotulo"]
+        widgets = {
+            "numero": forms.TextInput(attrs={"placeholder": "(XX) XXXXX-XXXX"}),
+            "rotulo": forms.TextInput(attrs={"placeholder": "Opcional"}),
+        }
+
+
+TelefoneFormSet = inlineformset_factory(
+    Pessoa,
+    Telefone,
+    form=TelefoneForm,
+    extra=1,
+    can_delete=True,
+    min_num=0,
+    validate_min=False,
+)
+
+
+class EmailPessoaForm(forms.ModelForm):
+    class Meta:
+        model = EmailPessoa
+        fields = ["endereco", "rotulo"]
+        widgets = {
+            "endereco": forms.EmailInput(attrs={"placeholder": "exemplo@dominio.com"}),
+            "rotulo": forms.TextInput(attrs={"placeholder": 'Opcional. Ex: "trabalho"'}),
+        }
+
+
+EmailPessoaFormSet = inlineformset_factory(
+    Pessoa,
+    EmailPessoa,
+    form=EmailPessoaForm,
+    extra=1,
+    can_delete=True,
+    min_num=0,
+    validate_min=False,
+)
+
+
+class RedeSocialForm(forms.ModelForm):
+    class Meta:
+        model = RedeSocial
+        fields = ["plataforma", "valor", "rotulo"]
+        widgets = {
+            "valor": forms.TextInput(attrs={"placeholder": "@usuario ou URL"}),
+            "rotulo": forms.TextInput(
+                attrs={"placeholder": 'Opcional (obrigatório se plataforma="Outro")'}
+            ),
+        }
+
+
+RedeSocialFormSet = inlineformset_factory(
+    Pessoa,
+    RedeSocial,
+    form=RedeSocialForm,
+    extra=1,
+    can_delete=True,
+    min_num=0,
+    validate_min=False,
+)
 
 
 class EntidadeForm(forms.ModelForm):
@@ -94,8 +162,8 @@ class VinculoForm(forms.ModelForm):
 class TagForm(forms.ModelForm):
     class Meta:
         model = Tag
-        fields = ["nome", "categoria", "cor", "descricao", "ativo"]
+        fields = ["nome", "cor", "descricao"]
         widgets = {
             "descricao": forms.Textarea(attrs={"rows": 2}),
-            "cor": forms.TextInput(attrs={"type": "color"}),
+            "cor": forms.TextInput(attrs={"placeholder": "#XXXXXX", "maxlength": 7}),
         }

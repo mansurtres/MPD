@@ -13,10 +13,10 @@
 
 <div class="flex items-center gap-3 mb-6">
   {% if perms.pessoas.change_entidade %}
-  <a href="{% url 'pessoas:entidade_editar' entidade.pk %}" class="text-sm text-slate-700 hover:text-slate-900 underline">Editar</a>
+  <a href="{% url 'pessoas:entidade_editar' entidade.slug_publico %}" class="text-sm text-slate-700 hover:text-slate-900 underline">Editar</a>
   {% endif %}
   {% if entidade.ativo and perms.pessoas.pode_desativar_entidade or not entidade.ativo and perms.pessoas.pode_reativar_entidade %}
-  <form method="post" action="{% url 'pessoas:entidade_toggle_ativo' entidade.pk %}" class="inline">
+  <form method="post" action="{% url 'pessoas:entidade_toggle_ativo' entidade.slug_publico %}" class="inline">
     {% csrf_token %}
     <button type="submit" class="text-sm text-slate-700 hover:text-slate-900 underline">
       {% if entidade.ativo %}Desativar{% else %}Reativar{% endif %}
@@ -65,7 +65,7 @@
       <ul class="divide-y divide-slate-100">
         {% for v in vinculos %}
         <li class="py-2 text-sm">
-          <a href="{% url 'pessoas:pessoa_detalhe' v.pessoa.pk %}" class="font-medium text-slate-900 hover:underline">{{ v.pessoa.nome_exibicao }}</a>
+          <a href="{% url 'pessoas:pessoa_detalhe' v.pessoa.slug_publico %}" class="font-medium text-slate-900 hover:underline">{{ v.pessoa.nome_exibicao }}</a>
           <span class="text-slate-500"> — {{ v.papel }}</span>
         </li>
         {% endfor %}
@@ -89,7 +89,7 @@
       {% if entidade.tags.all %}
       <div class="flex flex-wrap gap-1">
         {% for t in entidade.tags.all %}
-        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-700">{{ t.nome }}</span>
+        {% if t.cor %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium" style="background: color-mix(in srgb, {{ t.cor }} 18%, white); color: color-mix(in srgb, {{ t.cor }} 75%, black);">{{ t.nome }}</span>{% else %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">{{ t.nome }}</span>{% endif %}
         {% endfor %}
       </div>
       {% else %}

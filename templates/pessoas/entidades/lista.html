@@ -48,7 +48,7 @@
       {% for e in entidades %}
       <tr class="hover:bg-slate-50">
         <td class="px-4 py-3 font-medium text-slate-900">
-          <a href="{% url 'pessoas:entidade_detalhe' e.pk %}" class="hover:underline">{{ e.nome }}</a>
+          <a href="{% url 'pessoas:entidade_detalhe' e.slug_publico %}" class="hover:underline">{{ e.nome }}</a>
         </td>
         <td class="px-4 py-3 text-slate-600">{{ e.get_tipo_display }}</td>
         <td class="px-4 py-3 text-slate-600">{{ e.cnpj|default:"—" }}</td>

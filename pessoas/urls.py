@@ -5,19 +5,19 @@ from . import views
 app_name = "pessoas"
 
 urlpatterns = [
-    # Pessoas
+    # Pessoas (slug curto na URL pública)
     path("pessoas/", views.PessoaListView.as_view(), name="pessoa_lista"),
     path("pessoas/nova/", views.PessoaCreateView.as_view(), name="pessoa_nova"),
-    path("pessoas/<int:pk>/", views.PessoaDetailView.as_view(), name="pessoa_detalhe"),
-    path("pessoas/<int:pk>/editar/", views.PessoaUpdateView.as_view(), name="pessoa_editar"),
+    path("pessoas/<str:slug>/", views.PessoaDetailView.as_view(), name="pessoa_detalhe"),
+    path("pessoas/<str:slug>/editar/", views.PessoaUpdateView.as_view(), name="pessoa_editar"),
     path(
-        "pessoas/<int:pk>/toggle-ativo/",
+        "pessoas/<str:slug>/toggle-ativo/",
         views.PessoaToggleAtivoView.as_view(),
         name="pessoa_toggle_ativo",
     ),
     # Vínculos
     path(
-        "pessoas/<int:pessoa_pk>/vinculos/novo/",
+        "pessoas/<str:slug>/vinculos/novo/",
         views.VinculoCreateView.as_view(),
         name="vinculo_novo",
     ),
@@ -26,21 +26,21 @@ urlpatterns = [
         views.VinculoDeleteView.as_view(),
         name="vinculo_remover",
     ),
-    # Entidades
+    # Entidades (slug curto na URL pública)
     path("entidades/", views.EntidadeListView.as_view(), name="entidade_lista"),
     path("entidades/nova/", views.EntidadeCreateView.as_view(), name="entidade_nova"),
-    path("entidades/<int:pk>/", views.EntidadeDetailView.as_view(), name="entidade_detalhe"),
+    path("entidades/<str:slug>/", views.EntidadeDetailView.as_view(), name="entidade_detalhe"),
     path(
-        "entidades/<int:pk>/editar/",
+        "entidades/<str:slug>/editar/",
         views.EntidadeUpdateView.as_view(),
         name="entidade_editar",
     ),
     path(
-        "entidades/<int:pk>/toggle-ativo/",
+        "entidades/<str:slug>/toggle-ativo/",
         views.EntidadeToggleAtivoView.as_view(),
         name="entidade_toggle_ativo",
     ),
-    # Tags
+    # Tags (UUID — área administrativa, não exposta a cidadãos)
     path("configuracoes/tags/", views.TagListView.as_view(), name="tag_lista"),
     path("configuracoes/tags/nova/", views.TagCreateView.as_view(), name="tag_nova"),
     path(
@@ -52,6 +52,11 @@ urlpatterns = [
         "configuracoes/tags/<int:pk>/remover/",
         views.TagDeleteView.as_view(),
         name="tag_remover",
+    ),
+    path(
+        "configuracoes/tags/<int:pk>/arquivar/",
+        views.TagToggleArquivarView.as_view(),
+        name="tag_arquivar",
     ),
     # Endpoints auxiliares
     path("api/cep/<str:cep>/", views.CEPLookupView.as_view(), name="api_cep"),

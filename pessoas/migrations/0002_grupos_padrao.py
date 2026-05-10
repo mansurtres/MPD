@@ -121,7 +121,7 @@ def remover_grupos(apps, schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("pessoas", "0001_criar_models_pessoa_entidade_vinculo_tag"),
+        ("pessoas", "0001_initial"),
         ("auth", "0012_alter_user_first_name_max_length"),
     ]
 

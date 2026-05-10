@@ -3,64 +3,29 @@
 Núcleo do sistema. Pessoa é a entidade central; Entidade é qualquer agrupamento
 (formal ou informal); Vínculo liga pessoa a entidade com papel; Tag é uma
 classificação compartilhada por pessoa, entidade e demanda.
-"""
 
-import re
+Normalização de campos (CPF/CEP/CNPJ/UF/dígitos) é feita em `pessoas/signals.py`
+via `pre_save`. Validação algorítmica usa validators no campo (ver core/utils.py
+e core/mixins.py).
+"""
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.db import models
+from django.db import models, transaction
 
-
-def normalize_phone(value):
-    """Mantém apenas dígitos. Retorna string vazia se vazio/None."""
-    if not value:
-        return ""
-    return re.sub(r"\D", "", value)
-
-
-def validate_cpf(value):
-    """Valida CPF pelo algoritmo. Aceita com ou sem pontuação."""
-    if not value:
-        return
-    digits = re.sub(r"\D", "", value)
-    if len(digits) != 11 or digits == digits[0] * 11:
-        raise ValidationError("CPF inválido.")
-    for i in (9, 10):
-        s = sum(int(digits[j]) * ((i + 1) - j) for j in range(i))
-        d = (s * 10) % 11
-        if d == 10:
-            d = 0
-        if d != int(digits[i]):
-            raise ValidationError("CPF inválido.")
-
-
-def format_cpf(value):
-    """Formata CPF: 11 dígitos -> XXX.XXX.XXX-XX. Retorna como veio se inválido."""
-    digits = re.sub(r"\D", "", value or "")
-    if len(digits) != 11:
-        return value or ""
-    return f"{digits[:3]}.{digits[3:6]}.{digits[6:9]}-{digits[9:]}"
+from core.mixins import UF_VALIDATOR, AuditavelMixin, EnderecavelMixin
+from core.utils import (
+    formatar_cpf,
+    somente_digitos,
+    validate_cnpj_tamanho,
+    validate_cpf,
+)
 
 
 class Tag(models.Model):
-    """Classificação compartilhada por pessoa, entidade e demanda."""
-
-    CATEGORIA_TEMA = "tema"
-    CATEGORIA_PERFIL = "perfil"
-    CATEGORIA_TERRITORIO = "territorio"
-    CATEGORIA_LIVRE = "livre"
-    CATEGORIA_CHOICES = [
-        (CATEGORIA_TEMA, "Tema"),
-        (CATEGORIA_PERFIL, "Perfil"),
-        (CATEGORIA_TERRITORIO, "Território"),
-        (CATEGORIA_LIVRE, "Livre"),
-    ]
+    """Etiqueta livre, compartilhada por pessoa, entidade e demanda. Ver ADR 0039."""
 
     nome = models.CharField("nome", max_length=50, unique=True)
-    categoria = models.CharField(
-        "categoria", max_length=15, choices=CATEGORIA_CHOICES, default=CATEGORIA_LIVRE
-    )
     cor = models.CharField("cor", max_length=7, blank=True, help_text="Hex #RRGGBB")
     descricao = models.TextField("descrição", blank=True)
     ativo = models.BooleanField("ativa", default=True)
@@ -69,9 +34,8 @@ class Tag(models.Model):
     class Meta:
         verbose_name = "tag"
         verbose_name_plural = "tags"
-        ordering = ["categoria", "nome"]
+        ordering = ["nome"]
         indexes = [
-            models.Index(fields=["categoria"]),
             models.Index(fields=["ativo"]),
         ]
 
@@ -84,7 +48,7 @@ class PessoaManager(models.Manager):
         return self.filter(ativo=True)
 
 
-class Pessoa(models.Model):
+class Pessoa(EnderecavelMixin, AuditavelMixin, models.Model):
     """Pessoa física que se relaciona com o mandato. Endereço inline."""
 
     GENERO_MULHER = "mulher"
@@ -109,36 +73,27 @@ class Pessoa(models.Model):
         (ORIGEM_IMPORTACAO, "Importação"),
     ]
 
+    slug_publico = models.CharField(
+        max_length=12,
+        unique=True,
+        blank=True,
+        editable=False,
+        help_text="Slug curto para URLs públicas. Gerado automaticamente no pre_save.",
+    )
+
     nome = models.CharField("nome", max_length=100)
     sobrenome = models.CharField("sobrenome", max_length=150)
     nome_social = models.CharField("nome social", max_length=200, blank=True)
-    cpf = models.CharField("CPF", max_length=14, blank=True, default="")
+    cpf = models.CharField("CPF", max_length=14, blank=True, default="", validators=[validate_cpf])
     data_nascimento = models.DateField("data de nascimento", null=True, blank=True)
     genero = models.CharField(
         "gênero", max_length=30, choices=GENERO_CHOICES, blank=True, default=""
     )
 
-    email = models.EmailField("e-mail", max_length=254, blank=True, default="")
-    telefone = models.CharField("telefone", max_length=20, blank=True, default="")
-    whatsapp = models.CharField("WhatsApp", max_length=20, blank=True, default="")
-    instagram = models.CharField(
-        "Instagram", max_length=50, blank=True, default="", help_text="Sem o @"
-    )
-
-    cep = models.CharField("CEP", max_length=9, blank=True, default="")
-    logradouro = models.CharField("logradouro", max_length=200, blank=True, default="")
-    numero = models.CharField("número", max_length=20, blank=True, default="")
-    complemento = models.CharField("complemento", max_length=100, blank=True, default="")
+    # Sobrescreve campos do EnderecavelMixin: bairro/cidade obrigatórios; UF default ES.
     bairro = models.CharField("bairro", max_length=100)
     cidade = models.CharField("cidade", max_length=100)
-    estado = models.CharField("estado (UF)", max_length=2, default="ES")
-
-    nao_telefonar = models.BooleanField("não telefonar", default=False)
-    nao_enviar_email = models.BooleanField("não enviar e-mail em massa", default=False)
-    nao_enviar_sms = models.BooleanField("não enviar SMS/WhatsApp em massa", default=False)
-    nao_compartilhar_dados = models.BooleanField(
-        "não compartilhar dados com terceiros", default=False
-    )
+    estado = models.CharField("estado (UF)", max_length=2, default="ES", validators=[UF_VALIDATOR])
 
     observacoes = models.TextField("observações", blank=True)
     origem_cadastro = models.CharField(
@@ -157,8 +112,6 @@ class Pessoa(models.Model):
         on_delete=models.PROTECT,
         related_name="pessoas_criadas",
     )
-    criado_em = models.DateTimeField("criado em", auto_now_add=True)
-    atualizado_em = models.DateTimeField("atualizado em", auto_now=True)
 
     objects = PessoaManager()
 
@@ -182,9 +135,6 @@ class Pessoa(models.Model):
             models.Index(fields=["nome", "sobrenome"]),
             models.Index(fields=["bairro"]),
             models.Index(fields=["ativo"]),
-            models.Index(fields=["email"]),
-            models.Index(fields=["telefone"]),
-            models.Index(fields=["whatsapp"]),
         ]
 
     def __str__(self):
@@ -200,52 +150,29 @@ class Pessoa(models.Model):
 
     @property
     def cpf_formatado(self):
-        return format_cpf(self.cpf) if self.cpf else ""
+        return formatar_cpf(self.cpf) if self.cpf else ""
 
-    def clean(self):
-        super().clean()
-        if not (self.email or self.telefone or self.whatsapp):
-            raise ValidationError(
-                "Preencha pelo menos um meio de contato: e-mail, telefone ou WhatsApp."
-            )
-        if self.cpf:
-            validate_cpf(self.cpf)
-        if self.cep:
-            cep = re.sub(r"\D", "", self.cep)
-            if len(cep) != 8:
-                raise ValidationError({"cep": "CEP deve ter 8 dígitos."})
-        if self.estado and len(self.estado) != 2:
-            raise ValidationError({"estado": "Use a sigla de 2 letras (ex: ES)."})
+    def tem_meio_de_contato(self):
+        """Pelo menos um canal: telefone, email ou rede social."""
+        if not self.pk:
+            return False
+        return self.telefones.exists() or self.emails.exists() or self.redes_sociais.exists()
 
-    def save(self, *args, **kwargs):
-        self.telefone = normalize_phone(self.telefone)
-        self.whatsapp = normalize_phone(self.whatsapp)
-        if self.cpf:
-            self.cpf = format_cpf(self.cpf)
-        if self.cep:
-            cep = re.sub(r"\D", "", self.cep)
-            if len(cep) == 8:
-                self.cep = f"{cep[:5]}-{cep[5:]}"
-        if self.estado:
-            self.estado = self.estado.upper()
-        if self.instagram:
-            self.instagram = self.instagram.lstrip("@").strip()
-        super().save(*args, **kwargs)
-
+    @transaction.atomic
     def anonimizar(self):
+        """Apaga PII e canais de contato em uma única transação (LGPD)."""
         self.nome = "[Pessoa Removida]"
         self.sobrenome = ""
         self.nome_social = ""
-        self.email = ""
-        self.telefone = ""
-        self.whatsapp = ""
-        self.instagram = ""
         self.cpf = ""
         self.data_nascimento = None
         self.observacoes = ""
         self.anonimizado = True
         self.ativo = False
         self.save()
+        self.telefones.all().delete()
+        self.emails.all().delete()
+        self.redes_sociais.all().delete()
 
 
 class EntidadeManager(models.Manager):
@@ -253,7 +180,7 @@ class EntidadeManager(models.Manager):
         return self.filter(ativo=True)
 
 
-class Entidade(models.Model):
+class Entidade(EnderecavelMixin, AuditavelMixin, models.Model):
     """Pessoa jurídica, coletivo ou agrupamento de qualquer natureza."""
 
     TIPO_CHOICES = [
@@ -273,22 +200,24 @@ class Entidade(models.Model):
         ("outros", "Outros"),
     ]
 
+    slug_publico = models.CharField(
+        max_length=12,
+        unique=True,
+        blank=True,
+        editable=False,
+        help_text="Slug curto para URLs públicas. Gerado automaticamente no pre_save.",
+    )
+
     nome = models.CharField("nome", max_length=200)
     nome_fantasia = models.CharField("nome fantasia", max_length=200, blank=True, default="")
     tipo = models.CharField("tipo", max_length=30, choices=TIPO_CHOICES)
-    cnpj = models.CharField("CNPJ", max_length=18, blank=True, default="")
+    cnpj = models.CharField(
+        "CNPJ", max_length=18, blank=True, default="", validators=[validate_cnpj_tamanho]
+    )
 
     email = models.EmailField("e-mail", max_length=254, blank=True, default="")
     telefone = models.CharField("telefone", max_length=20, blank=True, default="")
     site = models.URLField("site", max_length=255, blank=True, default="")
-
-    cep = models.CharField("CEP", max_length=9, blank=True, default="")
-    logradouro = models.CharField("logradouro", max_length=200, blank=True, default="")
-    numero = models.CharField("número", max_length=20, blank=True, default="")
-    complemento = models.CharField("complemento", max_length=100, blank=True, default="")
-    bairro = models.CharField("bairro", max_length=100, blank=True, default="")
-    cidade = models.CharField("cidade", max_length=100, blank=True, default="")
-    estado = models.CharField("estado (UF)", max_length=2, blank=True, default="")
 
     observacoes = models.TextField("observações", blank=True)
     ativo = models.BooleanField("ativa", default=True)
@@ -300,8 +229,6 @@ class Entidade(models.Model):
         on_delete=models.PROTECT,
         related_name="entidades_criadas",
     )
-    criado_em = models.DateTimeField("criada em", auto_now_add=True)
-    atualizado_em = models.DateTimeField("atualizada em", auto_now=True)
 
     objects = EntidadeManager()
 
@@ -328,31 +255,6 @@ class Entidade(models.Model):
 
     def __str__(self):
         return self.nome
-
-    def clean(self):
-        super().clean()
-        if self.cnpj:
-            digits = re.sub(r"\D", "", self.cnpj)
-            if len(digits) != 14:
-                raise ValidationError({"cnpj": "CNPJ deve ter 14 dígitos."})
-        if self.cep:
-            cep = re.sub(r"\D", "", self.cep)
-            if len(cep) != 8:
-                raise ValidationError({"cep": "CEP deve ter 8 dígitos."})
-
-    def save(self, *args, **kwargs):
-        self.telefone = normalize_phone(self.telefone)
-        if self.cnpj:
-            digits = re.sub(r"\D", "", self.cnpj)
-            if len(digits) == 14:
-                self.cnpj = f"{digits[:2]}.{digits[2:5]}.{digits[5:8]}/{digits[8:12]}-{digits[12:]}"
-        if self.cep:
-            cep = re.sub(r"\D", "", self.cep)
-            if len(cep) == 8:
-                self.cep = f"{cep[:5]}-{cep[5:]}"
-        if self.estado:
-            self.estado = self.estado.upper()
-        super().save(*args, **kwargs)
 
 
 class Vinculo(models.Model):
@@ -386,3 +288,150 @@ class Vinculo(models.Model):
     @property
     def vigente(self):
         return self.data_fim is None
+
+
+class Telefone(models.Model):
+    """Número de telefone de uma pessoa. Tipo distingue celular de fixo."""
+
+    TIPO_CELULAR = "celular"
+    TIPO_FIXO = "fixo"
+    TIPO_CHOICES = [
+        (TIPO_CELULAR, "Celular"),
+        (TIPO_FIXO, "Fixo"),
+    ]
+
+    pessoa = models.ForeignKey(Pessoa, on_delete=models.CASCADE, related_name="telefones")
+    numero = models.CharField("número", max_length=20)
+    tipo = models.CharField("tipo", max_length=10, choices=TIPO_CHOICES, default=TIPO_CELULAR)
+    eh_whatsapp = models.BooleanField("é WhatsApp", default=False)
+    rotulo = models.CharField(
+        "rótulo",
+        max_length=50,
+        blank=True,
+        default="",
+        help_text='Opcional. Ex: "trabalho", "recado da mãe".',
+    )
+    criado_em = models.DateTimeField("criado em", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "telefone"
+        verbose_name_plural = "telefones"
+        ordering = ["-eh_whatsapp", "criado_em"]
+        indexes = [
+            models.Index(fields=["numero"]),
+            models.Index(fields=["pessoa"]),
+        ]
+
+    def __str__(self):
+        return f"{self.numero_formatado} ({self.get_tipo_display()})"
+
+    @property
+    def numero_formatado(self):
+        n = self.numero or ""
+        if len(n) == 11:
+            return f"({n[:2]}) {n[2:7]}-{n[7:]}"
+        if len(n) == 10:
+            return f"({n[:2]}) {n[2:6]}-{n[6:]}"
+        return n
+
+    def clean(self):
+        super().clean()
+        digitos = somente_digitos(self.numero)
+        if self.tipo == self.TIPO_CELULAR:
+            if len(digitos) != 11:
+                raise ValidationError(
+                    {"numero": "Celular deve ter 11 dígitos: DDD + 9 + 8 dígitos."}
+                )
+            if digitos[2] != "9":
+                raise ValidationError(
+                    {"numero": "Celular deve começar com 9 após o DDD (regra Anatel)."}
+                )
+        elif self.tipo == self.TIPO_FIXO:
+            if len(digitos) != 10:
+                raise ValidationError(
+                    {"numero": "Telefone fixo deve ter 10 dígitos: DDD + 8 dígitos."}
+                )
+        if self.eh_whatsapp and self.tipo != self.TIPO_CELULAR:
+            raise ValidationError(
+                {"eh_whatsapp": "WhatsApp só pode ser marcado em telefone celular."}
+            )
+
+
+class EmailPessoa(models.Model):
+    """E-mail de uma pessoa. Pessoa pode ter múltiplos."""
+
+    pessoa = models.ForeignKey(Pessoa, on_delete=models.CASCADE, related_name="emails")
+    endereco = models.EmailField("endereço", max_length=254)
+    rotulo = models.CharField(
+        "rótulo",
+        max_length=50,
+        blank=True,
+        default="",
+        help_text='Opcional. Ex: "trabalho", "pessoal".',
+    )
+    criado_em = models.DateTimeField("criado em", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "e-mail"
+        verbose_name_plural = "e-mails"
+        ordering = ["criado_em"]
+        indexes = [
+            models.Index(fields=["endereco"]),
+            models.Index(fields=["pessoa"]),
+        ]
+
+    def __str__(self):
+        return self.endereco
+
+
+class RedeSocial(models.Model):
+    """Presença em rede social. Pessoa pode ter várias."""
+
+    PLATAFORMA_INSTAGRAM = "instagram"
+    PLATAFORMA_FACEBOOK = "facebook"
+    PLATAFORMA_LINKEDIN = "linkedin"
+    PLATAFORMA_X_TWITTER = "x_twitter"
+    PLATAFORMA_OUTRO = "outro"
+    PLATAFORMA_CHOICES = [
+        (PLATAFORMA_INSTAGRAM, "Instagram"),
+        (PLATAFORMA_FACEBOOK, "Facebook"),
+        (PLATAFORMA_LINKEDIN, "LinkedIn"),
+        (PLATAFORMA_X_TWITTER, "X (Twitter)"),
+        (PLATAFORMA_OUTRO, "Outro"),
+    ]
+
+    pessoa = models.ForeignKey(Pessoa, on_delete=models.CASCADE, related_name="redes_sociais")
+    plataforma = models.CharField("plataforma", max_length=20, choices=PLATAFORMA_CHOICES)
+    valor = models.CharField(
+        "usuário ou URL",
+        max_length=255,
+        help_text="@handle ou URL do perfil.",
+    )
+    rotulo = models.CharField(
+        "rótulo",
+        max_length=50,
+        blank=True,
+        default="",
+        help_text='Opcional. Especialmente útil quando plataforma="Outro" para indicar qual rede.',
+    )
+    criado_em = models.DateTimeField("criado em", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "rede social"
+        verbose_name_plural = "redes sociais"
+        ordering = ["plataforma", "criado_em"]
+        indexes = [
+            models.Index(fields=["plataforma"]),
+            models.Index(fields=["pessoa"]),
+            models.Index(fields=["valor"]),
+        ]
+
+    def __str__(self):
+        return f"{self.get_plataforma_display()}: {self.valor}"
+
+    def clean(self):
+        super().clean()
+        if self.plataforma == self.PLATAFORMA_OUTRO and not self.rotulo:
+            raise ValidationError(
+                {"rotulo": 'Quando a plataforma é "Outro", informe o rótulo (qual rede).'}
+            )
