@@ -515,8 +515,37 @@ def test_telefone_numero_formatado_fixo(db, pessoa_basica):
 
 
 def test_email_normaliza_lowercase_no_save(db, pessoa_basica):
-    e = EmailPessoa.objects.create(pessoa=pessoa_basica, endereco="  Maria@Example.COM  ")
-    assert e.endereco == "maria@example.com"
+    e = EmailPessoa.objects.create(pessoa=pessoa_basica, endereco="  Outro@Example.COM  ")
+    assert e.endereco == "outro@example.com"
+
+
+def test_email_unico_por_pessoa(db, pessoa_basica):
+    from django.db import IntegrityError
+
+    with pytest.raises(IntegrityError):
+        EmailPessoa.objects.create(pessoa=pessoa_basica, endereco="MARIA@example.com")
+
+
+def test_telefone_unico_por_pessoa(db, pessoa_basica):
+    from django.db import IntegrityError
+
+    Telefone.objects.create(pessoa=pessoa_basica, numero="27999990000", tipo="celular")
+    with pytest.raises(IntegrityError):
+        Telefone.objects.create(pessoa=pessoa_basica, numero="(27) 99999-0000", tipo="celular")
+
+
+def test_rede_social_unica_por_pessoa_plataforma(db, pessoa_basica):
+    from django.db import IntegrityError
+
+    RedeSocial.objects.create(pessoa=pessoa_basica, plataforma="instagram", valor="maria")
+    with pytest.raises(IntegrityError):
+        RedeSocial.objects.create(pessoa=pessoa_basica, plataforma="instagram", valor="@maria")
+
+
+def test_rede_social_mesmo_handle_em_plataformas_diferentes(db, pessoa_basica):
+    # Caso documentado: @exemplo no Instagram + Twitter é esperado e válido.
+    RedeSocial.objects.create(pessoa=pessoa_basica, plataforma="instagram", valor="exemplo")
+    RedeSocial.objects.create(pessoa=pessoa_basica, plataforma="x_twitter", valor="exemplo")
 
 
 # --- RedeSocial ---

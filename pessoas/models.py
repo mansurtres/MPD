@@ -321,6 +321,13 @@ class Telefone(models.Model):
             models.Index(fields=["numero"]),
             models.Index(fields=["pessoa"]),
         ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["pessoa", "numero"],
+                name="telefone_unico_por_pessoa",
+                violation_error_message="Esta pessoa já tem este número cadastrado.",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.numero_formatado} ({self.get_tipo_display()})"
@@ -379,6 +386,13 @@ class EmailPessoa(models.Model):
             models.Index(fields=["endereco"]),
             models.Index(fields=["pessoa"]),
         ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["pessoa", "endereco"],
+                name="email_unico_por_pessoa",
+                violation_error_message="Esta pessoa já tem este e-mail cadastrado.",
+            ),
+        ]
 
     def __str__(self):
         return self.endereco
@@ -424,6 +438,13 @@ class RedeSocial(models.Model):
             models.Index(fields=["plataforma"]),
             models.Index(fields=["pessoa"]),
             models.Index(fields=["valor"]),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["pessoa", "plataforma", "valor"],
+                name="rede_social_unica_por_pessoa",
+                violation_error_message="Esta pessoa já tem este perfil cadastrado nesta plataforma.",
+            ),
         ]
 
     def __str__(self):
