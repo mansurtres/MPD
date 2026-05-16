@@ -416,6 +416,16 @@ class Interacao(models.Model):
         blank=True,
         related_name="follow_ups",
     )
+    # FK opcional para Encaminhamento — populada quando a Interacao representa
+    # um evento de um encaminhamento (envio ou resposta). Permite expansão
+    # do item na timeline mostrando detalhes técnicos. Ver ADR 0045.
+    encaminhamento = models.ForeignKey(
+        "Encaminhamento",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="interacoes",
+    )
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 

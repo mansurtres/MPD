@@ -514,6 +514,52 @@ def test_responder_unico_encaminhamento_volta_para_em_andamento(db, demanda, adm
     assert demanda.status == Demanda.STATUS_EM_ANDAMENTO
 
 
+def test_view_encaminhamento_liga_fk_em_interacao(client, demanda, admin_user):
+    """ADR 0045: ao criar encaminhamento via view, a Interacao gerada
+    aponta para o Encaminhamento (timeline expansível)."""
+    client.force_login(admin_user)
+    url = reverse("demandas:encaminhamento_novo", args=[demanda.pk])
+    resp = client.post(
+        url,
+        {
+            "destinatario_orgao": "Sesa",
+            "destinatario_pessoa": "",
+            "tipo_documento": "oficio",
+            "numero_documento": "001/2026",
+            "data_envio": timezone.now().date().isoformat(),
+            "prazo_resposta": "",
+        },
+    )
+    assert resp.status_code == 302
+    enc = Encaminhamento.objects.get(demanda=demanda)
+    interacao = Interacao.objects.get(demanda=demanda, tipo=Interacao.TIPO_ENCAMINHAMENTO)
+    assert interacao.encaminhamento_id == enc.pk
+
+
+def test_view_resposta_encaminhamento_liga_fk_em_interacao(client, demanda, admin_user):
+    """ADR 0045: ao registrar resposta, a Interacao retorno_externo_recebido
+    também aponta para o Encaminhamento."""
+    client.force_login(admin_user)
+    enc = Encaminhamento.objects.create(
+        demanda=demanda,
+        destinatario_orgao="Sesa",
+        tipo_documento="oficio",
+        data_envio=timezone.now().date(),
+        criado_por=admin_user,
+    )
+    resp = client.post(
+        reverse("demandas:encaminhamento_responder", args=[enc.pk]),
+        {
+            "status": "respondido_satisfatorio",
+            "data_resposta": timezone.now().date().isoformat(),
+            "conteudo_resposta": "Obra autorizada.",
+        },
+    )
+    assert resp.status_code == 302
+    retorno = Interacao.objects.get(demanda=demanda, tipo=Interacao.TIPO_RETORNO_EXTERNO)
+    assert retorno.encaminhamento_id == enc.pk
+
+
 def test_responder_um_de_dois_encaminhamentos_mantem_aguardando(db, demanda, admin_user):
     enc1 = Encaminhamento.objects.create(
         demanda=demanda,

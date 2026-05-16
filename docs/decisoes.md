@@ -1523,4 +1523,60 @@ Submit único → `AtualizarEstadoView` aplica os 5 em transação atômica → 
 
 ---
 
+## ADR 0045 — Encaminhamento integrado à linha do tempo (sem seção própria)
+
+**Data:** 2026-05-16
+**Status:** Aceito
+
+### Contexto
+
+Até a v0.4.x, o detalhe da demanda tinha duas seções de história paralelas:
+
+- **Linha do tempo**: lista cronológica de Interações (incluindo a auto-gerada do envio de encaminhamento, com conteúdo curto tipo "Indicação → Setran").
+- **Encaminhamentos**: lista separada de Encaminhamentos com detalhes técnicos (tipo doc, prazo, status, anexos, form de resposta).
+
+Resultado: o mesmo evento (enviar um ofício pra Sesa) aparecia em dois lugares com pesos diferentes — e o assessor lia uma narrativa fragmentada. A história do caso ficava espalhada.
+
+### Decisão
+
+**Encaminhamento deixa de ter seção própria. Cada envio e cada resposta vivem como item da timeline, com o detalhe técnico do encaminhamento expansível dentro do item.**
+
+Mecânica:
+- Novo campo `Interacao.encaminhamento` (FK opcional para `Encaminhamento`). Populado na criação automática quando a Interacao representa um evento de um encaminhamento — `tipo='encaminhamento_externo'` (envio) ou `tipo='retorno_externo_recebido'` (resposta).
+- Na timeline, qualquer item com `encaminhamento` ligado ganha um `<details>` "Detalhes do encaminhamento" mostrando:
+  - Tipo de documento, número, data de envio, prazo de resposta, **status atual** (não congelado na data do item).
+  - Resposta do órgão se houver (data + conteúdo), destacada em bloco.
+  - Anexos do encaminhamento (chips estilo Outlook, com remover).
+  - Ações: "+ Anexar arquivo", "Registrar resposta" (se status ainda é `enviado`/`prazo_vencido`).
+- Botão "+ Novo encaminhamento" vive dentro do bloco "Linha do tempo", ao lado de "+ Adicionar interação". Cria Encaminhamento + Interacao(encaminhamento_externo) em transação.
+- O item de **resposta** (tipo `retorno_externo_recebido`) aparece como evento separado na timeline com data da resposta — preserva a temporalidade (envio em 15/05, resposta em 22/05 são eventos distintos). Ambos os itens, quando expandidos, mostram o **mesmo** encaminhamento completo.
+
+### Alternativas consideradas e descartadas
+
+- **Manter as duas seções:** narrativa fragmentada, redundância.
+- **Fundir tudo num item só (envio + resposta no mesmo bloco da timeline, sem item 2):** perde a temporalidade. A resposta veio 1 semana depois — semanticamente é um evento, não atributo de outro evento.
+- **Adicionar a resposta como filho hierárquico do envio (item aninhado dentro do item):** confunde leitura — timeline vira árvore, e a resposta deixa de ter posição cronológica. Pior pra escanear.
+- **Renderizar o estado congelado no envio (item 1 mostra "Status: enviado" mesmo depois de respondido):** o expand do item 1 ficaria desatualizado. Usuário olha pra esse expand pra entender o agora, não o passado — então mostrar estado atual é o esperado.
+
+### Justificativa
+
+- **Uma narrativa só.** A timeline é o coração do detalhe da demanda. Encaminhamento vira parte dela, não competidor.
+- **Detalhe sob demanda.** Quem quer só ver "o que aconteceu" lê a timeline. Quem quer detalhes técnicos do encaminhamento expande. Não polui o caso comum.
+- **Temporalidade preservada.** Envio e resposta são eventos com datas diferentes — viraram itens distintos da timeline, mas conversam (expandem o mesmo encaminhamento).
+- **Refactor barato.** Schema ganha 1 FK opcional; templates ganham um `<details>` aninhado. Sem migration de dados (data migration trivial: para cada Interacao tipo encaminhamento_externo ou retorno_externo_recebido, popular FK best-effort).
+
+### Consequências
+
+- Migration `0006_interacao_encaminhamento`:
+  - AddField `encaminhamento = FK(Encaminhamento, null=True, blank=True, related_name="interacoes")`.
+  - Data migration: pra cada Interacao com tipo `encaminhamento_externo`/`retorno_externo_recebido`, tentar achar o Encaminhamento da mesma Demanda mais próximo na data — best-effort. Se múltiplos candidatos, deixa NULL (não corrompe dados; o expand simplesmente não aparece).
+- `AdicionarEncaminhamentoView`: passa a setar `interacao.encaminhamento = enc` ao criar.
+- `EncaminhamentoRespostaView`: passa a setar `interacao.encaminhamento = enc` ao criar a interacao de retorno.
+- `DemandaDetailView`: prefetch_related `interacoes__encaminhamento__anexos`.
+- Template `demandas/detalhe.html`: remove seção "Encaminhamentos" (linhas ~130-220). Bloco "Linha do tempo" ganha `<details>` aninhado em items com encaminhamento. Botão "+ Novo encaminhamento" entra ao lado de "+ Adicionar interação" no rodapé do bloco.
+- Testes: cobertura existente de criação/resposta de encaminhamento continua válida; adiciono teste que confirma `interacao.encaminhamento` populado nas duas portas.
+- Não impacta ADR 0043 (devolutiva como Interacao) nem ADR 0044 (estado editável + transições). É evolução da mesma direção: timeline como artefato narrativo único.
+
+---
+
 *Decisões adicionadas em ordem cronológica conforme surgem. Cada decisão registrada uma vez; alterações futuras criam nova ADR (não editam a anterior).*

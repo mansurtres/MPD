@@ -150,8 +150,10 @@ class DemandaDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView)
         ctx = super().get_context_data(**kwargs)
         d = self.object
         u = self.request.user
-        ctx["interacoes"] = d.interacoes.select_related("autor").order_by(
-            "data_ocorrencia", "criado_em"
+        ctx["interacoes"] = (
+            d.interacoes.select_related("autor", "encaminhamento")
+            .prefetch_related("encaminhamento__anexos__enviado_por")
+            .order_by("data_ocorrencia", "criado_em")
         )
         ctx["partes_pessoas"] = d.demanda_pessoas.select_related("pessoa")
         ctx["partes_entidades"] = d.demanda_entidades.select_related("entidade")
@@ -538,6 +540,7 @@ class AdicionarEncaminhamentoView(LoginRequiredMixin, PermissionRequiredMixin, V
                 status=Interacao.STATUS_REALIZADA,
                 data_ocorrencia=timezone.now(),
                 automatica=False,
+                encaminhamento=enc,
             )
         messages.success(request, "Encaminhamento adicionado.")
         return redirect("demandas:demanda_detalhe", pk=pk)
@@ -567,6 +570,7 @@ class EncaminhamentoRespostaView(LoginRequiredMixin, PermissionRequiredMixin, Vi
             status=Interacao.STATUS_REALIZADA,
             data_ocorrencia=timezone.now(),
             automatica=False,
+            encaminhamento=enc,
         )
         messages.success(request, "Resposta registrada.")
         return redirect("demandas:demanda_detalhe", pk=enc.demanda_id)
