@@ -7,22 +7,26 @@
   <span class="font-mono text-sm text-slate-600">{{ demanda.numero }}</span>
   {% if demanda.restrito %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">restrita</span>{% endif %}
 </div>
-<h1 class="text-xl font-semibold text-slate-900 mb-1">{{ demanda.titulo }}</h1>
-<div class="flex flex-wrap items-center gap-3 mb-6 text-sm text-slate-600">
-  <span>Status: <strong>{{ demanda.get_status_display }}</strong></span>
-  <span>•</span>
-  <span>Resultado:
-    {% if demanda.resultado == 'pendente' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">Pendente</span>
-    {% elif demanda.resultado == 'atendido' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Atendido</span>
-    {% elif demanda.resultado == 'atendido_parcialmente' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800">Parcial</span>
-    {% elif demanda.resultado == 'nao_atendido' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">Não atendido</span>
-    {% elif demanda.resultado == 'inviavel' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">Inviável</span>
-    {% else %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-200 text-slate-700">{{ demanda.get_resultado_display }}</span>{% endif %}
-  </span>
-  <span>•</span>
-  <span>Coordenação: <strong>{{ demanda.get_coordenacao_responsavel_display }}</strong></span>
-  {% if demanda.responsavel %}<span>•</span><span>Resp.: <strong>{{ demanda.responsavel.nome_completo|default:demanda.responsavel.email }}</strong></span>{% endif %}
-  {% if demanda.prazo %}<span>•</span><span>Prazo: <strong>{{ demanda.prazo|date:"d/m/Y" }}</strong></span>{% endif %}
+<h1 class="text-xl font-semibold text-slate-900 mb-2">{{ demanda.titulo }}</h1>
+<div class="flex flex-wrap items-center gap-2 mb-6 text-sm text-slate-600">
+  {# Status como badge colorido por estado #}
+  {% if demanda.status == 'novo' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">Novo</span>
+  {% elif demanda.status == 'em_andamento' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800">Em andamento</span>
+  {% elif demanda.status == 'aguardando_terceiros' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">Aguardando terceiros</span>
+  {% elif demanda.status == 'aguardando_pessoa' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">Aguardando pessoa</span>
+  {% elif demanda.status == 'concluida' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800">Concluída</span>
+  {% elif demanda.status == 'arquivado' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-200 text-slate-700">Arquivado</span>{% endif %}
+  {# Resultado como badge colorido por desfecho #}
+  {% if demanda.resultado == 'pendente' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">Pendente</span>
+  {% elif demanda.resultado == 'atendido' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Atendido</span>
+  {% elif demanda.resultado == 'atendido_parcialmente' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800">Parcial</span>
+  {% elif demanda.resultado == 'nao_atendido' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">Não atendido</span>
+  {% elif demanda.resultado == 'inviavel' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">Inviável</span>
+  {% else %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-200 text-slate-700">{{ demanda.get_resultado_display }}</span>{% endif %}
+  <span class="text-slate-300">·</span>
+  <span class="text-slate-500">{{ demanda.get_coordenacao_responsavel_display }}</span>
+  {% if demanda.responsavel %}<span class="text-slate-300">·</span><span class="text-slate-500">Resp.: {{ demanda.responsavel.nome_completo|default:demanda.responsavel.email }}</span>{% endif %}
+  {% if demanda.prazo %}<span class="text-slate-300">·</span><span class="text-slate-500">Prazo: {{ demanda.prazo|date:"d/m/Y" }}</span>{% endif %}
 </div>
 
 <div class="flex flex-wrap items-center gap-3 mb-6">
@@ -53,36 +57,41 @@
       <p class="text-sm text-slate-700 whitespace-pre-line">{{ demanda.descricao }}</p>
     </section>
 
-    {% if pode_editar %}
     <section class="bg-white border border-slate-200 rounded-xl p-6">
-      <h2 class="text-base font-semibold text-slate-900 mb-3">Resultado</h2>
-      <form method="post" action="{% url 'demandas:demanda_resultado' demanda.pk %}" class="space-y-3">
-        {% csrf_token %}
-        <select name="resultado" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400">
-          {% for v, label in resultado_choices %}<option value="{{ v }}" {% if demanda.resultado == v %}selected{% endif %}>{{ label }}</option>{% endfor %}
-        </select>
-        <textarea name="resultado_observacao" rows="2" placeholder="Observação sobre o desfecho (opcional)" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400">{{ demanda.resultado_observacao }}</textarea>
-        <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2 rounded-lg">Atualizar resultado</button>
-      </form>
-    </section>
-    {% endif %}
-
-    <section class="bg-white border border-slate-200 rounded-xl p-6">
-      <h2 class="text-base font-semibold text-slate-900 mb-4">Timeline</h2>
-      <ul class="space-y-4">
+      <h2 class="text-base font-semibold text-slate-900 mb-1">Linha do tempo</h2>
+      <p class="text-xs text-slate-500 mb-4">Do mais antigo (topo) ao mais recente (base).</p>
+      <ul class="space-y-5">
         {% for i in interacoes %}
-        <li class="border-l-2 {% if i.automatica %}border-slate-300{% else %}border-blue-300{% endif %} pl-4">
-          <div class="flex items-center gap-2 text-xs text-slate-500 mb-1">
-            <span>{{ i.data_ocorrencia|date:"d/m/Y H:i" }}</span>
-            <span>·</span>
-            <span>{{ i.get_tipo_display }}</span>
-            <span>·</span>
-            <span>{{ i.autor.nome_completo|default:i.autor.email }}</span>
-            {% if i.automatica %}<span class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600">automática</span>{% endif %}
-            {% if i.status == 'agendada' %}<span class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium {% if i.vencida %}bg-red-100 text-red-700{% else %}bg-amber-100 text-amber-700{% endif %}">{% if i.vencida %}vencida{% else %}agendada{% endif %}</span>{% endif %}
-            {% if i.status == 'cancelada' %}<span class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-500">cancelada</span>{% endif %}
+        {# Cor da borda lateral por categoria semântica do tipo #}
+        {% if i.tipo == 'registro_inicial' or i.tipo == 'devolutiva' %}{% with cor_borda="border-emerald-400" cor_badge_bg="bg-emerald-50" cor_badge_tx="text-emerald-800" %}{% endwith %}
+        {% endif %}
+        <li class="border-l-2
+          {% if i.tipo == 'registro_inicial' or i.tipo == 'devolutiva' %}border-emerald-400
+          {% elif i.tipo == 'encaminhamento_externo' or i.tipo == 'retorno_externo_recebido' %}border-indigo-400
+          {% elif i.tipo == 'contato_com_pessoa' or i.tipo == 'contato_interno' or i.tipo == 'reuniao' %}border-blue-400
+          {% elif i.tipo == 'arquivamento' %}border-amber-400
+          {% elif i.automatica %}border-slate-300
+          {% else %}border-blue-300{% endif %} pl-4">
+
+          <div class="flex flex-wrap items-center gap-2 mb-1">
+            {# Badge do tipo (peso visual primário) #}
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+              {% if i.tipo == 'registro_inicial' or i.tipo == 'devolutiva' %}bg-emerald-100 text-emerald-800
+              {% elif i.tipo == 'encaminhamento_externo' or i.tipo == 'retorno_externo_recebido' %}bg-indigo-100 text-indigo-800
+              {% elif i.tipo == 'contato_com_pessoa' or i.tipo == 'contato_interno' or i.tipo == 'reuniao' %}bg-blue-100 text-blue-800
+              {% elif i.tipo == 'arquivamento' %}bg-amber-100 text-amber-800
+              {% elif i.automatica %}bg-slate-100 text-slate-700
+              {% else %}bg-slate-100 text-slate-700{% endif %}">{{ i.get_tipo_display }}</span>
+
+            {% if i.automatica %}<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-500">automática</span>{% endif %}
+            {% if i.status == 'agendada' %}<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium {% if i.vencida %}bg-red-100 text-red-700{% else %}bg-amber-100 text-amber-700{% endif %}">{% if i.vencida %}vencida{% else %}agendada{% endif %}</span>{% endif %}
+            {% if i.status == 'cancelada' %}<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-500">cancelada</span>{% endif %}
+
+            <span class="ml-auto text-xs text-slate-500">{{ i.data_ocorrencia|date:"d/m/Y H:i" }} · {{ i.autor.nome_completo|default:i.autor.email }}</span>
           </div>
+
           <div class="text-sm text-slate-800 whitespace-pre-line">{{ i.conteudo }}</div>
+
           {% if i.status == 'agendada' and not i.automatica %}
           <div class="mt-1 flex gap-2 text-xs">
             <form method="post" action="{% url 'demandas:interacao_realizada' i.pk %}" class="inline">{% csrf_token %}<button class="text-slate-600 hover:text-slate-900 underline">marcar realizada</button></form>
@@ -147,9 +156,14 @@
             {% if perms.demandas.add_anexo and demanda.status != 'arquivado' %}
             <details>
               <summary class="cursor-pointer text-slate-600">+ Anexar arquivo</summary>
-              <form method="post" enctype="multipart/form-data" action="{% url 'demandas:anexo_upload' 'encaminhamento' e.pk %}" class="mt-2 flex items-center gap-2">
+              <form method="post" enctype="multipart/form-data" action="{% url 'demandas:anexo_upload' 'encaminhamento' e.pk %}" class="mt-2 flex flex-wrap items-center gap-2">
                 {% csrf_token %}
-                <input type="file" name="arquivo" required class="text-xs">
+                <input type="file" name="arquivo" required
+                       class="text-xs text-slate-700
+                              file:mr-2 file:py-1 file:px-2 file:rounded
+                              file:border-0 file:text-xs file:font-medium
+                              file:bg-slate-800 file:text-white file:cursor-pointer
+                              hover:file:bg-slate-700">
                 <input type="text" name="descricao" placeholder="Descrição (opcional)" class="text-xs rounded border border-slate-300 px-2 py-1">
                 <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-white text-xs font-medium px-2 py-1 rounded">Enviar</button>
               </form>
@@ -201,6 +215,38 @@
   </div>
 
   <aside class="space-y-6">
+    {% if pode_editar and demanda.status != 'arquivado' %}
+    <section class="bg-white border border-slate-200 rounded-xl p-6">
+      <h2 class="text-base font-semibold text-slate-900 mb-1">Estado</h2>
+      <p class="text-xs text-slate-500 mb-4">Ajustes do dia a dia. Conclusão e arquivamento têm botão próprio.</p>
+      <form method="post" action="{% url 'demandas:demanda_estado' demanda.pk %}" class="space-y-3">
+        {% csrf_token %}
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Status</label>
+          {{ form_estado.status }}
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Resultado material</label>
+          {{ form_estado.resultado }}
+          <p class="text-[11px] text-slate-500 mt-1">Marque quando souber o desfecho, mesmo antes da devolutiva.</p>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Responsável</label>
+          {{ form_estado.responsavel }}
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Coordenação</label>
+          {{ form_estado.coordenacao_responsavel }}
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Prazo</label>
+          {{ form_estado.prazo }}
+        </div>
+        <button type="submit" class="w-full bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-3 py-2 rounded-lg">Atualizar estado</button>
+      </form>
+    </section>
+    {% endif %}
+
     <section class="bg-white border border-slate-200 rounded-xl p-6">
       <h2 class="text-base font-semibold text-slate-900 mb-3">Partes</h2>
       {% if partes_pessoas %}<h3 class="text-xs font-medium text-slate-500 uppercase mb-1">Pessoas</h3>
@@ -217,21 +263,13 @@
       {% endif %}
     </section>
 
-    {% if demanda.temas.all %}
     <section class="bg-white border border-slate-200 rounded-xl p-6">
-      <h2 class="text-base font-semibold text-slate-900 mb-3">Temas</h2>
-      <div class="flex flex-wrap gap-1">
-        {% for t in demanda.temas.all %}{% if t.cor %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium" style="background: color-mix(in srgb, {{ t.cor }} 18%, white); color: color-mix(in srgb, {{ t.cor }} 75%, black);">{{ t.nome }}</span>{% else %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">{{ t.nome }}</span>{% endif %}{% endfor %}
-      </div>
-    </section>
-    {% endif %}
-
-    <section class="bg-white border border-slate-200 rounded-xl p-6">
-      <h2 class="text-base font-semibold text-slate-900 mb-3">Anexos</h2>
+      <h2 class="text-base font-semibold text-slate-900 mb-1">Anexos da demanda</h2>
+      <p class="text-xs text-slate-500 mb-3">Anexos do encaminhamento ficam em cada encaminhamento, na coluna principal.</p>
       <ul class="space-y-2 mb-3">
         {% for a in anexos %}
         <li class="text-sm flex items-center justify-between gap-2">
-          <a href="{{ a.arquivo.url }}" class="text-slate-800 hover:underline truncate" target="_blank" rel="noopener">{{ a.nome_original }}</a>
+          <a href="{{ a.arquivo.url }}" class="text-slate-800 hover:underline truncate" target="_blank" rel="noopener">📎 {{ a.nome_original }}</a>
           <form method="post" action="{% url 'demandas:anexo_remover' a.pk %}" class="inline shrink-0" onsubmit="return confirm('Remover este anexo?');">{% csrf_token %}<button class="text-xs text-red-600 hover:text-red-700">remover</button></form>
         </li>
         {% empty %}
@@ -241,12 +279,27 @@
       {% if perms.demandas.add_anexo and demanda.status != 'arquivado' %}
       <form method="post" enctype="multipart/form-data" action="{% url 'demandas:anexo_upload' 'demanda' demanda.pk %}" class="space-y-2">
         {% csrf_token %}
-        {{ form_anexo.arquivo }}
-        {{ form_anexo.descricao }}
+        <input type="file" name="arquivo" required
+               class="block w-full text-sm text-slate-700
+                      file:mr-3 file:py-1.5 file:px-3 file:rounded-lg
+                      file:border-0 file:text-sm file:font-medium
+                      file:bg-slate-800 file:text-white file:cursor-pointer
+                      hover:file:bg-slate-700">
+        <input type="text" name="descricao" placeholder="Descrição (opcional)"
+               class="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm">
         <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-3 py-1.5 rounded-lg">Enviar</button>
       </form>
       {% endif %}
     </section>
+
+    {% if demanda.temas.all %}
+    <section class="bg-white border border-slate-200 rounded-xl p-6">
+      <h2 class="text-base font-semibold text-slate-900 mb-3">Temas</h2>
+      <div class="flex flex-wrap gap-1">
+        {% for t in demanda.temas.all %}{% if t.cor %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium" style="background: color-mix(in srgb, {{ t.cor }} 18%, white); color: color-mix(in srgb, {{ t.cor }} 75%, black);">{{ t.nome }}</span>{% else %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">{{ t.nome }}</span>{% endif %}{% endfor %}
+      </div>
+    </section>
+    {% endif %}
   </aside>
 </div>
 

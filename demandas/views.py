@@ -31,6 +31,7 @@ from .forms import (
     DemandaPessoaFormSet,
     EncaminhamentoForm,
     EncaminhamentoRespostaForm,
+    EstadoForm,
     FollowupForm,
     InteracaoForm,
     TemaForm,
@@ -150,7 +151,7 @@ class DemandaDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView)
         d = self.object
         u = self.request.user
         ctx["interacoes"] = d.interacoes.select_related("autor").order_by(
-            "-data_ocorrencia", "-criado_em"
+            "data_ocorrencia", "criado_em"
         )
         ctx["partes_pessoas"] = d.demanda_pessoas.select_related("pessoa")
         ctx["partes_entidades"] = d.demanda_entidades.select_related("entidade")
@@ -181,6 +182,8 @@ class DemandaDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView)
             Demanda.STATUS_CONCLUIDA,
             Demanda.STATUS_ARQUIVADO,
         )
+        # Painel administrativo (aside) — edição inline de estado. ADR 0044.
+        ctx["form_estado"] = EstadoForm(instance=d)
         return ctx
 
 
@@ -277,8 +280,10 @@ class DemandaUpdateView(LoginRequiredMixin, PermissionRequiredMixin, _DemandaFor
         return ctx
 
 
-class AtualizarResultadoView(LoginRequiredMixin, PermissionRequiredMixin, View):
-    """POST do bloco de Resultado no detalhe — atualiza resultado + observação."""
+class AtualizarEstadoView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    """POST do painel de Estado no aside — edita status/resultado/responsavel/
+    coordenacao/prazo em transação atômica. Mudanças em status, resultado e
+    responsavel disparam Interacoes automáticas (signals)."""
 
     permission_required = "demandas.change_demanda"
 
@@ -286,21 +291,24 @@ class AtualizarResultadoView(LoginRequiredMixin, PermissionRequiredMixin, View):
         demanda = get_object_or_404(Demanda, pk=pk)
         if not demanda.pode_ser_visto_por(request.user):
             raise Http404
-        novo = request.POST.get("resultado", "").strip()
-        obs = request.POST.get("resultado_observacao", "").strip()
-        if novo not in dict(Demanda.RESULTADO_CHOICES):
-            messages.error(request, "Resultado inválido.")
+        form = EstadoForm(request.POST, instance=demanda)
+        if not form.is_valid():
+            for erros in form.errors.values():
+                msg = (
+                    "; ".join(erros)
+                    if hasattr(erros, "__iter__") and not isinstance(erros, str)
+                    else str(erros)
+                )
+                messages.error(request, msg)
             return redirect("demandas:demanda_detalhe", pk=pk)
-        demanda.resultado = novo
-        demanda.resultado_observacao = obs
         try:
-            demanda.full_clean()
+            with transaction.atomic():
+                form.save()
         except ValidationError as e:
             for erro in e.messages:
                 messages.error(request, erro)
             return redirect("demandas:demanda_detalhe", pk=pk)
-        demanda.save()
-        messages.success(request, "Resultado atualizado.")
+        messages.success(request, "Estado atualizado.")
         return redirect("demandas:demanda_detalhe", pk=pk)
 
 
@@ -526,7 +534,7 @@ class AdicionarEncaminhamentoView(LoginRequiredMixin, PermissionRequiredMixin, V
                 demanda=demanda,
                 autor=request.user,
                 tipo=Interacao.TIPO_ENCAMINHAMENTO,
-                conteudo=f"Encaminhamento {enc.get_tipo_documento_display()} → {enc.destinatario_orgao}.",
+                conteudo=f"{enc.get_tipo_documento_display()} → {enc.destinatario_orgao}",
                 status=Interacao.STATUS_REALIZADA,
                 data_ocorrencia=timezone.now(),
                 automatica=False,
@@ -552,7 +560,10 @@ class EncaminhamentoRespostaView(LoginRequiredMixin, PermissionRequiredMixin, Vi
             demanda=enc.demanda,
             autor=request.user,
             tipo=Interacao.TIPO_RETORNO_EXTERNO,
-            conteudo=f"Resposta de {enc.destinatario_orgao} ({enc.get_status_display()}).",
+            conteudo=(
+                f"{enc.destinatario_orgao} respondeu — {enc.get_status_display()}.\n\n"
+                f"{enc.conteudo_resposta}"
+            ),
             status=Interacao.STATUS_REALIZADA,
             data_ocorrencia=timezone.now(),
             automatica=False,

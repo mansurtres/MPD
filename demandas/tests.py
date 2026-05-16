@@ -445,8 +445,99 @@ def test_encaminhamento_aparece_na_timeline(db, demanda, admin_user):
         status=Interacao.STATUS_REALIZADA,
         data_ocorrencia=timezone.now(),
     )
-    assert demanda.interacoes.count() == inicial + 1
+    # +2: a manual de tipo encaminhamento + a auto de mudança de status
+    # (ADR 0044: criar encaminhamento move novo → aguardando_terceiros).
+    assert demanda.interacoes.count() == inicial + 2
     assert demanda.interacoes.filter(tipo=Interacao.TIPO_ENCAMINHAMENTO).exists()
+
+
+# --- ADR 0044: transições automáticas de status ---
+
+
+def test_primeira_interacao_manual_move_novo_para_em_andamento(db, demanda, admin_user):
+    assert demanda.status == Demanda.STATUS_NOVO
+    Interacao.objects.create(
+        demanda=demanda,
+        autor=admin_user,
+        tipo=Interacao.TIPO_CONTATO_PESSOA,
+        conteudo="Liguei pra Maria.",
+        status=Interacao.STATUS_REALIZADA,
+        data_ocorrencia=timezone.now(),
+    )
+    demanda.refresh_from_db()
+    assert demanda.status == Demanda.STATUS_EM_ANDAMENTO
+
+
+def test_interacao_automatica_nao_move_status(db, demanda, admin_user):
+    assert demanda.status == Demanda.STATUS_NOVO
+    Interacao.objects.create(
+        demanda=demanda,
+        autor=admin_user,
+        tipo=Interacao.TIPO_MUDANCA_STATUS,
+        conteudo="ruído",
+        status=Interacao.STATUS_REALIZADA,
+        data_ocorrencia=timezone.now(),
+        automatica=True,
+    )
+    demanda.refresh_from_db()
+    assert demanda.status == Demanda.STATUS_NOVO
+
+
+def test_criar_encaminhamento_move_status_para_aguardando_terceiros(db, demanda, admin_user):
+    assert demanda.status == Demanda.STATUS_NOVO
+    Encaminhamento.objects.create(
+        demanda=demanda,
+        destinatario_orgao="Sesa",
+        tipo_documento="oficio",
+        data_envio=timezone.now().date(),
+        criado_por=admin_user,
+    )
+    demanda.refresh_from_db()
+    assert demanda.status == Demanda.STATUS_AGUARDANDO_TERCEIROS
+
+
+def test_responder_unico_encaminhamento_volta_para_em_andamento(db, demanda, admin_user):
+    enc = Encaminhamento.objects.create(
+        demanda=demanda,
+        destinatario_orgao="Sesa",
+        tipo_documento="oficio",
+        data_envio=timezone.now().date(),
+        criado_por=admin_user,
+    )
+    demanda.refresh_from_db()
+    assert demanda.status == Demanda.STATUS_AGUARDANDO_TERCEIROS
+    enc.status = Encaminhamento.STATUS_RESPONDIDO_SAT
+    enc.data_resposta = timezone.now().date()
+    enc.conteudo_resposta = "Obra autorizada."
+    enc.save()
+    demanda.refresh_from_db()
+    assert demanda.status == Demanda.STATUS_EM_ANDAMENTO
+
+
+def test_responder_um_de_dois_encaminhamentos_mantem_aguardando(db, demanda, admin_user):
+    enc1 = Encaminhamento.objects.create(
+        demanda=demanda,
+        destinatario_orgao="Sesa",
+        tipo_documento="oficio",
+        data_envio=timezone.now().date(),
+        criado_por=admin_user,
+    )
+    Encaminhamento.objects.create(
+        demanda=demanda,
+        destinatario_orgao="Setran",
+        tipo_documento="oficio",
+        data_envio=timezone.now().date(),
+        criado_por=admin_user,
+    )
+    demanda.refresh_from_db()
+    assert demanda.status == Demanda.STATUS_AGUARDANDO_TERCEIROS
+    enc1.status = Encaminhamento.STATUS_RESPONDIDO_SAT
+    enc1.data_resposta = timezone.now().date()
+    enc1.conteudo_resposta = "Resposta."
+    enc1.save()
+    demanda.refresh_from_db()
+    # 2º encaminhamento ainda aberto — status mantém aguardando_terceiros.
+    assert demanda.status == Demanda.STATUS_AGUARDANDO_TERCEIROS
 
 
 # --- Critérios 18-19: anexo polimórfico ---

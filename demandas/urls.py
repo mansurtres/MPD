@@ -20,9 +20,9 @@ urlpatterns = [
         name="demanda_editar",
     ),
     path(
-        "demandas/<uuid:pk>/resultado/",
-        views.AtualizarResultadoView.as_view(),
-        name="demanda_resultado",
+        "demandas/<uuid:pk>/estado/",
+        views.AtualizarEstadoView.as_view(),
+        name="demanda_estado",
     ),
     path(
         "demandas/<uuid:pk>/concluir/",

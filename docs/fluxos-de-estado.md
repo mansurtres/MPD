@@ -116,6 +116,18 @@ def clean(self):
 
 **Ordem de operações no fluxo de conclusão (responsiva):** a view envolve em `transaction.atomic` os 3 passos — (1) cria a `Interacao(tipo=devolutiva, status=realizada)`, (2) atualiza `resultado` e `resultado_observacao`, (3) muda `status` para `concluida` e roda `full_clean()`. Se qualquer passo falhar, transação reverte.
 
+### 1.3.1 Transições automáticas (ADR 0044)
+
+Além das mudanças manuais (drowndown do aside ou CTA), o sistema avança status sozinho em três gatilhos:
+
+| Gatilho | Transição |
+|---|---|
+| 1ª `Interacao` manual criada (qualquer tipo não-automático) | `novo` → `em_andamento` |
+| `Encaminhamento` criado (de `novo` ou `em_andamento`) | → `aguardando_terceiros` |
+| `Encaminhamento` resposta registrada (`respondido_*` ou `sem_resposta`) e **nenhum outro encaminhamento aberto** | `aguardando_terceiros` → `em_andamento` |
+
+`aguardando_pessoa` segue só manual — não há gatilho objetivo. Cada transição automática gera Interacao automática `mudanca_status` na timeline (visualmente como qualquer outra).
+
 ### 1.4 Consequências automáticas (signals)
 
 Toda mudança de status da demanda gera uma **interação automática** (tipo `mudanca_status`) registrada na timeline:

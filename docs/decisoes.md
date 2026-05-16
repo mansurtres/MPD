@@ -1440,4 +1440,87 @@ Verificação manual da Fase 3 (2026-05-16) revelou três problemas distintos:
 
 ---
 
+## ADR 0044 — Transições automáticas de status + redesign do detalhe da demanda
+
+**Data:** 2026-05-16
+**Status:** Aceito
+
+### Contexto
+
+A v0.4.0 entregou a Fase 3 com status intermediários (`em_andamento`, `aguardando_terceiros`, `aguardando_pessoa`) **sem UI para alterá-los manualmente** — só Concluir/Arquivar/Reabrir tinham botão. Os outros dependiam do Django Admin, justificado na época por "Fase 4 (Inbox) vai cuidar disso".
+
+Teste manual de produto (Pedro, 2026-05-16) revelou dois problemas correlatos:
+
+1. **Status não acompanha a realidade da demanda.** O usuário cria um encaminhamento e o status continua `novo`. Não há ação automática que reflita o que claramente aconteceu (a demanda saiu do limbo "recém-aberta"). Resultado: lista de demandas mente sobre o estado real do trabalho.
+2. **Página de detalhe sem hierarquia.** Bloco "Resultado" — um form gordo de classificação operacional — fica na coluna principal entre Descrição e Timeline, competindo com elementos que contam a história. A coluna principal devia ser a **história do caso**; o aside devia ser o **painel administrativo**.
+
+### Decisão
+
+**1. Transições automáticas de status (signals):**
+
+| Evento | Transição |
+|---|---|
+| 1ª `Interacao` manual criada (qualquer tipo não-automático) | `novo` → `em_andamento` |
+| 1ª `Encaminhamento` criado (status atualmente `novo` ou `em_andamento`) | → `aguardando_terceiros` |
+| `Encaminhamento` muda para `respondido_*`/`sem_resposta` e **não há outros encaminhamentos abertos** | `aguardando_terceiros` → `em_andamento` |
+
+- `aguardando_pessoa` continua **só manual** (não há gatilho automático claro — é decisão do assessor).
+- `concluida` e `arquivado` continuam exclusivos do fluxo dedicado (botão CTA / drawer).
+- Cada transição automática gera Interacao automática `mudanca_status` (signal de Demanda) — fica clara na timeline.
+
+**2. Status, resultado, responsável e prazo editáveis inline pelo aside:**
+
+Coluna lateral ganha bloco "Estado" no topo, com dropdowns rápidos pra:
+- `status` — apenas os valores manuais editáveis (novo, em_andamento, aguardando_terceiros, aguardando_pessoa). `concluida` e `arquivado` ficam fora — o usuário usa CTA/Arquivar.
+- `resultado` — todos exceto `pendente` se já saiu desse estado.
+- `responsavel` — autocomplete/select de usuários.
+- `prazo` — date input.
+- `coordenacao_responsavel` — select.
+
+Submit único → `AtualizarEstadoView` aplica os 5 em transação atômica → `Demanda.save()` dispara signals → Interacoes automáticas pra status/resultado/responsável mudados.
+
+**3. Redesign do detalhe da demanda:**
+
+```
+┌──────────────────────────────┬────────────────────────────┐
+│ COLUNA PRINCIPAL (2/3)       │ ASIDE (1/3)                │
+│ história do caso             │ painel administrativo      │
+│                              │                            │
+│ • Descrição                  │ • Estado (editável inline) │
+│ • Linha do tempo             │ • Partes                   │
+│ • Encaminhamentos            │ • Anexos da demanda        │
+│                              │ • Temas                    │
+└──────────────────────────────┴────────────────────────────┘
+```
+
+- Bloco "Resultado material" sai da coluna principal — vira parte do "Estado" no aside.
+- Header da página mostra status + resultado como badges destacados (não como dropdown — o dropdown vive no aside).
+- CTA "Concluir demanda" + Editar + Arquivar + Reabrir continuam destacados no topo, abaixo do header.
+
+### Alternativas consideradas e descartadas
+
+- **Adicionar botão "Atualizar status" inline na coluna principal:** mantém o ruído de form gordo no fluxo de leitura. Pior.
+- **Transição automática completa (incluindo aguardando_pessoa):** sem gatilho claro — só o assessor sabe quando depende de devolutiva da pessoa. Manter manual.
+- **Edição de status sem signal automático (só dropdown manual):** força o assessor a "ajeitar" estado o tempo todo. Atrito desnecessário onde o sistema sabe o que aconteceu.
+- **Permitir setar `concluida` pelo dropdown do aside:** quebraria a regra de ouro (responsiva exige devolutiva); o `clean()` já bloqueia, mas dropdown oferecendo a opção confunde. Fora.
+
+### Justificativa
+
+- **Status deixa de ser ficção.** Antes da ADR, o status só evoluía manualmente — e como não havia UI manual, ficava parado em `novo` indefinidamente. Agora reflete o trabalho real.
+- **Aside vira painel de trabalho.** O assessor abre a demanda, lê a história à esquerda, opera o estado à direita. Dois eixos visuais distintos.
+- **Edição inline sem ceremônia.** Mudar responsável vira 2 cliques (dropdown → save), não navegar pra `/editar` → mexer no form gordo → voltar.
+- **Cada gatilho registra Interacao automática.** A timeline conta a história completa, com origem clara (quem fez ou que evento provocou).
+
+### Consequências
+
+- `demandas/signals.py` ganha dois receivers novos: `post_save` em `Interacao` (1ª manual → em_andamento) e `post_save` em `Encaminhamento` (criação → aguardando_terceiros; resposta sem outros abertos → em_andamento). Guarda contra loops via flag de tipo.
+- Nova view `AtualizarEstadoView` substitui `AtualizarResultadoView` (URL renomeada `demanda_resultado` → `demanda_estado`). Form `EstadoForm` cobre os 5 campos editáveis.
+- Template do detalhe reescrito conforme layout acima. Mobile: aside desce abaixo da coluna principal.
+- `fluxos-de-estado.md §1.1` atualizado com as transições automáticas.
+- Testes novos cobrem cada gatilho automático + caso de não-ação (não dispara quando não devia).
+- Status `concluida`/`arquivado` continuam protegidos pelo `clean()` + flow dedicado — dropdown nem oferece a opção.
+- Edição inline de coordenação registra-se no auditlog mas **não gera Interacao automática** (mudança de coordenação é decisão organizacional, não evento de trabalho). Decisão sujeita a revisão se feedback aparecer.
+
+---
+
 *Decisões adicionadas em ordem cronológica conforme surgem. Cada decisão registrada uma vez; alterações futuras criam nova ADR (não editam a anterior).*

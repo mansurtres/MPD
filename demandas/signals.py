@@ -4,6 +4,11 @@ Mudanças de estado de Demanda geram interações automáticas (timeline).
 Padrão herdado de pessoas/signals.py: pre_save normaliza/snapshot, post_save
 emite efeitos. Detalhes em docs/fluxos-de-estado.md §1.4 e §1.5.
 
+Transições automáticas de status da Demanda (ADR 0044):
+- 1ª Interacao manual criada: novo → em_andamento
+- Encaminhamento criado (novo/em_andamento): → aguardando_terceiros
+- Encaminhamento respondido sem outros abertos: aguardando_terceiros → em_andamento
+
 Anexos polimórficos são órfãos por padrão (GenericForeignKey não cascateia
 no banco). pre_delete dos models pais limpa antes da exclusão.
 """
@@ -15,7 +20,7 @@ from django.db.models.signals import post_save, pre_delete
 from django.dispatch import receiver
 from django.utils import timezone
 
-from .models import Anexo, Demanda, Interacao
+from .models import Anexo, Demanda, Encaminhamento, Interacao
 
 # Thread-local para passar o usuário atual ao signal — setado pelo middleware
 # do auditlog (que já carrega request.user via ContextVar). Reaproveitamos
@@ -118,6 +123,55 @@ def _nome_usuario(uid):
 
 # Anexos polimórficos: GenericForeignKey não cascateia no banco. Antes de
 # deletar Pessoa/Entidade/Demanda/Encaminhamento, removemos os anexos órfãos.
+# --- Transições automáticas de status da Demanda (ADR 0044) ---
+
+# Tipos de Interacao que NÃO devem disparar avanço de status (são geradas
+# pelo próprio sistema ou são acessórias, não evidência de trabalho operacional).
+_TIPOS_INTERACAO_NAO_OPERACIONAIS = frozenset(
+    {
+        Interacao.TIPO_REGISTRO_INICIAL,
+        Interacao.TIPO_MUDANCA_STATUS,
+        Interacao.TIPO_MUDANCA_RESPONSAVEL,
+        Interacao.TIPO_MUDANCA_RESULTADO,
+        Interacao.TIPO_ARQUIVAMENTO,
+    }
+)
+
+
+@receiver(post_save, sender=Interacao)
+def avancar_status_na_primeira_interacao(sender, instance, created, **kwargs):
+    """1ª Interacao manual de trabalho: demanda sai de 'novo' para 'em_andamento'."""
+    if not created or instance.automatica:
+        return
+    if instance.tipo in _TIPOS_INTERACAO_NAO_OPERACIONAIS:
+        return
+    demanda = instance.demanda
+    if demanda.status == Demanda.STATUS_NOVO:
+        demanda.status = Demanda.STATUS_EM_ANDAMENTO
+        demanda.save()  # dispara post_save de Demanda → cria Interacao mudanca_status
+
+
+@receiver(post_save, sender=Encaminhamento)
+def avancar_status_por_encaminhamento(sender, instance, created, **kwargs):
+    """Criar encaminhamento → aguardando_terceiros.
+    Responder o último encaminhamento aberto → em_andamento."""
+    demanda = instance.demanda
+    abertos = ("enviado", "prazo_vencido")
+    if created:
+        if demanda.status in (Demanda.STATUS_NOVO, Demanda.STATUS_EM_ANDAMENTO):
+            demanda.status = Demanda.STATUS_AGUARDANDO_TERCEIROS
+            demanda.save()
+        return
+    # Update: a resposta acabou de fechar o encaminhamento?
+    if instance.status not in abertos and demanda.status == Demanda.STATUS_AGUARDANDO_TERCEIROS:
+        ainda_abertos = (
+            demanda.encaminhamentos.filter(status__in=abertos).exclude(pk=instance.pk).exists()
+        )
+        if not ainda_abertos:
+            demanda.status = Demanda.STATUS_EM_ANDAMENTO
+            demanda.save()
+
+
 def _registrar_limpeza_anexos(model):
     @receiver(pre_delete, sender=model, weak=False)
     def _limpar_anexos(sender, instance, **kwargs):
@@ -132,8 +186,6 @@ def _setup_anexos_orfaos():
         _registrar_limpeza_anexos(model)
     # Encaminhamento já cascateia via FK pra Demanda; mas se for deletado
     # isolado, anexos próprios também devem sumir.
-    from .models import Encaminhamento
-
     _registrar_limpeza_anexos(Encaminhamento)
 
 
