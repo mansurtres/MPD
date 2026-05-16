@@ -25,9 +25,9 @@ urlpatterns = [
         name="demanda_resultado",
     ),
     path(
-        "demandas/<uuid:pk>/responder/",
-        views.MarcarRespondidaView.as_view(),
-        name="demanda_responder",
+        "demandas/<uuid:pk>/concluir/",
+        views.ConcluirDemandaView.as_view(),
+        name="demanda_concluir",
     ),
     path(
         "demandas/<uuid:pk>/arquivar/",

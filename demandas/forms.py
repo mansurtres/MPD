@@ -136,7 +136,8 @@ class InteracaoForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Tipos manuais apenas — automáticos são gerados por signals.
+        # Tipos manuais apenas. Devolutiva é exclusiva do fluxo de conclusão
+        # (ADR 0043) — não aparece aqui pra evitar registro órfão sem mover status.
         manuais = [
             (k, v)
             for k, v in Interacao.TIPO_CHOICES
@@ -147,6 +148,7 @@ class InteracaoForm(forms.ModelForm):
                 Interacao.TIPO_MUDANCA_RESULTADO,
                 Interacao.TIPO_ARQUIVAMENTO,
                 Interacao.TIPO_REGISTRO_INICIAL,
+                Interacao.TIPO_DEVOLUTIVA,
             )
         ]
         self.fields["tipo"].choices = manuais
@@ -182,6 +184,7 @@ class FollowupForm(forms.Form):
                 Interacao.TIPO_MUDANCA_RESULTADO,
                 Interacao.TIPO_ARQUIVAMENTO,
                 Interacao.TIPO_REGISTRO_INICIAL,
+                Interacao.TIPO_DEVOLUTIVA,
             )
         ]
         aplicar_tailwind(self)
@@ -265,32 +268,48 @@ class AnexoForm(forms.ModelForm):
         return f
 
 
-class MarcarRespondidaForm(forms.ModelForm):
-    """Modal específico para fechar demanda. Exige retorno + resultado classificado."""
+class ConcluirDemandaForm(forms.Form):
+    """Conclusão de demanda RESPONSIVA. A view cria Interacao(tipo=devolutiva)
+    + atualiza resultado + status em transação atômica. Ver ADR 0043."""
 
-    class Meta:
-        model = Demanda
-        fields = [
-            "retorno_data",
-            "retorno_canal",
-            "retorno_conteudo",
-            "resultado",
-            "resultado_observacao",
-        ]
-        widgets = {
-            "retorno_data": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
-            "retorno_conteudo": forms.Textarea(attrs={"rows": 4}),
-            "resultado_observacao": forms.Textarea(attrs={"rows": 2}),
-        }
+    devolutiva_data = forms.DateField(
+        label="Data da devolutiva",
+        widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+    )
+    devolutiva_canal = forms.ChoiceField(label="Canal da devolutiva", choices=Demanda.CANAL_CHOICES)
+    devolutiva_conteudo = forms.CharField(
+        label="O que foi comunicado ao demandante",
+        widget=forms.Textarea(attrs={"rows": 4}),
+    )
+    resultado = forms.ChoiceField(label="Resultado material")
+    resultado_observacao = forms.CharField(
+        label="Observação do resultado",
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 2}),
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Retira 'pendente' das opções neste fluxo — fechamento exige classificação.
         self.fields["resultado"].choices = [
             (k, v) for k, v in Demanda.RESULTADO_CHOICES if k != Demanda.RESULTADO_PENDENTE
         ]
-        for campo in ("retorno_data", "retorno_canal", "retorno_conteudo", "resultado"):
-            self.fields[campo].required = True
+        aplicar_tailwind(self)
+
+
+class ConcluirAcaoForm(forms.ModelForm):
+    """Conclusão de demanda PROATIVA. Sem devolutiva — só exige resultado classificado."""
+
+    class Meta:
+        model = Demanda
+        fields = ["resultado", "resultado_observacao"]
+        widgets = {"resultado_observacao": forms.Textarea(attrs={"rows": 2})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["resultado"].choices = [
+            (k, v) for k, v in Demanda.RESULTADO_CHOICES if k != Demanda.RESULTADO_PENDENTE
+        ]
+        self.fields["resultado"].required = True
         aplicar_tailwind(self)
 
 

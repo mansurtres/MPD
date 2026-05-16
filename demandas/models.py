@@ -1,8 +1,12 @@
 """Models do app demandas — coração operacional do MPD.
 
-Demanda tem dois eixos independentes (status, resultado) que se cruzam na
-regra de fechamento (status='respondido' exige retorno + resultado classificado).
-Detalhes em docs/fluxos-de-estado.md §1-2.
+Demanda tem dois eixos independentes (status, resultado). A regra de
+fechamento bifurca por origem (ADR 0043):
+- Responsiva: status='concluida' exige Interacao(tipo=devolutiva) + resultado classificado.
+- Proativa:   status='concluida' exige apenas resultado classificado.
+
+Devolutiva ao demandante NÃO é mais campo da Demanda — é Interação de
+tipo 'devolutiva' na timeline (ato de primeira classe).
 
 Geração de número thread-safe via select_for_update no método de classe
 Demanda.gerar_numero(). Mudanças de estado disparam signals que criam
@@ -73,14 +77,14 @@ class Demanda(AuditavelMixin, models.Model):
     STATUS_EM_ANDAMENTO = "em_andamento"
     STATUS_AGUARDANDO_TERCEIROS = "aguardando_terceiros"
     STATUS_AGUARDANDO_PESSOA = "aguardando_pessoa"
-    STATUS_RESPONDIDO = "respondido"
+    STATUS_CONCLUIDA = "concluida"
     STATUS_ARQUIVADO = "arquivado"
     STATUS_CHOICES = [
         (STATUS_NOVO, "Novo"),
         (STATUS_EM_ANDAMENTO, "Em andamento"),
         (STATUS_AGUARDANDO_TERCEIROS, "Aguardando terceiros"),
         (STATUS_AGUARDANDO_PESSOA, "Aguardando pessoa"),
-        (STATUS_RESPONDIDO, "Respondido"),
+        (STATUS_CONCLUIDA, "Concluída"),
         (STATUS_ARQUIVADO, "Arquivado"),
     ]
 
@@ -140,11 +144,6 @@ class Demanda(AuditavelMixin, models.Model):
     )
     restrito = models.BooleanField("restrita", default=False)
     prazo = models.DateField(null=True, blank=True)
-    retorno_data = models.DateField("data do retorno", null=True, blank=True)
-    retorno_conteudo = models.TextField("conteúdo do retorno", blank=True, default="")
-    retorno_canal = models.CharField(
-        "canal do retorno", max_length=30, choices=CANAL_CHOICES, blank=True, default=""
-    )
     observacoes_arquivamento = models.TextField(
         "observações de arquivamento", blank=True, default=""
     )
@@ -184,14 +183,14 @@ class Demanda(AuditavelMixin, models.Model):
             models.Index(fields=["prazo"]),
         ]
         permissions = [
-            ("pode_arquivar_demanda", "Pode arquivar demanda respondida"),
+            ("pode_arquivar_demanda", "Pode arquivar demanda concluída"),
             (
                 "pode_arquivar_sem_responder",
-                "Pode arquivar demanda não respondida (com justificativa)",
+                "Pode arquivar demanda não concluída (com justificativa)",
             ),
             ("pode_marcar_restrita", "Pode marcar/desmarcar demanda como restrita"),
             ("pode_atribuir_responsavel", "Pode atribuir/reatribuir responsável"),
-            ("pode_reabrir_demanda", "Pode reabrir demanda respondida"),
+            ("pode_reabrir_demanda", "Pode reabrir demanda concluída"),
             ("pode_excluir_demanda", "Pode excluir demanda definitivamente"),
         ]
 
@@ -208,29 +207,38 @@ class Demanda(AuditavelMixin, models.Model):
 
     def clean(self):
         super().clean()
-        # Regra de fechamento (docs/fluxos-de-estado.md §1.3)
-        if self.status == self.STATUS_RESPONDIDO:
-            if not self.retorno_data or not self.retorno_conteudo:
-                raise ValidationError(
-                    {
-                        "status": "Status 'respondido' exige retorno_data e retorno_conteudo preenchidos."
-                    }
-                )
+        # Regra de fechamento bifurcada por origem (ADR 0043 / fluxos-de-estado.md §1.3)
+        if self.status == self.STATUS_CONCLUIDA:
             if self.resultado == self.RESULTADO_PENDENTE:
                 raise ValidationError(
                     {
-                        "resultado": "Status 'respondido' exige resultado classificado (não pode ser 'pendente')."
+                        "resultado": "Status 'concluida' exige resultado classificado (não pode ser 'pendente')."
                     }
                 )
-        # Arquivamento sem ter respondido exige justificativa
+            if self.origem == self.ORIGEM_RESPONSIVA:
+                # pk pode ser None em criações via form ainda não persistidas;
+                # nesses casos não há interações vinculadas e a regra reprova.
+                tem_devolutiva = (
+                    self.pk
+                    and self.interacoes.filter(
+                        tipo=Interacao.TIPO_DEVOLUTIVA, status=Interacao.STATUS_REALIZADA
+                    ).exists()
+                )
+                if not tem_devolutiva:
+                    raise ValidationError(
+                        {
+                            "status": "Demanda responsiva só conclui com Interação de devolutiva registrada."
+                        }
+                    )
+        # Arquivamento sem ter concluído exige justificativa
         if (
             self.status == self.STATUS_ARQUIVADO
-            and self._original_status != self.STATUS_RESPONDIDO
+            and self._original_status != self.STATUS_CONCLUIDA
             and not self.observacoes_arquivamento
         ):
             raise ValidationError(
                 {
-                    "status": "Arquivamento direto (sem ter respondido) exige observacoes_arquivamento."
+                    "status": "Arquivamento direto (sem ter concluído) exige observacoes_arquivamento."
                 }
             )
         # Resultado uma vez classificado não volta a 'pendente'
@@ -359,6 +367,7 @@ class Interacao(models.Model):
     TIPO_REUNIAO = "reuniao"
     TIPO_ENCAMINHAMENTO = "encaminhamento_externo"
     TIPO_RETORNO_EXTERNO = "retorno_externo_recebido"
+    TIPO_DEVOLUTIVA = "devolutiva"
     TIPO_MUDANCA_STATUS = "mudanca_status"
     TIPO_MUDANCA_RESPONSAVEL = "mudanca_responsavel"
     TIPO_MUDANCA_RESULTADO = "mudanca_resultado"
@@ -371,6 +380,7 @@ class Interacao(models.Model):
         (TIPO_REUNIAO, "Reunião"),
         (TIPO_ENCAMINHAMENTO, "Encaminhamento externo"),
         (TIPO_RETORNO_EXTERNO, "Retorno externo recebido"),
+        (TIPO_DEVOLUTIVA, "Devolutiva ao demandante"),
         (TIPO_MUDANCA_STATUS, "Mudança de status"),
         (TIPO_MUDANCA_RESPONSAVEL, "Mudança de responsável"),
         (TIPO_MUDANCA_RESULTADO, "Mudança de resultado"),

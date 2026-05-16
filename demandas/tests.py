@@ -189,32 +189,79 @@ def test_resultado_default_pendente(db, demanda):
     assert demanda.resultado == Demanda.RESULTADO_PENDENTE
 
 
-# --- Critérios 5-6: regra de fechamento ---
+# --- Critérios 5-6: regra de fechamento (ADR 0043 — bifurcada por origem) ---
 
 
-def test_respondido_sem_retorno_bloqueado(db, demanda):
-    demanda.status = Demanda.STATUS_RESPONDIDO
-    with pytest.raises(ValidationError):
-        demanda.full_clean()
+def _registrar_devolutiva(demanda, autor):
+    return Interacao.objects.create(
+        demanda=demanda,
+        autor=autor,
+        tipo=Interacao.TIPO_DEVOLUTIVA,
+        conteudo="Devolutiva ao demandante",
+        status=Interacao.STATUS_REALIZADA,
+        data_ocorrencia=timezone.now(),
+        automatica=False,
+    )
 
 
-def test_respondido_com_resultado_pendente_bloqueado(db, demanda):
-    demanda.status = Demanda.STATUS_RESPONDIDO
-    demanda.retorno_data = timezone.now().date()
-    demanda.retorno_conteudo = "Resposta dada"
-    # resultado fica em pendente — deve bloquear
-    with pytest.raises(ValidationError):
-        demanda.full_clean()
-
-
-def test_respondido_com_retorno_e_resultado_funciona(db, demanda):
-    demanda.status = Demanda.STATUS_RESPONDIDO
-    demanda.retorno_data = timezone.now().date()
-    demanda.retorno_conteudo = "Resposta dada"
+def test_responsiva_concluida_sem_devolutiva_bloqueada(db, demanda, admin_user):
+    # demanda fixture é responsiva por default
     demanda.resultado = Demanda.RESULTADO_ATENDIDO
+    demanda.status = Demanda.STATUS_CONCLUIDA
+    with pytest.raises(ValidationError):
+        demanda.full_clean()
+
+
+def test_responsiva_concluida_com_devolutiva_e_resultado_pendente_bloqueada(
+    db, demanda, admin_user
+):
+    _registrar_devolutiva(demanda, admin_user)
+    demanda.status = Demanda.STATUS_CONCLUIDA
+    # resultado fica pendente — deve bloquear
+    with pytest.raises(ValidationError):
+        demanda.full_clean()
+
+
+def test_responsiva_concluida_com_devolutiva_e_resultado_funciona(db, demanda, admin_user):
+    _registrar_devolutiva(demanda, admin_user)
+    demanda.resultado = Demanda.RESULTADO_ATENDIDO
+    demanda.status = Demanda.STATUS_CONCLUIDA
     demanda.full_clean()  # não levanta
     demanda.save()
-    assert demanda.status == Demanda.STATUS_RESPONDIDO
+    assert demanda.status == Demanda.STATUS_CONCLUIDA
+
+
+def test_proativa_concluida_sem_devolutiva_funciona(db, admin_user):
+    # Demanda proativa não exige devolutiva — só resultado classificado.
+    d = Demanda.objects.create(
+        titulo="Moção X",
+        descricao="Reconhecimento",
+        origem=Demanda.ORIGEM_PROATIVA,
+        canal_entrada="presencial",
+        coordenacao_responsavel="comunicacao",
+        anonimo=True,
+        criado_por=admin_user,
+    )
+    d.resultado = Demanda.RESULTADO_NAO_SE_APLICA
+    d.status = Demanda.STATUS_CONCLUIDA
+    d.full_clean()  # não levanta
+    d.save()
+    assert d.status == Demanda.STATUS_CONCLUIDA
+
+
+def test_proativa_concluida_com_resultado_pendente_bloqueada(db, admin_user):
+    d = Demanda.objects.create(
+        titulo="Moção Y",
+        descricao="Reconhecimento",
+        origem=Demanda.ORIGEM_PROATIVA,
+        canal_entrada="presencial",
+        coordenacao_responsavel="comunicacao",
+        anonimo=True,
+        criado_por=admin_user,
+    )
+    d.status = Demanda.STATUS_CONCLUIDA
+    with pytest.raises(ValidationError):
+        d.full_clean()
 
 
 # --- Critério 7: atualizar resultado em qualquer status ---
@@ -529,11 +576,10 @@ def test_coordenador_nao_pode_arquivar_sem_responder(db, coord_juridico):
 # --- Arquivamento ---
 
 
-def test_arquivar_demanda_respondida_funciona(db, demanda):
-    demanda.status = Demanda.STATUS_RESPONDIDO
-    demanda.retorno_data = timezone.now().date()
-    demanda.retorno_conteudo = "Resposta"
+def test_arquivar_demanda_concluida_funciona(db, demanda, admin_user):
+    _registrar_devolutiva(demanda, admin_user)
     demanda.resultado = Demanda.RESULTADO_ATENDIDO
+    demanda.status = Demanda.STATUS_CONCLUIDA
     demanda.save()
     demanda.status = Demanda.STATUS_ARQUIVADO
     demanda.full_clean()

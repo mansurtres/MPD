@@ -8,6 +8,8 @@ Documento das regras de transição de estado das entidades operacionais do sist
 
 ## 1. Demanda — Diagrama de estados
 
+> **Refatoração 2026-05-16 (ADR 0043):** estado `respondido` renomeado para `concluida`. Devolutiva ao demandante deixou de ser campo da Demanda e virou Interação (`tipo=devolutiva`). Regra de fechamento bifurcada por `origem`.
+
 ```
                   ┌──────────────────┐
                   │      novo        │
@@ -29,12 +31,15 @@ Documento das regras de transição de estado das entidades operacionais do sist
         │  ┌───────────────────────┐
         └──┤   aguardando_pessoa   │
            └───────────┬───────────┘
-                       │ (resposta dada à pessoa, com data e conteúdo)
+                       │ (responsiva: registrar Interação `devolutiva` + classificar resultado)
+                       │ (proativa:   classificar resultado)
                        ▼
                   ┌──────────────────┐
-                  │   respondido     │◄─── ⚠ EXIGE retorno_data + retorno_conteudo
-                  └────────┬─────────┘     E resultado ≠ 'pendente'
+                  │    concluida     │◄─── ⚠ Bifurcação por origem:
+                  └────────┬─────────┘     responsiva exige Interacao(tipo=devolutiva, status=realizada)
+                           │                + resultado ≠ pendente
                            │ (encerramento administrativo)
+                           │   proativa exige apenas resultado ≠ pendente
                            ▼
                   ┌──────────────────┐
                   │   arquivado      │
@@ -53,21 +58,23 @@ Documento das regras de transição de estado das entidades operacionais do sist
 | `em_andamento` | Equipe está trabalhando ativamente. | Qualquer usuário com permissão. |
 | `aguardando_terceiros` | Encaminhamento foi feito; aguarda resposta de órgão externo. | Qualquer usuário com permissão. |
 | `aguardando_pessoa` | Mandato precisa de informação adicional da pessoa/parte. | Qualquer usuário com permissão. |
-| `respondido` | Pessoa recebeu retorno e resultado foi classificado. | CO, CG, ADM. |
+| `concluida` | Ciclo de trabalho fechado. Responsivas: devolutiva registrada + resultado classificado. Proativas: resultado classificado. | CO, CG, ADM. |
 | `arquivado` | Encerrado e fora do fluxo ativo. | CG, ADM. |
 
 ### 1.2 Transições permitidas
 
-| De ↓ \ Para → | novo | em_andamento | aguard_terc | aguard_pessoa | respondido | arquivado |
+| De ↓ \ Para → | novo | em_andamento | aguard_terc | aguard_pessoa | concluida | arquivado |
 |---|---|---|---|---|---|---|
 | **novo** | — | ✅ | ✅ | ✅ | ✅* | ⚠ (com justif.) |
 | **em_andamento** | ❌ | — | ✅ | ✅ | ✅* | ⚠ (com justif.) |
 | **aguard_terceiros** | ❌ | ✅ | — | ✅ | ✅* | ⚠ (com justif.) |
 | **aguard_pessoa** | ❌ | ✅ | ✅ | — | ✅* | ⚠ (com justif.) |
-| **respondido** | ❌ | ✅ (reabertura) | ❌ | ❌ | — | ✅ |
+| **concluida** | ❌ | ✅ (reabertura) | ❌ | ❌ | — | ✅ |
 | **arquivado** | ❌ | ❌ | ❌ | ❌ | ❌ | — |
 
-*Com `retorno_data`, `retorno_conteudo` obrigatoriamente preenchidos **e** `resultado` diferente de `pendente`.
+*Bifurcação por origem:
+- **Responsiva**: exige Interacao(tipo=devolutiva, status=realizada) vinculada **e** `resultado ≠ pendente`.
+- **Proativa**: exige apenas `resultado ≠ pendente`.
 
 ### 1.3 Regras codificadas
 
@@ -75,33 +82,39 @@ Documento das regras de transição de estado das entidades operacionais do sist
 
 ```python
 def clean(self):
-    if self.status == 'respondido':
-        if not self.retorno_data or not self.retorno_conteudo:
-            raise ValidationError({
-                'status': "Status 'respondido' exige retorno_data e retorno_conteudo preenchidos."
-            })
+    if self.status == 'concluida':
         if self.resultado == 'pendente':
             raise ValidationError({
-                'resultado': "Status 'respondido' exige resultado classificado (não pode ser 'pendente')."
+                'resultado': "Status 'concluida' exige resultado classificado (não pode ser 'pendente')."
             })
+        if self.origem == 'responsiva':
+            tem_devolutiva = self.pk and self.interacoes.filter(
+                tipo='devolutiva', status='realizada'
+            ).exists()
+            if not tem_devolutiva:
+                raise ValidationError({
+                    'status': "Demanda responsiva só conclui com Interação de devolutiva registrada."
+                })
 
     if self.status == 'arquivado':
-        # Permitido se está vindo de 'respondido' (caminho normal)
+        # Permitido se está vindo de 'concluida' (caminho normal)
         # OU se tem observacoes_arquivamento (atalho com justificativa)
-        if self._original_status != 'respondido' and not self.observacoes_arquivamento:
+        if self._original_status != 'concluida' and not self.observacoes_arquivamento:
             raise ValidationError({
-                'status': "Arquivamento direto (sem ter respondido) exige observacoes_arquivamento."
+                'status': "Arquivamento direto (sem ter concluído) exige observacoes_arquivamento."
             })
 
-    # Reabertura de respondido
-    if self._original_status == 'respondido' and self.status == 'em_andamento':
-        # Permitido. Limpa retorno para forçar novo preenchimento ao reencerrar.
-        # Decisão registrada como interação automática.
-        # Resultado é mantido (pode ser revisado ao reencerrar).
+    # Reabertura de concluida
+    if self._original_status == 'concluida' and self.status == 'em_andamento':
+        # Permitido. Devolutiva antiga PERMANECE na timeline como histórico.
+        # Para reconcluir, exige nova Interacao(tipo=devolutiva). Resultado é
+        # mantido (pode ser revisado ao reencerrar).
         pass
 ```
 
-**Mecanismo `_original_status`:** model carrega o status original ao ser inicializado e compara com o atual no `clean()`. Implementado via override de `__init__` ou `from_db`.
+**Mecanismo `_original_status`:** model carrega o status original ao ser inicializado e compara com o atual no `clean()`. Implementado via override de `__init__`.
+
+**Ordem de operações no fluxo de conclusão (responsiva):** a view envolve em `transaction.atomic` os 3 passos — (1) cria a `Interacao(tipo=devolutiva, status=realizada)`, (2) atualiza `resultado` e `resultado_observacao`, (3) muda `status` para `concluida` e roda `full_clean()`. Se qualquer passo falhar, transação reverte.
 
 ### 1.4 Consequências automáticas (signals)
 
@@ -153,15 +166,15 @@ Mesma lógica: signal detecta mudança em `responsavel_id` e gera interação au
 
 Quando o assessor responsável é desativado (`is_active=FALSE`), a demanda aparece em listagens com badge de alerta "responsável inativo" — sinal para reatribuir, mas não muda automaticamente.
 
-### 1.6 Reabertura de demanda respondida
+### 1.6 Reabertura de demanda concluída
 
-Cenário: demanda foi marcada como `respondida`, mas a pessoa volta dizendo que a resposta foi insuficiente, ou descobre-se algo novo.
+Cenário: demanda foi marcada como `concluida`, mas a pessoa volta dizendo que o retorno foi insuficiente, ou descobre-se algo novo.
 
 **Decisão:** permitir reabertura, com regras:
 
-1. Apenas CG e ADM podem reabrir (mover de `respondido` → `em_andamento`).
-2. Reabertura **NÃO** apaga `retorno_data` e `retorno_conteudo` — eles ficam como histórico do retorno anterior.
-3. Quando a demanda for novamente movida para `respondido`, exige preenchimento de novo retorno (sobrescrevendo).
+1. Apenas CG e ADM podem reabrir (mover de `concluida` → `em_andamento`).
+2. Reabertura **NÃO** apaga a `Interacao(tipo=devolutiva)` anterior — ela permanece na timeline como histórico da devolutiva anterior.
+3. Quando a demanda for novamente movida para `concluida`, exige nova Interacao de devolutiva (a anterior conta no histórico, não satisfaz o `clean()` se a checagem usar `data_ocorrencia > momento_da_reabertura` — opção a ser refinada se virar problema operacional; na v0.5, qualquer devolutiva anterior basta).
 4. A reabertura gera interação automática `mudanca_status` na timeline.
 
 Alternativa considerada e descartada: criar uma nova demanda vinculada à anterior. Mais "limpo" tecnicamente, mas operacionalmente quebra a noção de continuidade do relacionamento. Opção pode reaparecer em v2.x se a complexidade justificar.
@@ -192,7 +205,7 @@ Alternativa considerada e descartada: criar uma nova demanda vinculada à anteri
 
 | Valor | Significado |
 |---|---|
-| `pendente` | Default. Ainda não há desfecho conhecido. Demanda pode estar em qualquer status; só não pode estar em `respondido` (regra de fechamento). |
+| `pendente` | Default. Ainda não há desfecho conhecido. Demanda pode estar em qualquer status; só não pode estar em `concluida` (regra de fechamento). |
 | `atendido` | Demanda foi resolvida. Pessoa obteve o que pediu. |
 | `atendido_parcialmente` | Demanda foi parcialmente resolvida. Conseguimos parte do que se pedia. |
 | `nao_atendido` | Tentativa frustrada. Tentou-se resolver mas não vingou (negativa de terceiro, falta de recurso, inviabilidade superveniente). |
@@ -205,7 +218,7 @@ Alternativa considerada e descartada: criar uma nova demanda vinculada à anteri
 
 ### 2.3 Regra de fechamento (cruzamento entre status e resultado)
 
-Para `status` ir para `respondido`, `resultado` precisa estar classificado (qualquer valor exceto `pendente`). Codificado no `clean()` (ver seção 1.3).
+Para `status` ir para `concluida`, `resultado` precisa estar classificado (qualquer valor exceto `pendente`). Codificado no `clean()` (ver seção 1.3).
 
 | `resultado` no momento | Pode fechar? |
 |---|---|
@@ -242,7 +255,7 @@ Para `status` ir para `respondido`, `resultado` precisa estar classificado (qual
 
 ### 2.6 Por que esta dimensão importa
 
-A separação entre `status='respondido'` (cumprimos nosso dever de retorno) e `resultado='atendido'` (a demanda deu resultado) é a base para perguntas politicamente decisivas que o sistema vai responder:
+A separação entre `status='concluida'` (cumprimos nosso dever de devolutiva e classificação) e `resultado='atendido'` (a demanda deu resultado) é a base para perguntas politicamente decisivas que o sistema vai responder:
 
 - Quais bairros têm demandas majoritariamente atendidas vs não-atendidas?
 - Qual o índice de efetividade por tema, por canal, por coordenação?
@@ -511,7 +524,7 @@ Estados terminais. Não permitem retorno. Regras simples — todas as transiçõ
 Comandos `manage.py` que operam sobre estados:
 
 - `python manage.py atualizar_prazos_vencidos` — varre encaminhamentos `enviado` com `prazo_resposta` passado e marca como `prazo_vencido`. Roda diariamente via cron em produção.
-- `python manage.py verificar_integridade` — busca anomalias: demandas `respondido` sem `retorno_data` (não deveria existir, mas defesa contra dados corrompidos), interações `agendadas` há mais de 6 meses sem ação, etc.
+- `python manage.py verificar_integridade` — busca anomalias: demandas responsivas `concluida` sem Interação `devolutiva` (não deveria existir, mas defesa contra dados corrompidos), interações `agendadas` há mais de 6 meses sem ação, etc.
 
 ---
 

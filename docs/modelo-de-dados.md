@@ -65,7 +65,7 @@ Schema do banco de dados do MPD. Foco em mínimo viável: apenas tabelas, campos
 
 **Mudanças de status, responsável ou resultado da demanda geram interações automáticas** (tipo `mudanca_status`, `mudanca_responsavel`, `mudanca_resultado`, `arquivamento`). Histórico vira parte da timeline natural, sem tabela de auditoria contextual separada.
 
-**Status e Resultado são dimensões independentes da Demanda.** `status` mede o ciclo do trabalho (`novo`, `em_andamento`, `respondido` etc.); `resultado` mede o desfecho material da demanda (`atendido`, `nao_atendido`, etc.). A regra de ouro do fechamento exige ambos preenchidos: demanda só vai a `respondido` com retorno documentado **e** resultado classificado.
+**Status e Resultado são dimensões independentes da Demanda.** `status` mede o ciclo do trabalho (`novo`, `em_andamento`, `concluida` etc.); `resultado` mede o desfecho material da demanda (`atendido`, `nao_atendido`, etc.). A regra de ouro do fechamento (ADR 0043): demanda **responsiva** só vai a `concluida` com Interação `devolutiva` registrada **e** resultado classificado; demanda **proativa** só exige resultado classificado.
 
 **M:N entre Demanda e Partes.** Uma demanda pode ter múltiplas pessoas e entidades vinculadas. A FK simples (um cidadão, uma entidade) foi substituída por tabelas de junção `demanda_pessoas` e `demanda_entidades`, cada uma com campo `papel`. A constraint "pelo menos uma parte ou anônimo" é validada no formulário/view antes de persistir.
 
@@ -298,7 +298,7 @@ Coração operacional.
 | `origem` * | VARCHAR(15) | NOT NULL | CHECK IN ('responsiva','proativa') |
 | `canal_entrada` * | VARCHAR(30) | NOT NULL | CHECK IN ('dm_instagram','whatsapp','presencial','telefone','email','oficio','indicacao_interna','redes_sociais','outro') |
 | `anonimo` * | BOOLEAN | NOT NULL, DEFAULT FALSE | Demanda sem partes identificadas |
-| `status` * | VARCHAR(25) | NOT NULL, DEFAULT 'novo' | CHECK IN ('novo','em_andamento','aguardando_terceiros','aguardando_pessoa','respondido','arquivado') |
+| `status` * | VARCHAR(25) | NOT NULL, DEFAULT 'novo' | CHECK IN ('novo','em_andamento','aguardando_terceiros','aguardando_pessoa','concluida','arquivado') |
 | `resultado` * | VARCHAR(25) | NOT NULL, DEFAULT 'pendente' | CHECK IN ('pendente','atendido','atendido_parcialmente','nao_atendido','inviavel','nao_se_aplica') |
 | `resultado_observacao` | TEXT | NULL | Anotação interna sobre o desfecho material |
 | `prioridade` * | VARCHAR(10) | NOT NULL, DEFAULT 'normal' | CHECK IN ('baixa','normal','alta','urgente') |
@@ -306,9 +306,6 @@ Coração operacional.
 | `coordenacao_responsavel` * | VARCHAR(15) | NOT NULL | CHECK IN ('gabinete','juridico','comunicacao') |
 | `restrito` * | BOOLEAN | NOT NULL, DEFAULT FALSE | TRUE = visível só p/ responsável + chefia + admin |
 | `prazo` | DATE | NULL | |
-| `retorno_data` | DATE | NULL | |
-| `retorno_conteudo` | TEXT | NULL | |
-| `retorno_canal` | VARCHAR(30) | NULL | |
 | `observacoes_arquivamento` | TEXT | NULL | |
 | 🔗 `criado_por_id` * | UUID | FK → usuarios(id) | |
 | `criado_em` * | TIMESTAMP | NOT NULL, DEFAULT NOW() | |
@@ -332,20 +329,26 @@ def _validar_partes(self):
             )
 ```
 
-**Regra de fechamento:**
+**Regra de fechamento (ADR 0043):**
 ```python
-if self.status == 'respondido':
-    if not self.retorno_data or not self.retorno_conteudo:
-        raise ValidationError(
-            "Status 'respondido' exige retorno_data e retorno_conteudo."
-        )
+if self.status == 'concluida':
     if self.resultado == 'pendente':
         raise ValidationError(
-            "Status 'respondido' exige resultado classificado (não pode ser 'pendente')."
+            "Status 'concluida' exige resultado classificado (não pode ser 'pendente')."
         )
+    if self.origem == 'responsiva':
+        tem_devolutiva = self.pk and self.interacoes.filter(
+            tipo='devolutiva', status='realizada'
+        ).exists()
+        if not tem_devolutiva:
+            raise ValidationError(
+                "Demanda responsiva só conclui com Interação de devolutiva registrada."
+            )
 ```
 
-**Arquivamento sem ter respondido exige justificativa** (em `observacoes_arquivamento`).
+A **devolutiva ao demandante** é registrada como `Interacao(tipo='devolutiva')` na timeline — não é mais atributo da Demanda. Para demanda **proativa** (moção, indicação) o `clean()` dispensa devolutiva; basta resultado classificado.
+
+**Arquivamento sem ter concluído exige justificativa** (em `observacoes_arquivamento`).
 
 **Status × Resultado — duas dimensões independentes.** Detalhes da relação entre os dois em `fluxos-de-estado.md`.
 
@@ -417,7 +420,7 @@ Coração da rastreabilidade. Existe em três tempos: passado (`realizada`), pre
 | 🔑 `id` | UUID | PRIMARY KEY | |
 | 🔗 `demanda_id` * | UUID | FK → demandas(id), ON DELETE CASCADE | |
 | 🔗 `autor_id` * | UUID | FK → usuarios(id) | |
-| `tipo` * | VARCHAR(40) | NOT NULL | CHECK IN ('registro_inicial','contato_com_pessoa','contato_interno','reuniao','encaminhamento_externo','retorno_externo_recebido','mudanca_status','mudanca_responsavel','mudanca_resultado','arquivamento','anotacao_interna') |
+| `tipo` * | VARCHAR(40) | NOT NULL | CHECK IN ('registro_inicial','contato_com_pessoa','contato_interno','reuniao','encaminhamento_externo','retorno_externo_recebido','devolutiva','mudanca_status','mudanca_responsavel','mudanca_resultado','arquivamento','anotacao_interna') |
 | `conteudo` * | TEXT | NOT NULL | |
 | `status` * | VARCHAR(15) | NOT NULL, DEFAULT 'realizada' | CHECK IN ('realizada','agendada','cancelada') |
 | `data_ocorrencia` * | TIMESTAMP | NOT NULL | Data passada (realizada) ou futura (agendada) |
@@ -432,7 +435,7 @@ Coração da rastreabilidade. Existe em três tempos: passado (`realizada`), pre
 - `cancelada` — foi agendada mas não vai mais acontecer. Mantida para histórico.
 
 **Tipos:**
-- **Manuais:** `registro_inicial`, `contato_com_pessoa`, `contato_interno`, `reuniao`, `encaminhamento_externo`, `retorno_externo_recebido`, `anotacao_interna`. Gerados pelos assessores.
+- **Manuais:** `registro_inicial`, `contato_com_pessoa`, `contato_interno`, `reuniao`, `encaminhamento_externo`, `retorno_externo_recebido`, `devolutiva`, `anotacao_interna`. Gerados pelos assessores. A `devolutiva` é criada exclusivamente pelo fluxo de conclusão da demanda (não aparece no seletor genérico de "adicionar interação") — registra o ato do mandato comunicando o demandante.
 - **Automáticas:** `mudanca_status`, `mudanca_responsavel`, `mudanca_resultado`, `arquivamento`. Geradas por signal quando a Demanda muda. `automatica=TRUE`.
 
 **Reunião como interação:** quando uma reunião é agendada com pessoa/entidade vinculada a demanda, é criada como interação tipo `reuniao` com status `agendada` e `data_ocorrencia` futura. Aparece tanto na timeline da demanda quanto em "Minhas próximas reuniões".

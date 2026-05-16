@@ -56,7 +56,7 @@ Ideia que parece "óbvia" e não está no doc → primeiro vira ADR ou backlog.
 
 ## 5. Estado atual
 
-**Fase corrente:** v0.4.1 — **Fase 3 (Demandas e Interações) concluída.** ADR 0042 separa Tema de Tag.
+**Fase corrente:** v0.4.2 — **Fase 3 (Demandas e Interações) concluída.** ADR 0042 separa Tema de Tag; ADR 0043 redesenha o fechamento da demanda (devolutiva como Interação + status `concluida` + bifurcação por origem).
 
 **Fundação (Fase 0/1, mantido):**
 - Django 5.2 + PostgreSQL 16 + Tailwind v4 standalone.
@@ -154,6 +154,20 @@ Ideia que parece "óbvia" e não está no doc → primeiro vira ADR ou backlog.
 
 **142 testes passando** ao final da v0.4.0 (37 novos no app `demandas` cobrindo os 22 critérios de aceite). ADRs 0001–0041.
 
+**Redesign do fechamento da demanda (v0.4.2, ADR 0043):**
+- Vocabulário polissêmico ("respondida" colidia com Encaminhamento e com retorno externo) eliminado: status `respondido` → **`concluida`**. Devolutiva ao demandante deixou de ser campo da Demanda e virou **Interação** (`tipo='devolutiva'`).
+- Regra de fechamento bifurcada por origem em `Demanda.clean()`:
+  - Responsiva: exige `Interacao(tipo=devolutiva, status=realizada)` vinculada **e** `resultado != pendente`.
+  - Proativa: exige apenas `resultado != pendente`.
+- UX: link discreto "Marcar como respondida" virou **CTA sólido** no topo do detalhe ("Concluir demanda — devolutiva ao demandante" para responsivas; "Concluir ação" para proativas). Modal centralizado pé-da-página virou **drawer lateral** (não cobre conteúdo, fecha por backdrop/Esc).
+- `ConcluirDemandaView` orquestra tudo em `transaction.atomic`: cria Interacao(devolutiva), atualiza resultado/observação, muda status para `concluida`, roda `full_clean()` — rollback se qualquer passo falhar.
+- Tipo `devolutiva` é exclusivo do fluxo de conclusão; não aparece no seletor genérico de "Adicionar interação" (evita devolutivas órfãs).
+- Migration `0005_devolutiva_como_interacao` com data migration: para cada `Demanda.status='respondido'` com `retorno_data` preenchido, cria Interacao a partir dos campos `retorno_*` (com canal como prefixo do conteúdo), depois `UPDATE status='respondido' → 'concluida'`, depois drop dos campos.
+- Quick filter `sem_retorno_30d` na lista vira "Sem devolutiva +30d" — agora busca por demandas responsivas abertas há +30d sem `Interacao(tipo=devolutiva)`.
+- Permissões: labels atualizadas ("Pode arquivar demanda concluída", "Pode reabrir demanda concluída").
+
+**148 testes passando** ao final da v0.4.2 (+6 sobre v0.4.0: novos casos cobrem responsiva sem devolutiva, responsiva com devolutiva + resultado pendente, responsiva concluída ok, proativa sem devolutiva ok, proativa sem resultado bloqueada). ADRs 0001–0043.
+
 **Próximo marco:** v0.5 — Fase 4 (Inbox GTD e Minhas Pendências). Ver [`roadmap.md`](./roadmap.md) §4.4.
 
 ---
@@ -233,4 +247,4 @@ Para o histórico completo ver [`docs/decisoes.md`](./docs/decisoes.md). Decisõ
 
 ---
 
-*Atualizar este arquivo ao fim de cada fase. Última atualização: 2026-05-09 (v0.3.3 — limpeza pós-auditoria).*
+*Atualizar este arquivo ao fim de cada fase. Última atualização: 2026-05-16 (v0.4.2 — redesign do fechamento da demanda, ADR 0043).*

@@ -1377,4 +1377,67 @@ Criar modelo `Tema` em `demandas/`, distinto de `pessoas.Tag`:
 
 ---
 
+## ADR 0043 — Devolutiva como Interação; status `respondido` renomeado para `concluida` (supersede parcial de §1.3 de fluxos-de-estado.md)
+
+**Data:** 2026-05-16
+**Status:** Aceito
+
+### Contexto
+
+Na Fase 3, a regra de ouro do MPD foi codificada como: para `Demanda.status` ir para `respondido`, exigir `retorno_data` + `retorno_conteudo` + `resultado != pendente`. Os três campos `retorno_*` viviam na Demanda. A UX expunha a transição como modal "Marcar como respondida".
+
+Verificação manual da Fase 3 (2026-05-16) revelou três problemas distintos:
+
+1. **Vocabulário ambíguo.** "Respondida" colide com `Encaminhamento.status = respondido_satisfatorio` ("órgão respondeu") e com `Interacao.tipo = retorno_externo_recebido` ("veio resposta de órgão"). O usuário pergunta: "respondido por quem? respondeu o quê?". Em particular, ofusca o ato real: o **mandato dando devolutiva ao demandante**.
+2. **Mistura de comunicação e classificação.** Os campos `retorno_*` na Demanda tratam o retorno ao demandante como atributo da demanda, não como ato registrado na timeline. Isso é assimétrico com encaminhamentos (que têm resposta como atributo do próprio encaminhamento, plus uma Interacao manual `retorno_externo_recebido`). A devolutiva ao demandante devia ter o mesmo tratamento: ato de primeira classe, com autor, data, canal e conteúdo, visível na timeline.
+3. **Único fluxo para origens distintas.** Demanda **responsiva** (cidadão pediu algo) precisa devolutiva. Demanda **proativa** (moção, indicação — mandato age sem demandante esperando) não tem para quem devolver. O modelo atual força a mesma regra para os dois casos, gerando "devolutiva" sem destinatário em proativas.
+
+### Decisão
+
+**Mover devolutiva para Interação. Renomear status `respondido` para `concluida`. Bifurcar regra de fechamento por origem.**
+
+1. **Novo tipo `Interacao.TIPO_DEVOLUTIVA = "devolutiva"`** — registra o ato do mandato comunicando ao demandante. Tem autor, data, conteúdo. Canal vem do choice unificado de `Demanda.CANAL_CHOICES` (mesmo conjunto usado em `canal_entrada` e nos antigos `retorno_canal`).
+2. **Remover campos `retorno_data`, `retorno_canal`, `retorno_conteudo` da Demanda.** Histórico migrado para Interacoes com `tipo=devolutiva`.
+3. **Renomear `STATUS_RESPONDIDO` → `STATUS_CONCLUIDA`** (valor de banco `"concluida"`). Label "Concluída".
+4. **Regra de fechamento bifurcada em `clean()`:**
+   - Demanda **responsiva** (`origem=responsiva`): para mover para `concluida`, exige `Interacao(tipo=devolutiva, status=realizada)` vinculada **E** `resultado != pendente`.
+   - Demanda **proativa** (`origem=proativa`): para mover para `concluida`, exige apenas `resultado != pendente`.
+5. **UX renovada:** CTA primário "Concluir demanda" (ou "Concluir ação" pra proativa) como botão sólido no topo do detalhe — não link discreto entre Editar/Arquivar. Form abre como drawer lateral (não cobre o conteúdo).
+6. **Reabertura mantém comportamento:** CG/ADM movem `concluida` → `em_andamento`. A devolutiva anterior **permanece na timeline** como histórico. Para reconcluir, registra-se nova devolutiva.
+7. **Interação de devolutiva é manual, não automática.** Imutável pela regra geral de timeline (janela de 24h pelo autor; ADM/CG sempre podem corrigir). Não é gerada por signal.
+
+### Alternativas consideradas e descartadas
+
+- **Apenas renomear `respondida` → `concluida` mantendo campos `retorno_*` na Demanda:** resolve o problema 1 (vocabulário) mas mantém os problemas 2 e 3. Vira meio-caminho sem ganho conceitual.
+- **Tornar `retorno_*` opcionais para proativa:** resolve o problema 3 mas não 1 nem 2. Mantém a assimetria com encaminhamento.
+- **Computed `tem_devolutiva` no model e `Interacao.devolutiva` opcional só para responsivas:** equivalente à decisão tomada, mas pior expresso — fica menos óbvio na leitura do código que devolutiva é Interação.
+
+### Justificativa
+
+- **Vocabulário inequívoco.** `concluida` = ciclo de trabalho fechado. `devolutiva` = ato de comunicar ao demandante (palavra do setor público, sem colisão interna). `respondido_satisfatorio` segue sendo do encaminhamento (órgão respondeu ao mandato). Cada palavra tem um único referente.
+- **Simetria conceitual com encaminhamento.** Devolutiva ao demandante é um **ato** registrado na timeline, igual ao retorno do órgão. A Demanda deixa de carregar nos próprios atributos a memória de quem foi comunicado, quando e como — passa para Interacao, que é onde esses atos vivem.
+- **Modelo proativa sem distorção.** Sem campos `retorno_*` órfãos preenchidos artificialmente. `Demanda.origem == proativa` não exige devolutiva no `clean()`.
+- **Timeline auditável.** A devolutiva vira evento de primeira classe na timeline — buscas tipo "demandas concluídas sem devolutiva registrada" viram queries triviais.
+
+### Consequências
+
+- Migration `demandas/0005_devolutiva_como_interacao`:
+  - Adiciona `"devolutiva"` em `Interacao.tipo` choices.
+  - **Data migration:** para cada Demanda com `status='respondido'` e `retorno_data` não-nulo, cria Interacao(tipo=devolutiva, autor=criado_por, data_ocorrencia=retorno_data, conteudo=retorno_conteudo, status=realizada, automatica=False). Canal preservado no conteúdo se o choice atual for válido — campo Canal vai em Interacao via TextField mesmo.
+  - Renomeia `status='respondido'` → `'concluida'` em todas as Demandas.
+  - Remove campos `retorno_data`, `retorno_conteudo`, `retorno_canal`.
+- `MarcarRespondidaForm` vira `ConcluirDemandaForm` (responsiva: pede data + canal + conteúdo + resultado + observação; cria Interacao numa transação) e `ConcluirAcaoForm` (proativa: só resultado + observação).
+- Rota `demanda_responder` → `demanda_concluir`.
+- View `MarcarRespondidaView` → `ConcluirDemandaView`.
+- Templates: modal vira drawer lateral; link discreto vira CTA sólido. Label "Marcar respondida" → "Concluir demanda" / "Concluir ação".
+- Quick filter `sem_retorno_30d` da lista passa a buscar por demandas responsivas sem Interacao de devolutiva em +30d.
+- Tipo `devolutiva` é manual no `InteracaoForm` mas só faz sentido pelo fluxo de conclusão (a UI normal de "adicionar interação" oculta esse tipo para evitar criar devolutivas órfãs sem mover o status).
+- Permissões inalteradas: quem pode `change_demanda` pode concluir.
+- Auditlog continua registrando Demanda e Interacao (Interacao já está registrada via inclusão de Demanda + filhas — confirmar; senão adicionar).
+- `criar_dados_teste` regera demandas com devolutiva como Interacao.
+- Trabalho de docs: `fluxos-de-estado.md` §1 (diagrama, transições, regras codificadas) e `modelo-de-dados.md` (campos removidos da Demanda, novo tipo de Interacao) atualizados.
+- ADR 0041 e ADR 0042 não são afetadas. Esta ADR supersede parcialmente as regras do §1.3 de `fluxos-de-estado.md` (não a ADR original que definiu a separação status × resultado, que continua válida e é fortalecida).
+
+---
+
 *Decisões adicionadas em ordem cronológica conforme surgem. Cada decisão registrada uma vez; alterações futuras criam nova ADR (não editam a anterior).*

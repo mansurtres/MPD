@@ -50,7 +50,6 @@ class DemandaAdmin(admin.ModelAdmin):
             "Atribuição",
             {"fields": ("responsavel", "coordenacao_responsavel", "restrito", "prazo")},
         ),
-        ("Retorno", {"fields": ("retorno_data", "retorno_canal", "retorno_conteudo")}),
         (
             "Arquivamento",
             {"fields": ("observacoes_arquivamento", "arquivado_em"), "classes": ("collapse",)},

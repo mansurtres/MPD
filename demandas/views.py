@@ -7,7 +7,7 @@ Padrões herdados de pessoas/views.py:
 - pode_alternar_* calculado em get_context_data.
 """
 
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
@@ -24,6 +24,8 @@ from django.views.generic import CreateView, DeleteView, DetailView, ListView, U
 from .forms import (
     AnexoForm,
     ArquivarForm,
+    ConcluirAcaoForm,
+    ConcluirDemandaForm,
     DemandaEntidadeFormSet,
     DemandaForm,
     DemandaPessoaFormSet,
@@ -31,7 +33,6 @@ from .forms import (
     EncaminhamentoRespostaForm,
     FollowupForm,
     InteracaoForm,
-    MarcarRespondidaForm,
     TemaForm,
 )
 from .models import Anexo, Demanda, Encaminhamento, Interacao, Tema
@@ -90,12 +91,18 @@ class DemandaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
             qs = qs.filter(coordenacao_responsavel=self.request.user.coordenacao)
         elif quick == "vencidas":
             qs = qs.filter(prazo__lt=timezone.now().date()).exclude(
-                status__in=[Demanda.STATUS_RESPONDIDO, Demanda.STATUS_ARQUIVADO]
+                status__in=[Demanda.STATUS_CONCLUIDA, Demanda.STATUS_ARQUIVADO]
             )
         elif quick == "sem_retorno_30d":
+            # Demanda responsiva aberta há +30d sem Interação de devolutiva.
             limite = timezone.now() - timedelta(days=30)
-            qs = qs.filter(criado_em__lte=limite, retorno_data__isnull=True).exclude(
-                status__in=[Demanda.STATUS_RESPONDIDO, Demanda.STATUS_ARQUIVADO]
+            qs = (
+                qs.filter(origem=Demanda.ORIGEM_RESPONSIVA, criado_em__lte=limite)
+                .exclude(
+                    interacoes__tipo=Interacao.TIPO_DEVOLUTIVA,
+                    interacoes__status=Interacao.STATUS_REALIZADA,
+                )
+                .exclude(status__in=[Demanda.STATUS_CONCLUIDA, Demanda.STATUS_ARQUIVADO])
             )
         elif quick == "atendidas":
             qs = qs.filter(
@@ -164,7 +171,16 @@ class DemandaDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView)
         ctx["form_encaminhamento"] = EncaminhamentoForm()
         ctx["form_anexo"] = AnexoForm()
         ctx["form_arquivar"] = ArquivarForm(instance=d)
-        ctx["form_responder"] = MarcarRespondidaForm(instance=d)
+        # Bifurcação por origem (ADR 0043): responsiva pede devolutiva + resultado;
+        # proativa pede só resultado.
+        if d.origem == Demanda.ORIGEM_RESPONSIVA:
+            ctx["form_concluir"] = ConcluirDemandaForm()
+        else:
+            ctx["form_concluir"] = ConcluirAcaoForm(instance=d)
+        ctx["pode_concluir"] = ctx["pode_editar"] and d.status not in (
+            Demanda.STATUS_CONCLUIDA,
+            Demanda.STATUS_ARQUIVADO,
+        )
         return ctx
 
 
@@ -288,35 +304,73 @@ class AtualizarResultadoView(LoginRequiredMixin, PermissionRequiredMixin, View):
         return redirect("demandas:demanda_detalhe", pk=pk)
 
 
-class MarcarRespondidaView(LoginRequiredMixin, PermissionRequiredMixin, View):
+class ConcluirDemandaView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    """Conclui demanda. Bifurca por origem (ADR 0043):
+    - Responsiva: cria Interacao(tipo=devolutiva) + classifica resultado + status=concluida.
+    - Proativa: só classifica resultado + status=concluida.
+    Tudo em transação atômica."""
+
     permission_required = "demandas.change_demanda"
 
     def post(self, request, pk):
         demanda = get_object_or_404(Demanda, pk=pk)
         if not demanda.pode_ser_visto_por(request.user):
             raise Http404
-        form = MarcarRespondidaForm(request.POST, instance=demanda)
+        if demanda.status in (Demanda.STATUS_CONCLUIDA, Demanda.STATUS_ARQUIVADO):
+            messages.error(request, "Demanda já está fechada.")
+            return redirect("demandas:demanda_detalhe", pk=pk)
+
+        if demanda.origem == Demanda.ORIGEM_RESPONSIVA:
+            form = ConcluirDemandaForm(request.POST)
+        else:
+            form = ConcluirAcaoForm(request.POST, instance=demanda)
+
         if not form.is_valid():
             for erros in form.errors.values():
-                messages.error(request, "; ".join(erros))
+                msg = (
+                    "; ".join(erros)
+                    if hasattr(erros, "__iter__") and not isinstance(erros, str)
+                    else str(erros)
+                )
+                messages.error(request, msg)
             return redirect("demandas:demanda_detalhe", pk=pk)
-        demanda = form.save(commit=False)
-        demanda.status = Demanda.STATUS_RESPONDIDO
+
         try:
-            demanda.full_clean()
+            with transaction.atomic():
+                if demanda.origem == Demanda.ORIGEM_RESPONSIVA:
+                    canal_key = form.cleaned_data["devolutiva_canal"]
+                    canal_label = dict(Demanda.CANAL_CHOICES).get(canal_key, canal_key)
+                    data_dev = form.cleaned_data["devolutiva_data"]
+                    Interacao.objects.create(
+                        demanda=demanda,
+                        autor=request.user,
+                        tipo=Interacao.TIPO_DEVOLUTIVA,
+                        conteudo=f"Canal: {canal_label}\n\n{form.cleaned_data['devolutiva_conteudo']}",
+                        status=Interacao.STATUS_REALIZADA,
+                        data_ocorrencia=timezone.make_aware(
+                            datetime.combine(data_dev, time(12, 0))
+                        ),
+                        automatica=False,
+                    )
+                    demanda.resultado = form.cleaned_data["resultado"]
+                    demanda.resultado_observacao = form.cleaned_data["resultado_observacao"]
+                else:
+                    demanda = form.save(commit=False)
+                demanda.status = Demanda.STATUS_CONCLUIDA
+                demanda.full_clean()
+                demanda.save()
         except ValidationError as e:
             for erro in e.messages:
                 messages.error(request, erro)
             return redirect("demandas:demanda_detalhe", pk=pk)
-        demanda.save()
-        messages.success(request, f"Demanda {demanda.numero} marcada como respondida.")
+        messages.success(request, f"Demanda {demanda.numero} concluída.")
         return redirect("demandas:demanda_detalhe", pk=pk)
 
 
 class ArquivarView(LoginRequiredMixin, View):
     """Arquiva demanda. CO/CG/ADM podem; AS não.
 
-    Vinda de respondido: sem justificativa exigida.
+    Vinda de concluida: sem justificativa exigida.
     Vinda de qualquer outro status: exige observacoes_arquivamento E permissão
     pode_arquivar_sem_responder (CG/ADM).
     """
@@ -327,10 +381,10 @@ class ArquivarView(LoginRequiredMixin, View):
             raise Http404
         if not request.user.has_perm("demandas.pode_arquivar_demanda"):
             raise PermissionDenied("Sem permissão para arquivar demanda.")
-        if demanda._original_status != Demanda.STATUS_RESPONDIDO and not request.user.has_perm(
+        if demanda._original_status != Demanda.STATUS_CONCLUIDA and not request.user.has_perm(
             "demandas.pode_arquivar_sem_responder"
         ):
-            raise PermissionDenied("Apenas CG/ADM podem arquivar demanda não respondida.")
+            raise PermissionDenied("Apenas CG/ADM podem arquivar demanda não concluída.")
 
         form = ArquivarForm(request.POST, instance=demanda)
         if not form.is_valid():
@@ -355,8 +409,8 @@ class ReabrirView(LoginRequiredMixin, PermissionRequiredMixin, View):
 
     def post(self, request, pk):
         demanda = get_object_or_404(Demanda, pk=pk)
-        if demanda.status != Demanda.STATUS_RESPONDIDO:
-            messages.error(request, "Apenas demandas respondidas podem ser reabertas.")
+        if demanda.status != Demanda.STATUS_CONCLUIDA:
+            messages.error(request, "Apenas demandas concluídas podem ser reabertas.")
             return redirect("demandas:demanda_detalhe", pk=pk)
         demanda.status = Demanda.STATUS_EM_ANDAMENTO
         demanda.save()
