@@ -1649,3 +1649,20 @@ def test_conclusao_de_demanda_nova_responsiva_gera_transicao_unica(client, admin
     transicao = transicoes.first()
     assert "Novo" in transicao.conteudo
     assert "Concluída" in transicao.conteudo
+
+
+# --- AnexoUpload: objeto pai inexistente → 404 (Tarefa 2.4) ---
+
+
+def test_anexo_upload_objeto_inexistente_retorna_404(client, admin_user):
+    """POST com UUID que não existe deve retornar 404 (não 500).
+    Antes do fix, ct.model_class().objects.get(pk=...) estourava
+    DoesNotExist como exceção não tratada."""
+    import uuid as _uuid
+
+    client.force_login(admin_user)
+    resp = client.post(
+        reverse("demandas:anexo_upload", args=["demanda", _uuid.uuid4()]),
+        {"descricao": "irrelevante"},
+    )
+    assert resp.status_code == 404

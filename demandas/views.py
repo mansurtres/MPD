@@ -868,8 +868,11 @@ class AnexoUploadView(LoginRequiredMixin, PermissionRequiredMixin, View):
         if tipo not in _TIPO_PARA_MODEL:
             raise Http404("Tipo de objeto pai inválido.")
         app_label, model_name = _TIPO_PARA_MODEL[tipo]
-        ct = ContentType.objects.get(app_label=app_label, model=model_name)
-        objeto_pai = ct.model_class().objects.get(pk=object_id)
+        try:
+            ct = ContentType.objects.get(app_label=app_label, model=model_name)
+        except ContentType.DoesNotExist as exc:
+            raise Http404("Tipo desconhecido.") from exc
+        objeto_pai = get_object_or_404(ct.model_class(), pk=object_id)
         if isinstance(objeto_pai, Demanda) and not objeto_pai.pode_ser_visto_por(request.user):
             raise Http404
         if isinstance(objeto_pai, Encaminhamento) and not objeto_pai.demanda.pode_ser_visto_por(
