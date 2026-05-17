@@ -88,14 +88,24 @@ def validate_cep(value):
         raise ValidationError("CEP deve ter 8 dígitos.")
 
 
-# --- Auditoria de exportações (Fase 6) ---
+# --- Auditoria de exportações (Fase 6, refinada na v0.7.3 / ADR 0053) ---
+
+
+_MODELO_PARA_CT = {
+    "Demanda": ("demandas", "demanda"),
+    "Encaminhamento": ("demandas", "encaminhamento"),
+    "Pessoa": ("pessoas", "pessoa"),
+}
 
 
 def registrar_export(user, modelo, filtros, total):
-    """Registra um evento de exportação para auditoria.
+    """Registra um evento de exportação CSV para auditoria.
 
-    Logger 'mpd.exports' é configurado no settings; tipicamente grava em
-    arquivo separado em produção. Em dev, sai no console.
+    Grava em duas camadas (ADR 0053):
+    1. `auditlog.LogEntry` com `action=ACCESS` — visível em /auditoria, fecha o
+       critério literal do roadmap §4.6.3.
+    2. Logger 'mpd.exports' — linha de defesa operacional (se o banco do
+       auditlog ficar indisponível, ainda sobra rastro no arquivo de log).
 
     Args:
         user: usuário que executou.
@@ -103,6 +113,7 @@ def registrar_export(user, modelo, filtros, total):
         filtros: dict de filtros aplicados (querystring).
         total: número de registros exportados.
     """
+    import json
     import logging
 
     logger = logging.getLogger("mpd.exports")
@@ -113,3 +124,21 @@ def registrar_export(user, modelo, filtros, total):
         total,
         filtros,
     )
+
+    try:
+        from auditlog.models import LogEntry
+        from django.contrib.contenttypes.models import ContentType
+
+        app_label, model_name = _MODELO_PARA_CT.get(modelo, ("demandas", "demanda"))
+        ct = ContentType.objects.get(app_label=app_label, model=model_name)
+        LogEntry.objects.create(
+            content_type=ct,
+            object_pk="",
+            object_repr=f"Exportação CSV — {modelo} ({total} registros)",
+            action=LogEntry.Action.ACCESS,
+            changes_text=json.dumps({"filtros": filtros, "total": total}, default=str),
+            actor=user if getattr(user, "is_authenticated", False) else None,
+        )
+    except Exception:
+        # Não derruba o export se o auditlog falhar — logger já gravou.
+        logger.exception("Falha ao gravar LogEntry de export")

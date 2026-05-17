@@ -1731,3 +1731,58 @@ def test_processar_inbox_descartado_redireciona_para_lista(client, admin_user):
     resp = client.get(reverse("demandas:inbox_processar", args=[item.pk]))
     assert resp.status_code == 302
     assert reverse("demandas:inbox_lista") in resp.url
+
+
+# --- Export CSV grava LogEntry (ADR 0053, Tarefa 1.1 v0.7.3) ---
+
+
+def test_export_csv_demandas_grava_log_entry(client, admin_user, demanda):
+    """roadmap §4.6.3: exportação grava LogEntry visível em /auditoria.
+    ADR 0053 migrou registrar_export do logger Python para LogEntry(ACCESS)."""
+    from auditlog.models import LogEntry
+
+    antes = LogEntry.objects.filter(object_repr__startswith="Exportação CSV").count()
+    client.force_login(admin_user)
+    resp = client.get(reverse("demandas:demanda_export_csv"))
+    assert resp.status_code == 200
+    depois = LogEntry.objects.filter(object_repr__startswith="Exportação CSV").count()
+    assert depois == antes + 1
+    entry = LogEntry.objects.filter(object_repr__startswith="Exportação CSV").latest("timestamp")
+    assert entry.actor == admin_user
+    assert entry.action == LogEntry.Action.ACCESS
+    assert "Demanda" in entry.object_repr
+
+
+def test_export_csv_pessoas_grava_log_entry(client, admin_user, pessoa):
+    """Mesmo mecanismo no export de pessoas — content_type aponta para Pessoa."""
+    from auditlog.models import LogEntry
+
+    client.force_login(admin_user)
+    resp = client.get(reverse("pessoas:pessoa_export_csv"))
+    assert resp.status_code == 200
+    assert LogEntry.objects.filter(
+        object_repr__startswith="Exportação CSV",
+        object_repr__icontains="Pessoa",
+        action=LogEntry.Action.ACCESS,
+    ).exists()
+
+
+def test_export_csv_encaminhamentos_grava_log_entry(client, admin_user, demanda):
+    """Export de encaminhamentos também passa pelo registrar_export."""
+    from auditlog.models import LogEntry
+
+    Encaminhamento.objects.create(
+        demanda=demanda,
+        tipo_documento="oficio",
+        destinatario_orgao="Semus",
+        data_envio=timezone.now().date(),
+        criado_por=admin_user,
+    )
+    client.force_login(admin_user)
+    resp = client.get(reverse("demandas:encaminhamento_export_csv"))
+    assert resp.status_code == 200
+    assert LogEntry.objects.filter(
+        object_repr__startswith="Exportação CSV",
+        object_repr__icontains="Encaminhamento",
+        action=LogEntry.Action.ACCESS,
+    ).exists()
