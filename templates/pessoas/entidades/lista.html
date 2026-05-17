@@ -10,6 +10,13 @@
   {% endif %}
 </div>
 
+<div class="flex flex-wrap gap-2 mb-4 text-sm">
+  {% with f=filtro %}
+  <a href="?" class="px-3 py-1 rounded border {% if not f %}bg-slate-800 text-white border-slate-800{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-100{% endif %}">Todas</a>
+  <a href="?filtro=com_demanda_aberta" class="px-3 py-1 rounded border {% if f == 'com_demanda_aberta' %}bg-slate-800 text-white border-slate-800{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-100{% endif %}">Com demanda em aberto</a>
+  {% endwith %}
+</div>
+
 <form method="get" class="bg-white border border-slate-200 rounded-xl p-4 mb-4 flex flex-wrap items-end gap-3">
   <div class="flex-1 min-w-[220px]">
     <label class="block text-xs font-medium text-slate-600 mb-1">Buscar</label>

@@ -189,6 +189,15 @@ Todas as rotas do sistema na `v1.0`. Para cada tela: rota, perfis com acesso, fu
 - **Perfis:** CO, CG, ADM
 - **Fase:** 3
 
+### 8.10 Lista de Encaminhamentos (visão transversal)
+- **Rota:** `/encaminhamentos/`
+- **Perfis:** quem tem `demandas.view_encaminhamento` (respeitando visibilidade da Demanda associada).
+- **Fase:** 4 (ADR 0046).
+- **Função:** leitura agregada de encaminhamentos cruzando demandas. Cada linha é deep-link para a Demanda — **sem detalhe próprio nem CRUD aqui** (princípio "Demanda é o núcleo, partículas não viram entidades autônomas").
+- **Quick filters:** "Aguardando resposta", "Prazo vencido" (status `prazo_vencido` OU status `enviado` com `prazo_resposta < hoje`), "Respondidos esta semana".
+- **Filtros:** busca livre (órgão, número do documento, número/título da demanda), status, órgão (autocomplete por histórico via `<datalist>`), tipo de documento.
+- **Visibilidade:** encaminhamento de demanda restrita só aparece para quem pode ver a demanda. `_filtrar_visiveis(Demanda.objects.all(), user)` é aplicado antes de filtrar encaminhamentos.
+
 ---
 
 ## 9. Interações Pessoais

@@ -1,0 +1,112 @@
+{% extends "layouts/app.html" %}
+
+{% block app_conteudo %}
+<div class="flex items-center justify-between mb-2">
+  <h1 class="text-xl font-semibold text-slate-900">Encaminhamentos</h1>
+</div>
+<p class="text-sm text-slate-500 mb-6">Leitura agregada dos encaminhamentos de todas as demandas. Clique numa linha para abrir a demanda associada — a edição acontece sempre lá.</p>
+
+<div class="flex flex-wrap gap-2 mb-4 text-sm">
+  {% with f=filtro %}
+  <a href="?" class="px-3 py-1 rounded border {% if not f %}bg-slate-800 text-white border-slate-800{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-100{% endif %}">Todos</a>
+  <a href="?filtro=aguardando" class="px-3 py-1 rounded border {% if f == 'aguardando' %}bg-slate-800 text-white border-slate-800{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-100{% endif %}">Aguardando resposta</a>
+  <a href="?filtro=vencidos" class="px-3 py-1 rounded border {% if f == 'vencidos' %}bg-slate-800 text-white border-slate-800{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-100{% endif %}">Prazo vencido</a>
+  <a href="?filtro=respondidos_semana" class="px-3 py-1 rounded border {% if f == 'respondidos_semana' %}bg-slate-800 text-white border-slate-800{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-100{% endif %}">Respondidos esta semana</a>
+  {% endwith %}
+</div>
+
+<form method="get" class="bg-white border border-slate-200 rounded-xl p-4 mb-4 flex flex-wrap items-end gap-3">
+  <div class="flex-1 min-w-[220px]">
+    <label class="block text-xs font-medium text-slate-600 mb-1">Buscar</label>
+    <input type="text" name="q" value="{{ q }}" placeholder="Órgão, número de doc, número da demanda..." class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400">
+  </div>
+  <div class="min-w-[160px]">
+    <label class="block text-xs font-medium text-slate-600 mb-1">Status</label>
+    <select name="status" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+      <option value="">Todos</option>
+      {% for v, label in status_choices %}<option value="{{ v }}" {% if status_atual == v %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="min-w-[200px]">
+    <label class="block text-xs font-medium text-slate-600 mb-1">Órgão</label>
+    <input type="text" name="orgao" value="{{ orgao_atual }}" list="lista-orgaos" placeholder="Ex.: Sesa" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+    <datalist id="lista-orgaos">
+      {% for o in orgaos_distintos %}<option value="{{ o }}">{% endfor %}
+    </datalist>
+  </div>
+  <div class="min-w-[160px]">
+    <label class="block text-xs font-medium text-slate-600 mb-1">Tipo de documento</label>
+    <select name="tipo" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+      <option value="">Todos</option>
+      {% for v, label in tipo_choices %}<option value="{{ v }}" {% if tipo_atual == v %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+  </div>
+  <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2 rounded-lg">Filtrar</button>
+</form>
+
+<div class="bg-white border border-slate-200 rounded-xl overflow-hidden">
+  {% if encaminhamentos %}
+  <table class="w-full text-sm">
+    <thead>
+      <tr class="border-b border-slate-200 bg-slate-50">
+        <th class="text-left px-4 py-3 font-medium text-slate-600">Demanda</th>
+        <th class="text-left px-4 py-3 font-medium text-slate-600">Encaminhamento</th>
+        <th class="text-left px-4 py-3 font-medium text-slate-600">Enviado</th>
+        <th class="text-left px-4 py-3 font-medium text-slate-600">Prazo</th>
+        <th class="text-left px-4 py-3 font-medium text-slate-600">Status</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for e in encaminhamentos %}
+      <tr class="hover:bg-slate-50">
+        <td class="px-4 py-3 text-slate-600">
+          <a href="{% url 'demandas:demanda_detalhe' e.demanda.pk %}" class="hover:underline">
+            <span class="font-mono text-xs">{{ e.demanda.numero }}</span>
+            <div class="text-xs text-slate-500 mt-0.5 truncate max-w-[280px]">{{ e.demanda.titulo }}</div>
+          </a>
+        </td>
+        <td class="px-4 py-3">
+          <a href="{% url 'demandas:demanda_detalhe' e.demanda.pk %}" class="font-medium text-slate-900 hover:underline">
+            {{ e.get_tipo_documento_display }} → {{ e.destinatario_orgao }}
+          </a>
+          {% if e.numero_documento %}<div class="text-xs text-slate-500 mt-0.5">Nº {{ e.numero_documento }}</div>{% endif %}
+          {% if e.destinatario_pessoa %}<div class="text-xs text-slate-500">Contato: {{ e.destinatario_pessoa }}</div>{% endif %}
+        </td>
+        <td class="px-4 py-3 text-slate-600 text-xs">{{ e.data_envio|date:"d/m/Y" }}</td>
+        <td class="px-4 py-3 text-xs">
+          {% if e.prazo_resposta %}
+            {% if e.status == 'enviado' and e.prazo_resposta < hoje %}
+              <span class="text-red-700 font-medium">{{ e.prazo_resposta|date:"d/m/Y" }} (vencido)</span>
+            {% else %}
+              <span class="text-slate-600">{{ e.prazo_resposta|date:"d/m/Y" }}</span>
+            {% endif %}
+          {% else %}
+            <span class="text-slate-400">—</span>
+          {% endif %}
+        </td>
+        <td class="px-4 py-3">
+          {% if e.status == 'enviado' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">Enviado</span>
+          {% elif e.status == 'prazo_vencido' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700">Prazo vencido</span>
+          {% elif e.status == 'respondido_satisfatorio' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Respondido (sat.)</span>
+          {% elif e.status == 'respondido_insatisfatorio' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">Respondido (insat.)</span>
+          {% elif e.status == 'sem_resposta' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-200 text-slate-700">Sem resposta</span>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="px-4 py-12 text-center text-sm text-slate-500">Nenhum encaminhamento encontrado.</div>
+  {% endif %}
+</div>
+
+{% if is_paginated %}
+<div class="flex items-center justify-between mt-4 text-sm text-slate-600">
+  <span>Página {{ page_obj.number }} de {{ paginator.num_pages }}</span>
+  <div class="flex gap-2">
+    {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-1 rounded border border-slate-300 hover:bg-slate-100">Anterior</a>{% endif %}
+    {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="px-3 py-1 rounded border border-slate-300 hover:bg-slate-100">Próxima</a>{% endif %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}

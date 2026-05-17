@@ -18,6 +18,9 @@
             {% if perms.pessoas.view_entidade %}
             <a href="{% url 'pessoas:entidade_lista' %}" class="text-sm text-slate-600 hover:text-slate-900">Entidades</a>
             {% endif %}
+            {% if perms.demandas.view_encaminhamento %}
+            <a href="{% url 'demandas:encaminhamento_lista' %}" class="text-sm text-slate-600 hover:text-slate-900">Encaminhamentos</a>
+            {% endif %}
             <a href="{% url 'core:configuracoes' %}" class="text-sm text-slate-600 hover:text-slate-900">Configurações</a>
           </div>
         </div>

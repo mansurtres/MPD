@@ -56,7 +56,7 @@ Ideia que parece "óbvia" e não está no doc → primeiro vira ADR ou backlog.
 
 ## 5. Estado atual
 
-**Fase corrente:** v0.4.2 — **Fase 3 (Demandas e Interações) concluída.** ADR 0042 separa Tema de Tag; ADR 0043 redesenha o fechamento da demanda (devolutiva como Interação + status `concluida` + bifurcação por origem).
+**Fase corrente:** v0.5 — **Fase 4 (Visões Transversais) concluída.** Lista de Encaminhamentos como leitura agregada + quick filters operacionais nas listas existentes (demandas, pessoas, entidades). Demanda continua como núcleo; partículas (encaminhamento) não viram entidades autônomas (ADR 0046).
 
 **Fundação (Fase 0/1, mantido):**
 - Django 5.2 + PostgreSQL 16 + Tailwind v4 standalone.
@@ -168,7 +168,18 @@ Ideia que parece "óbvia" e não está no doc → primeiro vira ADR ou backlog.
 
 **148 testes passando** ao final da v0.4.2 (+6 sobre v0.4.0: novos casos cobrem responsiva sem devolutiva, responsiva com devolutiva + resultado pendente, responsiva concluída ok, proativa sem devolutiva ok, proativa sem resultado bloqueada). ADRs 0001–0043.
 
-**Próximo marco:** v0.5 — **Fase 4 (Visões Transversais)** — lista de Encaminhamentos como leitura agregada + quick filters operacionais nas listas existentes. Demanda continua como núcleo do sistema; partículas não viram entidades autônomas (ADR 0046). Fase 5 (Inbox GTD) foi renumerada para v0.6.
+**Fase 4 — Visões Transversais (v0.5, em fechamento):**
+- `/encaminhamentos/` como leitura agregada (filtros: status, órgão via autocomplete `<datalist>`, tipo de documento; quick filters: aguardando resposta, prazo vencido, respondidos esta semana). Cada linha é deep-link para a Demanda associada — **sem CRUD próprio nem detalhe próprio** (ADR 0046).
+- Visibilidade do encaminhamento segue a da Demanda: `_filtrar_visiveis` aplicado antes de filtrar encaminhamentos.
+- Quick filters operacionais novos:
+  - `/demandas/`: "Com encaminhamento aberto", "Sem encaminhamento".
+  - `/pessoas/` e `/entidades/`: "Com demanda em aberto".
+- Topbar ganha link "Encaminhamentos" (entre Entidades e Configurações), gated por `demandas.view_encaminhamento`.
+- `mapa-de-telas.md §8.10` documenta a nova rota.
+
+**163 testes passando** ao final da v0.5 (+5 sobre v0.4.2). ADRs 0001–0046.
+
+**Próximo marco:** v0.6 — Fase 5 (Inbox GTD e Minhas Pendências). Ver [`roadmap.md`](./roadmap.md) §Fase 5.
 
 ---
 
@@ -247,4 +258,4 @@ Para o histórico completo ver [`docs/decisoes.md`](./docs/decisoes.md). Decisõ
 
 ---
 
-*Atualizar este arquivo ao fim de cada fase. Última atualização: 2026-05-16 (v0.4.2 — redesign do fechamento da demanda, ADR 0043).*
+*Atualizar este arquivo ao fim de cada fase. Última atualização: 2026-05-16 (v0.5 — Fase 4 Visões Transversais).*

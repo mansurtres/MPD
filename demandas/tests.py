@@ -929,3 +929,129 @@ def test_criar_demanda_com_anexo_invalido_rejeita_tudo(client, admin_user, pesso
     # Form inválido renderiza 200 com erro no topo.
     assert resp.status_code == 200
     assert not Demanda.objects.filter(titulo=titulo).exists()
+
+
+# --- Fase 4 — Visões Transversais (ADR 0046) ---
+
+
+@pytest.fixture
+def demanda_restrita_juridico(db, admin_user, pessoa):
+    """Demanda restrita à coordenação Jurídico — não visível para outros."""
+    d = Demanda.objects.create(
+        titulo="Restrita Juridico",
+        descricao="X",
+        canal_entrada="oficio",
+        coordenacao_responsavel="juridico",
+        criado_por=admin_user,
+        responsavel=admin_user,
+        restrito=True,
+    )
+    DemandaPessoa.objects.create(demanda=d, pessoa=pessoa, papel="solicitante")
+    return d
+
+
+def test_encaminhamento_lista_acessivel_a_admin(client, admin_user, demanda):
+    enc = Encaminhamento.objects.create(
+        demanda=demanda,
+        destinatario_orgao="Sesa",
+        tipo_documento="oficio",
+        data_envio=timezone.now().date(),
+        criado_por=admin_user,
+    )
+    client.force_login(admin_user)
+    resp = client.get(reverse("demandas:encaminhamento_lista"))
+    assert resp.status_code == 200
+    assert b"Sesa" in resp.content
+    assert enc.demanda.numero.encode() in resp.content
+
+
+def test_encaminhamento_lista_respeita_visibilidade_da_demanda(
+    client, admin_user, assessor, demanda_restrita_juridico
+):
+    """Assessor de outra coordenação não vê encaminhamentos de demanda
+    restrita à coordenação Jurídico."""
+    Encaminhamento.objects.create(
+        demanda=demanda_restrita_juridico,
+        destinatario_orgao="Procuradoria-Geral",
+        tipo_documento="oficio",
+        data_envio=timezone.now().date(),
+        criado_por=admin_user,
+    )
+    client.force_login(assessor)
+    resp = client.get(reverse("demandas:encaminhamento_lista"))
+    assert resp.status_code == 200
+    assert b"Procuradoria-Geral" not in resp.content
+
+
+def test_encaminhamento_lista_quick_filter_vencidos(client, admin_user, demanda):
+    """O filtro 'vencidos' inclui status=enviado com prazo no passado."""
+    from datetime import date
+    from datetime import timedelta as td
+
+    atrasada = Encaminhamento.objects.create(
+        demanda=demanda,
+        destinatario_orgao="Atrasada",
+        tipo_documento="oficio",
+        data_envio=date.today() - td(days=60),
+        prazo_resposta=date.today() - td(days=30),
+        criado_por=admin_user,
+        status=Encaminhamento.STATUS_ENVIADO,
+    )
+    no_prazo = Encaminhamento.objects.create(
+        demanda=demanda,
+        destinatario_orgao="OutroOrg",
+        tipo_documento="oficio",
+        data_envio=date.today(),
+        prazo_resposta=date.today() + td(days=15),
+        criado_por=admin_user,
+        status=Encaminhamento.STATUS_ENVIADO,
+    )
+    client.force_login(admin_user)
+    resp = client.get(reverse("demandas:encaminhamento_lista") + "?filtro=vencidos")
+    assert resp.status_code == 200
+    # Verifica via contexto — o datalist de órgãos no template lista todos
+    # os distintos visíveis (independente do quick filter), então comparar
+    # bytes do HTML pode dar falso negativo.
+    encaminhamentos = list(resp.context["encaminhamentos"])
+    assert atrasada in encaminhamentos
+    assert no_prazo not in encaminhamentos
+
+
+def test_demandas_quick_filter_com_encaminhamento_aberto(client, admin_user, demanda):
+    """Quick filter de demandas mostra só as com encaminhamento em status
+    enviado/prazo_vencido."""
+    Encaminhamento.objects.create(
+        demanda=demanda,
+        destinatario_orgao="Aberto",
+        tipo_documento="oficio",
+        data_envio=timezone.now().date(),
+        criado_por=admin_user,
+        status=Encaminhamento.STATUS_ENVIADO,
+    )
+    sem_enc = Demanda.objects.create(
+        titulo="Sem encaminhamento",
+        descricao="X",
+        canal_entrada="presencial",
+        coordenacao_responsavel="gabinete",
+        criado_por=admin_user,
+        anonimo=True,
+    )
+    client.force_login(admin_user)
+    resp = client.get(reverse("demandas:demanda_lista") + "?filtro=com_encaminhamento_aberto")
+    assert resp.status_code == 200
+    assert demanda.numero.encode() in resp.content
+    assert sem_enc.numero.encode() not in resp.content
+
+
+def test_pessoas_quick_filter_com_demanda_aberta(client, admin_user, pessoa, demanda):
+    """Pessoa com demanda em aberto aparece; pessoa sem, não."""
+    from pessoas.models import Pessoa
+
+    outra = Pessoa.objects.create(
+        nome="Sem", sobrenome="Demanda", bairro="X", cidade="Y", criado_por=admin_user
+    )
+    client.force_login(admin_user)
+    resp = client.get(reverse("pessoas:pessoa_lista") + "?filtro=com_demanda_aberta")
+    assert resp.status_code == 200
+    assert pessoa.nome.encode() in resp.content
+    assert outra.nome.encode() not in resp.content

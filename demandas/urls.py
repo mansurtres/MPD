@@ -66,6 +66,12 @@ urlpatterns = [
         views.EncaminhamentoRespostaView.as_view(),
         name="encaminhamento_responder",
     ),
+    # --- Visão transversal de Encaminhamentos (ADR 0046, Fase 4) ---
+    path(
+        "encaminhamentos/",
+        views.EncaminhamentoListView.as_view(),
+        name="encaminhamento_lista",
+    ),
     # --- Anexos polimórficos ---
     path(
         "demandas/anexos/<str:tipo>/<uuid:object_id>/",

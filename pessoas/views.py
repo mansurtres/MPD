@@ -59,6 +59,20 @@ class PessoaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         tag = self.request.GET.get("tag", "").strip()
         if tag:
             qs = qs.filter(tags__id=tag)
+        # Quick filter operacional (ADR 0046 / Fase 4): pessoas com pelo
+        # menos uma demanda em aberto (não concluída e não arquivada).
+        filtro = self.request.GET.get("filtro", "").strip()
+        if filtro == "com_demanda_aberta":
+            from demandas.models import Demanda
+
+            qs = qs.filter(
+                demandas__status__in=[
+                    Demanda.STATUS_NOVO,
+                    Demanda.STATUS_EM_ANDAMENTO,
+                    Demanda.STATUS_AGUARDANDO_TERCEIROS,
+                    Demanda.STATUS_AGUARDANDO_PESSOA,
+                ]
+            ).distinct()
         # distinct só quando há joins M:N (busca cruza emails/telefones/redes_sociais; tag é M:N).
         if busca or tag:
             qs = qs.distinct()
@@ -69,6 +83,7 @@ class PessoaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         ctx["q"] = self.request.GET.get("q", "")
         ctx["bairro"] = self.request.GET.get("bairro", "")
         ctx["tag_id"] = self.request.GET.get("tag", "")
+        ctx["filtro"] = self.request.GET.get("filtro", "")
         ctx["mostrar_inativos"] = self.request.GET.get("inativos") == "1"
         ctx["tags_disponiveis"] = Tag.objects.filter(ativo=True)
         return ctx
@@ -295,12 +310,27 @@ class EntidadeListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         tipo = self.request.GET.get("tipo", "").strip()
         if tipo:
             qs = qs.filter(tipo=tipo)
+        # Quick filter operacional (ADR 0046 / Fase 4): entidades com pelo
+        # menos uma demanda em aberto.
+        filtro = self.request.GET.get("filtro", "").strip()
+        if filtro == "com_demanda_aberta":
+            from demandas.models import Demanda
+
+            qs = qs.filter(
+                demandas__status__in=[
+                    Demanda.STATUS_NOVO,
+                    Demanda.STATUS_EM_ANDAMENTO,
+                    Demanda.STATUS_AGUARDANDO_TERCEIROS,
+                    Demanda.STATUS_AGUARDANDO_PESSOA,
+                ]
+            ).distinct()
         return qs
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["q"] = self.request.GET.get("q", "")
         ctx["tipo_atual"] = self.request.GET.get("tipo", "")
+        ctx["filtro"] = self.request.GET.get("filtro", "")
         ctx["mostrar_inativos"] = self.request.GET.get("inativos") == "1"
         ctx["tipos"] = Entidade.TIPO_CHOICES
         return ctx

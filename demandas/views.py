@@ -116,6 +116,15 @@ class DemandaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
             qs = qs.filter(resultado=Demanda.RESULTADO_NAO_ATENDIDO)
         elif quick == "sem_resultado":
             qs = qs.filter(resultado=Demanda.RESULTADO_PENDENTE)
+        elif quick == "com_encaminhamento_aberto":
+            qs = qs.filter(
+                encaminhamentos__status__in=[
+                    Encaminhamento.STATUS_ENVIADO,
+                    Encaminhamento.STATUS_PRAZO_VENCIDO,
+                ]
+            ).distinct()
+        elif quick == "sem_encaminhamento":
+            qs = qs.filter(encaminhamentos__isnull=True)
 
         return qs.distinct() if (busca or tema_id) else qs
 
@@ -622,6 +631,94 @@ class EncaminhamentoRespostaView(LoginRequiredMixin, PermissionRequiredMixin, Vi
         )
         messages.success(request, "Resposta registrada.")
         return redirect("demandas:demanda_detalhe", pk=enc.demanda_id)
+
+
+# --- Visão transversal: lista de Encaminhamentos (ADR 0046) ---
+
+
+class EncaminhamentoListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    """Lente de leitura agregada sobre Encaminhamentos. Cada linha é
+    deep-link para a Demanda associada. Sem CRUD próprio — toda mutação
+    acontece no detalhe da Demanda (princípio de ADR 0046)."""
+
+    permission_required = "demandas.view_encaminhamento"
+    model = Encaminhamento
+    template_name = "demandas/encaminhamentos/lista.html"
+    context_object_name = "encaminhamentos"
+    paginate_by = 25
+
+    def get_queryset(self):
+        # Visibilidade segue a da Demanda associada (encaminhamento de
+        # demanda restrita só aparece para quem pode ver a demanda).
+        demandas_visiveis = _filtrar_visiveis(Demanda.objects.all(), self.request.user)
+        qs = (
+            Encaminhamento.objects.filter(demanda__in=demandas_visiveis)
+            .select_related("demanda", "criado_por")
+            .order_by("-data_envio", "-criado_em")
+        )
+        params = self.request.GET
+        status = params.get("status", "").strip()
+        if status:
+            qs = qs.filter(status=status)
+        orgao = params.get("orgao", "").strip()
+        if orgao:
+            qs = qs.filter(destinatario_orgao__icontains=orgao)
+        tipo_doc = params.get("tipo", "").strip()
+        if tipo_doc:
+            qs = qs.filter(tipo_documento=tipo_doc)
+        busca = (params.get("q") or "").strip()
+        if busca:
+            qs = qs.filter(
+                Q(destinatario_orgao__icontains=busca)
+                | Q(numero_documento__icontains=busca)
+                | Q(demanda__numero__icontains=busca)
+                | Q(demanda__titulo__icontains=busca)
+            )
+
+        quick = params.get("filtro", "").strip()
+        hoje = timezone.now().date()
+        if quick == "aguardando":
+            qs = qs.filter(
+                status__in=[Encaminhamento.STATUS_ENVIADO, Encaminhamento.STATUS_PRAZO_VENCIDO]
+            )
+        elif quick == "vencidos":
+            # Inclui status='prazo_vencido' E status='enviado' com prazo no passado
+            # (cobre cron que pode não estar rodando).
+            qs = qs.filter(
+                Q(status=Encaminhamento.STATUS_PRAZO_VENCIDO)
+                | Q(status=Encaminhamento.STATUS_ENVIADO, prazo_resposta__lt=hoje)
+            )
+        elif quick == "respondidos_semana":
+            limite = hoje - timedelta(days=7)
+            qs = qs.filter(
+                status__in=[
+                    Encaminhamento.STATUS_RESPONDIDO_SAT,
+                    Encaminhamento.STATUS_RESPONDIDO_INSAT,
+                ],
+                data_resposta__gte=limite,
+            )
+
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["q"] = self.request.GET.get("q", "")
+        ctx["filtro"] = self.request.GET.get("filtro", "")
+        ctx["status_atual"] = self.request.GET.get("status", "")
+        ctx["orgao_atual"] = self.request.GET.get("orgao", "")
+        ctx["tipo_atual"] = self.request.GET.get("tipo", "")
+        ctx["status_choices"] = Encaminhamento.STATUS_CHOICES
+        ctx["tipo_choices"] = Encaminhamento.TIPO_DOCUMENTO_CHOICES
+        # Lista de órgãos distintos para o filtro de autocomplete simples.
+        demandas_visiveis = _filtrar_visiveis(Demanda.objects.all(), self.request.user)
+        ctx["orgaos_distintos"] = (
+            Encaminhamento.objects.filter(demanda__in=demandas_visiveis)
+            .values_list("destinatario_orgao", flat=True)
+            .distinct()
+            .order_by("destinatario_orgao")
+        )
+        ctx["hoje"] = timezone.now().date()
+        return ctx
 
 
 # --- Temas (categorização de Demanda) ---
