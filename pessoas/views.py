@@ -10,6 +10,7 @@ from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView, View
 
+from core.permissoes import eh_cg_plus, eh_co_plus
 from core.utils import somente_digitos
 
 from .deduplicacao import buscar_similares
@@ -86,12 +87,7 @@ class PessoaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         ctx["filtro"] = self.request.GET.get("filtro", "")
         ctx["mostrar_inativos"] = self.request.GET.get("inativos") == "1"
         ctx["tags_disponiveis"] = Tag.objects.filter(ativo=True)
-        ctx["pode_exportar"] = (
-            self.request.user.is_superuser
-            or self.request.user.groups.filter(
-                name__in=["Administrador", "Chefe de Gabinete", "Coordenador"]
-            ).exists()
-        )
+        ctx["pode_exportar"] = eh_co_plus(self.request.user)
         return ctx
 
 
@@ -122,10 +118,7 @@ class PessoaDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
                 .prefetch_related("temas")
                 .order_by("-criado_em")
             )
-            if (
-                not u.is_superuser
-                and not u.groups.filter(name__in=["Administrador", "Chefe de Gabinete"]).exists()
-            ):
+            if not eh_cg_plus(u):
                 demandas_qs = demandas_qs.filter(Q(restrito=False) | Q(responsavel=u))
             ctx["demandas"] = demandas_qs
         else:
@@ -368,10 +361,7 @@ class EntidadeDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView
                 .prefetch_related("temas")
                 .order_by("-criado_em")
             )
-            if (
-                not u.is_superuser
-                and not u.groups.filter(name__in=["Administrador", "Chefe de Gabinete"]).exists()
-            ):
+            if not eh_cg_plus(u):
                 demandas_qs = demandas_qs.filter(Q(restrito=False) | Q(responsavel=u))
             ctx["demandas"] = demandas_qs
         else:
@@ -616,14 +606,7 @@ class PessoaCSVExportView(LoginRequiredMixin, View):
     canais primários (telefone, email) mas não dados sensíveis em massa."""
 
     def get(self, request):
-        if not (
-            request.user.is_superuser
-            or request.user.groups.filter(
-                name__in=["Administrador", "Chefe de Gabinete", "Coordenador"]
-            ).exists()
-        ):
-            from django.core.exceptions import PermissionDenied
-
+        if not eh_co_plus(request.user):
             raise PermissionDenied("Exportação restrita a Coordenadores e acima.")
 
         lista = PessoaListView()

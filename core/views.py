@@ -5,6 +5,8 @@ from django.http import JsonResponse
 from django.shortcuts import render
 from django.views.generic import ListView
 
+from core.permissoes import eh_cg_plus, eh_co_plus
+
 
 def inicio(request):
     if request.user.is_authenticated:
@@ -45,13 +47,7 @@ class AnaliseView(LoginRequiredMixin, UserPassesTestMixin, ListView):
     template_name = "core/analise.html"
 
     def test_func(self):
-        u = self.request.user
-        return (
-            u.is_superuser
-            or u.groups.filter(
-                name__in=["Administrador", "Chefe de Gabinete", "Coordenador"]
-            ).exists()
-        )
+        return eh_co_plus(self.request.user)
 
     def get_queryset(self):
         # Override exigido pelo ListView, mas não usado.
@@ -164,11 +160,7 @@ class AuditoriaListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
     paginate_by = 50
 
     def test_func(self):
-        u = self.request.user
-        return (
-            u.is_superuser
-            or u.groups.filter(name__in=["Administrador", "Chefe de Gabinete"]).exists()
-        )
+        return eh_cg_plus(self.request.user)
 
     def get_queryset(self):
         from auditlog.models import LogEntry

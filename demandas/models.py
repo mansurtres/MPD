@@ -285,15 +285,13 @@ class Demanda(AuditavelMixin, models.Model):
 
     def pode_ser_visto_por(self, user):
         """Visibilidade segue ADR/permissoes.md §3.3 + edge case 5.1."""
-        if user.is_superuser:
-            return True
+        from core.permissoes import eh_cg_plus
+
         if not self.restrito:
             return True
         if self.responsavel_id == user.id:
             return True
-        if user.groups.filter(name__in=["Administrador", "Chefe de Gabinete"]).exists():
-            return True
-        return False
+        return eh_cg_plus(user)
 
 
 class DemandaPessoa(models.Model):
@@ -509,11 +507,11 @@ class Interacao(models.Model):
 
     def pode_editar(self, user):
         """Janela de 24h para o autor; sempre OK para ADM/CG; nunca para automáticas."""
+        from core.permissoes import eh_cg_plus
+
         if self.automatica:
             return False
-        if user.is_superuser:
-            return True
-        if user.groups.filter(name__in=["Administrador", "Chefe de Gabinete"]).exists():
+        if eh_cg_plus(user):
             return True
         if self.autor_id == user.id:
             return (timezone.now() - self.criado_em) < timedelta(hours=self.JANELA_EDICAO_HORAS)

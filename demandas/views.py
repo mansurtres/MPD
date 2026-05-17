@@ -21,6 +21,8 @@ from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView, View
 
+from core.permissoes import eh_cg_plus, eh_co_plus
+
 from .forms import (
     AnexoForm,
     ArquivarForm,
@@ -44,22 +46,14 @@ from .models import Anexo, Demanda, Encaminhamento, Interacao, ItemInbox, Tema
 
 def _filtrar_visiveis(qs, user):
     """Restritas só são visíveis para responsável, ADM, CG e superuser."""
-    if (
-        user.is_superuser
-        or user.groups.filter(name__in=["Administrador", "Chefe de Gabinete"]).exists()
-    ):
+    if eh_cg_plus(user):
         return qs
     return qs.filter(Q(restrito=False) | Q(responsavel=user))
 
 
 def _pode_exportar(user):
     """Coordenador, Chefe de Gabinete, Administrador. Critério de Fase 6."""
-    return (
-        user.is_superuser
-        or user.groups.filter(
-            name__in=["Administrador", "Chefe de Gabinete", "Coordenador"]
-        ).exists()
-    )
+    return eh_co_plus(user)
 
 
 class DemandaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
@@ -548,12 +542,7 @@ class InteracaoMarcarRealizadaView(LoginRequiredMixin, View):
         interacao = get_object_or_404(Interacao, pk=pk)
         if not interacao.demanda.pode_ser_visto_por(request.user):
             raise Http404
-        if (
-            interacao.autor_id != request.user.id
-            and not request.user.groups.filter(
-                name__in=["Administrador", "Chefe de Gabinete"]
-            ).exists()
-        ):
+        if interacao.autor_id != request.user.id and not eh_cg_plus(request.user):
             raise PermissionDenied("Apenas o autor pode marcar como realizada.")
         if interacao.status != Interacao.STATUS_AGENDADA:
             messages.error(request, "Interação não está agendada.")
@@ -918,12 +907,7 @@ class AnexoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, View):
 
     def post(self, request, pk):
         anexo = get_object_or_404(Anexo, pk=pk)
-        if (
-            anexo.enviado_por_id != request.user.id
-            and not request.user.groups.filter(
-                name__in=["Administrador", "Chefe de Gabinete", "Coordenador"]
-            ).exists()
-        ):
+        if anexo.enviado_por_id != request.user.id and not eh_co_plus(request.user):
             raise PermissionDenied("Sem permissão para excluir este anexo.")
         referer = request.META.get("HTTP_REFERER", "/")
         anexo.arquivo.delete(save=False)

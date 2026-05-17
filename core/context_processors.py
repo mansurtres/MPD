@@ -28,10 +28,16 @@ def pendencias_usuario(request):
     ).count()
     inbox_pendente = ItemInbox.objects.filter(status=ItemInbox.STATUS_PENDENTE).count()
 
+    # Nomes de grupo só podem aparecer em core/permissoes.py — ADR 0024/0048.
+    # Aqui, para flags granulares por papel (admin vs chefe vs coordenador) que
+    # templates podem precisar separadamente, reusamos os literais via constantes
+    # da camada de permissões.
+    from core.permissoes import GRUPO_ADM, GRUPO_CG, GRUPO_CO
+
     grupos = set(request.user.groups.values_list("name", flat=True))
-    eh_admin = request.user.is_superuser or "Administrador" in grupos
-    eh_chefe = "Chefe de Gabinete" in grupos
-    eh_coordenador = "Coordenador" in grupos
+    eh_admin = request.user.is_superuser or GRUPO_ADM in grupos
+    eh_chefe = GRUPO_CG in grupos
+    eh_coordenador = GRUPO_CO in grupos
 
     return {
         "topbar_pendencias_vencidas": vencidas,
