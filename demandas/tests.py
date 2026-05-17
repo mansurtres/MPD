@@ -1786,3 +1786,125 @@ def test_export_csv_encaminhamentos_grava_log_entry(client, admin_user, demanda)
         object_repr__icontains="Encaminhamento",
         action=LogEntry.Action.ACCESS,
     ).exists()
+
+
+# --- verificar_integridade: 5 ramos restantes (Tarefa 1.2 v0.7.3) ---
+
+
+def _rodar_verificar_integridade():
+    """Helper: roda o comando e devolve (exit_code, stdout)."""
+    from io import StringIO
+
+    from django.core.management import call_command
+
+    out = StringIO()
+    try:
+        call_command("verificar_integridade", stdout=out)
+        return 0, out.getvalue()
+    except SystemExit as e:
+        return e.code, out.getvalue()
+
+
+def test_verificar_integridade_detecta_anexo_com_arquivo_ausente(db, demanda, admin_user):
+    """Ramo 2: registro de Anexo existe mas arquivo no storage não."""
+    from django.contrib.contenttypes.models import ContentType
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    ct = ContentType.objects.get_for_model(Demanda)
+    f = SimpleUploadedFile("teste.pdf", b"X" * 100, content_type="application/pdf")
+    anexo = Anexo.objects.create(
+        content_type=ct,
+        object_id=demanda.pk,
+        arquivo=f,
+        nome_original="teste.pdf",
+        tamanho_bytes=100,
+        mime_type="application/pdf",
+        enviado_por=admin_user,
+    )
+    # Deleta o arquivo do storage mantendo o registro
+    anexo.arquivo.storage.delete(anexo.arquivo.name)
+
+    code, saida = _rodar_verificar_integridade()
+    assert code == 1
+    assert "arquivo no disco não encontrado" in saida
+
+
+def test_verificar_integridade_detecta_anexo_orfao_polimorfico(db, demanda, admin_user):
+    """Ramo 2b: content_type + object_id apontam para registro inexistente."""
+    import uuid as _uuid
+
+    from django.contrib.contenttypes.models import ContentType
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    ct = ContentType.objects.get_for_model(Demanda)
+    f = SimpleUploadedFile("teste.pdf", b"X" * 100, content_type="application/pdf")
+    anexo = Anexo.objects.create(
+        content_type=ct,
+        object_id=demanda.pk,
+        arquivo=f,
+        nome_original="teste.pdf",
+        tamanho_bytes=100,
+        mime_type="application/pdf",
+        enviado_por=admin_user,
+    )
+    # Sobrescreve object_id para um UUID que não existe — órfão polimórfico
+    Anexo.objects.filter(pk=anexo.pk).update(object_id=_uuid.uuid4())
+
+    code, saida = _rodar_verificar_integridade()
+    assert code == 1
+    assert "órfão polimórfico" in saida
+
+
+def test_verificar_integridade_detecta_encaminhamento_vencido_status_enviado(
+    db, demanda, admin_user
+):
+    """Ramo 3: prazo passou, status segue 'enviado' (cron de atualização não rodou)."""
+    Encaminhamento.objects.create(
+        demanda=demanda,
+        tipo_documento="oficio",
+        destinatario_orgao="Semus",
+        data_envio=timezone.now().date() - timedelta(days=60),
+        prazo_resposta=timezone.now().date() - timedelta(days=10),
+        status=Encaminhamento.STATUS_ENVIADO,
+        criado_por=admin_user,
+    )
+    code, saida = _rodar_verificar_integridade()
+    assert code == 1
+    assert "Semus" in saida
+    assert "enviado" in saida.lower()
+
+
+def test_verificar_integridade_detecta_inbox_pendente_mais_de_90d(db, admin_user):
+    """Ramo 4: ItemInbox pendente há +90 dias."""
+    from demandas.models import ItemInbox
+
+    item = ItemInbox.objects.create(conteudo="Esquecido", autor=admin_user)
+    # Burlar auto_now_add para datar antigo
+    ItemInbox.objects.filter(pk=item.pk).update(criado_em=timezone.now() - timedelta(days=120))
+
+    code, saida = _rodar_verificar_integridade()
+    assert code == 1
+    assert "pendente há 120 dias" in saida
+
+
+def test_verificar_integridade_detecta_interacao_agendada_mais_de_180d(db, demanda, admin_user):
+    """Ramo 5: Interação agendada há +180 dias sem ação."""
+    Interacao.objects.create(
+        demanda=demanda,
+        autor=admin_user,
+        tipo=Interacao.TIPO_CONTATO_PESSOA,
+        conteudo="Parou no tempo",
+        status=Interacao.STATUS_AGENDADA,
+        data_ocorrencia=timezone.now() - timedelta(days=200),
+    )
+    code, saida = _rodar_verificar_integridade()
+    assert code == 1
+    assert "agendada" in saida.lower()
+    assert "200 dias" in saida
+
+
+def test_verificar_integridade_sem_problemas_retorna_zero(db):
+    """Sanity: base limpa, exit code 0."""
+    code, saida = _rodar_verificar_integridade()
+    assert code == 0
+    assert "Nenhuma inconsistência" in saida
