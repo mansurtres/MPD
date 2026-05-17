@@ -1991,3 +1991,122 @@ def test_auditoria_filtra_por_periodo_desde(client, admin_user, pessoa):
     assert resp.status_code == 200
     logs = list(resp.context["logs"])
     assert len(logs) == 0
+
+
+# --- /entidades/ quick filter "com demanda em aberto" (Tarefa 2.1 v0.7.3) ---
+
+
+def test_entidades_quick_filter_com_demanda_aberta(client, admin_user, entidade, demanda):
+    """Espelho do test_pessoas_quick_filter_com_demanda_aberta: entidade
+    vinculada a demanda aberta aparece; entidade sem demanda não."""
+    from demandas.models import DemandaEntidade
+
+    DemandaEntidade.objects.create(demanda=demanda, entidade=entidade, papel="solicitante")
+    outra = Entidade.objects.create(nome="Sem demanda", tipo="associacao", criado_por=admin_user)
+    client.force_login(admin_user)
+    resp = client.get(reverse("pessoas:entidade_lista") + "?filtro=com_demanda_aberta")
+    assert resp.status_code == 200
+    assert entidade.nome.encode() in resp.content
+    assert outra.nome.encode() not in resp.content
+
+
+# --- /inbox/ listagem: filtros e badges (Tarefa 2.2 v0.7.3) ---
+
+
+def test_inbox_lista_default_mostra_so_pendentes(client, admin_user):
+    """Sem querystring, /inbox/ filtra status=pendente. Descartados/processados ficam fora."""
+    from demandas.models import ItemInbox
+
+    ItemInbox.objects.create(conteudo="Pendente visível", autor=admin_user)
+    ItemInbox.objects.create(
+        conteudo="Descartado invisível",
+        autor=admin_user,
+        status=ItemInbox.STATUS_DESCARTADO,
+        motivo_descarte="spam",
+    )
+    client.force_login(admin_user)
+    resp = client.get(reverse("demandas:inbox_lista"))
+    assert resp.status_code == 200
+    conteudos = {i.conteudo for i in resp.context["itens"]}
+    assert "Pendente visível" in conteudos
+    assert "Descartado invisível" not in conteudos
+
+
+def test_inbox_lista_filtro_todos_inclui_descartados(client, admin_user):
+    """?status=todos não aplica filtro de status — descartados aparecem."""
+    from demandas.models import ItemInbox
+
+    ItemInbox.objects.create(
+        conteudo="Descartado",
+        autor=admin_user,
+        status=ItemInbox.STATUS_DESCARTADO,
+        motivo_descarte="spam",
+    )
+    client.force_login(admin_user)
+    resp = client.get(reverse("demandas:inbox_lista") + "?status=todos")
+    assert resp.status_code == 200
+    conteudos = {i.conteudo for i in resp.context["itens"]}
+    assert "Descartado" in conteudos
+
+
+def test_inbox_lista_marca_envelhecimento_amber_e_red(client, admin_user):
+    """Item +7 dias ganha badge âmbar; +30 dias ganha vermelho.
+    Confirma que limite_7d/limite_30d do context chegam no template."""
+    from demandas.models import ItemInbox
+
+    velho = ItemInbox.objects.create(conteudo="Há 10 dias", autor=admin_user)
+    antigo = ItemInbox.objects.create(conteudo="Há 35 dias", autor=admin_user)
+    ItemInbox.objects.filter(pk=velho.pk).update(criado_em=timezone.now() - timedelta(days=10))
+    ItemInbox.objects.filter(pk=antigo.pk).update(criado_em=timezone.now() - timedelta(days=35))
+
+    client.force_login(admin_user)
+    resp = client.get(reverse("demandas:inbox_lista"))
+    assert resp.status_code == 200
+    body = resp.content
+    # Badges renderizadas com classes Tailwind amber/red
+    assert b"bg-amber-100" in body
+    assert b"Pendente h\xc3\xa1 +7d" in body
+    assert b"bg-red-100" in body
+    assert b"Pendente h\xc3\xa1 +30d" in body
+
+
+# --- /minhas-pendencias/: marcar realizada (Tarefa 2.3 v0.7.3) ---
+
+
+def test_minhas_pendencias_oferece_form_de_marcar_realizada(client, admin_user, demanda):
+    """View renderiza form apontando para interacao_realizada para cada pendência."""
+    pendencia = Interacao.objects.create(
+        demanda=demanda,
+        autor=admin_user,
+        tipo=Interacao.TIPO_CONTATO_PESSOA,
+        conteudo="Ligar amanhã",
+        status=Interacao.STATUS_AGENDADA,
+        data_ocorrencia=timezone.now() + timedelta(days=1),
+    )
+    client.force_login(admin_user)
+    resp = client.get(reverse("demandas:minhas_pendencias"))
+    assert resp.status_code == 200
+    url_esperada = reverse("demandas:interacao_realizada", args=[pendencia.pk])
+    assert url_esperada.encode() in resp.content
+
+
+def test_marcar_realizada_remove_pendencia_de_minhas_pendencias(client, admin_user, demanda):
+    """POST em interacao_realizada muda status para REALIZADA e a interação
+    sai da queryset de /minhas-pendencias/ (que filtra status=AGENDADA)."""
+    pendencia = Interacao.objects.create(
+        demanda=demanda,
+        autor=admin_user,
+        tipo=Interacao.TIPO_CONTATO_PESSOA,
+        conteudo="Ligar amanhã",
+        status=Interacao.STATUS_AGENDADA,
+        data_ocorrencia=timezone.now() + timedelta(days=1),
+    )
+    client.force_login(admin_user)
+    resp_post = client.post(reverse("demandas:interacao_realizada", args=[pendencia.pk]))
+    assert resp_post.status_code == 302
+    pendencia.refresh_from_db()
+    assert pendencia.status == Interacao.STATUS_REALIZADA
+    # E sai da lista
+    resp_lista = client.get(reverse("demandas:minhas_pendencias"))
+    pks_visiveis = [p.pk for p in resp_lista.context["pendencias"]]
+    assert pendencia.pk not in pks_visiveis
