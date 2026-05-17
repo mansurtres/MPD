@@ -1690,4 +1690,161 @@ Estimativa total: ~11-12h.
 
 ---
 
+## ADR 0048 — Centralização de checagem de papel em `core/permissoes.py`
+
+**Data:** 2026-05-17 (v0.7.2)
+
+### Contexto
+
+A revisão técnica de fim-de-Fase-6 (chefe de área Anthropic) identificou que **11 locais no código** verificavam grupo de usuário por nome literal (`groups.filter(name__in=["Administrador", "Chefe de Gabinete"])`, idem com `"Coordenador"`). ADR 0024 ("nunca checar grupo pelo nome no código de produto") estava sendo violada de forma sistemática. Rename de qualquer grupo significaria editar ~10 arquivos com risco de esquecer call sites.
+
+### Decisão
+
+Criar [`core/permissoes.py`](../core/permissoes.py) como **única fonte de verdade** dos nomes dos grupos. Expor duas funções de papel composto:
+
+- `eh_cg_plus(user)` — Admin, Chefe de Gabinete ou superuser. Visibilidade plena (inclui restritas), acesso à auditoria, edição de interação alheia.
+- `eh_co_plus(user)` — Admin, CG, Coordenador ou superuser. Exportação CSV, painel `/analise`, remoção de anexos alheios.
+
+Constantes `GRUPO_ADM`, `GRUPO_CG`, `GRUPO_CO`, `GRUPO_AS` ficam disponíveis para o context_processor (que oferece flags granulares para templates).
+
+Todos os call sites em `demandas/`, `pessoas/`, `core/` (views, models, context_processors) consomem essas funções/constantes — **não os literais**.
+
+### Exceções legítimas
+
+- **Data migrations** que criam os grupos (escrevem os nomes no banco) — inerente.
+- **`core/permissoes.py`** — fonte.
+- **Docs** (`fluxos-de-estado.md`, `permissoes.md`, roteiros) — referência humana.
+
+### Consequências
+
+- Rename futuro de grupo: 1 arquivo + 1 migration de renomeação.
+- 3 testes novos em `core/tests.py` cobrindo superuser sem grupo, usuário sem grupo e anônimo.
+- ADR 0024 deixa de estar violada.
+
+---
+
+## ADR 0049 — Manager `Demanda.objects.visiveis_para(user)` e extensão ao painel `/analise`
+
+**Data:** 2026-05-17 (v0.7.2)
+
+### Contexto
+
+A revisão técnica identificou **vazamento de agregados** no painel `/analise`: Coordenador (não-ADM/CG) acessando a tela via permissão CO+ enxergava counts de **demandas restritas de outras coordenações** em todas as 6 métricas. Pior: `top_pessoas` retornava nome+sobrenome de partes em casos sigilosos.
+
+A regra de visibilidade restrita já existia em `demandas/views.py:_filtrar_visiveis`, mas como função de view — não foi reusada nas queries do `AnaliseView`.
+
+### Decisão
+
+Criar `DemandaQuerySet.visiveis_para(user)` como custom queryset method, exposto via `Demanda.objects` (manager). Centraliza a regra:
+
+- ADM/CG/superuser: queryset completo.
+- Demais: `Q(restrito=False) | Q(responsavel=user)`.
+
+`AnaliseView.get_context_data` aplica `Demanda.objects.visiveis_para(self.request.user)` em todas as 6 métricas. Para `top_pessoas`, usa agregação condicional: `Count("demanda_pessoas", filter=Q(demanda_pessoas__demanda__in=demandas_visiveis))`. `enc_por_orgao` filtra por `demanda__in=demandas_visiveis`.
+
+`_filtrar_visiveis` (em `demandas/views.py`) vira wrapper que delega ao manager — preservada para call sites legados que consomem como callable.
+
+### Consequências
+
+- Coordenador em `/analise` vê apenas o que pode ver no resto do sistema.
+- ADM/CG continua vendo tudo.
+- 4 testes novos cobrem: oculta de coord, oculta de top_pessoas, admin vê tudo, responsável de restrita vê.
+- O manager fica disponível para outras views que precisarem da mesma regra.
+
+---
+
+## ADR 0050 — Auditlog estendido para `Interacao` e `ItemInbox` (revisita ADR 0029)
+
+**Data:** 2026-05-17 (v0.7.2)
+
+### Contexto
+
+A revisão técnica identificou gap crítico: **timeline e inbox eram os únicos models de domínio sem auditlog**. Em particular:
+
+- **Edição de `Interacao` dentro da janela de 24h** não deixava rastro. Inclui edição de `Interacao(tipo=devolutiva)` — que é "ata de comunicação ao cidadão". Vetor que LGPD/Lei de Acesso quer fechar.
+- **`ItemInbox` descartado** com `motivo_descarte` não rastreava quem descartou e quando.
+
+ADR 0029 (escopo original do auditlog) cobria os models centrais e foi estendida em ADR 0037 para canais plurais. Faltou estender quando `Interacao` ganhou semântica de timeline (Fase 3) e quando `ItemInbox` ganhou UX (Fase 5).
+
+### Decisão
+
+Registrar `Interacao` e `ItemInbox` em `demandas/apps.py:DemandasConfig.ready()` via `auditlog.register(...)`.
+
+### Trade-off conhecido
+
+Interações automáticas (mudança de status/responsável/resultado) geram LogEntry — volume cresce significativamente. **Aceito como custo correto de auditoria** (quem alterou o quê quando é exatamente o que LGPD/Lei de Acesso pedem). Se ficar barulhento em produção:
+
+- `exclude_fields=["atualizado_em"]` reduz updates redundantes.
+- Filtro pré-save no `AuditlogCorrelationMiddleware` pode descartar entries com `actor=None` + `automatica=True`.
+
+### Consequências
+
+- Devolutiva editada pelo autor (dentro da janela) deixa LogEntry diff visual em `/auditoria`.
+- ItemInbox descartado fica rastreável.
+- 2 testes novos cobrem edição de Interacao e descarte de ItemInbox.
+
+---
+
+## ADR 0051 — `slug_publico` via `save()` com retry em `IntegrityError` (revisita ADR 0038)
+
+**Data:** 2026-05-17 (v0.7.2)
+
+### Contexto
+
+ADR 0038 introduziu `slug_publico` como CharField hex curto gerado no `pre_save` signal de `Pessoa` e `Entidade`. A implementação seguia o padrão:
+
+```python
+candidato = uuid.uuid4().hex[:length]
+if not model.objects.filter(slug_publico=candidato).exists():
+    return candidato
+```
+
+A revisão técnica identificou um **TOCTOU clássico**: entre o `filter().exists()` e o `save()`, dois workers concorrentes podem gerar o mesmo slug. A probabilidade é desprezível em escala de mandato (16¹² ≈ 2.8 × 10¹⁴ slugs possíveis), mas quando acontece, o segundo worker estoura `IntegrityError` ininteligível em runtime.
+
+### Decisão
+
+Mover a geração para `Pessoa.save()` e `Entidade.save()`. Helper `_salvar_com_slug_unico(instance, super_save, *args, **kwargs)`:
+
+1. Se `slug_publico` já existe (edição), apenas chama `super_save`.
+2. Senão, loop com até 10 tentativas: gera uuid hex[:12], tenta `super_save` dentro de `transaction.atomic()` (savepoint).
+3. Em `IntegrityError`, se a mensagem menciona `slug_publico`, retenta com novo uuid. Outras constraints (CPF/CNPJ unique) propagam.
+
+O `transaction.atomic()` é essencial: sem ele, `IntegrityError` taints a transação externa do pytest-django (e similar em produção sob transação externa), inviabilizando o retry.
+
+O `pre_save` signal de Pessoa/Entidade perde a chamada `_gerar_slug_unico` mas mantém a normalização de campos (cpf, cep, uf, telefone).
+
+### Consequências
+
+- Race condition tratada na origem.
+- Falha após 10 tentativas (probabilidade ≈ 10⁻¹⁰⁰): `IntegrityError` propaga corretamente.
+- Comportamento normal idêntico (slug gerado uma vez por instância nova).
+- 1 teste novo simula colisão controlada via `monkeypatch` de `uuid.uuid4`, confirmando que o retry funciona.
+
+---
+
+## ADR 0052 — Remoção de `factory-boy`; manutenção de `django-htmx`
+
+**Data:** 2026-05-17 (v0.7.2)
+
+### Contexto
+
+Revisão técnica auditou dependências do `pyproject.toml`:
+
+- **`factory-boy>=3.3`**: zero referências no código. Sem plano de uso (`tests/` usa fixtures pytest diretamente, padrão estabelecido).
+- **`django-htmx>=1.17`**: middleware está montado em `MIDDLEWARE`, mas **nenhum template** usa atributos `hx-*`. Apenas `CapturarInboxView` lê o header `HX-Request` — que é uma string que poderia ser lida sem o package.
+
+### Decisão
+
+- **Remover `factory-boy`**. Se um dia precisar para fixtures complexas (ex: carga de teste em escala), reinstala. YAGNI.
+- **Manter `django-htmx`**. Front-end ainda vai evoluir (Fase 7 — Polimento e Web). HTMX é a stack natural para evolução incremental sem framework JS pesado. O middleware abre `request.htmx.boosted`, `request.htmx.target`, etc. — úteis quando o time começar a colocar `hx-get`/`hx-post` nos templates. Custo de manutenção da dep é zero.
+
+### Consequências
+
+- `pyproject.toml`: `factory-boy` removido de `[project.optional-dependencies].dev`.
+- `uv.lock` regenerado (removeu `factory-boy` e `faker`).
+- `version` bumpada para `"0.7.2"` (estava em `"0.4.1"`, refletindo defasagem).
+- Stack consciente sobre o que está pago e o que está em uso.
+
+---
+
 *Decisões adicionadas em ordem cronológica conforme surgem. Cada decisão registrada uma vez; alterações futuras criam nova ADR (não editam a anterior).*
