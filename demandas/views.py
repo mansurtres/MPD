@@ -991,8 +991,25 @@ class ProcessarInboxView(LoginRequiredMixin, PermissionRequiredMixin, View):
 
     permission_required = "demandas.add_demanda"
 
+    def _redirecionar_se_ja_processado(self, request, item):
+        """Se outro usuário já processou (ou descartou) o item, sai com
+        mensagem e redireciona — em vez de devolver 404 vazio (Tarefa 2.5)."""
+        if item.status == ItemInbox.STATUS_PENDENTE:
+            return None
+        if item.processado_por:
+            nome = item.processado_por.nome_completo or item.processado_por.email
+        else:
+            nome = "outro usuário"
+        messages.info(request, f"Este item já foi processado por {nome}.")
+        if item.demanda_gerada_id:
+            return redirect("demandas:demanda_detalhe", pk=item.demanda_gerada_id)
+        return redirect("demandas:inbox_lista")
+
     def get(self, request, pk):
-        item = get_object_or_404(ItemInbox, pk=pk, status=ItemInbox.STATUS_PENDENTE)
+        item = get_object_or_404(ItemInbox, pk=pk)
+        redirecionar = self._redirecionar_se_ja_processado(request, item)
+        if redirecionar:
+            return redirecionar
         # Pré-preenchimento: conteúdo do item vira descrição inicial;
         # título é os primeiros 80 chars (usuário ajusta).
         inicial = {"descricao": item.conteudo, "titulo": item.conteudo[:80]}
@@ -1011,7 +1028,10 @@ class ProcessarInboxView(LoginRequiredMixin, PermissionRequiredMixin, View):
         )
 
     def post(self, request, pk):
-        item = get_object_or_404(ItemInbox, pk=pk, status=ItemInbox.STATUS_PENDENTE)
+        item = get_object_or_404(ItemInbox, pk=pk)
+        redirecionar = self._redirecionar_se_ja_processado(request, item)
+        if redirecionar:
+            return redirecionar
         form = ProcessarInboxForm(request.POST)
         formsets = {
             "pessoas": DemandaPessoaFormSet(request.POST, prefix="dp"),

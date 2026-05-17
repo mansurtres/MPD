@@ -1666,3 +1666,46 @@ def test_anexo_upload_objeto_inexistente_retorna_404(client, admin_user):
         {"descricao": "irrelevante"},
     )
     assert resp.status_code == 404
+
+
+# --- ProcessarInboxView: conflito UX (Tarefa 2.5) ---
+
+
+def test_processar_inbox_ja_processado_redireciona_para_demanda(client, admin_user, pessoa):
+    """Reabrir item já processado redireciona para a demanda gerada com
+    mensagem informativa (não 404 vazio)."""
+    from demandas.models import ItemInbox
+
+    item = ItemInbox.objects.create(conteudo="Item teste", autor=admin_user)
+    demanda = Demanda.objects.create(
+        titulo="Já criada",
+        descricao="X",
+        canal_entrada="presencial",
+        coordenacao_responsavel="gabinete",
+        criado_por=admin_user,
+        anonimo=True,
+    )
+    item.status = ItemInbox.STATUS_PROCESSADO
+    item.demanda_gerada = demanda
+    item.processado_por = admin_user
+    item.processado_em = timezone.now()
+    item.save()
+    client.force_login(admin_user)
+    resp = client.get(reverse("demandas:inbox_processar", args=[item.pk]))
+    assert resp.status_code == 302
+    assert reverse("demandas:demanda_detalhe", args=[demanda.pk]) in resp.url
+
+
+def test_processar_inbox_descartado_redireciona_para_lista(client, admin_user):
+    """Item descartado também faz fall-through para a lista com mensagem."""
+    from demandas.models import ItemInbox
+
+    item = ItemInbox.objects.create(conteudo="Spam", autor=admin_user)
+    item.status = ItemInbox.STATUS_DESCARTADO
+    item.motivo_descarte = "Spam óbvio"
+    item.processado_por = admin_user
+    item.save()
+    client.force_login(admin_user)
+    resp = client.get(reverse("demandas:inbox_processar", args=[item.pk]))
+    assert resp.status_code == 302
+    assert reverse("demandas:inbox_lista") in resp.url
