@@ -1483,3 +1483,39 @@ def test_tema_criar_ajax_bloqueia_assessor(client, assessor):
     client.force_login(assessor)
     resp = client.post(reverse("demandas:tema_criar_ajax"), {"nome": "X"})
     assert resp.status_code == 403
+
+
+# --- Auditlog estendido: Interacao e ItemInbox (ADR 0050) ---
+
+
+def test_auditlog_registra_edicao_de_interacao(db, demanda, admin_user):
+    """Edição manual de Interacao deve gerar LogEntry(UPDATE).
+    Fecha o gap da revisão de fim-Fase-6: devolutiva editada silenciosamente."""
+    from auditlog.models import LogEntry
+
+    i = Interacao.objects.create(
+        demanda=demanda,
+        autor=admin_user,
+        tipo=Interacao.TIPO_CONTATO_PESSOA,
+        conteudo="Original",
+        status=Interacao.STATUS_REALIZADA,
+        data_ocorrencia=timezone.now(),
+    )
+    i.conteudo = "Editada"
+    i.save()
+    logs = LogEntry.objects.get_for_object(i)
+    assert logs.filter(action=LogEntry.Action.UPDATE).exists()
+
+
+def test_auditlog_registra_descarte_de_inbox(db, admin_user):
+    """Mudança de status de ItemInbox (pendente → descartado) gera LogEntry."""
+    from auditlog.models import LogEntry
+
+    from demandas.models import ItemInbox
+
+    item = ItemInbox.objects.create(conteudo="Spam qualquer", autor=admin_user)
+    item.status = ItemInbox.STATUS_DESCARTADO
+    item.motivo_descarte = "Spam"
+    item.save()
+    logs = LogEntry.objects.get_for_object(item)
+    assert logs.filter(action=LogEntry.Action.UPDATE).exists()
