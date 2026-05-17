@@ -5,6 +5,8 @@ from django.http import JsonResponse
 from django.shortcuts import render
 from django.views.generic import ListView
 
+from core.permissoes import eh_cg_plus, eh_co_plus
+
 
 def inicio(request):
     if request.user.is_authenticated:
@@ -45,13 +47,7 @@ class AnaliseView(LoginRequiredMixin, UserPassesTestMixin, ListView):
     template_name = "core/analise.html"
 
     def test_func(self):
-        u = self.request.user
-        return (
-            u.is_superuser
-            or u.groups.filter(
-                name__in=["Administrador", "Chefe de Gabinete", "Coordenador"]
-            ).exists()
-        )
+        return eh_co_plus(self.request.user)
 
     def get_queryset(self):
         # Override exigido pelo ListView, mas não usado.
@@ -63,15 +59,19 @@ class AnaliseView(LoginRequiredMixin, UserPassesTestMixin, ListView):
         ctx = super().get_context_data(**kwargs)
         from datetime import timedelta
 
-        from django.db.models import Count
+        from django.db.models import Count, Q
         from django.db.models.functions import TruncMonth
         from django.utils import timezone as tz
 
         from demandas.models import Demanda, Encaminhamento
 
+        # ADR 0049: todas as métricas filtram por demandas visíveis ao usuário.
+        # Coordenador (não-ADM/CG) NÃO vê contagens de restritas de outras coords.
+        demandas_visiveis = Demanda.objects.visiveis_para(self.request.user)
+
         # 1. Demandas por tema
         ctx["por_tema"] = list(
-            Demanda.objects.values("temas__nome", "temas__cor")
+            demandas_visiveis.values("temas__nome", "temas__cor")
             .annotate(total=Count("id"))
             .exclude(temas__nome__isnull=True)
             .order_by("-total")[:12]
@@ -80,7 +80,7 @@ class AnaliseView(LoginRequiredMixin, UserPassesTestMixin, ListView):
         # 2. Demandas por mês (últimos 12 meses)
         limite_mes = tz.now() - timedelta(days=365)
         ctx["por_mes"] = list(
-            Demanda.objects.filter(criado_em__gte=limite_mes)
+            demandas_visiveis.filter(criado_em__gte=limite_mes)
             .annotate(mes=TruncMonth("criado_em"))
             .values("mes")
             .annotate(total=Count("id"))
@@ -89,7 +89,7 @@ class AnaliseView(LoginRequiredMixin, UserPassesTestMixin, ListView):
 
         # 3. Demandas por coordenação
         ctx["por_coordenacao"] = list(
-            Demanda.objects.values("coordenacao_responsavel")
+            demandas_visiveis.values("coordenacao_responsavel")
             .annotate(total=Count("id"))
             .order_by("-total")
         )
@@ -99,57 +99,71 @@ class AnaliseView(LoginRequiredMixin, UserPassesTestMixin, ListView):
                 item["coordenacao_responsavel"], item["coordenacao_responsavel"]
             )
 
-        # 4. Top 20 pessoas com mais demandas (sem anônimas)
+        # 4. Top 20 pessoas com mais demandas — agregação condicional para
+        #    contar apenas demandas visíveis ao usuário. Sem isso, count
+        #    incluía restritas (vazamento de PII associada a caso sigiloso).
         from pessoas.models import Pessoa
 
+        filtro_visivel = Q(demanda_pessoas__demanda__in=demandas_visiveis)
         ctx["top_pessoas"] = list(
-            Pessoa.objects.annotate(total=Count("demanda_pessoas"))
+            Pessoa.objects.annotate(total=Count("demanda_pessoas", filter=filtro_visivel))
             .filter(total__gt=0)
             .order_by("-total")[:20]
             .values("nome", "sobrenome", "slug_publico", "total")
         )
 
-        # 5. Encaminhamentos pendentes por órgão
+        # 5. Encaminhamentos pendentes por órgão — filtra por demandas visíveis
         ctx["enc_por_orgao"] = list(
             Encaminhamento.objects.filter(
-                status__in=[Encaminhamento.STATUS_ENVIADO, Encaminhamento.STATUS_PRAZO_VENCIDO]
+                demanda__in=demandas_visiveis,
+                status__in=[Encaminhamento.STATUS_ENVIADO, Encaminhamento.STATUS_PRAZO_VENCIDO],
             )
             .values("destinatario_orgao")
             .annotate(total=Count("id"))
             .order_by("-total")[:15]
         )
 
-        # 6. Carga por assessor (responsável com demandas abertas/vencidas)
+        # 6. Carga por assessor — uma annotate em vez de N+1 (Tarefa 3.3).
         from accounts.models import Usuario
 
-        assessores = []
-        for u in Usuario.objects.filter(is_active=True):
-            abertas = Demanda.objects.filter(
-                responsavel=u,
-                status__in=[
-                    Demanda.STATUS_NOVO,
-                    Demanda.STATUS_EM_ANDAMENTO,
-                    Demanda.STATUS_AGUARDANDO_TERCEIROS,
-                    Demanda.STATUS_AGUARDANDO_PESSOA,
-                ],
-            ).count()
-            vencidas = (
-                Demanda.objects.filter(
-                    responsavel=u,
-                    prazo__lt=tz.now().date(),
-                )
-                .exclude(status__in=[Demanda.STATUS_CONCLUIDA, Demanda.STATUS_ARQUIVADO])
-                .count()
+        status_abertos = [
+            Demanda.STATUS_NOVO,
+            Demanda.STATUS_EM_ANDAMENTO,
+            Demanda.STATUS_AGUARDANDO_TERCEIROS,
+            Demanda.STATUS_AGUARDANDO_PESSOA,
+        ]
+        status_fechados = [Demanda.STATUS_CONCLUIDA, Demanda.STATUS_ARQUIVADO]
+        hoje = tz.now().date()
+        # Materializa os ids visíveis em uma lista para usar como filtro
+        # no Count(filter=...). Subquery direto também funcionaria, mas
+        # `values_list` é mais legível e o cardinality fica explícito.
+        ids_visiveis = list(demandas_visiveis.values_list("id", flat=True))
+        filtro_abertas = Q(
+            demandas_responsavel__in=ids_visiveis,
+            demandas_responsavel__status__in=status_abertos,
+        )
+        filtro_vencidas = (
+            Q(demandas_responsavel__in=ids_visiveis)
+            & Q(demandas_responsavel__prazo__lt=hoje)
+            & ~Q(demandas_responsavel__status__in=status_fechados)
+        )
+        assessores_qs = (
+            Usuario.objects.filter(is_active=True)
+            .annotate(
+                qtd_abertas=Count("demandas_responsavel", filter=filtro_abertas, distinct=True),
+                qtd_vencidas=Count("demandas_responsavel", filter=filtro_vencidas, distinct=True),
             )
-            if abertas > 0 or vencidas > 0:
-                assessores.append(
-                    {
-                        "nome": u.nome_completo or u.email,
-                        "abertas": abertas,
-                        "vencidas": vencidas,
-                    }
-                )
-        ctx["carga_assessores"] = sorted(assessores, key=lambda x: -x["abertas"])
+            .filter(Q(qtd_abertas__gt=0) | Q(qtd_vencidas__gt=0))
+            .order_by("-qtd_abertas")
+        )
+        ctx["carga_assessores"] = [
+            {
+                "nome": u.nome_completo or u.email,
+                "abertas": u.qtd_abertas,
+                "vencidas": u.qtd_vencidas,
+            }
+            for u in assessores_qs
+        ]
 
         return ctx
 
@@ -164,11 +178,7 @@ class AuditoriaListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
     paginate_by = 50
 
     def test_func(self):
-        u = self.request.user
-        return (
-            u.is_superuser
-            or u.groups.filter(name__in=["Administrador", "Chefe de Gabinete"]).exists()
-        )
+        return eh_cg_plus(self.request.user)
 
     def get_queryset(self):
         from auditlog.models import LogEntry

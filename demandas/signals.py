@@ -134,6 +134,13 @@ _TIPOS_INTERACAO_NAO_OPERACIONAIS = frozenset(
         Interacao.TIPO_MUDANCA_RESPONSAVEL,
         Interacao.TIPO_MUDANCA_RESULTADO,
         Interacao.TIPO_ARQUIVAMENTO,
+        # Revisão fim-Fase-6: devolutiva é parte do fluxo de FECHAMENTO
+        # (ConcluirDemandaView). Não deve fazer demanda em 'novo' avançar
+        # para 'em_andamento' só por ter sido criada — a view logo a seguir
+        # vai setar status='concluida'. Sem este skip, a timeline ganhava
+        # 3 eventos (devolutiva + novo→em_andamento + em_andamento→concluida)
+        # quando deveria ter 2 (devolutiva + novo→concluida).
+        Interacao.TIPO_DEVOLUTIVA,
     }
 )
 
@@ -172,21 +179,30 @@ def avancar_status_por_encaminhamento(sender, instance, created, **kwargs):
             demanda.save()
 
 
-def _registrar_limpeza_anexos(model):
-    @receiver(pre_delete, sender=model, weak=False)
-    def _limpar_anexos(sender, instance, **kwargs):
-        ct = ContentType.objects.get_for_model(model)
+def _limpar_anexos_de(modelo):
+    """Factory: retorna handler que limpa anexos polimórficos do modelo dado.
+    Cada handler ganha nome distinto (limpar_anexos_de_demanda, ...) — facilita
+    debug e evita ambiguidade na introspecção de receivers."""
+
+    def handler(sender, instance, **kwargs):
+        ct = ContentType.objects.get_for_model(modelo)
         Anexo.objects.filter(content_type=ct, object_id=instance.pk).delete()
+
+    handler.__name__ = f"limpar_anexos_de_{modelo.__name__.lower()}"
+    return handler
 
 
 def _setup_anexos_orfaos():
+    """Liga pre_delete dos modelos pais para limpar anexos polimórficos.
+    GenericForeignKey não cascateia no banco — precisamos fazer manualmente.
+
+    Encaminhamento já cascateia via FK pra Demanda; mas se for deletado
+    isolado, anexos próprios também devem sumir.
+    """
     from pessoas.models import Entidade, Pessoa
 
-    for model in (Demanda, Pessoa, Entidade):
-        _registrar_limpeza_anexos(model)
-    # Encaminhamento já cascateia via FK pra Demanda; mas se for deletado
-    # isolado, anexos próprios também devem sumir.
-    _registrar_limpeza_anexos(Encaminhamento)
+    for modelo in (Demanda, Pessoa, Entidade, Encaminhamento):
+        pre_delete.connect(_limpar_anexos_de(modelo), sender=modelo, weak=False)
 
 
 _setup_anexos_orfaos()

@@ -59,3 +59,37 @@ def test_aplicar_tailwind_idempotente():
     aplicar_tailwind(f)
     classes = f.fields["texto"].widget.attrs["class"]
     assert classes.count("rounded-lg") == 1
+
+
+# --- core.permissoes (ADR 0048) ---
+
+
+def test_eh_cg_plus_superuser_sem_grupo(db):
+    from core.permissoes import eh_cg_plus, eh_co_plus
+
+    u = Usuario.objects.create_superuser(
+        email="super@t.com",
+        password="senha12345",  # pragma: allowlist secret
+    )
+    assert eh_cg_plus(u)
+    assert eh_co_plus(u)
+
+
+def test_eh_co_plus_assessor_sem_grupo(db):
+    from core.permissoes import eh_co_plus
+
+    u = Usuario.objects.create_user(
+        email="assessor_solo@t.com",
+        password="senha12345",  # pragma: allowlist secret
+    )
+    assert not eh_co_plus(u)
+
+
+def test_eh_cg_plus_anonimo():
+    from django.contrib.auth.models import AnonymousUser
+
+    from core.permissoes import eh_cg_plus, eh_co_plus
+
+    anon = AnonymousUser()
+    assert not eh_cg_plus(anon)
+    assert not eh_co_plus(anon)

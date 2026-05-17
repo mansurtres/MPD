@@ -1483,3 +1483,251 @@ def test_tema_criar_ajax_bloqueia_assessor(client, assessor):
     client.force_login(assessor)
     resp = client.post(reverse("demandas:tema_criar_ajax"), {"nome": "X"})
     assert resp.status_code == 403
+
+
+# --- Auditlog estendido: Interacao e ItemInbox (ADR 0050) ---
+
+
+def test_auditlog_registra_edicao_de_interacao(db, demanda, admin_user):
+    """Edição manual de Interacao deve gerar LogEntry(UPDATE).
+    Fecha o gap da revisão de fim-Fase-6: devolutiva editada silenciosamente."""
+    from auditlog.models import LogEntry
+
+    i = Interacao.objects.create(
+        demanda=demanda,
+        autor=admin_user,
+        tipo=Interacao.TIPO_CONTATO_PESSOA,
+        conteudo="Original",
+        status=Interacao.STATUS_REALIZADA,
+        data_ocorrencia=timezone.now(),
+    )
+    i.conteudo = "Editada"
+    i.save()
+    logs = LogEntry.objects.get_for_object(i)
+    assert logs.filter(action=LogEntry.Action.UPDATE).exists()
+
+
+def test_auditlog_registra_descarte_de_inbox(db, admin_user):
+    """Mudança de status de ItemInbox (pendente → descartado) gera LogEntry."""
+    from auditlog.models import LogEntry
+
+    from demandas.models import ItemInbox
+
+    item = ItemInbox.objects.create(conteudo="Spam qualquer", autor=admin_user)
+    item.status = ItemInbox.STATUS_DESCARTADO
+    item.motivo_descarte = "Spam"
+    item.save()
+    logs = LogEntry.objects.get_for_object(item)
+    assert logs.filter(action=LogEntry.Action.UPDATE).exists()
+
+
+# --- /analise filtra demandas restritas (ADR 0049) ---
+
+
+def test_analise_oculta_demandas_restritas_para_coord(
+    client, coord_juridico, admin_user, demanda_restrita_juridico
+):
+    """Coordenador da Jurídico NÃO responsável da restrita não vê seu count
+    em por_mes. Pela regra, só responsável + ADM/CG enxerga restrita."""
+    # Demanda pública pra comparar.
+    Demanda.objects.create(
+        titulo="Pública",
+        descricao="X",
+        canal_entrada="presencial",
+        coordenacao_responsavel="comunicacao",
+        criado_por=admin_user,
+        anonimo=True,
+    )
+    client.force_login(coord_juridico)
+    resp = client.get(reverse("core:analise"))
+    assert resp.status_code == 200
+    por_mes = resp.context["por_mes"]
+    total_visivel = sum(m["total"] for m in por_mes)
+    # Só a pública entra — restrita oculta para coord não-responsável.
+    assert total_visivel == 1
+
+
+def test_analise_top_pessoas_oculta_partes_de_restrita(
+    client, coord_juridico, demanda_restrita_juridico
+):
+    """top_pessoas não revela nome de quem aparece só em demanda restrita."""
+    client.force_login(coord_juridico)
+    resp = client.get(reverse("core:analise"))
+    nomes_visiveis = {p["nome"] for p in resp.context["top_pessoas"]}
+    pessoa_restrita = demanda_restrita_juridico.demanda_pessoas.first().pessoa
+    assert pessoa_restrita.nome not in nomes_visiveis
+
+
+def test_analise_admin_ve_demanda_restrita(client, admin_user, demanda_restrita_juridico):
+    """Sanity: admin continua vendo demanda restrita no painel."""
+    client.force_login(admin_user)
+    resp = client.get(reverse("core:analise"))
+    por_mes = resp.context["por_mes"]
+    total_admin = sum(m["total"] for m in por_mes)
+    assert total_admin >= 1  # ao menos a restrita
+
+
+def test_analise_responsavel_de_restrita_ve_no_painel(client, admin_user, pessoa, coord_juridico):
+    """Coordenador responsável de uma demanda restrita VÊ a demanda no painel
+    (regra: responsável + ADM/CG enxergam)."""
+    d = Demanda.objects.create(
+        titulo="Restrita do coord",
+        descricao="X",
+        canal_entrada="oficio",
+        coordenacao_responsavel="juridico",
+        criado_por=admin_user,
+        responsavel=coord_juridico,
+        restrito=True,
+    )
+    DemandaPessoa.objects.create(demanda=d, pessoa=pessoa, papel="solicitante")
+    client.force_login(coord_juridico)
+    resp = client.get(reverse("core:analise"))
+    por_mes = resp.context["por_mes"]
+    total = sum(m["total"] for m in por_mes)
+    assert total >= 1
+
+
+# --- Export CSV respeita visibilidade restrita (Tarefa 1.4 do roteiro v0.7.2) ---
+
+
+def test_export_csv_oculta_demanda_restrita_de_coord(client, coord_juridico, admin_user):
+    """Coordenador NÃO consegue exportar demanda restrita de outra coord via CSV.
+    Confirma que _filtrar_visiveis aplicado no get_queryset cobre o fluxo
+    de export."""
+    publica = Demanda.objects.create(
+        titulo="Publica",
+        descricao="X",
+        canal_entrada="presencial",
+        coordenacao_responsavel="comunicacao",
+        criado_por=admin_user,
+        anonimo=True,
+    )
+    restrita = Demanda.objects.create(
+        titulo="SegredoMaximo",
+        descricao="X",
+        canal_entrada="presencial",
+        coordenacao_responsavel="juridico",
+        criado_por=admin_user,
+        anonimo=True,
+        restrito=True,
+    )
+    client.force_login(coord_juridico)
+    resp = client.get(reverse("demandas:demanda_export_csv"))
+    assert resp.status_code == 200
+    assert publica.numero.encode() in resp.content
+    assert restrita.numero.encode() not in resp.content
+    assert b"SegredoMaximo" not in resp.content
+
+
+# --- Conclusão limpa: devolutiva não dispara avanço de status (Tarefa 2.1) ---
+
+
+def test_conclusao_de_demanda_nova_responsiva_gera_transicao_unica(client, admin_user, demanda):
+    """Demanda em status=novo, ConcluirDemandaView cria devolutiva + UMA
+    transição direta para concluida (sem passar por em_andamento
+    intermediário fake). Sem o fix da Tarefa 2.1, devolutiva disparava
+    avanço para em_andamento, gerando 2 transições de status."""
+    assert demanda.status == Demanda.STATUS_NOVO
+    client.force_login(admin_user)
+    resp = client.post(
+        reverse("demandas:demanda_concluir", args=[demanda.pk]),
+        {
+            "devolutiva_data": timezone.now().date().isoformat(),
+            "devolutiva_canal": "whatsapp",
+            "devolutiva_conteudo": "Comunicado à Maria.",
+            "resultado": Demanda.RESULTADO_ATENDIDO,
+            "resultado_observacao": "",
+        },
+    )
+    assert resp.status_code == 302
+    demanda.refresh_from_db()
+    assert demanda.status == Demanda.STATUS_CONCLUIDA
+    # Critério principal: UMA transição de status (novo→concluida).
+    # Sem o fix: 2 transições (novo→em_andamento + em_andamento→concluida).
+    transicoes = demanda.interacoes.filter(tipo=Interacao.TIPO_MUDANCA_STATUS)
+    assert transicoes.count() == 1
+    transicao = transicoes.first()
+    assert "Novo" in transicao.conteudo
+    assert "Concluída" in transicao.conteudo
+
+
+# --- AnexoUpload: objeto pai inexistente → 404 (Tarefa 2.4) ---
+
+
+def test_anexo_upload_objeto_inexistente_retorna_404(client, admin_user):
+    """POST com UUID que não existe deve retornar 404 (não 500).
+    Antes do fix, ct.model_class().objects.get(pk=...) estourava
+    DoesNotExist como exceção não tratada."""
+    import uuid as _uuid
+
+    client.force_login(admin_user)
+    resp = client.post(
+        reverse("demandas:anexo_upload", args=["demanda", _uuid.uuid4()]),
+        {"descricao": "irrelevante"},
+    )
+    assert resp.status_code == 404
+
+
+# --- ProcessarInboxView: conflito UX (Tarefa 2.5) ---
+
+
+def test_processar_inbox_ja_processado_redireciona_para_demanda(client, admin_user, pessoa):
+    """Reabrir item já processado redireciona para a demanda gerada com
+    mensagem informativa (não 404 vazio)."""
+    from demandas.models import ItemInbox
+
+    item = ItemInbox.objects.create(conteudo="Item teste", autor=admin_user)
+    demanda = Demanda.objects.create(
+        titulo="Já criada",
+        descricao="X",
+        canal_entrada="presencial",
+        coordenacao_responsavel="gabinete",
+        criado_por=admin_user,
+        anonimo=True,
+    )
+    item.status = ItemInbox.STATUS_PROCESSADO
+    item.demanda_gerada = demanda
+    item.processado_por = admin_user
+    item.processado_em = timezone.now()
+    item.save()
+    client.force_login(admin_user)
+    resp = client.get(reverse("demandas:inbox_processar", args=[item.pk]))
+    assert resp.status_code == 302
+    assert reverse("demandas:demanda_detalhe", args=[demanda.pk]) in resp.url
+
+
+def test_analise_carga_assessores_nao_tem_n_mais_1(client, admin_user):
+    """Query count constante independente do nº de usuários ativos
+    (Tarefa 3.3: carga_assessores migrou de loop com 2 queries por
+    usuário para uma annotate única)."""
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    for i in range(20):
+        Usuario.objects.create_user(
+            email=f"u{i}@t.com",
+            password="senha12345",  # pragma: allowlist secret
+        )
+    client.force_login(admin_user)
+    with CaptureQueriesContext(connection) as captured:
+        client.get(reverse("core:analise"))
+    # Limite generoso pra cobrir as 6 métricas + auth + middlewares.
+    # Antes do fix: 40+ queries só nesta métrica.
+    assert (
+        len(captured.captured_queries) < 30
+    ), f"Esperado <30 queries, obtive {len(captured.captured_queries)}"
+
+
+def test_processar_inbox_descartado_redireciona_para_lista(client, admin_user):
+    """Item descartado também faz fall-through para a lista com mensagem."""
+    from demandas.models import ItemInbox
+
+    item = ItemInbox.objects.create(conteudo="Spam", autor=admin_user)
+    item.status = ItemInbox.STATUS_DESCARTADO
+    item.motivo_descarte = "Spam óbvio"
+    item.processado_por = admin_user
+    item.save()
+    client.force_login(admin_user)
+    resp = client.get(reverse("demandas:inbox_processar", args=[item.pk]))
+    assert resp.status_code == 302
+    assert reverse("demandas:inbox_lista") in resp.url

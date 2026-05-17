@@ -21,6 +21,8 @@ from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView, View
 
+from core.permissoes import eh_cg_plus, eh_co_plus
+
 from .forms import (
     AnexoForm,
     ArquivarForm,
@@ -43,23 +45,16 @@ from .models import Anexo, Demanda, Encaminhamento, Interacao, ItemInbox, Tema
 
 
 def _filtrar_visiveis(qs, user):
-    """Restritas só são visíveis para responsável, ADM, CG e superuser."""
-    if (
-        user.is_superuser
-        or user.groups.filter(name__in=["Administrador", "Chefe de Gabinete"]).exists()
-    ):
-        return qs
-    return qs.filter(Q(restrito=False) | Q(responsavel=user))
+    """Wrapper para chamadas legadas. A regra vive em
+    `DemandaQuerySet.visiveis_para` (ADR 0049). Mantido como função porque
+    várias views já consomem como callable — refactor inline pode ser
+    feito em passo separado."""
+    return qs.visiveis_para(user)
 
 
 def _pode_exportar(user):
     """Coordenador, Chefe de Gabinete, Administrador. Critério de Fase 6."""
-    return (
-        user.is_superuser
-        or user.groups.filter(
-            name__in=["Administrador", "Chefe de Gabinete", "Coordenador"]
-        ).exists()
-    )
+    return eh_co_plus(user)
 
 
 class DemandaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
@@ -548,12 +543,7 @@ class InteracaoMarcarRealizadaView(LoginRequiredMixin, View):
         interacao = get_object_or_404(Interacao, pk=pk)
         if not interacao.demanda.pode_ser_visto_por(request.user):
             raise Http404
-        if (
-            interacao.autor_id != request.user.id
-            and not request.user.groups.filter(
-                name__in=["Administrador", "Chefe de Gabinete"]
-            ).exists()
-        ):
+        if interacao.autor_id != request.user.id and not eh_cg_plus(request.user):
             raise PermissionDenied("Apenas o autor pode marcar como realizada.")
         if interacao.status != Interacao.STATUS_AGENDADA:
             messages.error(request, "Interação não está agendada.")
@@ -878,8 +868,11 @@ class AnexoUploadView(LoginRequiredMixin, PermissionRequiredMixin, View):
         if tipo not in _TIPO_PARA_MODEL:
             raise Http404("Tipo de objeto pai inválido.")
         app_label, model_name = _TIPO_PARA_MODEL[tipo]
-        ct = ContentType.objects.get(app_label=app_label, model=model_name)
-        objeto_pai = ct.model_class().objects.get(pk=object_id)
+        try:
+            ct = ContentType.objects.get(app_label=app_label, model=model_name)
+        except ContentType.DoesNotExist as exc:
+            raise Http404("Tipo desconhecido.") from exc
+        objeto_pai = get_object_or_404(ct.model_class(), pk=object_id)
         if isinstance(objeto_pai, Demanda) and not objeto_pai.pode_ser_visto_por(request.user):
             raise Http404
         if isinstance(objeto_pai, Encaminhamento) and not objeto_pai.demanda.pode_ser_visto_por(
@@ -918,12 +911,7 @@ class AnexoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, View):
 
     def post(self, request, pk):
         anexo = get_object_or_404(Anexo, pk=pk)
-        if (
-            anexo.enviado_por_id != request.user.id
-            and not request.user.groups.filter(
-                name__in=["Administrador", "Chefe de Gabinete", "Coordenador"]
-            ).exists()
-        ):
+        if anexo.enviado_por_id != request.user.id and not eh_co_plus(request.user):
             raise PermissionDenied("Sem permissão para excluir este anexo.")
         referer = request.META.get("HTTP_REFERER", "/")
         anexo.arquivo.delete(save=False)
@@ -1003,8 +991,25 @@ class ProcessarInboxView(LoginRequiredMixin, PermissionRequiredMixin, View):
 
     permission_required = "demandas.add_demanda"
 
+    def _redirecionar_se_ja_processado(self, request, item):
+        """Se outro usuário já processou (ou descartou) o item, sai com
+        mensagem e redireciona — em vez de devolver 404 vazio (Tarefa 2.5)."""
+        if item.status == ItemInbox.STATUS_PENDENTE:
+            return None
+        if item.processado_por:
+            nome = item.processado_por.nome_completo or item.processado_por.email
+        else:
+            nome = "outro usuário"
+        messages.info(request, f"Este item já foi processado por {nome}.")
+        if item.demanda_gerada_id:
+            return redirect("demandas:demanda_detalhe", pk=item.demanda_gerada_id)
+        return redirect("demandas:inbox_lista")
+
     def get(self, request, pk):
-        item = get_object_or_404(ItemInbox, pk=pk, status=ItemInbox.STATUS_PENDENTE)
+        item = get_object_or_404(ItemInbox, pk=pk)
+        redirecionar = self._redirecionar_se_ja_processado(request, item)
+        if redirecionar:
+            return redirecionar
         # Pré-preenchimento: conteúdo do item vira descrição inicial;
         # título é os primeiros 80 chars (usuário ajusta).
         inicial = {"descricao": item.conteudo, "titulo": item.conteudo[:80]}
@@ -1023,7 +1028,10 @@ class ProcessarInboxView(LoginRequiredMixin, PermissionRequiredMixin, View):
         )
 
     def post(self, request, pk):
-        item = get_object_or_404(ItemInbox, pk=pk, status=ItemInbox.STATUS_PENDENTE)
+        item = get_object_or_404(ItemInbox, pk=pk)
+        redirecionar = self._redirecionar_se_ja_processado(request, item)
+        if redirecionar:
+            return redirecionar
         form = ProcessarInboxForm(request.POST)
         formsets = {
             "pessoas": DemandaPessoaFormSet(request.POST, prefix="dp"),
