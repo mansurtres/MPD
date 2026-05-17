@@ -1731,3 +1731,382 @@ def test_processar_inbox_descartado_redireciona_para_lista(client, admin_user):
     resp = client.get(reverse("demandas:inbox_processar", args=[item.pk]))
     assert resp.status_code == 302
     assert reverse("demandas:inbox_lista") in resp.url
+
+
+# --- Export CSV grava LogEntry (ADR 0053, Tarefa 1.1 v0.7.3) ---
+
+
+def test_export_csv_demandas_grava_log_entry(client, admin_user, demanda):
+    """roadmap §4.6.3: exportação grava LogEntry visível em /auditoria.
+    ADR 0053 migrou registrar_export do logger Python para LogEntry(ACCESS)."""
+    from auditlog.models import LogEntry
+
+    antes = LogEntry.objects.filter(object_repr__startswith="Exportação CSV").count()
+    client.force_login(admin_user)
+    resp = client.get(reverse("demandas:demanda_export_csv"))
+    assert resp.status_code == 200
+    depois = LogEntry.objects.filter(object_repr__startswith="Exportação CSV").count()
+    assert depois == antes + 1
+    entry = LogEntry.objects.filter(object_repr__startswith="Exportação CSV").latest("timestamp")
+    assert entry.actor == admin_user
+    assert entry.action == LogEntry.Action.ACCESS
+    assert "Demanda" in entry.object_repr
+
+
+def test_export_csv_pessoas_grava_log_entry(client, admin_user, pessoa):
+    """Mesmo mecanismo no export de pessoas — content_type aponta para Pessoa."""
+    from auditlog.models import LogEntry
+
+    client.force_login(admin_user)
+    resp = client.get(reverse("pessoas:pessoa_export_csv"))
+    assert resp.status_code == 200
+    assert LogEntry.objects.filter(
+        object_repr__startswith="Exportação CSV",
+        object_repr__icontains="Pessoa",
+        action=LogEntry.Action.ACCESS,
+    ).exists()
+
+
+def test_export_csv_encaminhamentos_grava_log_entry(client, admin_user, demanda):
+    """Export de encaminhamentos também passa pelo registrar_export."""
+    from auditlog.models import LogEntry
+
+    Encaminhamento.objects.create(
+        demanda=demanda,
+        tipo_documento="oficio",
+        destinatario_orgao="Semus",
+        data_envio=timezone.now().date(),
+        criado_por=admin_user,
+    )
+    client.force_login(admin_user)
+    resp = client.get(reverse("demandas:encaminhamento_export_csv"))
+    assert resp.status_code == 200
+    assert LogEntry.objects.filter(
+        object_repr__startswith="Exportação CSV",
+        object_repr__icontains="Encaminhamento",
+        action=LogEntry.Action.ACCESS,
+    ).exists()
+
+
+# --- verificar_integridade: 5 ramos restantes (Tarefa 1.2 v0.7.3) ---
+
+
+def _rodar_verificar_integridade():
+    """Helper: roda o comando e devolve (exit_code, stdout)."""
+    from io import StringIO
+
+    from django.core.management import call_command
+
+    out = StringIO()
+    try:
+        call_command("verificar_integridade", stdout=out)
+        return 0, out.getvalue()
+    except SystemExit as e:
+        return e.code, out.getvalue()
+
+
+def test_verificar_integridade_detecta_anexo_com_arquivo_ausente(db, demanda, admin_user):
+    """Ramo 2: registro de Anexo existe mas arquivo no storage não."""
+    from django.contrib.contenttypes.models import ContentType
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    ct = ContentType.objects.get_for_model(Demanda)
+    f = SimpleUploadedFile("teste.pdf", b"X" * 100, content_type="application/pdf")
+    anexo = Anexo.objects.create(
+        content_type=ct,
+        object_id=demanda.pk,
+        arquivo=f,
+        nome_original="teste.pdf",
+        tamanho_bytes=100,
+        mime_type="application/pdf",
+        enviado_por=admin_user,
+    )
+    # Deleta o arquivo do storage mantendo o registro
+    anexo.arquivo.storage.delete(anexo.arquivo.name)
+
+    code, saida = _rodar_verificar_integridade()
+    assert code == 1
+    assert "arquivo no disco não encontrado" in saida
+
+
+def test_verificar_integridade_detecta_anexo_orfao_polimorfico(db, demanda, admin_user):
+    """Ramo 2b: content_type + object_id apontam para registro inexistente."""
+    import uuid as _uuid
+
+    from django.contrib.contenttypes.models import ContentType
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    ct = ContentType.objects.get_for_model(Demanda)
+    f = SimpleUploadedFile("teste.pdf", b"X" * 100, content_type="application/pdf")
+    anexo = Anexo.objects.create(
+        content_type=ct,
+        object_id=demanda.pk,
+        arquivo=f,
+        nome_original="teste.pdf",
+        tamanho_bytes=100,
+        mime_type="application/pdf",
+        enviado_por=admin_user,
+    )
+    # Sobrescreve object_id para um UUID que não existe — órfão polimórfico
+    Anexo.objects.filter(pk=anexo.pk).update(object_id=_uuid.uuid4())
+
+    code, saida = _rodar_verificar_integridade()
+    assert code == 1
+    assert "órfão polimórfico" in saida
+
+
+def test_verificar_integridade_detecta_encaminhamento_vencido_status_enviado(
+    db, demanda, admin_user
+):
+    """Ramo 3: prazo passou, status segue 'enviado' (cron de atualização não rodou)."""
+    Encaminhamento.objects.create(
+        demanda=demanda,
+        tipo_documento="oficio",
+        destinatario_orgao="Semus",
+        data_envio=timezone.now().date() - timedelta(days=60),
+        prazo_resposta=timezone.now().date() - timedelta(days=10),
+        status=Encaminhamento.STATUS_ENVIADO,
+        criado_por=admin_user,
+    )
+    code, saida = _rodar_verificar_integridade()
+    assert code == 1
+    assert "Semus" in saida
+    assert "enviado" in saida.lower()
+
+
+def test_verificar_integridade_detecta_inbox_pendente_mais_de_90d(db, admin_user):
+    """Ramo 4: ItemInbox pendente há +90 dias."""
+    from demandas.models import ItemInbox
+
+    item = ItemInbox.objects.create(conteudo="Esquecido", autor=admin_user)
+    # Burlar auto_now_add para datar antigo
+    ItemInbox.objects.filter(pk=item.pk).update(criado_em=timezone.now() - timedelta(days=120))
+
+    code, saida = _rodar_verificar_integridade()
+    assert code == 1
+    assert "pendente há 120 dias" in saida
+
+
+def test_verificar_integridade_detecta_interacao_agendada_mais_de_180d(db, demanda, admin_user):
+    """Ramo 5: Interação agendada há +180 dias sem ação."""
+    Interacao.objects.create(
+        demanda=demanda,
+        autor=admin_user,
+        tipo=Interacao.TIPO_CONTATO_PESSOA,
+        conteudo="Parou no tempo",
+        status=Interacao.STATUS_AGENDADA,
+        data_ocorrencia=timezone.now() - timedelta(days=200),
+    )
+    code, saida = _rodar_verificar_integridade()
+    assert code == 1
+    assert "agendada" in saida.lower()
+    assert "200 dias" in saida
+
+
+def test_verificar_integridade_sem_problemas_retorna_zero(db):
+    """Sanity: base limpa, exit code 0."""
+    code, saida = _rodar_verificar_integridade()
+    assert code == 0
+    assert "Nenhuma inconsistência" in saida
+
+
+# --- Filtros em /auditoria (Tarefa 1.3 v0.7.3) ---
+
+
+def _criar_log(modelo, actor, action, pk):
+    """Helper: cria LogEntry diretamente para testar os filtros da view."""
+    from auditlog.models import LogEntry
+    from django.contrib.contenttypes.models import ContentType
+
+    ct = ContentType.objects.get_for_model(modelo)
+    return LogEntry.objects.create(
+        content_type=ct,
+        object_pk=str(pk),
+        object_repr=f"{modelo.__name__}#{pk}",
+        action=action,
+        actor=actor,
+    )
+
+
+def test_auditoria_filtra_por_usuario(client, admin_user, chefe, pessoa):
+    """Filtro ?usuario=<email_parcial> deixa só LogEntries em que actor.email
+    contém o parcial. View usa actor__email__icontains."""
+    from auditlog.models import LogEntry
+
+    _criar_log(Pessoa, admin_user, LogEntry.Action.UPDATE, pessoa.pk)
+    _criar_log(Pessoa, chefe, LogEntry.Action.UPDATE, pessoa.pk)
+
+    client.force_login(admin_user)
+    resp = client.get(reverse("core:auditoria"), {"usuario": "chefe@"})
+    assert resp.status_code == 200
+    logs = list(resp.context["logs"])
+    assert len(logs) >= 1
+    assert all(log.actor_id == chefe.pk for log in logs)
+
+
+def test_auditoria_filtra_por_modelo(client, admin_user, pessoa, demanda):
+    """Filtro ?modelo=<content_type_id> deixa só LogEntries do CT escolhido."""
+    from auditlog.models import LogEntry
+    from django.contrib.contenttypes.models import ContentType
+
+    _criar_log(Pessoa, admin_user, LogEntry.Action.UPDATE, pessoa.pk)
+    _criar_log(Demanda, admin_user, LogEntry.Action.UPDATE, demanda.pk)
+
+    ct_pessoa = ContentType.objects.get_for_model(Pessoa)
+    client.force_login(admin_user)
+    resp = client.get(reverse("core:auditoria"), {"modelo": ct_pessoa.pk})
+    assert resp.status_code == 200
+    logs = list(resp.context["logs"])
+    assert len(logs) >= 1
+    assert all(log.content_type_id == ct_pessoa.pk for log in logs)
+
+
+def test_auditoria_filtra_por_acao(client, admin_user, pessoa):
+    """Filtro ?acao=<int> deixa só LogEntries da ação escolhida (1=UPDATE)."""
+    from auditlog.models import LogEntry
+
+    _criar_log(Pessoa, admin_user, LogEntry.Action.CREATE, pessoa.pk)
+    _criar_log(Pessoa, admin_user, LogEntry.Action.UPDATE, pessoa.pk)
+
+    client.force_login(admin_user)
+    resp = client.get(reverse("core:auditoria"), {"acao": LogEntry.Action.UPDATE})
+    assert resp.status_code == 200
+    logs = list(resp.context["logs"])
+    assert len(logs) >= 1
+    assert all(log.action == LogEntry.Action.UPDATE for log in logs)
+
+
+def test_auditoria_filtra_por_periodo_desde(client, admin_user, pessoa):
+    """Filtro ?desde=AAAA-MM-DD respeitado — desde=amanhã esvazia resultado."""
+    from datetime import date
+    from datetime import timedelta as td
+
+    from auditlog.models import LogEntry
+
+    _criar_log(Pessoa, admin_user, LogEntry.Action.UPDATE, pessoa.pk)
+
+    amanha = (date.today() + td(days=1)).isoformat()
+    client.force_login(admin_user)
+    resp = client.get(reverse("core:auditoria"), {"desde": amanha})
+    assert resp.status_code == 200
+    logs = list(resp.context["logs"])
+    assert len(logs) == 0
+
+
+# --- /entidades/ quick filter "com demanda em aberto" (Tarefa 2.1 v0.7.3) ---
+
+
+def test_entidades_quick_filter_com_demanda_aberta(client, admin_user, entidade, demanda):
+    """Espelho do test_pessoas_quick_filter_com_demanda_aberta: entidade
+    vinculada a demanda aberta aparece; entidade sem demanda não."""
+    from demandas.models import DemandaEntidade
+
+    DemandaEntidade.objects.create(demanda=demanda, entidade=entidade, papel="solicitante")
+    outra = Entidade.objects.create(nome="Sem demanda", tipo="associacao", criado_por=admin_user)
+    client.force_login(admin_user)
+    resp = client.get(reverse("pessoas:entidade_lista") + "?filtro=com_demanda_aberta")
+    assert resp.status_code == 200
+    assert entidade.nome.encode() in resp.content
+    assert outra.nome.encode() not in resp.content
+
+
+# --- /inbox/ listagem: filtros e badges (Tarefa 2.2 v0.7.3) ---
+
+
+def test_inbox_lista_default_mostra_so_pendentes(client, admin_user):
+    """Sem querystring, /inbox/ filtra status=pendente. Descartados/processados ficam fora."""
+    from demandas.models import ItemInbox
+
+    ItemInbox.objects.create(conteudo="Pendente visível", autor=admin_user)
+    ItemInbox.objects.create(
+        conteudo="Descartado invisível",
+        autor=admin_user,
+        status=ItemInbox.STATUS_DESCARTADO,
+        motivo_descarte="spam",
+    )
+    client.force_login(admin_user)
+    resp = client.get(reverse("demandas:inbox_lista"))
+    assert resp.status_code == 200
+    conteudos = {i.conteudo for i in resp.context["itens"]}
+    assert "Pendente visível" in conteudos
+    assert "Descartado invisível" not in conteudos
+
+
+def test_inbox_lista_filtro_todos_inclui_descartados(client, admin_user):
+    """?status=todos não aplica filtro de status — descartados aparecem."""
+    from demandas.models import ItemInbox
+
+    ItemInbox.objects.create(
+        conteudo="Descartado",
+        autor=admin_user,
+        status=ItemInbox.STATUS_DESCARTADO,
+        motivo_descarte="spam",
+    )
+    client.force_login(admin_user)
+    resp = client.get(reverse("demandas:inbox_lista") + "?status=todos")
+    assert resp.status_code == 200
+    conteudos = {i.conteudo for i in resp.context["itens"]}
+    assert "Descartado" in conteudos
+
+
+def test_inbox_lista_marca_envelhecimento_amber_e_red(client, admin_user):
+    """Item +7 dias ganha badge âmbar; +30 dias ganha vermelho.
+    Confirma que limite_7d/limite_30d do context chegam no template."""
+    from demandas.models import ItemInbox
+
+    velho = ItemInbox.objects.create(conteudo="Há 10 dias", autor=admin_user)
+    antigo = ItemInbox.objects.create(conteudo="Há 35 dias", autor=admin_user)
+    ItemInbox.objects.filter(pk=velho.pk).update(criado_em=timezone.now() - timedelta(days=10))
+    ItemInbox.objects.filter(pk=antigo.pk).update(criado_em=timezone.now() - timedelta(days=35))
+
+    client.force_login(admin_user)
+    resp = client.get(reverse("demandas:inbox_lista"))
+    assert resp.status_code == 200
+    body = resp.content
+    # Badges renderizadas com classes Tailwind amber/red
+    assert b"bg-amber-100" in body
+    assert b"Pendente h\xc3\xa1 +7d" in body
+    assert b"bg-red-100" in body
+    assert b"Pendente h\xc3\xa1 +30d" in body
+
+
+# --- /minhas-pendencias/: marcar realizada (Tarefa 2.3 v0.7.3) ---
+
+
+def test_minhas_pendencias_oferece_form_de_marcar_realizada(client, admin_user, demanda):
+    """View renderiza form apontando para interacao_realizada para cada pendência."""
+    pendencia = Interacao.objects.create(
+        demanda=demanda,
+        autor=admin_user,
+        tipo=Interacao.TIPO_CONTATO_PESSOA,
+        conteudo="Ligar amanhã",
+        status=Interacao.STATUS_AGENDADA,
+        data_ocorrencia=timezone.now() + timedelta(days=1),
+    )
+    client.force_login(admin_user)
+    resp = client.get(reverse("demandas:minhas_pendencias"))
+    assert resp.status_code == 200
+    url_esperada = reverse("demandas:interacao_realizada", args=[pendencia.pk])
+    assert url_esperada.encode() in resp.content
+
+
+def test_marcar_realizada_remove_pendencia_de_minhas_pendencias(client, admin_user, demanda):
+    """POST em interacao_realizada muda status para REALIZADA e a interação
+    sai da queryset de /minhas-pendencias/ (que filtra status=AGENDADA)."""
+    pendencia = Interacao.objects.create(
+        demanda=demanda,
+        autor=admin_user,
+        tipo=Interacao.TIPO_CONTATO_PESSOA,
+        conteudo="Ligar amanhã",
+        status=Interacao.STATUS_AGENDADA,
+        data_ocorrencia=timezone.now() + timedelta(days=1),
+    )
+    client.force_login(admin_user)
+    resp_post = client.post(reverse("demandas:interacao_realizada", args=[pendencia.pk]))
+    assert resp_post.status_code == 302
+    pendencia.refresh_from_db()
+    assert pendencia.status == Interacao.STATUS_REALIZADA
+    # E sai da lista
+    resp_lista = client.get(reverse("demandas:minhas_pendencias"))
+    pks_visiveis = [p.pk for p in resp_lista.context["pendencias"]]
+    assert pendencia.pk not in pks_visiveis

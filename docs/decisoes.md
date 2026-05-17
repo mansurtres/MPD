@@ -1847,4 +1847,43 @@ Revisão técnica auditou dependências do `pyproject.toml`:
 
 ---
 
+## ADR 0053 — `registrar_export` grava `LogEntry` (visível em `/auditoria`)
+
+**Data:** 2026-05-17 (v0.7.3)
+
+### Contexto
+
+O roadmap §4.6.3 estabelece como critério literal: "Toda exportação registra entrada no auditlog (quem, quando, filtros aplicados, total)". A Fase 6 entregou `core.utils.registrar_export` escrevendo apenas em logger Python (`mpd.exports`) — bom para operação (arquivo de log do servidor), mas **invisível para o auditor humano** que usa `/auditoria`.
+
+Implicações:
+
+- Chefe de Gabinete sem acesso à máquina do servidor não conseguia auditar exportações.
+- Exportação CSV é o jeito mais barato de tirar dados sensíveis do sistema (planilha vai para WhatsApp/email); precisa estar visível para quem é responsável por revisar acesso.
+- Coerente com ADR 0050 (auditlog estendido a Interacao/ItemInbox): "auditlog é a trilha", logger fica como linha de defesa operacional.
+
+### Decisão
+
+`registrar_export` passa a criar `LogEntry` com `action=ACCESS` (constante do `django-auditlog` 3+, valor 3) usando o `ContentType` do modelo exportado (Demanda / Pessoa / Encaminhamento). Logger Python continua escrevendo em paralelo — se o auditlog falhar por qualquer motivo, ainda sobra rastro.
+
+Campos do `LogEntry`:
+
+- `content_type`: do modelo exportado.
+- `object_pk`: vazio (exportação é agregada, não toca registro específico).
+- `object_repr`: `"Exportação CSV — {Modelo} ({N} registros)"`.
+- `action`: `ACCESS`.
+- `changes_text`: JSON com `{filtros, total}`.
+- `actor`: `request.user`.
+
+`AuditoriaListView` e `core/auditoria.html` já contemplavam `ACCESS` no filtro de ações (preparados na v0.7.2) — sem ajustes adicionais.
+
+### Consequências
+
+- `/auditoria` ganha entradas por export, filtráveis pela ação "Acessou".
+- Volume marginal: ~1 LogEntry por export. Em uso normal (poucas exportações/dia), impacto desprezível.
+- Critério literal do roadmap §4.6.3 fechado.
+- 3 testes novos em `demandas/tests.py` cobrindo os 3 endpoints de export.
+- Se `LogEntry.objects.create` falhar (banco do auditlog indisponível), o export ainda completa — `try/except` defensivo grava `logger.exception` mas não derruba a resposta HTTP.
+
+---
+
 *Decisões adicionadas em ordem cronológica conforme surgem. Cada decisão registrada uma vez; alterações futuras criam nova ADR (não editam a anterior).*
