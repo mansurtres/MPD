@@ -1579,4 +1579,59 @@ Mecânica:
 
 ---
 
+## ADR 0046 — Inserção da Fase 4 (Visões Transversais) + princípio "Demanda é o núcleo, partículas não viram entidades autônomas"
+
+**Data:** 2026-05-16
+**Status:** Aceito
+
+### Contexto
+
+Após teste manual da Fase 3, ficou evidente uma lacuna operacional: o sistema não oferece uma forma de olhar para todos os encaminhamentos cruzando demandas — pergunta natural do trabalho do gabinete ("quais ofícios estão aguardando resposta há mais de 30 dias?"). Hoje, isso só se resolve via Django admin, que não é UI de produto.
+
+Discutimos três caminhos:
+1. Adicionar a lista agora, como ajuste pequeno da Fase 3 sem fase própria.
+2. Empurrar pra Fase 4 (originalmente Inbox GTD + Pendências), onde "pendências do gabinete" naturalmente incluiria encaminhamentos abertos.
+3. Inserir uma fase nova entre as Fases 3 e 4.
+
+Caminho 3 venceu pela coesão do roadmap: empacotar todas as **leituras agregadas das partículas** numa fase de pequeno escopo, que prepara o terreno pra Fase 5 (Inbox/Pendências) sem sobrecarregá-la.
+
+Antes de fixar o escopo, surgiu um risco: ao falar em "lista de encaminhamentos", "lista de anexos", começou a soar como se o sistema fosse perder o foco em Demanda. Pedro corrigiu explicitamente: **o sistema não pode deixar de ter Demanda como núcleo**. Essa correção virou princípio durador.
+
+### Decisão
+
+**1. Inserir a Fase 4 — Visões Transversais (v0.5).** Renumerar Fases 4/5/6 anteriores como 5/6/7 (v0.6/0.7/1.0 respectivamente). Detalhe do escopo em `roadmap.md §Fase 4`.
+
+**2. Estabelecer o princípio "Demanda é o núcleo do MPD; partículas não viram entidades autônomas".** Estende ADR 0045 (encaminhamento na timeline) para o nível arquitetural geral:
+
+- **Demanda é o único ponto de edição.** Toda mutação em Encaminhamento, Interação, Anexo acontece dentro do detalhe da Demanda. Nenhuma view de CRUD fora dele para essas partículas.
+- **Listas cross (`/encaminhamentos/` e similares) são lentes de leitura agregada**, não ciclos de vida próprios. Paginação, filtros, busca. Sem botão "Novo" no escopo da lista.
+- **Cada item da lista cross é deep-link de volta para a Demanda** onde a partícula vive. A navegação leva ao detalhe da Demanda com o item em foco quando viável.
+
+**3. Escopo enxuto da Fase 4** — só Encaminhamentos como lista cross. Anexos foram considerados e descartados (não são partículas com ciclo próprio — são arquivos mortos pendurados, perguntas operacionais sobre eles se respondem melhor pela lista de Encaminhamentos com filtros).
+
+### Alternativas consideradas e descartadas
+
+- **Empacotar lista de encaminhamentos dentro da Fase 5 (Inbox)** — junta dois temas conceitualmente diferentes ("pendências do usuário" = Interações agendadas vs "encaminhamentos abertos" = órgãos que não responderam). Fase 5 ficaria mais densa sem ganho conceitual.
+- **Adicionar a lista como extensão da Fase 3 sem fase própria** — Pedro avaliou como desorganização do planejamento. Decisões merecem cabeçalho.
+- **Incluir lista de anexos** — sem caso de uso recorrente. Análise feita: perguntas sobre anexos se respondem via lista de Encaminhamentos filtrada por órgão (o anexo aparece na navegação até a Demanda). Manter o escopo enxuto vence overengineering.
+- **Permitir CRUD de encaminhamento na lista cross** — quebraria o princípio "Demanda é o núcleo". Vários pontos de entrada pra editar a mesma coisa = spaghetti de modelos mentais. Recusado.
+
+### Justificativa
+
+- **Coesão do roadmap.** Fase 4 (Visões Transversais) e Fase 5 (Inbox GTD) têm escopos conceitualmente distintos. Empacotar separadamente preserva foco em cada uma.
+- **Maturidade incremental da navegação.** Quando Fase 5 (Inbox/Pendências) entrar, o usuário já vai estar acostumado com listas cross e deep-link. Isso reduz risco de UX da Fase 5.
+- **Princípio "Demanda é o núcleo" agora explícito** evita decisões futuras que possam acidentalmente quebrar a coesão. Toda proposta nova passa pelo filtro: "isso amplia a leitura sobre a Demanda, ou cria um eixo paralelo?"
+- **Escopo enxuto reduz risco de spaghetti.** Sem CRUD próprio, sem detalhe próprio de partícula, sem ações em lote (overkill agora). 2-3 horas de trabalho — entrega rápida que prepara a próxima fase grande.
+
+### Consequências
+
+- `roadmap.md` renumerado e Fase 4 nova inserida.
+- `CLAUDE.md` §5 atualizado com novo marco e referência a esta ADR.
+- `mapa-de-telas.md` ganha (quando da implementação) rota `/encaminhamentos/`.
+- Implementação da Fase 4 só começa após v0.4.2 tagueada (fechamento dos polimentos atuais de Fase 3).
+- Princípio "Demanda é o núcleo" entra também na memória do projeto (`feedback_demanda_e_o_nucleo`) para servir de filtro em propostas futuras.
+- Não impacta ADRs anteriores. Estende o espírito da ADR 0045 (encaminhamento na timeline) para o nível arquitetural geral.
+
+---
+
 *Decisões adicionadas em ordem cronológica conforme surgem. Cada decisão registrada uma vez; alterações futuras criam nova ADR (não editam a anterior).*

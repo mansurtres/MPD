@@ -168,7 +168,7 @@ Ideia que parece "óbvia" e não está no doc → primeiro vira ADR ou backlog.
 
 **148 testes passando** ao final da v0.4.2 (+6 sobre v0.4.0: novos casos cobrem responsiva sem devolutiva, responsiva com devolutiva + resultado pendente, responsiva concluída ok, proativa sem devolutiva ok, proativa sem resultado bloqueada). ADRs 0001–0043.
 
-**Próximo marco:** v0.5 — Fase 4 (Inbox GTD e Minhas Pendências). Ver [`roadmap.md`](./roadmap.md) §4.4.
+**Próximo marco:** v0.5 — **Fase 4 (Visões Transversais)** — lista de Encaminhamentos como leitura agregada + quick filters operacionais nas listas existentes. Demanda continua como núcleo do sistema; partículas não viram entidades autônomas (ADR 0046). Fase 5 (Inbox GTD) foi renumerada para v0.6.
 
 ---
 

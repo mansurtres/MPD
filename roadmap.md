@@ -45,9 +45,10 @@ Tudo open source, gratuito enquanto local, pronto para deploy. Detalhes e justif
 - `v0.2` — Fase 1: Autenticação e Usuários
 - `v0.3` — Fase 2: Pessoas e Entidades
 - `v0.4` — Fase 3: Casos e Interações (incluindo follow-up e interações automáticas)
-- `v0.5` — Fase 4: Inbox GTD + Minhas Pendências
-- `v0.6` — Fase 5: Análise, Auditoria, LGPD
-- `v1.0` — Fase 6: Polimento e Web
+- `v0.5` — Fase 4: Visões Transversais (lente de leitura sobre as partículas)
+- `v0.6` — Fase 5: Inbox GTD + Minhas Pendências
+- `v0.7` — Fase 6: Análise, Auditoria, LGPD
+- `v1.0` — Fase 7: Polimento e Web
 
 Cada versão é tag Git, marco testável e utilizável. Não se avança sem critérios de aceite satisfeitos.
 
@@ -353,9 +354,67 @@ pytest demandas/ -v --cov=demandas
 
 ---
 
-### Fase 4 — Inbox GTD e Minhas Pendências
+### Fase 4 — Visões Transversais
 
 **Versão:** `v0.5`
+**Objetivo:** lente de leitura agregada sobre as partículas que orbitam a Demanda (encaminhamentos), sem criar entidades autônomas. Demanda continua sendo o núcleo conceitual e o único ponto de edição. As listas cross são deep-links de volta para a Demanda.
+
+#### 4.4.1. Pré-requisitos
+
+Fase 3 concluída.
+
+#### 4.4.2. Especificações
+
+1. **Lista de Encaminhamentos** (`/encaminhamentos/`)
+   - Leitura agregada, paginada (25/pg). Cada linha é deep-link para a Demanda associada (não tem detalhe próprio de encaminhamento).
+   - Colunas: tipo de documento + órgão (ex.: "Indicação → Semus"), demanda (número como link), data envio, prazo (badge vermelho se vencido), status atual.
+   - Filtros: status (enviado / prazo vencido / respondido satisfatório / respondido insatisfatório / sem resposta), órgão (autocomplete dos órgãos já usados), tipo de documento.
+   - Quick filters: "Aguardando resposta", "Prazo vencido", "Respondidos esta semana".
+   - Respeita a visibilidade da Demanda associada — usuário sem permissão para a Demanda não vê o Encaminhamento na lista.
+   - Sem botão "+ Novo" na própria lista. Encaminhamento só nasce dentro de uma Demanda.
+
+2. **Quick filters operacionais novos nas listas existentes**
+   - `/demandas/`: "Com encaminhamento aberto", "Sem encaminhamento".
+   - `/pessoas/`: "Com demanda em aberto".
+   - `/entidades/`: "Com demanda em aberto".
+
+3. **Topbar** ganha link "Encaminhamentos" depois de "Entidades".
+
+4. **Documentação**
+   - ADR 0046 registra a inserção da fase e o princípio "Demanda como núcleo; partículas não viram entidades autônomas".
+   - `mapa-de-telas.md` atualizado com a rota `/encaminhamentos/`.
+
+#### 4.4.3. Critérios de Aceite
+
+- [ ] `/encaminhamentos/` lista todos os Encaminhamentos visíveis ao usuário, paginados.
+- [ ] Filtros (status, órgão, tipo documento) e quick filters funcionam isoladamente e em combinação.
+- [ ] Visibilidade respeita a restrição da Demanda: encaminhamento de demanda restrita não aparece para quem não pode ver a demanda.
+- [ ] Linha de encaminhamento leva ao detalhe da Demanda associada.
+- [ ] `/demandas/` mostra os novos quick filters; resultados coerentes.
+- [ ] `/pessoas/` e `/entidades/` mostram os novos quick filters; resultados coerentes.
+- [ ] Topbar tem link "Encaminhamentos" para quem tem `demandas.view_encaminhamento`.
+
+#### 4.4.4. Validação
+
+```bash
+pytest demandas/ -v -k "encaminhamento_lista or visao_transversal"
+```
+
+#### 4.4.5. Verificação Manual
+
+1. Como ADM, abrir `/encaminhamentos/`. Confirmar listagem.
+2. Filtrar por órgão "Semus". Confirmar redução.
+3. Quick filter "Prazo vencido". Confirmar lista de vencidos.
+4. Clicar em uma linha → cai no detalhe da Demanda com o encaminhamento expandido.
+5. Como Assessor de Comunicação, abrir `/encaminhamentos/`. Confirmar que encaminhamentos de demandas restritas de outras coordenações não aparecem.
+6. Em `/demandas/`, clicar "Com encaminhamento aberto". Confirmar lista.
+7. Em `/pessoas/`, clicar "Com demanda em aberto". Confirmar lista.
+
+---
+
+### Fase 5 — Inbox GTD e Minhas Pendências
+
+**Versão:** `v0.6`
 **Objetivo:** captura rápida em segundos, triagem em momento separado. Visão consolidada das pendências do usuário.
 
 #### 4.4.1. Pré-requisitos
@@ -414,14 +473,14 @@ pytest demandas/ -v -k "inbox or pendencia"
 
 ---
 
-### Fase 5 — Análise, Auditoria, LGPD
+### Fase 6 — Análise, Auditoria, LGPD
 
-**Versão:** `v0.6`
+**Versão:** `v0.7`
 **Objetivo:** robustez e responsabilidade. Filtros poderosos, exportações, auditoria, LGPD, gestão da equipe.
 
 #### 4.5.1. Pré-requisitos
 
-Fase 4 concluída.
+Fase 5 concluída.
 
 #### 4.5.2. Especificações
 
@@ -487,14 +546,14 @@ bash scripts/backup.sh /tmp/test-backup
 
 ---
 
-### Fase 6 — Polimento e Web
+### Fase 7 — Polimento e Web
 
 **Versão:** `v1.0`
 **Objetivo:** sistema pronto para uso interno do gabinete e deploy.
 
 #### 4.6.1. Pré-requisitos
 
-Fase 5 concluída.
+Fase 6 concluída.
 
 #### 4.6.2. Especificações
 
@@ -579,10 +638,10 @@ A partir de `v1.0`, evolução guiada por uso real.
 | Risco | Probabilidade | Impacto | Mitigação |
 |---|---|---|---|
 | Equipe não adota (continua no WhatsApp solto) | Alta | Alto | Captura rápida realmente fácil; onboarding cuidadoso; exemplos concretos |
-| Performance degrada com base grande | Média | Médio | Índices bem definidos; paginação; otimização na Fase 6 |
-| Vazamento de dados | Baixa | Crítico | Auditoria desde Fase 5; hospedagem BR; backup criptografado |
-| Demanda LGPD inesperada | Média | Alto | Política definida na Fase 5; controlador identificado |
-| Pedro fica dependente de Claude Code para evoluir | Alta | Médio | Documentação completa na Fase 6; ADRs; código limpo |
+| Performance degrada com base grande | Média | Médio | Índices bem definidos; paginação; otimização na Fase 7 |
+| Vazamento de dados | Baixa | Crítico | Auditoria desde Fase 6; hospedagem BR; backup criptografado |
+| Demanda LGPD inesperada | Média | Alto | Política definida na Fase 6; controlador identificado |
+| Pedro fica dependente de Claude Code para evoluir | Alta | Médio | Documentação completa na Fase 7; ADRs; código limpo |
 | Não-reeleição em 2028 | Média | Variável | Dados exportáveis; sistema migrável; propriedade clara |
 | Uso indevido em campanha | Baixa | Crítico | Sistema é para mandato; uso eleitoral exigirá filtragem + consentimento conforme momento |
 
