@@ -1234,3 +1234,108 @@ def test_context_processor_conta_pendencias_vencidas(client, admin_user, demanda
     client.force_login(admin_user)
     resp = client.get(reverse("demandas:demanda_lista"))
     assert resp.context["topbar_pendencias_vencidas"] == 1
+
+
+# --- Fase 6 — Segurança, Visualização, Exportação (ADR 0047) ---
+
+
+def test_export_csv_demandas_acessivel_a_coordenador(client, coord_juridico, demanda):
+    client.force_login(coord_juridico)
+    resp = client.get(reverse("demandas:demanda_export_csv"))
+    assert resp.status_code == 200
+    assert resp["Content-Type"].startswith("text/csv")
+    assert b"\xef\xbb\xbf" in resp.content[:5]  # BOM
+    assert b";" in resp.content  # separador BR
+    assert demanda.numero.encode() in resp.content
+
+
+def test_export_csv_bloqueia_assessor(client, assessor, demanda):
+    client.force_login(assessor)
+    resp = client.get(reverse("demandas:demanda_export_csv"))
+    assert resp.status_code == 403
+
+
+def test_export_csv_respeita_filtros_da_querystring(client, admin_user, pessoa):
+    Demanda.objects.create(
+        titulo="Demanda gabinete",
+        descricao="X",
+        canal_entrada="presencial",
+        coordenacao_responsavel="gabinete",
+        criado_por=admin_user,
+        anonimo=True,
+    )
+    Demanda.objects.create(
+        titulo="Demanda juridico",
+        descricao="Y",
+        canal_entrada="oficio",
+        coordenacao_responsavel="juridico",
+        criado_por=admin_user,
+        anonimo=True,
+    )
+    client.force_login(admin_user)
+    resp = client.get(reverse("demandas:demanda_export_csv") + "?coord=juridico")
+    assert resp.status_code == 200
+    assert b"Demanda juridico" in resp.content
+    assert b"Demanda gabinete" not in resp.content
+
+
+def test_auditoria_acessivel_a_admin(client, admin_user, demanda):
+    # Demanda criada gera LogEntry via auditlog.
+    client.force_login(admin_user)
+    resp = client.get(reverse("core:auditoria"))
+    assert resp.status_code == 200
+
+
+def test_auditoria_bloqueia_coordenador(client, coord_juridico):
+    client.force_login(coord_juridico)
+    resp = client.get(reverse("core:auditoria"))
+    assert resp.status_code == 403
+
+
+def test_analise_acessivel_a_coordenador(client, coord_juridico, demanda):
+    client.force_login(coord_juridico)
+    resp = client.get(reverse("core:analise"))
+    assert resp.status_code == 200
+    # Métricas no contexto
+    assert "por_tema" in resp.context
+    assert "por_mes" in resp.context
+    assert "top_pessoas" in resp.context
+    assert "carga_assessores" in resp.context
+
+
+def test_analise_bloqueia_assessor(client, assessor):
+    client.force_login(assessor)
+    resp = client.get(reverse("core:analise"))
+    assert resp.status_code == 403
+
+
+def test_verificar_integridade_detecta_devolutiva_faltando(db, admin_user, pessoa):
+    """Demanda responsiva concluída sem Interação devolutiva é detectada
+    pelo comando (cria via bypass do clean — simula dado corrompido)."""
+    from io import StringIO
+
+    from django.core.management import call_command
+
+    d = Demanda(
+        titulo="Sem devolutiva",
+        descricao="X",
+        canal_entrada="presencial",
+        coordenacao_responsavel="gabinete",
+        origem=Demanda.ORIGEM_RESPONSIVA,
+        resultado=Demanda.RESULTADO_ATENDIDO,
+        criado_por=admin_user,
+        anonimo=True,
+    )
+    # Bypass clean() pra simular drift de dados:
+    d.save()
+    DemandaPessoa.objects.create(demanda=d, pessoa=pessoa, papel="solicitante")
+    Demanda.objects.filter(pk=d.pk).update(status=Demanda.STATUS_CONCLUIDA)
+
+    out = StringIO()
+    try:
+        call_command("verificar_integridade", stdout=out)
+    except SystemExit as e:
+        # sys.exit(1) é esperado quando há inconsistências
+        assert e.code == 1
+    saida = out.getvalue()
+    assert "Sem devolutiva" in saida or "responsiva concluída" in saida

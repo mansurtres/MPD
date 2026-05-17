@@ -3,11 +3,18 @@
 {% block app_conteudo %}
 <div class="flex items-center justify-between mb-6">
   <h1 class="text-xl font-semibold text-slate-900">Pessoas</h1>
-  {% if perms.pessoas.add_pessoa %}
-  <a href="{% url 'pessoas:pessoa_nova' %}" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
-    Nova pessoa
-  </a>
-  {% endif %}
+  <div class="flex items-center gap-3">
+    {% if pode_exportar %}
+    <a href="{% url 'pessoas:pessoa_export_csv' %}?{{ request.GET.urlencode }}" class="text-sm text-slate-700 hover:text-slate-900 underline">
+      Exportar CSV
+    </a>
+    {% endif %}
+    {% if perms.pessoas.add_pessoa %}
+    <a href="{% url 'pessoas:pessoa_nova' %}" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+      Nova pessoa
+    </a>
+    {% endif %}
+  </div>
 </div>
 
 <div class="flex flex-wrap gap-2 mb-4 text-sm">

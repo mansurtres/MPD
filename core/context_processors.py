@@ -12,8 +12,9 @@ def mandato(request):
 
 def pendencias_usuario(request):
     """Contadores para topbar (Fase 5): pendências vencidas do usuário e
-    itens pendentes no inbox. Só popula se logado — sem query a mais para
-    requests anônimas."""
+    itens pendentes no inbox. Inclui também flags de papel para uso em
+    templates (Fase 6 — auditoria e análise). Só popula se logado — sem
+    query a mais para requests anônimas."""
     if not getattr(request, "user", None) or not request.user.is_authenticated:
         return {}
     # Imports tardios para evitar circularidade com apps que ainda não
@@ -26,7 +27,19 @@ def pendencias_usuario(request):
         data_ocorrencia__lt=timezone.now(),
     ).count()
     inbox_pendente = ItemInbox.objects.filter(status=ItemInbox.STATUS_PENDENTE).count()
+
+    grupos = set(request.user.groups.values_list("name", flat=True))
+    eh_admin = request.user.is_superuser or "Administrador" in grupos
+    eh_chefe = "Chefe de Gabinete" in grupos
+    eh_coordenador = "Coordenador" in grupos
+
     return {
         "topbar_pendencias_vencidas": vencidas,
         "topbar_inbox_pendentes": inbox_pendente,
+        "papel_eh_admin": eh_admin,
+        "papel_eh_chefe": eh_chefe,
+        "papel_eh_coordenador": eh_coordenador,
+        # Conveniência: CG+ (acesso à auditoria) e CO+ (export, análise).
+        "papel_cg_plus": eh_admin or eh_chefe,
+        "papel_co_plus": eh_admin or eh_chefe or eh_coordenador,
     }

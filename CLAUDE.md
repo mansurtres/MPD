@@ -56,7 +56,7 @@ Ideia que parece "óbvia" e não está no doc → primeiro vira ADR ou backlog.
 
 ## 5. Estado atual
 
-**Fase corrente:** v0.6 — **Fase 5 (Inbox GTD e Minhas Pendências) concluída.** Captura rápida via Ctrl+K / FAB / `/inbox/capturar/`, triagem de inbox que converte item em demanda, e visão consolidada de pendências do usuário (interações agendadas) com vencidas no topo.
+**Fase corrente:** v0.7 — **Fase 6 (Segurança, Visualização, Exportação) concluída.** Filtros poderosos + exportação CSV nas listas principais; painel `/analise` com toggle tabela/gráfico (Chart.js CDN); auditoria UI `/auditoria` com diff visual; infra operacional (`/healthz`, `scripts/backup.sh`, `manage.py verificar_integridade`). LGPD foi **adiada para Fase 8 (v1.1)** — ADR 0047 documenta a decisão.
 
 **Fundação (Fase 0/1, mantido):**
 - Django 5.2 + PostgreSQL 16 + Tailwind v4 standalone.
@@ -192,7 +192,19 @@ Ideia que parece "óbvia" e não está no doc → primeiro vira ADR ou backlog.
 
 **171 testes passando** ao final da v0.6 (+8 sobre v0.5: captura simples, captura AJAX, processar cria demanda + marca item, descartar exige motivo, pendências do usuário, vencidas no topo, reuniões filtradas, context processor). ADRs 0001–0046.
 
-**Próximo marco:** v0.7 — Fase 6 (Análise, Auditoria, LGPD). Ver [`roadmap.md`](./roadmap.md) §Fase 6.
+**Fase 6 — Segurança, Visualização, Exportação (v0.7):**
+- **Filtros + Exportação CSV** em `/demandas/`, `/pessoas/`, `/encaminhamentos/`. UTF-8 BOM + separador `;` (Excel BR). Limite 10k. Permissão CO+ (`_pode_exportar` em `demandas/views.py`). Cada exportação registra evento via `core.utils.registrar_export` (logger `mpd.exports`).
+- **Painel `/analise`** (CO+) com 6 métricas: demandas por tema, por mês (últimos 12), por coordenação, top 20 pessoas, encaminhamentos pendentes por órgão, carga por assessor. Cada bloco tem **toggle tabela/gráfico** (Chart.js v4 via CDN — bar, line, doughnut).
+- **Auditoria UI `/auditoria`** (CG+): lista paginada do `auditlog_logentry` com filtros (usuário, modelo, ação, período). Diff visual antes/depois por campo. `actor` pode ser `None` (eventos do sistema) — template trata.
+- **`/healthz`** verifica conexão ao DB (retorna 503 se cursor.execute falha); público.
+- **`scripts/backup.sh`** lê `.env`, prefere `DATABASE_URL`, fallback para variáveis individuais. Timestamp no nome do arquivo. Doc inline.
+- **`manage.py verificar_integridade`** detecta 5 categorias: responsiva concluída sem devolutiva, anexo órfão (arquivo ou content_type), encaminhamento prazo passado com status=enviado, ItemInbox pendente +90d, Interação agendada +180d. Exit code 1 se encontrou problema (cron monitorado).
+- **Topbar** ganha card "Auditoria" (CG+) e "Painel de análise" (CO+) em `/configuracoes/`. Flags `papel_eh_admin`, `papel_eh_chefe`, `papel_eh_coordenador`, `papel_cg_plus`, `papel_co_plus` adicionados ao `context_processors.pendencias_usuario` para uso simples em templates.
+- **LGPD adiada** para Fase 8 (v1.1) — ADR 0047 explica a decisão (LGPD obrigatória só com exposição pública; MVP é uso interno).
+
+**179 testes passando** ao final da v0.7 (+8 sobre v0.6: CSV export OK, CSV bloqueia assessor, CSV respeita querystring, auditoria abre p/ admin, auditoria bloqueia coord, análise abre p/ coord, análise bloqueia assessor, verificar_integridade detecta devolutiva faltando). ADRs 0001–0047.
+
+**Próximo marco:** v1.0 — Fase 7 (Polimento e Web). Ver [`roadmap.md`](./roadmap.md) §Fase 7.
 
 ---
 
@@ -271,4 +283,4 @@ Para o histórico completo ver [`docs/decisoes.md`](./docs/decisoes.md). Decisõ
 
 ---
 
-*Atualizar este arquivo ao fim de cada fase. Última atualização: 2026-05-16 (v0.6 — Fase 5 Inbox GTD + Minhas Pendências).*
+*Atualizar este arquivo ao fim de cada fase. Última atualização: 2026-05-17 (v0.7 — Fase 6 Segurança, Visualização, Exportação; LGPD adiada para Fase 8 via ADR 0047).*

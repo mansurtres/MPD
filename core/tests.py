@@ -12,7 +12,8 @@ Usuario = get_user_model()
 # --- Views ---
 
 
-def test_healthz_responde_ok(client):
+def test_healthz_responde_ok(client, db):
+    # /healthz verifica o banco; precisa da fixture db para ter conexão.
     response = client.get(reverse("core:healthz"))
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}

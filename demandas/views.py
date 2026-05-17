@@ -52,6 +52,16 @@ def _filtrar_visiveis(qs, user):
     return qs.filter(Q(restrito=False) | Q(responsavel=user))
 
 
+def _pode_exportar(user):
+    """Coordenador, Chefe de Gabinete, Administrador. Critério de Fase 6."""
+    return (
+        user.is_superuser
+        or user.groups.filter(
+            name__in=["Administrador", "Chefe de Gabinete", "Coordenador"]
+        ).exists()
+    )
+
+
 class DemandaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     permission_required = "demandas.view_demanda"
     model = Demanda
@@ -143,6 +153,7 @@ class DemandaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         ctx["resultado_choices"] = Demanda.RESULTADO_CHOICES
         ctx["coord_choices"] = Demanda.COORDENACAO_CHOICES
         ctx["temas_disponiveis"] = Tema.objects.filter(ativo=True)
+        ctx["pode_exportar"] = _pode_exportar(self.request.user)
         return ctx
 
 
@@ -721,6 +732,7 @@ class EncaminhamentoListView(LoginRequiredMixin, PermissionRequiredMixin, ListVi
             .order_by("destinatario_orgao")
         )
         ctx["hoje"] = timezone.now().date()
+        ctx["pode_exportar"] = _pode_exportar(self.request.user)
         return ctx
 
 
@@ -1129,3 +1141,128 @@ class MinhasReunioesView(MinhasPendenciasView):
             .select_related("demanda")
             .order_by("data_ocorrencia")
         )
+
+
+# --- Fase 6: Exportação CSV ---
+
+
+class DemandaCSVExportView(LoginRequiredMixin, View):
+    """Exporta a lista de demandas filtrada pelo querystring para CSV BR
+    (UTF-8 BOM + separador ;). Limite 10k. CO+. Registra log."""
+
+    def get(self, request):
+        if not _pode_exportar(request.user):
+            raise PermissionDenied("Exportação restrita a Coordenadores e acima.")
+        # Reusa o queryset filtrado da lista pública: instancia DemandaListView,
+        # configura request, chama get_queryset.
+        lista = DemandaListView()
+        lista.request = request
+        lista.kwargs = {}
+        qs = lista.get_queryset()
+        total_filtrado = qs.count()
+        qs = qs[:10000]
+
+        import csv
+
+        from django.http import HttpResponse
+
+        response = HttpResponse(content_type="text/csv; charset=utf-8")
+        response["Content-Disposition"] = 'attachment; filename="demandas.csv"'
+        response.write("﻿")  # BOM para Excel BR
+        writer = csv.writer(response, delimiter=";")
+        writer.writerow(
+            [
+                "Número",
+                "Título",
+                "Origem",
+                "Canal",
+                "Status",
+                "Resultado",
+                "Coordenação",
+                "Responsável",
+                "Restrita",
+                "Anônima",
+                "Criada em",
+                "Prazo",
+                "Temas",
+            ]
+        )
+        for d in qs:
+            temas = ", ".join(t.nome for t in d.temas.all())
+            writer.writerow(
+                [
+                    d.numero,
+                    d.titulo,
+                    d.get_origem_display(),
+                    d.get_canal_entrada_display(),
+                    d.get_status_display(),
+                    d.get_resultado_display(),
+                    d.get_coordenacao_responsavel_display(),
+                    (d.responsavel.nome_completo or d.responsavel.email) if d.responsavel else "",
+                    "Sim" if d.restrito else "Não",
+                    "Sim" if d.anonimo else "Não",
+                    d.criado_em.strftime("%d/%m/%Y %H:%M"),
+                    d.prazo.strftime("%d/%m/%Y") if d.prazo else "",
+                    temas,
+                ]
+            )
+
+        from core.utils import registrar_export
+
+        registrar_export(request.user, "Demanda", dict(request.GET.lists()), total_filtrado)
+        return response
+
+
+class EncaminhamentoCSVExportView(LoginRequiredMixin, View):
+    def get(self, request):
+        if not _pode_exportar(request.user):
+            raise PermissionDenied("Exportação restrita a Coordenadores e acima.")
+        lista = EncaminhamentoListView()
+        lista.request = request
+        lista.kwargs = {}
+        qs = lista.get_queryset()
+        total_filtrado = qs.count()
+        qs = qs[:10000]
+
+        import csv
+
+        from django.http import HttpResponse
+
+        response = HttpResponse(content_type="text/csv; charset=utf-8")
+        response["Content-Disposition"] = 'attachment; filename="encaminhamentos.csv"'
+        response.write("﻿")
+        writer = csv.writer(response, delimiter=";")
+        writer.writerow(
+            [
+                "Demanda",
+                "Título da demanda",
+                "Órgão",
+                "Pessoa contato",
+                "Tipo documento",
+                "Nº documento",
+                "Data envio",
+                "Prazo resposta",
+                "Status",
+                "Data resposta",
+            ]
+        )
+        for e in qs:
+            writer.writerow(
+                [
+                    e.demanda.numero,
+                    e.demanda.titulo,
+                    e.destinatario_orgao,
+                    e.destinatario_pessoa or "",
+                    e.get_tipo_documento_display(),
+                    e.numero_documento or "",
+                    e.data_envio.strftime("%d/%m/%Y") if e.data_envio else "",
+                    e.prazo_resposta.strftime("%d/%m/%Y") if e.prazo_resposta else "",
+                    e.get_status_display(),
+                    e.data_resposta.strftime("%d/%m/%Y") if e.data_resposta else "",
+                ]
+            )
+
+        from core.utils import registrar_export
+
+        registrar_export(request.user, "Encaminhamento", dict(request.GET.lists()), total_filtrado)
+        return response

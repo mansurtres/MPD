@@ -86,6 +86,12 @@ class PessoaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         ctx["filtro"] = self.request.GET.get("filtro", "")
         ctx["mostrar_inativos"] = self.request.GET.get("inativos") == "1"
         ctx["tags_disponiveis"] = Tag.objects.filter(ativo=True)
+        ctx["pode_exportar"] = (
+            self.request.user.is_superuser
+            or self.request.user.groups.filter(
+                name__in=["Administrador", "Chefe de Gabinete", "Coordenador"]
+            ).exists()
+        )
         return ctx
 
 
@@ -600,3 +606,81 @@ class DeduplicacaoCheckView(LoginRequiredMixin, PermissionRequiredMixin, View):
                 }
             )
         return JsonResponse({"resultados": dados})
+
+
+# --- Fase 6: Exportação CSV de Pessoas ---
+
+
+class PessoaCSVExportView(LoginRequiredMixin, View):
+    """Exporta a lista de pessoas filtrada pelo querystring. CO+. Inclui
+    canais primários (telefone, email) mas não dados sensíveis em massa."""
+
+    def get(self, request):
+        if not (
+            request.user.is_superuser
+            or request.user.groups.filter(
+                name__in=["Administrador", "Chefe de Gabinete", "Coordenador"]
+            ).exists()
+        ):
+            from django.core.exceptions import PermissionDenied
+
+            raise PermissionDenied("Exportação restrita a Coordenadores e acima.")
+
+        lista = PessoaListView()
+        lista.request = request
+        lista.kwargs = {}
+        qs = lista.get_queryset()
+        total_filtrado = qs.count()
+        qs = qs[:10000]
+
+        import csv
+
+        from django.http import HttpResponse
+
+        response = HttpResponse(content_type="text/csv; charset=utf-8")
+        response["Content-Disposition"] = 'attachment; filename="pessoas.csv"'
+        response.write("﻿")
+        writer = csv.writer(response, delimiter=";")
+        writer.writerow(
+            [
+                "Nome",
+                "Sobrenome",
+                "Nome social",
+                "CPF",
+                "Nascimento",
+                "Bairro",
+                "Cidade",
+                "UF",
+                "Telefone (1º)",
+                "E-mail (1º)",
+                "Tags",
+                "Ativa",
+                "Criada em",
+            ]
+        )
+        for p in qs:
+            tel = p.telefones.first()
+            email = p.emails.first()
+            tags = ", ".join(t.nome for t in p.tags.all())
+            writer.writerow(
+                [
+                    p.nome,
+                    p.sobrenome or "",
+                    p.nome_social or "",
+                    p.cpf or "",
+                    p.data_nascimento.strftime("%d/%m/%Y") if p.data_nascimento else "",
+                    p.bairro or "",
+                    p.cidade or "",
+                    p.estado or "",
+                    tel.numero if tel else "",
+                    email.endereco if email else "",
+                    tags,
+                    "Sim" if p.ativo else "Não",
+                    p.criado_em.strftime("%d/%m/%Y %H:%M"),
+                ]
+            )
+
+        from core.utils import registrar_export
+
+        registrar_export(request.user, "Pessoa", dict(request.GET.lists()), total_filtrado)
+        return response

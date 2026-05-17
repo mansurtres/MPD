@@ -86,3 +86,30 @@ def validate_cep(value):
         return
     if len(somente_digitos(value)) != 8:
         raise ValidationError("CEP deve ter 8 dígitos.")
+
+
+# --- Auditoria de exportações (Fase 6) ---
+
+
+def registrar_export(user, modelo, filtros, total):
+    """Registra um evento de exportação para auditoria.
+
+    Logger 'mpd.exports' é configurado no settings; tipicamente grava em
+    arquivo separado em produção. Em dev, sai no console.
+
+    Args:
+        user: usuário que executou.
+        modelo: nome legível do modelo exportado (ex.: "Demanda").
+        filtros: dict de filtros aplicados (querystring).
+        total: número de registros exportados.
+    """
+    import logging
+
+    logger = logging.getLogger("mpd.exports")
+    logger.info(
+        "Exportação CSV — modelo=%s usuario=%s total=%d filtros=%s",
+        modelo,
+        getattr(user, "email", "anônimo"),
+        total,
+        filtros,
+    )

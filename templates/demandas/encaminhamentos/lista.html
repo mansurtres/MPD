@@ -3,6 +3,11 @@
 {% block app_conteudo %}
 <div class="flex items-center justify-between mb-2">
   <h1 class="text-xl font-semibold text-slate-900">Encaminhamentos</h1>
+  {% if pode_exportar %}
+  <a href="{% url 'demandas:encaminhamento_export_csv' %}?{{ request.GET.urlencode }}" class="text-sm text-slate-700 hover:text-slate-900 underline">
+    Exportar CSV
+  </a>
+  {% endif %}
 </div>
 <p class="text-sm text-slate-500 mb-6">Leitura agregada dos encaminhamentos de todas as demandas. Clique numa linha para abrir a demanda associada — a edição acontece sempre lá.</p>
 

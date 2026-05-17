@@ -72,6 +72,17 @@ urlpatterns = [
         views.EncaminhamentoListView.as_view(),
         name="encaminhamento_lista",
     ),
+    # --- Fase 6: Exportação CSV (CO+) ---
+    path(
+        "demandas/export.csv",
+        views.DemandaCSVExportView.as_view(),
+        name="demanda_export_csv",
+    ),
+    path(
+        "encaminhamentos/export.csv",
+        views.EncaminhamentoCSVExportView.as_view(),
+        name="encaminhamento_export_csv",
+    ),
     # --- Fase 5: Inbox GTD ---
     path("inbox/", views.InboxListView.as_view(), name="inbox_lista"),
     path("inbox/capturar/", views.CapturarInboxView.as_view(), name="inbox_capturar"),
