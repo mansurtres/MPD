@@ -479,7 +479,7 @@ pytest demandas/ -v -k "inbox or pendencia"
 ### Fase 6 — Segurança, Visualização, Exportação ✅
 
 **Versão:** `v0.7` (escopo principal) + `v0.7.1` (UX polishings) + `v0.7.2` (fechamento via ADRs 0048–0052)
-**Status:** **fechada em 2026-05-17** após revisão técnica externa que identificou e endereçou 5 gaps de segurança/robustez. Detalhes em [`docs/roteiro-v0.7.2.md`](./docs/roteiro-v0.7.2.md) e nas ADRs 0048–0052.
+**Status:** **fechada em 2026-05-17** após revisão técnica externa que identificou e endereçou 5 gaps de segurança/robustez. Detalhes nas ADRs 0048–0052 ([`docs/decisoes.md`](./docs/decisoes.md)).
 **Objetivo:** amplificar o trabalho da equipe. Filtros poderosos para encontrar; exportação para preparar relatórios; painel para ver o mandato em números; auditoria UI para rastreabilidade interna; infra básica para confiabilidade operacional.
 
 > **Mudança de escopo (ADR 0047):** privacidade/LGPD adiada para a Fase 8 (v1.1). MVP é uso interno do mandato, sem exposição pública — urgência de compliance só aparece com hospedagem aberta.

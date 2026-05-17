@@ -207,7 +207,7 @@ Ideia que parece "óbvia" e não está no doc → primeiro vira ADR ou backlog.
 **UX polishings (v0.7.1):** topbar reordenada (Inbox primeiro); autocomplete server-side de Pessoa/Entidade (endpoints `*_buscar_json`); papel das partes (DemandaPessoa/DemandaEntidade) ganha choices com "Outro" + texto livre; popup AJAX para criar Tema in-line no form de demanda. **190 testes passando.**
 
 **Fechamento de Fase 6 — segurança e robustez (v0.7.2):**
-A revisão técnica de fim-de-Fase-6 (chefe de área Anthropic, 2026-05-17) identificou 5 gaps. Endereçados em [`docs/roteiro-v0.7.2.md`](./docs/roteiro-v0.7.2.md):
+A revisão técnica de fim-de-Fase-6 (chefe de área Anthropic, 2026-05-17) identificou 5 gaps endereçados pelas ADRs 0048–0052:
 - **Centralização de checagem de papel** ([core/permissoes.py](core/permissoes.py)) — `eh_cg_plus`/`eh_co_plus` substituem 11 ocorrências de `groups.filter(name__in=[...])`. ADR 0048 (resolve violação de ADR 0024).
 - **Visibilidade de restritas no `/analise`** — manager `Demanda.objects.visiveis_para(user)`; 6 métricas + `top_pessoas` agora filtram corretamente. ADR 0049.
 - **Auditlog estendido** para `Interacao` e `ItemInbox` — fecha rastreabilidade de edição de devolutiva e descarte de inbox. ADR 0050 (revisita 0029).
