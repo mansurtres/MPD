@@ -134,18 +134,164 @@
       </div>
     </section>
 
-    {% if form.temas.field.queryset.exists %}
     <section class="bg-white border border-slate-200 rounded-xl p-6">
-      <h2 class="text-base font-semibold text-slate-900 mb-3">Temas</h2>
-      <div class="flex flex-wrap gap-3">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-base font-semibold text-slate-900">Temas</h2>
+        {% if perms.demandas.add_tema %}
+        <button type="button" id="abrir-novo-tema"
+                class="text-sm text-slate-700 hover:text-slate-900 underline">
+          + Novo tema
+        </button>
+        {% endif %}
+      </div>
+
+      <div class="flex flex-wrap gap-3" id="temas-checkboxes">
         {% for choice in form.temas %}
         <label class="inline-flex items-center gap-2 text-sm">
           {{ choice.tag }} <span>{{ choice.choice_label }}</span>
         </label>
         {% endfor %}
+        {% if not form.temas.field.queryset.exists %}
+        <span class="text-sm text-slate-500" id="sem-temas-msg">Nenhum tema cadastrado ainda. Use "+ Novo tema" para criar agora.</span>
+        {% endif %}
       </div>
+
+      {% if perms.demandas.add_tema %}
+      <div id="popup-novo-tema" class="hidden mt-4 border-t border-slate-100 pt-4">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+          <div class="md:col-span-2">
+            <label class="block text-xs font-medium text-slate-600 mb-1">Nome do tema</label>
+            <input type="text" id="novo-tema-nome" placeholder="Ex.: Saúde, Educação, Cultura..."
+                   class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Cor (opcional)</label>
+            <div id="paleta-cores" class="flex flex-wrap gap-1.5">
+              <button type="button" data-cor="" class="cor-btn w-6 h-6 rounded-full border border-slate-300 bg-slate-100" title="Sem cor"></button>
+              <button type="button" data-cor="#d50000" class="cor-btn w-6 h-6 rounded-full border border-slate-300" style="background:#d50000" title="Tomate"></button>
+              <button type="button" data-cor="#e67c73" class="cor-btn w-6 h-6 rounded-full border border-slate-300" style="background:#e67c73" title="Flamingo"></button>
+              <button type="button" data-cor="#f4511e" class="cor-btn w-6 h-6 rounded-full border border-slate-300" style="background:#f4511e" title="Tangerina"></button>
+              <button type="button" data-cor="#f6bf26" class="cor-btn w-6 h-6 rounded-full border border-slate-300" style="background:#f6bf26" title="Banana"></button>
+              <button type="button" data-cor="#33b679" class="cor-btn w-6 h-6 rounded-full border border-slate-300" style="background:#33b679" title="Sálvia"></button>
+              <button type="button" data-cor="#0b8043" class="cor-btn w-6 h-6 rounded-full border border-slate-300" style="background:#0b8043" title="Manjericão"></button>
+              <button type="button" data-cor="#039be5" class="cor-btn w-6 h-6 rounded-full border border-slate-300" style="background:#039be5" title="Pavão"></button>
+              <button type="button" data-cor="#3f51b5" class="cor-btn w-6 h-6 rounded-full border border-slate-300" style="background:#3f51b5" title="Mirtilo"></button>
+              <button type="button" data-cor="#7986cb" class="cor-btn w-6 h-6 rounded-full border border-slate-300" style="background:#7986cb" title="Lavanda"></button>
+              <button type="button" data-cor="#8e24aa" class="cor-btn w-6 h-6 rounded-full border border-slate-300" style="background:#8e24aa" title="Uva"></button>
+              <button type="button" data-cor="#616161" class="cor-btn w-6 h-6 rounded-full border border-slate-300" style="background:#616161" title="Grafite"></button>
+            </div>
+          </div>
+        </div>
+        <div class="flex gap-2 mt-3">
+          <button type="button" id="confirmar-novo-tema"
+                  class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-4 py-1.5 rounded-lg">
+            Criar e selecionar
+          </button>
+          <button type="button" id="cancelar-novo-tema"
+                  class="text-sm text-slate-500 hover:text-slate-800 px-3 py-1.5">
+            Cancelar
+          </button>
+          <span id="erro-novo-tema" class="hidden self-center text-xs text-red-600"></span>
+        </div>
+      </div>
+
+      <script>
+      (function () {
+        const abrir = document.getElementById('abrir-novo-tema');
+        const popup = document.getElementById('popup-novo-tema');
+        const cancelar = document.getElementById('cancelar-novo-tema');
+        const confirmar = document.getElementById('confirmar-novo-tema');
+        const inputNome = document.getElementById('novo-tema-nome');
+        const erroBox = document.getElementById('erro-novo-tema');
+        const paleta = document.getElementById('paleta-cores');
+        const container = document.getElementById('temas-checkboxes');
+        if (!abrir) return;
+
+        let corSelecionada = '';
+
+        paleta.querySelectorAll('.cor-btn').forEach((b) => {
+          b.addEventListener('click', () => {
+            corSelecionada = b.dataset.cor;
+            paleta.querySelectorAll('.cor-btn').forEach((x) => x.classList.remove('ring-2', 'ring-offset-2', 'ring-slate-400'));
+            b.classList.add('ring-2', 'ring-offset-2', 'ring-slate-400');
+          });
+        });
+
+        abrir.addEventListener('click', () => {
+          popup.classList.remove('hidden');
+          inputNome.focus();
+          erroBox.classList.add('hidden');
+        });
+
+        cancelar.addEventListener('click', () => {
+          popup.classList.add('hidden');
+          inputNome.value = '';
+          corSelecionada = '';
+          paleta.querySelectorAll('.cor-btn').forEach((x) => x.classList.remove('ring-2', 'ring-offset-2', 'ring-slate-400'));
+        });
+
+        function mostrarErro(msg) {
+          erroBox.textContent = msg;
+          erroBox.classList.remove('hidden');
+        }
+
+        function adicionarCheckbox(tema) {
+          const semMsg = document.getElementById('sem-temas-msg');
+          if (semMsg) semMsg.remove();
+          const label = document.createElement('label');
+          label.className = 'inline-flex items-center gap-2 text-sm';
+          const cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.name = 'temas';
+          cb.value = tema.id;
+          cb.checked = true;  // opt-out: já vem marcado
+          label.appendChild(cb);
+          const span = document.createElement('span');
+          if (tema.cor) {
+            const dot = document.createElement('span');
+            dot.className = 'inline-block w-2.5 h-2.5 rounded-full mr-1 align-middle';
+            dot.style.background = tema.cor;
+            span.appendChild(dot);
+          }
+          span.appendChild(document.createTextNode(tema.nome));
+          label.appendChild(span);
+          container.appendChild(label);
+        }
+
+        async function criar() {
+          const nome = inputNome.value.trim();
+          if (!nome) { mostrarErro('Informe o nome.'); return; }
+          erroBox.classList.add('hidden');
+          const fd = new FormData();
+          fd.append('nome', nome);
+          fd.append('cor', corSelecionada);
+          const csrf = document.querySelector('input[name=csrfmiddlewaretoken]').value;
+          try {
+            const resp = await fetch('{% url "demandas:tema_criar_ajax" %}', {
+              method: 'POST',
+              headers: { 'X-CSRFToken': csrf },
+              body: fd,
+            });
+            const data = await resp.json();
+            if (!resp.ok) { mostrarErro(data.erro || 'Erro ao criar.'); return; }
+            adicionarCheckbox(data);
+            popup.classList.add('hidden');
+            inputNome.value = '';
+            corSelecionada = '';
+            paleta.querySelectorAll('.cor-btn').forEach((x) => x.classList.remove('ring-2', 'ring-offset-2', 'ring-slate-400'));
+          } catch (e) {
+            mostrarErro('Erro de rede.');
+          }
+        }
+
+        confirmar.addEventListener('click', criar);
+        inputNome.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') { e.preventDefault(); criar(); }
+        });
+      })();
+      </script>
+      {% endif %}
     </section>
-    {% endif %}
 
     {# Anexos iniciais — opcionais. Só aparecem no detalhe depois de salvar. #}
     {% if not view.object %}

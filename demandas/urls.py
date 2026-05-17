@@ -113,6 +113,11 @@ urlpatterns = [
     path("configuracoes/temas/", views.TemaListView.as_view(), name="tema_lista"),
     path("configuracoes/temas/novo/", views.TemaCreateView.as_view(), name="tema_novo"),
     path(
+        "configuracoes/temas/criar.json",
+        views.TemaCreateAjaxView.as_view(),
+        name="tema_criar_ajax",
+    ),
+    path(
         "configuracoes/temas/<int:pk>/editar/",
         views.TemaUpdateView.as_view(),
         name="tema_editar",

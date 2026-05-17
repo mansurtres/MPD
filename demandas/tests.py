@@ -1423,7 +1423,7 @@ def test_demanda_pessoa_papel_outro_com_descricao_funciona(db, admin_user, pesso
         papel=DemandaPessoa.PAPEL_OUTRO,
         papel_outro="Advogado",
     )
-    dp.full_clean()
+    dp.full_clean()  # não levanta
     dp.save()
     assert dp.papel_display == "Advogado"
 
@@ -1441,3 +1441,45 @@ def test_demanda_pessoa_papel_choice_padrao_usa_display(db, admin_user, pessoa):
         demanda=d, pessoa=pessoa, papel=DemandaPessoa.PAPEL_SOLICITANTE
     )
     assert dp.papel_display == "Solicitante"
+
+
+# --- Criar Tema via AJAX (popup no form de Demanda) ---
+
+
+def test_tema_criar_ajax_sucesso(client, admin_user):
+    from demandas.models import Tema
+
+    client.force_login(admin_user)
+    resp = client.post(
+        reverse("demandas:tema_criar_ajax"),
+        {"nome": "Saúde Mental", "cor": "#039be5"},
+    )
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["nome"] == "Saúde Mental"
+    assert data["cor"] == "#039be5"
+    assert Tema.objects.filter(nome="Saúde Mental").exists()
+
+
+def test_tema_criar_ajax_sem_nome_falha(client, admin_user):
+    client.force_login(admin_user)
+    resp = client.post(reverse("demandas:tema_criar_ajax"), {"nome": ""})
+    assert resp.status_code == 400
+    assert "obrigatório" in resp.json()["erro"]
+
+
+def test_tema_criar_ajax_duplicado_falha(client, admin_user):
+    from demandas.models import Tema
+
+    Tema.objects.create(nome="Educação", cor="#3f51b5")
+    client.force_login(admin_user)
+    resp = client.post(reverse("demandas:tema_criar_ajax"), {"nome": "Educação"})
+    assert resp.status_code == 400
+    assert "já existe" in resp.json()["erro"].lower()
+
+
+def test_tema_criar_ajax_bloqueia_assessor(client, assessor):
+    # Assessor não tem demandas.add_tema (só CO+).
+    client.force_login(assessor)
+    resp = client.post(reverse("demandas:tema_criar_ajax"), {"nome": "X"})
+    assert resp.status_code == 403

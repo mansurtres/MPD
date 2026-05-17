@@ -808,6 +808,24 @@ class TemaDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
         return super().post(request, *args, **kwargs)
 
 
+class TemaCreateAjaxView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    """Cria Tema via AJAX (chamado do popup no form de Demanda). Permissão
+    demandas.add_tema. Retorna JSON com id, nome, cor para o JS adicionar
+    o checkbox dinâmico já marcado."""
+
+    permission_required = "demandas.add_tema"
+
+    def post(self, request):
+        nome = (request.POST.get("nome") or "").strip()
+        cor = (request.POST.get("cor") or "").strip()
+        if not nome:
+            return JsonResponse({"erro": "Nome é obrigatório."}, status=400)
+        if Tema.objects.filter(nome__iexact=nome).exists():
+            return JsonResponse({"erro": f"Já existe um tema com o nome '{nome}'."}, status=400)
+        tema = Tema.objects.create(nome=nome, cor=cor)
+        return JsonResponse({"id": tema.pk, "nome": tema.nome, "cor": tema.cor or ""}, status=201)
+
+
 class TemaToggleArquivarView(LoginRequiredMixin, PermissionRequiredMixin, View):
     """Arquiva/desarquiva tema. FK para Demanda preserva temas arquivados em
     demandas que já os tinham, mas não aparecem em novos formulários."""
