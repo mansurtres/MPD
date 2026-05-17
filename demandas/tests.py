@@ -1696,6 +1696,28 @@ def test_processar_inbox_ja_processado_redireciona_para_demanda(client, admin_us
     assert reverse("demandas:demanda_detalhe", args=[demanda.pk]) in resp.url
 
 
+def test_analise_carga_assessores_nao_tem_n_mais_1(client, admin_user):
+    """Query count constante independente do nº de usuários ativos
+    (Tarefa 3.3: carga_assessores migrou de loop com 2 queries por
+    usuário para uma annotate única)."""
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    for i in range(20):
+        Usuario.objects.create_user(
+            email=f"u{i}@t.com",
+            password="senha12345",  # pragma: allowlist secret
+        )
+    client.force_login(admin_user)
+    with CaptureQueriesContext(connection) as captured:
+        client.get(reverse("core:analise"))
+    # Limite generoso pra cobrir as 6 métricas + auth + middlewares.
+    # Antes do fix: 40+ queries só nesta métrica.
+    assert (
+        len(captured.captured_queries) < 30
+    ), f"Esperado <30 queries, obtive {len(captured.captured_queries)}"
+
+
 def test_processar_inbox_descartado_redireciona_para_lista(client, admin_user):
     """Item descartado também faz fall-through para a lista com mensagem."""
     from demandas.models import ItemInbox

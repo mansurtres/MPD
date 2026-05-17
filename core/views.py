@@ -123,38 +123,47 @@ class AnaliseView(LoginRequiredMixin, UserPassesTestMixin, ListView):
             .order_by("-total")[:15]
         )
 
-        # 6. Carga por assessor (responsável com demandas abertas/vencidas).
-        # N+1 conhecido — refactor em 1 query (Tarefa 3.3).
+        # 6. Carga por assessor — uma annotate em vez de N+1 (Tarefa 3.3).
         from accounts.models import Usuario
 
-        assessores = []
-        for u in Usuario.objects.filter(is_active=True):
-            abertas = demandas_visiveis.filter(
-                responsavel=u,
-                status__in=[
-                    Demanda.STATUS_NOVO,
-                    Demanda.STATUS_EM_ANDAMENTO,
-                    Demanda.STATUS_AGUARDANDO_TERCEIROS,
-                    Demanda.STATUS_AGUARDANDO_PESSOA,
-                ],
-            ).count()
-            vencidas = (
-                demandas_visiveis.filter(
-                    responsavel=u,
-                    prazo__lt=tz.now().date(),
-                )
-                .exclude(status__in=[Demanda.STATUS_CONCLUIDA, Demanda.STATUS_ARQUIVADO])
-                .count()
+        status_abertos = [
+            Demanda.STATUS_NOVO,
+            Demanda.STATUS_EM_ANDAMENTO,
+            Demanda.STATUS_AGUARDANDO_TERCEIROS,
+            Demanda.STATUS_AGUARDANDO_PESSOA,
+        ]
+        status_fechados = [Demanda.STATUS_CONCLUIDA, Demanda.STATUS_ARQUIVADO]
+        hoje = tz.now().date()
+        # Materializa os ids visíveis em uma lista para usar como filtro
+        # no Count(filter=...). Subquery direto também funcionaria, mas
+        # `values_list` é mais legível e o cardinality fica explícito.
+        ids_visiveis = list(demandas_visiveis.values_list("id", flat=True))
+        filtro_abertas = Q(
+            demandas_responsavel__in=ids_visiveis,
+            demandas_responsavel__status__in=status_abertos,
+        )
+        filtro_vencidas = (
+            Q(demandas_responsavel__in=ids_visiveis)
+            & Q(demandas_responsavel__prazo__lt=hoje)
+            & ~Q(demandas_responsavel__status__in=status_fechados)
+        )
+        assessores_qs = (
+            Usuario.objects.filter(is_active=True)
+            .annotate(
+                qtd_abertas=Count("demandas_responsavel", filter=filtro_abertas, distinct=True),
+                qtd_vencidas=Count("demandas_responsavel", filter=filtro_vencidas, distinct=True),
             )
-            if abertas > 0 or vencidas > 0:
-                assessores.append(
-                    {
-                        "nome": u.nome_completo or u.email,
-                        "abertas": abertas,
-                        "vencidas": vencidas,
-                    }
-                )
-        ctx["carga_assessores"] = sorted(assessores, key=lambda x: -x["abertas"])
+            .filter(Q(qtd_abertas__gt=0) | Q(qtd_vencidas__gt=0))
+            .order_by("-qtd_abertas")
+        )
+        ctx["carga_assessores"] = [
+            {
+                "nome": u.nome_completo or u.email,
+                "abertas": u.qtd_abertas,
+                "vencidas": u.qtd_vencidas,
+            }
+            for u in assessores_qs
+        ]
 
         return ctx
 
