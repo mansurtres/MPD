@@ -1908,3 +1908,86 @@ def test_verificar_integridade_sem_problemas_retorna_zero(db):
     code, saida = _rodar_verificar_integridade()
     assert code == 0
     assert "Nenhuma inconsistência" in saida
+
+
+# --- Filtros em /auditoria (Tarefa 1.3 v0.7.3) ---
+
+
+def _criar_log(modelo, actor, action, pk):
+    """Helper: cria LogEntry diretamente para testar os filtros da view."""
+    from auditlog.models import LogEntry
+    from django.contrib.contenttypes.models import ContentType
+
+    ct = ContentType.objects.get_for_model(modelo)
+    return LogEntry.objects.create(
+        content_type=ct,
+        object_pk=str(pk),
+        object_repr=f"{modelo.__name__}#{pk}",
+        action=action,
+        actor=actor,
+    )
+
+
+def test_auditoria_filtra_por_usuario(client, admin_user, chefe, pessoa):
+    """Filtro ?usuario=<email_parcial> deixa só LogEntries em que actor.email
+    contém o parcial. View usa actor__email__icontains."""
+    from auditlog.models import LogEntry
+
+    _criar_log(Pessoa, admin_user, LogEntry.Action.UPDATE, pessoa.pk)
+    _criar_log(Pessoa, chefe, LogEntry.Action.UPDATE, pessoa.pk)
+
+    client.force_login(admin_user)
+    resp = client.get(reverse("core:auditoria"), {"usuario": "chefe@"})
+    assert resp.status_code == 200
+    logs = list(resp.context["logs"])
+    assert len(logs) >= 1
+    assert all(log.actor_id == chefe.pk for log in logs)
+
+
+def test_auditoria_filtra_por_modelo(client, admin_user, pessoa, demanda):
+    """Filtro ?modelo=<content_type_id> deixa só LogEntries do CT escolhido."""
+    from auditlog.models import LogEntry
+    from django.contrib.contenttypes.models import ContentType
+
+    _criar_log(Pessoa, admin_user, LogEntry.Action.UPDATE, pessoa.pk)
+    _criar_log(Demanda, admin_user, LogEntry.Action.UPDATE, demanda.pk)
+
+    ct_pessoa = ContentType.objects.get_for_model(Pessoa)
+    client.force_login(admin_user)
+    resp = client.get(reverse("core:auditoria"), {"modelo": ct_pessoa.pk})
+    assert resp.status_code == 200
+    logs = list(resp.context["logs"])
+    assert len(logs) >= 1
+    assert all(log.content_type_id == ct_pessoa.pk for log in logs)
+
+
+def test_auditoria_filtra_por_acao(client, admin_user, pessoa):
+    """Filtro ?acao=<int> deixa só LogEntries da ação escolhida (1=UPDATE)."""
+    from auditlog.models import LogEntry
+
+    _criar_log(Pessoa, admin_user, LogEntry.Action.CREATE, pessoa.pk)
+    _criar_log(Pessoa, admin_user, LogEntry.Action.UPDATE, pessoa.pk)
+
+    client.force_login(admin_user)
+    resp = client.get(reverse("core:auditoria"), {"acao": LogEntry.Action.UPDATE})
+    assert resp.status_code == 200
+    logs = list(resp.context["logs"])
+    assert len(logs) >= 1
+    assert all(log.action == LogEntry.Action.UPDATE for log in logs)
+
+
+def test_auditoria_filtra_por_periodo_desde(client, admin_user, pessoa):
+    """Filtro ?desde=AAAA-MM-DD respeitado — desde=amanhã esvazia resultado."""
+    from datetime import date
+    from datetime import timedelta as td
+
+    from auditlog.models import LogEntry
+
+    _criar_log(Pessoa, admin_user, LogEntry.Action.UPDATE, pessoa.pk)
+
+    amanha = (date.today() + td(days=1)).isoformat()
+    client.force_login(admin_user)
+    resp = client.get(reverse("core:auditoria"), {"desde": amanha})
+    assert resp.status_code == 200
+    logs = list(resp.context["logs"])
+    assert len(logs) == 0
