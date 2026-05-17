@@ -50,6 +50,7 @@ Tudo open source, gratuito enquanto local, pronto para deploy. Detalhes e justif
 - `v0.7` — Fase 6: Segurança, Visualização, Exportação (LGPD adiada — ADR 0047)
 - `v0.7.1` — UX polishings nos forms de demanda
 - `v0.7.2` — Fechamento de Fase 6 (segurança/auditoria/robustez — ADRs 0048–0052)
+- `v0.7.3` — Cobertura de teste das Fases 4–6; exports visíveis em /auditoria (ADR 0053)
 - `v1.0` — Fase 7: Polimento e Web
 - `v1.1` — Fase 8: Privacidade, LGPD e lançamento público
 
@@ -389,13 +390,13 @@ Fase 3 concluída.
 
 #### 4.4.3. Critérios de Aceite
 
-- [ ] `/encaminhamentos/` lista todos os Encaminhamentos visíveis ao usuário, paginados.
-- [ ] Filtros (status, órgão, tipo documento) e quick filters funcionam isoladamente e em combinação.
-- [ ] Visibilidade respeita a restrição da Demanda: encaminhamento de demanda restrita não aparece para quem não pode ver a demanda.
-- [ ] Linha de encaminhamento leva ao detalhe da Demanda associada.
-- [ ] `/demandas/` mostra os novos quick filters; resultados coerentes.
-- [ ] `/pessoas/` e `/entidades/` mostram os novos quick filters; resultados coerentes.
-- [ ] Topbar tem link "Encaminhamentos" para quem tem `demandas.view_encaminhamento`.
+- [x] `/encaminhamentos/` lista todos os Encaminhamentos visíveis ao usuário, paginados.
+- [ ] Filtros (status, órgão, tipo documento) e quick filters funcionam isoladamente e em combinação. *(cobertura parcial — só "vencidos" tem teste; combinações ficam como dívida)*
+- [x] Visibilidade respeita a restrição da Demanda: encaminhamento de demanda restrita não aparece para quem não pode ver a demanda.
+- [ ] Linha de encaminhamento leva ao detalhe da Demanda associada. *(verificação manual — link de template)*
+- [x] `/demandas/` mostra os novos quick filters; resultados coerentes.
+- [x] `/pessoas/` e `/entidades/` mostram os novos quick filters; resultados coerentes. *(v0.7.3: cobertura de `/entidades/` adicionada)*
+- [ ] Topbar tem link "Encaminhamentos" para quem tem `demandas.view_encaminhamento`. *(verificação manual)*
 
 #### 4.4.4. Validação
 
@@ -442,18 +443,18 @@ Fase 3 concluída.
 
 #### 4.4.3. Critérios de Aceite
 
-- [ ] `Ctrl+K` em qualquer página abre modal.
-- [ ] Texto enviado vira `ItemInbox` pendente.
-- [ ] Modal fecha sem perder contexto da página anterior.
-- [ ] Badge de pendências vencidas aparece na topbar.
-- [ ] Lista `/inbox` mostra pendentes com indicadores visuais.
-- [ ] Processar gera caso e marca item processado.
-- [ ] Caso gerado tem conteúdo do item como descrição inicial.
-- [ ] Descartar pede motivo e registra.
-- [ ] `/minhas-pendencias` lista todas as interações agendadas do usuário.
-- [ ] Pendências vencidas aparecem em vermelho no topo.
-- [ ] Marcar pendência como realizada (a partir de "minhas pendências") funciona.
-- [ ] `/minhas-reunioes` filtra apenas tipo `reuniao`.
+- [ ] `Ctrl+K` em qualquer página abre modal. *(verificação manual — JS de browser)*
+- [x] Texto enviado vira `ItemInbox` pendente.
+- [ ] Modal fecha sem perder contexto da página anterior. *(verificação manual — JS de browser)*
+- [x] Badge de pendências vencidas aparece na topbar.
+- [x] Lista `/inbox` mostra pendentes com indicadores visuais. *(v0.7.3: filtros + badges amber/red testados)*
+- [x] Processar gera caso e marca item processado.
+- [x] Caso gerado tem conteúdo do item como descrição inicial.
+- [x] Descartar pede motivo e registra.
+- [x] `/minhas-pendencias` lista todas as interações agendadas do usuário.
+- [x] Pendências vencidas aparecem em vermelho no topo.
+- [x] Marcar pendência como realizada (a partir de "minhas pendências") funciona. *(v0.7.3: fluxo coberto)*
+- [x] `/minhas-reunioes` filtra apenas tipo `reuniao`.
 
 #### 4.4.4. Validação
 
@@ -530,8 +531,9 @@ Fase 5 concluída.
 - [x] Filtros em `/auditoria` (usuário/modelo/período) funcionam.
 - [x] `/healthz` retorna 200 quando o banco está acessível.
 - [x] `backup.sh` gera dump válido (verificável com `pg_restore --list`).
-- [x] `verificar_integridade` detecta cada um dos 5 casos da especificação.
+- [x] `verificar_integridade` detecta cada um dos 5 casos da especificação. *(v0.7.3: cobertura de teste para todos os 5 ramos)*
 - [x] **v0.7.2:** Painel `/analise` respeita visibilidade restrita (ADR 0049). `Interacao` e `ItemInbox` no auditlog (ADR 0050). `slug_publico` com retry (ADR 0051). Checagem de papel centralizada (ADR 0048).
+- [x] **v0.7.3:** `registrar_export` grava `LogEntry` — exportações ficam visíveis em `/auditoria` (ADR 0053). Cobertura de teste fechada nos critérios remanescentes das Fases 4–6.
 
 #### 4.6.4. Validação
 

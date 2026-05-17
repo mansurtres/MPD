@@ -219,6 +219,16 @@ A revisão técnica de fim-de-Fase-6 (chefe de área Anthropic, 2026-05-17) iden
 
 **207 testes passando** ao final da v0.7.2 (+17 sobre v0.7.1: 3 papel, 2 auditlog, 4 analise/restritas, 1 CSV regressão, 1 transição única, 1 slug retry, 1 anexo 404, 2 inbox conflito, 1 carga N+1, 1 CSV N+1). ADRs 0001–0052.
 
+**Cobertura de critérios — Fases 4 a 6 (v0.7.3):**
+A revisão de fim-de-Fase-6 levantou critérios literais do roadmap sem espelho na suíte. v0.7.3 fecha os preenchíveis e converte a entrega de auditoria de exports para o caminho visível na UI:
+- **Exports em `/auditoria`** — `core.utils.registrar_export` migra de logger Python para `LogEntry(action=ACCESS)`. Logger mantido como linha de defesa. ADR 0053.
+- **`verificar_integridade`** ganha cobertura nos 5 ramos que faltavam (anexo arquivo ausente, anexo órfão polimórfico, encaminhamento vencido com status=enviado, ItemInbox +90d, Interação agendada +180d) + sanity de base limpa.
+- **Filtros em `/auditoria`** — testes confirmam usuário (email parcial), modelo (content_type), ação e período.
+- **Cobertura de Fase 4/5**: `/entidades/` quick filter "com demanda em aberto", listagem `/inbox/` (default só pendentes; `?status=todos` inclui descartados; badges amber +7d / red +30d), fluxo "marcar realizada" a partir de `/minhas-pendencias/`.
+- **UTF-8 BOM** já estava coberto em `test_export_csv_demandas_acessivel_a_coordenador` (v0.7) — apenas anotado.
+
+**226 testes passando** ao final da v0.7.3 (+19 sobre v0.7.2: 3 export LogEntry, 6 verificar_integridade, 4 auditoria filtros, 1 entidades quick filter, 3 inbox lista, 2 minhas pendências). ADRs 0001–0053.
+
 **Próximo marco:** v1.0 — Fase 7 (Polimento e Web). Ver [`roadmap.md`](./roadmap.md) §Fase 7.
 
 ---
@@ -298,4 +308,4 @@ Para o histórico completo ver [`docs/decisoes.md`](./docs/decisoes.md). Decisõ
 
 ---
 
-*Atualizar este arquivo ao fim de cada fase. Última atualização: 2026-05-17 (v0.7.2 — fechamento de Fase 6: segurança/auditoria/robustez via ADRs 0048–0052).*
+*Atualizar este arquivo ao fim de cada fase. Última atualização: 2026-05-17 (v0.7.3 — cobertura de testes dos critérios de Fases 4 a 6; exports visíveis em `/auditoria` via ADR 0053).*
