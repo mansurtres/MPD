@@ -47,8 +47,9 @@ Tudo open source, gratuito enquanto local, pronto para deploy. Detalhes e justif
 - `v0.4` — Fase 3: Casos e Interações (incluindo follow-up e interações automáticas)
 - `v0.5` — Fase 4: Visões Transversais (lente de leitura sobre as partículas)
 - `v0.6` — Fase 5: Inbox GTD + Minhas Pendências
-- `v0.7` — Fase 6: Análise, Auditoria, LGPD
+- `v0.7` — Fase 6: Segurança, Visualização, Exportação (LGPD adiada — ADR 0047)
 - `v1.0` — Fase 7: Polimento e Web
+- `v1.1` — Fase 8: Privacidade, LGPD e lançamento público
 
 Cada versão é tag Git, marco testável e utilizável. Não se avança sem critérios de aceite satisfeitos.
 
@@ -473,76 +474,77 @@ pytest demandas/ -v -k "inbox or pendencia"
 
 ---
 
-### Fase 6 — Análise, Auditoria, LGPD
+### Fase 6 — Segurança, Visualização, Exportação
 
 **Versão:** `v0.7`
-**Objetivo:** robustez e responsabilidade. Filtros poderosos, exportações, auditoria, LGPD, gestão da equipe.
+**Objetivo:** amplificar o trabalho da equipe. Filtros poderosos para encontrar; exportação para preparar relatórios; painel para ver o mandato em números; auditoria UI para rastreabilidade interna; infra básica para confiabilidade operacional.
 
-#### 4.5.1. Pré-requisitos
+> **Mudança de escopo (ADR 0047):** privacidade/LGPD adiada para a Fase 8 (v1.1). MVP é uso interno do mandato, sem exposição pública — urgência de compliance só aparece com hospedagem aberta.
+
+#### 4.6.1. Pré-requisitos
 
 Fase 5 concluída.
 
-#### 4.5.2. Especificações
+#### 4.6.2. Especificações
 
-1. **Filtros avançados** em todas as listagens via querystring.
-2. **Exportação CSV**: UTF-8 com BOM, separador `;` (Excel BR). Permissão CO+. Limite 10.000 registros. Toda exportação registrada.
-3. **Painel `/analise`** (CO+):
-   - Cidadãos por bairro.
-   - Casos por tema.
-   - Casos por mês (textual).
-   - Top 50 cidadãos com mais casos.
+1. **Filtros avançados via querystring** em todas as listagens (Demandas, Pessoas, Entidades, Encaminhamentos, Inbox). Filtros são combináveis e preservados na paginação. Inclui filtro por intervalo de datas (`criado_em`, `data_envio`, etc.).
+
+2. **Exportação CSV**: UTF-8 com BOM (para o Excel BR ler acentos), separador `;`. Endpoints `/demandas/export.csv`, `/pessoas/export.csv`, `/encaminhamentos/export.csv`. Permissão CO+. Limite de 10.000 registros por exportação. Toda exportação registra entrada no auditlog (quem, quando, filtros aplicados, total).
+
+3. **Painel `/analise`** (CO+) com 5-6 contagens textuais e visuais:
+   - Demandas por tema.
+   - Demandas por mês (últimos 12 meses).
+   - Demandas por coordenação.
+   - Top 20 pessoas com mais demandas (sem incluir anônimas).
    - Encaminhamentos pendentes por órgão.
-   - **Carga por assessor** (casos abertos, vencidos, tempo médio de resposta).
-4. **Auditoria via `django-auditlog`**: configurar nos modelos críticos. View `/auditoria` (CG+) com diff visual.
-5. **LGPD**:
-   - Página `/privacidade` (público).
-   - Formulário `/privacidade/solicitar` (público, com rate limiting).
-   - Modelo `SolicitacaoLGPD` em `accounts/models.py`.
-   - Lista interna `/configuracoes/lgpd` (CO+).
-   - Geração de relatório PDF dos dados de um cidadão (CO Jurídico, CG, ADM).
-   - Anonimização de cidadão.
-6. **Health check** `/healthz`.
-7. **Backup**: `scripts/backup.sh`.
-8. **Verificação de integridade**: comando `manage.py verificar_integridade`.
+   - Carga por assessor: demandas abertas, vencidas, tempo médio até conclusão.
 
-#### 4.5.3. Critérios de Aceite
+   Cada métrica oferece **toggle "Tabela / Gráfico"**. Gráficos via Chart.js (CDN, sem build step). Tabela é o default (lê rápido, acessível, navegável por keyboard).
 
-- [ ] Filtros combinam via querystring corretamente.
-- [ ] CSV abre no Excel BR com acentuação.
-- [ ] Exportação registra log de auditoria.
-- [ ] Listagens analíticas carregam em < 1s para 1000 registros.
-- [ ] Painel "Carga por assessor" funciona.
-- [ ] Editar cidadão registra log com diff.
-- [ ] Tentar editar log → bloqueado.
-- [ ] Caso "restrito" não aparece para CO de outra coordenação.
-- [ ] `/privacidade` acessível sem login.
-- [ ] Solicitação LGPD pública gera item na fila.
-- [ ] Relatório PDF de dados do cidadão gerado.
-- [ ] Anonimizar preserva contagens históricas mas remove identificadores.
-- [ ] Rate limiting bloqueia 11ª submissão em 1 minuto.
-- [ ] `backup.sh` gera dump válido.
-- [ ] `verificar_integridade` detecta inconsistências.
-- [ ] `/healthz` retorna 200.
+4. **Auditoria UI `/auditoria`** (CG+): lista cronológica das entradas do `auditlog_logentry`, paginada (50/pg). Filtros: usuário, content type (modelo), período, ação (criar / alterar / deletar). Cada entrada com **diff visual antes-vs-depois** campo a campo. Log não-editável (já garantido pelo modelo do auditlog).
 
-#### 4.5.4. Validação
+5. **Health check `/healthz`**: endpoint público que verifica conexão ao banco. Retorna `200 OK` com body `"ok"` se tudo bem, `503` caso contrário.
+
+6. **Backup**: script `scripts/backup.sh` que executa `pg_dump` para arquivo `backup-AAAA-MM-DD-HHMMSS.sql`. Documentado no README com instruções de uso (cron diário).
+
+7. **Verificação de integridade**: comando `manage.py verificar_integridade` que reporta:
+   - Demandas responsivas em `status=concluida` sem Interação `tipo=devolutiva` realizada.
+   - Anexos órfãos (arquivo em disco sem registro, ou registro sem arquivo).
+   - Encaminhamentos com `prazo_resposta < hoje` e `status=enviado` (cron de atualização não rodou).
+   - `ItemInbox.status=pendente` há mais de 90 dias.
+   - Interações `agendada` há mais de 180 dias sem ação.
+
+   Saída em texto, código de saída 0 se nada encontrado, 1 caso contrário (útil para cron monitorado).
+
+#### 4.6.3. Critérios de Aceite
+
+- [ ] Filtros combinam via querystring corretamente e são preservados na paginação.
+- [ ] CSV abre no Excel BR com acentuação correta.
+- [ ] Exportação registra log no auditlog.
+- [ ] Painel `/analise` carrega em < 1s para 1000 registros.
+- [ ] Cada métrica do painel oferece toggle tabela/gráfico e ambos renderizam os mesmos números.
+- [ ] Editar uma Pessoa registra log com diff visível em `/auditoria`.
+- [ ] Filtros em `/auditoria` (usuário/modelo/período) funcionam.
+- [ ] `/healthz` retorna 200 quando o banco está acessível.
+- [ ] `backup.sh` gera dump válido (verificável com `pg_restore --list`).
+- [ ] `verificar_integridade` detecta cada um dos 5 casos da especificação.
+
+#### 4.6.4. Validação
 
 ```bash
-pytest -v --cov
-python manage.py verificar_integridade
+uv run pytest -v
+uv run python manage.py verificar_integridade
 bash scripts/backup.sh /tmp/test-backup
+curl http://localhost:8000/healthz
 ```
 
-#### 4.5.5. Verificação Manual
+#### 4.6.5. Verificação Manual
 
-1. Filtrar cidadãos por bairro + tag, exportar CSV. Abrir no Excel.
-2. Como CG, ver "Carga por assessor" e identificar quem tem mais casos.
-3. Editar cidadão e ver log em `/auditoria`.
-4. Marcar caso como restrito; testar acesso de outras coordenações.
-5. Acessar `/privacidade` deslogado.
-6. Submeter solicitação LGPD pública.
-7. Como CO Jurídico, processar. Gerar relatório PDF.
-8. Anonimizar cidadão de teste; ver casos históricos preservados.
-9. Rodar `backup.sh`.
+1. Filtrar pessoas por bairro + tag, exportar CSV. Abrir no Excel BR — acentos OK.
+2. Como Coordenador, abrir `/analise` e alternar tabela/gráfico em cada métrica.
+3. Editar uma Pessoa via UI; ir em `/auditoria` e ver o registro com diff.
+4. Rodar `backup.sh`, inspecionar o arquivo gerado.
+5. Criar inconsistência intencional (ex.: encaminhamento com prazo passado e status enviado), rodar `verificar_integridade`, ver o relato.
 
 ---
 
@@ -595,6 +597,76 @@ curl http://localhost:8000/healthz
 3. Refinar manual conforme dúvidas.
 4. Fluxo completo: pessoa chega por WhatsApp → captura no inbox → processado → demanda → encaminhamento → retorno → resposta → arquivamento.
 5. Conferir auditoria de toda a operação.
+
+---
+
+### Fase 8 — Privacidade, LGPD e lançamento público
+
+**Versão:** `v1.1`
+**Objetivo:** habilitar o sistema para o mundo fora da equipe interna. Conformidade LGPD completa + porta pública + ajustes de exposição. Decisão tomada na ADR 0047 (adiamento da LGPD da Fase 6, agrupada agora com o esforço natural de "abrir pro mundo").
+
+#### 4.8.1. Pré-requisitos
+
+Fase 7 (Polimento e Web) concluída — sistema com `v1.0` em uso interno por algumas semanas, dores reais conhecidas.
+
+#### 4.8.2. Especificações
+
+1. **Política de privacidade pública** (`/privacidade`): texto LGPD-compliant explicando bases legais de tratamento, dados coletados, finalidades, direitos do titular, contato do Encarregado.
+
+2. **Encarregado (DPO) declarado**: nome + email visíveis na página de privacidade. Configurável via settings.
+
+3. **Canal público de solicitação LGPD** (`/privacidade/solicitar`):
+   - Formulário público (sem login), com rate limiting (10 submissões/min/IP).
+   - Tipo de solicitação: acesso, retificação, anonimização, portabilidade.
+   - Identificação do solicitante (nome, email, CPF opcional para autenticação).
+   - Conteúdo livre.
+
+4. **Modelo `SolicitacaoLGPD`** em `accounts/models.py`: armazena solicitações, com status (pendente, em_análise, atendida, negada), responsável atribuído, motivo da resposta.
+
+5. **Lista interna `/configuracoes/lgpd`** (Encarregado / Admin):
+   - Inbox de solicitações pendentes.
+   - Botões: atribuir a si, gerar export dos dados, anonimizar Pessoa associada.
+   - Trilha de cada solicitação no auditlog.
+
+6. **Export dos dados de uma Pessoa**:
+   - Botão "Exportar dados (LGPD)" no detalhe de Pessoa (com permissão).
+   - Gera JSON estruturado + opcionalmente PDF render (decisão entre `xhtml2pdf`, `weasyprint`, etc. na época).
+   - Inclui: dados cadastrais, contatos, vínculos, demandas em que a pessoa é parte (resumo, sem dados de terceiros), interações em que a pessoa aparece.
+
+7. **Anonimização exposta na UI**:
+   - Botão "Anonimizar (LGPD)" no detalhe de Pessoa, com confirmação dupla.
+   - Reuso de `Pessoa.anonimizar()` (já existe).
+
+8. **Hardening de exposição pública**:
+   - Headers de segurança (HSTS, X-Frame-Options, CSP básica).
+   - Robots.txt definido.
+   - Páginas de erro customizadas (`404.html`, `500.html`, `403.html`).
+   - Logs de auditoria de acessos suspeitos (já temos `django-axes` para login; estender para tentativas em endpoints sensíveis).
+
+#### 4.8.3. Critérios de Aceite
+
+- [ ] `/privacidade` acessível sem login, com texto e contato do Encarregado.
+- [ ] Submissão pública de solicitação LGPD gera `SolicitacaoLGPD` pendente.
+- [ ] Rate limiting bloqueia 11ª submissão em 1 minuto.
+- [ ] Encarregado vê lista, processa, gera export.
+- [ ] Export contém todos os dados pessoais e nada de terceiros.
+- [ ] Anonimização preserva contagens históricas e remove identificadores.
+- [ ] Headers de segurança presentes no HTML servido.
+
+#### 4.8.4. Validação
+
+```bash
+uv run pytest accounts/ demandas/ -k "lgpd"
+curl -I https://produção.mpd.local/  # confere headers
+```
+
+#### 4.8.5. Verificação Manual
+
+1. Acessar `/privacidade` deslogado.
+2. Submeter solicitação LGPD pública.
+3. Como Encarregado, processar a solicitação, gerar export.
+4. Anonimizar Pessoa de teste; demandas históricas continuam contando mas sem PII.
+5. Conferir headers de segurança via `curl -I`.
 
 ---
 

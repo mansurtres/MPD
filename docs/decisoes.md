@@ -1634,4 +1634,60 @@ Antes de fixar o escopo, surgiu um risco: ao falar em "lista de encaminhamentos"
 
 ---
 
+## ADR 0047 — Fase 6 enxuta (segurança, visualização, exportação); LGPD adiada para pós-MVP
+
+**Data:** 2026-05-17
+**Status:** Aceito
+
+### Contexto
+
+O roadmap original da Fase 6 incluía cinco blocos: filtros avançados + CSV, painel de análise, auditoria UI, **LGPD completa** (página pública, formulário de solicitação, modelo `SolicitacaoLGPD`, geração de PDF integrada, lista interna, anonimização exposta na UI) e infra operacional (healthz, backup, verificar_integridade). Total estimado: 19-24h.
+
+Conversa de 2026-05-17 (Pedro): "um sistema de consumo interno como esse realmente precisa desse tanto de coisas?". Avaliação crítica do escopo revelou:
+
+1. **A parte de LGPD estava inflada além do que a lei exige.** A Lei 13.709/2018 obriga: indicar Encarregado (Art. 41), oferecer canal para o titular exercer direitos (Art. 18 — pode ser email), publicar política de privacidade (Art. 9), e ter capacidade técnica de atender solicitações (anonimização e exportação já existem via `Pessoa.anonimizar()` e admin Django). Formulário web formal + modelo `SolicitacaoLGPD` + geração de PDF integrada são **conveniências**, não obrigações.
+
+2. **Para o MVP de uso interno da equipe do mandato**, o sistema não tem exposição pública. A urgência LGPD aparece quando o sistema for hospedado e cidadãos puderem acessar dados — provavelmente perto do deploy (Fase 7).
+
+3. **Os outros blocos (filtros, painel, auditoria, infra) entregam valor imediato à equipe pequena que vai usar o produto** — preparar relatórios, ver o trabalho em números, ter rastreabilidade interna, garantir saúde operacional.
+
+### Decisão
+
+**1. Reduzir a Fase 6 a entregas de segurança, visualização e exportação.** Escopo final:
+- Filtros avançados via querystring + exportação CSV (UTF-8 BOM, separador `;`) nas listas de Demandas, Pessoas, Encaminhamentos. Permissão CO+.
+- Painel `/analise` (CO+) com 5-6 contagens (demandas por tema, por mês, por coordenação; top pessoas com mais demandas; encaminhamentos pendentes por órgão; carga por assessor). **Toggle gráfico/tabela** em cada métrica via Chart.js (CDN, sem build step).
+- Auditoria UI (`/auditoria`, CG+) com lista cronológica, filtros (usuário, modelo, período, ação) e diff visual antes/depois.
+- `/healthz` + `scripts/backup.sh` + comando `manage.py verificar_integridade`.
+
+Estimativa total: ~11-12h.
+
+**2. Adiar privacidade/LGPD para nova fase pós-MVP.** Nova Fase 8 — Privacidade, LGPD e lançamento público (v1.1, depois de v1.0 que é Polimento e Deploy). Agrupada com o esforço natural de "abrir pro mundo" (SSL, política de cookies, termos, página pública). Sem urgência enquanto o sistema é uso interno.
+
+**3. `Pessoa.anonimizar()` permanece disponível como método interno**, acessível via admin Django. Não é exposto em UI dedicada na Fase 6. Quando uma solicitação real chegar antes da Fase 8, o Encarregado usa admin.
+
+### Alternativas consideradas e descartadas
+
+- **Manter LGPD na Fase 6 com escopo mínimo (só página `/privacidade` + canal email):** rejeitado porque mistura compliance externa com ferramentas internas — melhor agrupar com deploy/exposição pública.
+- **Empurrar LGPD pra Fase 7 (Polimento e Web):** considerado, mas Fase 7 já tem escopo grande e mistura demais responsabilidades. Fase 8 dedicada é mais limpa.
+- **Cortar painel `/analise` também ("admin Django basta"):** rejeitado. Painel responde perguntas de produto que o vereador faz com frequência ("como meu mandato tá em números"). Admin Django é cru, não é leitura semanal.
+- **Cortar auditoria UI ("admin Django basta"):** considerado mais seriamente. Decisão de manter: equipe pequena com responsabilidades misturadas (1 assessor edita demandas de outras coordenações às vezes) precisa de rastreabilidade legível. 2h de trabalho vale.
+
+### Justificativa
+
+- **Produto sobre técnica.** O MVP é pra equipe usar dia a dia, não pra impressionar advogado. LGPD vira urgente quando há cidadão clicando em link público; até lá, é decoração que custa tempo agora.
+- **Coesão temática.** Fase 6 fica focada em "amplificar o trabalho da equipe" (ver, filtrar, exportar, auditar). LGPD/privacidade é "abrir o sistema pro mundo" — natural na fase de lançamento.
+- **Honestidade de escopo.** ADRs anteriores (0040 sobre auto-edição de `is_staff`, e princípio "Demanda é o núcleo") já mostraram que o sistema ganha quando reduzimos cerimônia além do necessário. Mesmo padrão aqui.
+
+### Consequências
+
+- `roadmap.md §Fase 6` reescrita com o escopo enxuto.
+- Nova `§Fase 8 — Privacidade, LGPD e lançamento público` adicionada após Fase 7 (Polimento e Web). Versão `v1.1`.
+- Modelo `SolicitacaoLGPD` **não é criado** na Fase 6. Fica pendente até Fase 8.
+- Botão "Anonimizar Pessoa" na UI fica pendente até Fase 8. Por enquanto via admin Django.
+- Política de privacidade pública: não escrita pelo sistema. Pode ser página estática quando o mandato decidir hospedar, ou parte da Fase 8.
+- `Pessoa.anonimizar()` continua testado e disponível.
+- `debito-tecnico.md` ganha entrada sobre Fase 8 (rastrear o adiamento).
+
+---
+
 *Decisões adicionadas em ordem cronológica conforme surgem. Cada decisão registrada uma vez; alterações futuras criam nova ADR (não editam a anterior).*
