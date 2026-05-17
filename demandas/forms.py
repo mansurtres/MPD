@@ -13,6 +13,7 @@ from .models import (
     DemandaPessoa,
     Encaminhamento,
     Interacao,
+    ItemInbox,
     Tema,
 )
 
@@ -367,4 +368,81 @@ class EstadoForm(forms.ModelForm):
         self.fields["responsavel"].required = False
         self.fields["responsavel"].empty_label = "— Não atribuído —"
         self.fields["prazo"].required = False
+        aplicar_tailwind(self)
+
+
+# --- Fase 5: Inbox GTD ---
+
+
+class InboxItemForm(forms.ModelForm):
+    """Captura rápida — só conteúdo. Autor/data são setados na view."""
+
+    class Meta:
+        model = ItemInbox
+        fields = ["conteudo"]
+        widgets = {
+            "conteudo": forms.Textarea(
+                attrs={
+                    "rows": 4,
+                    "placeholder": "Anote aqui — frase curta, ideia, lembrete. Vai virar demanda depois na triagem.",
+                    "autofocus": "autofocus",
+                }
+            ),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["conteudo"].required = True
+        aplicar_tailwind(self)
+
+
+class ProcessarInboxForm(forms.ModelForm):
+    """Triagem: converte ItemInbox em Demanda. Reusa campos do DemandaForm
+    com a descrição pré-preenchida pelo conteúdo do item."""
+
+    class Meta:
+        model = Demanda
+        fields = [
+            "titulo",
+            "descricao",
+            "origem",
+            "canal_entrada",
+            "anonimo",
+            "prioridade",
+            "responsavel",
+            "coordenacao_responsavel",
+            "restrito",
+            "prazo",
+            "temas",
+        ]
+        widgets = {
+            "descricao": forms.Textarea(attrs={"rows": 4}),
+            "prazo": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+            "temas": forms.CheckboxSelectMultiple,
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        cond = Q(ativo=True)
+        self.fields["temas"].queryset = Tema.objects.filter(cond).distinct()
+        self.fields["responsavel"].required = False
+        self.fields["responsavel"].empty_label = "— Não atribuído —"
+        aplicar_tailwind(self)
+
+
+class DescartarInboxForm(forms.ModelForm):
+    """Descarte exige motivo."""
+
+    class Meta:
+        model = ItemInbox
+        fields = ["motivo_descarte"]
+        widgets = {
+            "motivo_descarte": forms.Textarea(
+                attrs={"rows": 3, "placeholder": "Por que este item não vai virar demanda?"}
+            ),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["motivo_descarte"].required = True
         aplicar_tailwind(self)

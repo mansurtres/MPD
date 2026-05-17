@@ -59,33 +59,49 @@ Todas as rotas do sistema na `v1.0`. Para cada tela: rota, perfis com acesso, fu
 ## 4. Captura Rápida
 
 ### 4.1 Modal de Captura
-- **Rota:** N/A (modal acionado por `Ctrl+K` ou botão flutuante)
+- **Rota:** N/A (modal acionado por `Ctrl+K` ou botão flutuante FAB)
 - **Perfis:** todos logados
-- **Fase:** 4
+- **Fase:** 5
 - **Função:** registrar item no inbox em segundos.
-- **Comportamento:** `Enter` envia, `Shift+Enter` quebra linha, `Esc` fecha. HTMX, sem reload. Confirmação visual de 1s.
+- **Comportamento:** `Enter` envia, `Shift+Enter` quebra linha, `Esc` fecha. AJAX, sem reload. Confirmação visual "Capturado!" durante 800ms; modal fecha sozinho.
+- **Implementação:** modal global em `layouts/app.html` (sempre montado), JS minimalista. POST para `/inbox/capturar/?ajax=1` com header `HX-Request: true`. FAB fixo bottom-right, sempre visível.
 
 ---
 
 ## 5. Inbox
 
 ### 5.1 Lista de Itens
-- **Rota:** `/inbox`
+- **Rota:** `/inbox/`
 - **Perfis:** todos logados
-- **Fase:** 4
-- **Função:** listar itens capturados, filtráveis por status.
-- **Indicadores:** badge laranja em pendentes há +7 dias, vermelho em +30 dias.
+- **Fase:** 5
+- **Função:** listar itens capturados, filtráveis por status (pendentes / processados / descartados / todos). Default: pendentes.
+- **Indicadores:** badge âmbar em pendentes há +7 dias, vermelho em +30 dias.
+- **Ações por item pendente:** "Processar" (verde, leva ao formulário de demanda pré-preenchido) e "Descartar" (vermelho, expande textarea inline de motivo).
 
-### 5.2 Processar Item
-- **Rota:** `/inbox/<id>/processar`
+### 5.2 Captura standalone
+- **Rota:** `/inbox/capturar/`
 - **Perfis:** todos logados
-- **Fase:** 4
-- **Função:** transformar item bruto em demanda estruturada.
+- **Fase:** 5
+- **Função:** página dedicada de captura (alternativa ao modal global). Útil para mobile ou quando o usuário quer focar.
 
-### 5.3 Detalhe de Item Processado
-- **Rota:** `/inbox/<id>`
+### 5.3 Processar Item
+- **Rota:** `/inbox/<uuid>/processar/`
+- **Perfis:** usuários com `demandas.add_demanda`
+- **Fase:** 5
+- **Função:** transformar item bruto em demanda estruturada. Form pré-preenchido com o conteúdo do item (título = 80 primeiros caracteres; descrição = conteúdo completo). Reusa formsets de partes (pessoas/entidades) e temas do form de criação de demanda. Tudo em transação atômica — se faltar parte em demanda não-anônima, rollback.
+
+### 5.4 Pendências (interações agendadas do usuário)
+- **Rota:** `/minhas-pendencias/`
+- **Perfis:** todos logados (filtra por `autor=request.user`)
+- **Fase:** 5
+- **Função:** consolida todas as `Interacao(status=agendada)` do usuário. Agrupadas por horizonte temporal: **Vencidas** (passadas), Hoje, Amanhã, Esta semana, Próximas. Vencidas sempre primeiro, com borda vermelha.
+- **Ações por item:** "Marcar realizada" e "Cancelar".
+
+### 5.5 Reuniões (filtragem de pendências)
+- **Rota:** `/minhas-reunioes/`
 - **Perfis:** todos logados
-- **Fase:** 4
+- **Fase:** 5
+- **Função:** view da §5.4 filtrada por `tipo=reuniao` nos próximos 30 dias.
 
 ---
 

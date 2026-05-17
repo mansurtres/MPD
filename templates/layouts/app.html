@@ -21,6 +21,14 @@
             {% if perms.demandas.view_encaminhamento %}
             <a href="{% url 'demandas:encaminhamento_lista' %}" class="text-sm text-slate-600 hover:text-slate-900">Encaminhamentos</a>
             {% endif %}
+            <a href="{% url 'demandas:inbox_lista' %}" class="text-sm text-slate-600 hover:text-slate-900 inline-flex items-center gap-1">
+              Inbox
+              {% if topbar_inbox_pendentes %}<span class="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-medium bg-slate-200 text-slate-700">{{ topbar_inbox_pendentes }}</span>{% endif %}
+            </a>
+            <a href="{% url 'demandas:minhas_pendencias' %}" class="text-sm text-slate-600 hover:text-slate-900 inline-flex items-center gap-1">
+              Pendências
+              {% if topbar_pendencias_vencidas %}<span class="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-medium bg-red-100 text-red-700">{{ topbar_pendencias_vencidas }}</span>{% endif %}
+            </a>
             <a href="{% url 'core:configuracoes' %}" class="text-sm text-slate-600 hover:text-slate-900">Configurações</a>
           </div>
         </div>
@@ -56,6 +64,112 @@
   <main class="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
     {% block app_conteudo %}{% endblock %}
   </main>
+
+  {# FAB de captura rápida (Fase 5) — sempre visível para usuário logado. #}
+  <button type="button" id="captura-fab" title="Captura rápida (Ctrl+K)"
+          class="fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-slate-800 hover:bg-slate-700 text-white text-2xl shadow-lg flex items-center justify-center">
+    +
+  </button>
+
+  {# Modal de captura rápida (Fase 5). Abre via Ctrl+K, FAB ou outros gatilhos. #}
+  <div id="captura-modal" class="hidden fixed inset-0 z-50">
+    <div class="absolute inset-0 bg-slate-900/40" id="captura-backdrop"></div>
+    <div class="absolute inset-x-0 top-24 mx-auto max-w-2xl px-4">
+      <div class="bg-white rounded-xl shadow-2xl">
+        <div class="px-6 py-3 border-b border-slate-200 flex items-center justify-between">
+          <h3 class="text-base font-semibold text-slate-900">Captura rápida</h3>
+          <span class="text-xs text-slate-500">Enter envia · Shift+Enter quebra linha · Esc fecha</span>
+        </div>
+        <form method="post" action="{% url 'demandas:inbox_capturar' %}?ajax=1" id="captura-form" class="px-6 py-4 space-y-3">
+          {% csrf_token %}
+          <textarea name="conteudo" id="captura-textarea" rows="4" required autofocus
+                    placeholder="Anote a ideia, lembrete, demanda potencial. Triagem depois."
+                    class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"></textarea>
+          <div id="captura-erro" class="hidden text-xs text-red-600"></div>
+          <div class="flex items-center justify-between">
+            <span id="captura-ok" class="hidden text-xs text-green-700">Capturado!</span>
+            <div class="flex gap-2 ml-auto">
+              <button type="button" data-close-captura class="text-sm text-slate-500 hover:text-slate-800 px-3 py-1.5">Cancelar</button>
+              <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-4 py-1.5 rounded-lg">Capturar</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function() {
+    const modal = document.getElementById('captura-modal');
+    const fab = document.getElementById('captura-fab');
+    const form = document.getElementById('captura-form');
+    const ta = document.getElementById('captura-textarea');
+    const errBox = document.getElementById('captura-erro');
+    const okBox = document.getElementById('captura-ok');
+    const backdrop = document.getElementById('captura-backdrop');
+
+    function open() {
+      modal.classList.remove('hidden');
+      document.body.classList.add('overflow-hidden');
+      setTimeout(() => ta.focus(), 30);
+    }
+    function close() {
+      modal.classList.add('hidden');
+      document.body.classList.remove('overflow-hidden');
+      ta.value = '';
+      errBox.classList.add('hidden');
+      okBox.classList.add('hidden');
+    }
+    fab.addEventListener('click', open);
+    backdrop.addEventListener('click', close);
+    document.querySelectorAll('[data-close-captura]').forEach(el => el.addEventListener('click', close));
+    document.addEventListener('keydown', e => {
+      // Ctrl+K / Cmd+K abre
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        open();
+        return;
+      }
+      // Esc fecha
+      if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+        close();
+        return;
+      }
+    });
+    // Enter no textarea envia; Shift+Enter quebra linha
+    ta.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        form.requestSubmit();
+      }
+    });
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      errBox.classList.add('hidden');
+      okBox.classList.add('hidden');
+      const fd = new FormData(form);
+      try {
+        const resp = await fetch(form.action, {
+          method: 'POST',
+          body: fd,
+          headers: {'HX-Request': 'true'},
+        });
+        if (resp.ok) {
+          okBox.classList.remove('hidden');
+          ta.value = '';
+          setTimeout(close, 800);
+        } else {
+          const data = await resp.json().catch(() => ({}));
+          errBox.textContent = data.errors ? Object.values(data.errors).flat().join('; ') : 'Erro ao capturar.';
+          errBox.classList.remove('hidden');
+        }
+      } catch (err) {
+        errBox.textContent = 'Erro de rede.';
+        errBox.classList.remove('hidden');
+      }
+    });
+  })();
+  </script>
 
 </div>
 {% endblock %}

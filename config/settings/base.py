@@ -94,6 +94,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "core.context_processors.mandato",
+                "core.context_processors.pendencias_usuario",
             ],
         },
     },

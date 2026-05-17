@@ -56,7 +56,7 @@ Ideia que parece "óbvia" e não está no doc → primeiro vira ADR ou backlog.
 
 ## 5. Estado atual
 
-**Fase corrente:** v0.5 — **Fase 4 (Visões Transversais) concluída.** Lista de Encaminhamentos como leitura agregada + quick filters operacionais nas listas existentes (demandas, pessoas, entidades). Demanda continua como núcleo; partículas (encaminhamento) não viram entidades autônomas (ADR 0046).
+**Fase corrente:** v0.6 — **Fase 5 (Inbox GTD e Minhas Pendências) concluída.** Captura rápida via Ctrl+K / FAB / `/inbox/capturar/`, triagem de inbox que converte item em demanda, e visão consolidada de pendências do usuário (interações agendadas) com vencidas no topo.
 
 **Fundação (Fase 0/1, mantido):**
 - Django 5.2 + PostgreSQL 16 + Tailwind v4 standalone.
@@ -179,7 +179,20 @@ Ideia que parece "óbvia" e não está no doc → primeiro vira ADR ou backlog.
 
 **163 testes passando** ao final da v0.5 (+5 sobre v0.4.2). ADRs 0001–0046.
 
-**Próximo marco:** v0.6 — Fase 5 (Inbox GTD e Minhas Pendências). Ver [`roadmap.md`](./roadmap.md) §Fase 5.
+**Fase 5 — Inbox GTD e Minhas Pendências (v0.6):**
+- Modelo `ItemInbox` (já existia desde Fase 3 sem UX) ganha UX completa.
+- Captura rápida em 3 portas: atalho **Ctrl+K** em qualquer página, **FAB** fixo bottom-right (`+`), página standalone `/inbox/capturar/`. Modal global montado em `layouts/app.html`, JS minimalista (~50 linhas) sem dependência de framework. POST AJAX com `HX-Request` header, confirmação visual "Capturado!" 800ms antes de fechar.
+- Lista `/inbox/` com filtros (pendentes/processados/descartados/todos). Badges de envelhecimento: âmbar +7d, vermelho +30d.
+- Processamento `/inbox/<uuid>/processar/` em transação atômica: cria Demanda pré-preenchida com o conteúdo do item, valida formsets de partes + temas, marca item como processado com FK para a demanda gerada. Rollback se faltar parte em demanda não-anônima.
+- Descarte `/inbox/<uuid>/descartar/` exige `motivo_descarte` (validação no model `clean()`).
+- `/minhas-pendencias/` consolida `Interacao(autor=user, status=agendada)`, agrupadas por horizonte (Vencidas / Hoje / Amanhã / Esta semana / Próximas). Vencidas com borda vermelha no topo.
+- `/minhas-reunioes/` herda da view de pendências filtrando `tipo=reuniao` próximos 30 dias.
+- Topbar ganha links **Inbox** (com badge cinza do count de pendentes) e **Pendências** (com badge vermelho do count de vencidas). Context processor `core.context_processors.pendencias_usuario` popula esses contadores em todas as páginas autenticadas.
+- Mapa-de-telas §4, §5 atualizado.
+
+**171 testes passando** ao final da v0.6 (+8 sobre v0.5: captura simples, captura AJAX, processar cria demanda + marca item, descartar exige motivo, pendências do usuário, vencidas no topo, reuniões filtradas, context processor). ADRs 0001–0046.
+
+**Próximo marco:** v0.7 — Fase 6 (Análise, Auditoria, LGPD). Ver [`roadmap.md`](./roadmap.md) §Fase 6.
 
 ---
 
@@ -258,4 +271,4 @@ Para o histórico completo ver [`docs/decisoes.md`](./docs/decisoes.md). Decisõ
 
 ---
 
-*Atualizar este arquivo ao fim de cada fase. Última atualização: 2026-05-16 (v0.5 — Fase 4 Visões Transversais).*
+*Atualizar este arquivo ao fim de cada fase. Última atualização: 2026-05-16 (v0.6 — Fase 5 Inbox GTD + Minhas Pendências).*

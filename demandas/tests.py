@@ -1055,3 +1055,182 @@ def test_pessoas_quick_filter_com_demanda_aberta(client, admin_user, pessoa, dem
     assert resp.status_code == 200
     assert pessoa.nome.encode() in resp.content
     assert outra.nome.encode() not in resp.content
+
+
+# --- Fase 5 — Inbox GTD e Minhas Pendências ---
+
+
+def test_capturar_inbox_cria_item_com_autor(client, admin_user):
+    from demandas.models import ItemInbox
+
+    client.force_login(admin_user)
+    resp = client.post(
+        reverse("demandas:inbox_capturar"),
+        {"conteudo": "Lembrete: ligar para Maria sobre vaga de creche."},
+        follow=False,
+    )
+    assert resp.status_code == 302
+    item = ItemInbox.objects.get(conteudo__startswith="Lembrete")
+    assert item.autor == admin_user
+    assert item.status == ItemInbox.STATUS_PENDENTE
+
+
+def test_capturar_inbox_ajax_retorna_json(client, admin_user):
+    client.force_login(admin_user)
+    resp = client.post(
+        reverse("demandas:inbox_capturar") + "?ajax=1",
+        {"conteudo": "Captura AJAX"},
+    )
+    assert resp.status_code == 201
+    assert resp.json()["ok"] is True
+
+
+def test_processar_inbox_cria_demanda_e_marca_processado(client, admin_user, pessoa):
+    from demandas.models import ItemInbox
+
+    item = ItemInbox.objects.create(conteudo="Buraco na rua X", autor=admin_user)
+    client.force_login(admin_user)
+    resp = client.post(
+        reverse("demandas:inbox_processar", args=[item.pk]),
+        {
+            "titulo": "Buraco na rua X",
+            "descricao": "Buraco grande na esquina.",
+            "origem": Demanda.ORIGEM_RESPONSIVA,
+            "canal_entrada": "presencial",
+            "coordenacao_responsavel": "gabinete",
+            "prioridade": "normal",
+            "dp-TOTAL_FORMS": "1",
+            "dp-INITIAL_FORMS": "0",
+            "dp-MIN_NUM_FORMS": "0",
+            "dp-MAX_NUM_FORMS": "1000",
+            "dp-0-pessoa": pessoa.pk,
+            "dp-0-papel": "solicitante",
+            "dp-0-observacao": "",
+            "de-TOTAL_FORMS": "0",
+            "de-INITIAL_FORMS": "0",
+            "de-MIN_NUM_FORMS": "0",
+            "de-MAX_NUM_FORMS": "1000",
+        },
+        follow=False,
+    )
+    assert resp.status_code == 302
+    item.refresh_from_db()
+    assert item.status == ItemInbox.STATUS_PROCESSADO
+    assert item.demanda_gerada is not None
+    assert item.processado_por == admin_user
+    assert item.demanda_gerada.descricao == "Buraco grande na esquina."
+
+
+def test_descartar_inbox_exige_motivo(client, admin_user):
+    from demandas.models import ItemInbox
+
+    item = ItemInbox.objects.create(conteudo="Item inutil", autor=admin_user)
+    client.force_login(admin_user)
+    # Sem motivo: rejeita
+    resp = client.post(reverse("demandas:inbox_descartar", args=[item.pk]), {"motivo_descarte": ""})
+    item.refresh_from_db()
+    assert item.status == ItemInbox.STATUS_PENDENTE  # não mudou
+    # Com motivo: aceita
+    resp = client.post(
+        reverse("demandas:inbox_descartar", args=[item.pk]),
+        {"motivo_descarte": "Duplicado com #42"},
+    )
+    assert resp.status_code == 302
+    item.refresh_from_db()
+    assert item.status == ItemInbox.STATUS_DESCARTADO
+    assert item.motivo_descarte == "Duplicado com #42"
+
+
+def test_minhas_pendencias_lista_agendadas_do_usuario(client, admin_user, demanda):
+    Interacao.objects.create(
+        demanda=demanda,
+        autor=admin_user,
+        tipo=Interacao.TIPO_REUNIAO,
+        conteudo="Reunião na quinta",
+        status=Interacao.STATUS_AGENDADA,
+        data_ocorrencia=timezone.now() + timedelta(days=3),
+        automatica=False,
+    )
+    client.force_login(admin_user)
+    resp = client.get(reverse("demandas:minhas_pendencias"))
+    assert resp.status_code == 200
+    grupos = resp.context["grupos"]
+    rotulos = [g["label"] for g in grupos]
+    assert "Esta semana" in rotulos
+    assert b"Reuni\xc3\xa3o na quinta" in resp.content
+
+
+def test_minhas_pendencias_vencidas_no_topo(client, admin_user, demanda):
+    Interacao.objects.create(
+        demanda=demanda,
+        autor=admin_user,
+        tipo=Interacao.TIPO_REUNIAO,
+        conteudo="Vencida",
+        status=Interacao.STATUS_AGENDADA,
+        data_ocorrencia=timezone.now() - timedelta(days=2),
+        automatica=False,
+    )
+    Interacao.objects.create(
+        demanda=demanda,
+        autor=admin_user,
+        tipo=Interacao.TIPO_REUNIAO,
+        conteudo="Futura",
+        status=Interacao.STATUS_AGENDADA,
+        data_ocorrencia=timezone.now() + timedelta(days=5),
+        automatica=False,
+    )
+    client.force_login(admin_user)
+    resp = client.get(reverse("demandas:minhas_pendencias"))
+    grupos = resp.context["grupos"]
+    primeiro = grupos[0]["label"]
+    assert primeiro == "Vencidas"
+
+
+def test_minhas_reunioes_filtra_tipo_reuniao(client, admin_user, demanda):
+    Interacao.objects.create(
+        demanda=demanda,
+        autor=admin_user,
+        tipo=Interacao.TIPO_REUNIAO,
+        conteudo="Reunião",
+        status=Interacao.STATUS_AGENDADA,
+        data_ocorrencia=timezone.now() + timedelta(days=3),
+        automatica=False,
+    )
+    Interacao.objects.create(
+        demanda=demanda,
+        autor=admin_user,
+        tipo=Interacao.TIPO_CONTATO_PESSOA,
+        conteudo="Contato",
+        status=Interacao.STATUS_AGENDADA,
+        data_ocorrencia=timezone.now() + timedelta(days=4),
+        automatica=False,
+    )
+    client.force_login(admin_user)
+    resp = client.get(reverse("demandas:minhas_reunioes"))
+    pendencias = list(resp.context["pendencias"])
+    assert len(pendencias) == 1
+    assert pendencias[0].tipo == Interacao.TIPO_REUNIAO
+
+
+def test_context_processor_conta_pendencias_vencidas(client, admin_user, demanda):
+    Interacao.objects.create(
+        demanda=demanda,
+        autor=admin_user,
+        tipo=Interacao.TIPO_REUNIAO,
+        conteudo="Vencida 1",
+        status=Interacao.STATUS_AGENDADA,
+        data_ocorrencia=timezone.now() - timedelta(days=1),
+        automatica=False,
+    )
+    Interacao.objects.create(
+        demanda=demanda,
+        autor=admin_user,
+        tipo=Interacao.TIPO_REUNIAO,
+        conteudo="No futuro",
+        status=Interacao.STATUS_AGENDADA,
+        data_ocorrencia=timezone.now() + timedelta(days=5),
+        automatica=False,
+    )
+    client.force_login(admin_user)
+    resp = client.get(reverse("demandas:demanda_lista"))
+    assert resp.context["topbar_pendencias_vencidas"] == 1

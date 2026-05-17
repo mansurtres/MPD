@@ -72,6 +72,21 @@ urlpatterns = [
         views.EncaminhamentoListView.as_view(),
         name="encaminhamento_lista",
     ),
+    # --- Fase 5: Inbox GTD ---
+    path("inbox/", views.InboxListView.as_view(), name="inbox_lista"),
+    path("inbox/capturar/", views.CapturarInboxView.as_view(), name="inbox_capturar"),
+    path("inbox/<uuid:pk>/processar/", views.ProcessarInboxView.as_view(), name="inbox_processar"),
+    path("inbox/<uuid:pk>/descartar/", views.DescartarInboxView.as_view(), name="inbox_descartar"),
+    path(
+        "minhas-pendencias/",
+        views.MinhasPendenciasView.as_view(),
+        name="minhas_pendencias",
+    ),
+    path(
+        "minhas-reunioes/",
+        views.MinhasReunioesView.as_view(),
+        name="minhas_reunioes",
+    ),
     # --- Anexos polimórficos ---
     path(
         "demandas/anexos/<str:tipo>/<uuid:object_id>/",

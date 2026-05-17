@@ -1,0 +1,77 @@
+{% extends "layouts/app.html" %}
+
+{% block app_conteudo %}
+<div class="flex items-center justify-between mb-2">
+  <h1 class="text-xl font-semibold text-slate-900">Inbox</h1>
+  <a href="{% url 'demandas:inbox_capturar' %}" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2 rounded-lg">
+    Nova captura
+  </a>
+</div>
+<p class="text-sm text-slate-500 mb-6">Itens capturados rapidamente, aguardando triagem. Processar transforma em demanda estruturada; descartar registra motivo.</p>
+
+<div class="flex flex-wrap gap-2 mb-4 text-sm">
+  <a href="?status=pendente" class="px-3 py-1 rounded border {% if status_atual == 'pendente' %}bg-slate-800 text-white border-slate-800{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-100{% endif %}">Pendentes</a>
+  <a href="?status=processado" class="px-3 py-1 rounded border {% if status_atual == 'processado' %}bg-slate-800 text-white border-slate-800{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-100{% endif %}">Processados</a>
+  <a href="?status=descartado" class="px-3 py-1 rounded border {% if status_atual == 'descartado' %}bg-slate-800 text-white border-slate-800{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-100{% endif %}">Descartados</a>
+  <a href="?status=todos" class="px-3 py-1 rounded border {% if status_atual == 'todos' %}bg-slate-800 text-white border-slate-800{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-100{% endif %}">Todos</a>
+</div>
+
+<div class="space-y-3">
+  {% for item in itens %}
+  <div class="bg-white border border-slate-200 rounded-xl p-4">
+    <div class="flex items-start justify-between gap-3">
+      <div class="flex-1">
+        <p class="text-sm text-slate-900 whitespace-pre-line">{{ item.conteudo }}</p>
+        <div class="flex flex-wrap items-center gap-2 mt-2 text-xs text-slate-500">
+          <span>{{ item.criado_em|date:"d/m/Y H:i" }}</span>
+          <span>·</span>
+          <span>por {{ item.autor.nome_completo|default:item.autor.email }}</span>
+          {% if item.status == 'pendente' %}
+            {% if item.criado_em.date <= limite_30d %}
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-700">Pendente há +30d</span>
+            {% elif item.criado_em.date <= limite_7d %}
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700">Pendente há +7d</span>
+            {% endif %}
+          {% elif item.status == 'processado' %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-800">Processado</span>
+            {% if item.demanda_gerada %}<span>→ <a href="{% url 'demandas:demanda_detalhe' item.demanda_gerada.pk %}" class="hover:underline">{{ item.demanda_gerada.numero }}</a></span>{% endif %}
+          {% elif item.status == 'descartado' %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-slate-200 text-slate-700">Descartado</span>
+          {% endif %}
+        </div>
+        {% if item.status == 'descartado' and item.motivo_descarte %}
+          <p class="text-xs text-slate-500 mt-2 italic">Motivo: {{ item.motivo_descarte }}</p>
+        {% endif %}
+      </div>
+      {% if item.status == 'pendente' %}
+      <div class="flex flex-col gap-2 shrink-0">
+        <a href="{% url 'demandas:inbox_processar' item.pk %}" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg text-center">Processar</a>
+        <details>
+          <summary class="cursor-pointer text-xs text-red-600 hover:text-red-700 text-center">Descartar</summary>
+          <form method="post" action="{% url 'demandas:inbox_descartar' item.pk %}" class="mt-2 space-y-2">
+            {% csrf_token %}
+            <textarea name="motivo_descarte" rows="2" placeholder="Motivo" class="w-44 rounded border border-slate-300 px-2 py-1 text-xs"></textarea>
+            <button type="submit" class="bg-red-600 hover:bg-red-700 text-white text-xs font-medium px-3 py-1 rounded w-full">Descartar</button>
+          </form>
+        </details>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% empty %}
+  <div class="bg-white border border-slate-200 rounded-xl p-12 text-center text-sm text-slate-500">
+    Nenhum item no inbox.
+  </div>
+  {% endfor %}
+</div>
+
+{% if is_paginated %}
+<div class="flex items-center justify-between mt-4 text-sm text-slate-600">
+  <span>Página {{ page_obj.number }} de {{ paginator.num_pages }}</span>
+  <div class="flex gap-2">
+    {% if page_obj.has_previous %}<a href="?{% if status_atual %}status={{ status_atual }}&{% endif %}page={{ page_obj.previous_page_number }}" class="px-3 py-1 rounded border border-slate-300 hover:bg-slate-100">Anterior</a>{% endif %}
+    {% if page_obj.has_next %}<a href="?{% if status_atual %}status={{ status_atual }}&{% endif %}page={{ page_obj.next_page_number }}" class="px-3 py-1 rounded border border-slate-300 hover:bg-slate-100">Próxima</a>{% endif %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}
