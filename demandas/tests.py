@@ -1617,3 +1617,35 @@ def test_export_csv_oculta_demanda_restrita_de_coord(client, coord_juridico, adm
     assert publica.numero.encode() in resp.content
     assert restrita.numero.encode() not in resp.content
     assert b"SegredoMaximo" not in resp.content
+
+
+# --- Conclusão limpa: devolutiva não dispara avanço de status (Tarefa 2.1) ---
+
+
+def test_conclusao_de_demanda_nova_responsiva_gera_transicao_unica(client, admin_user, demanda):
+    """Demanda em status=novo, ConcluirDemandaView cria devolutiva + UMA
+    transição direta para concluida (sem passar por em_andamento
+    intermediário fake). Sem o fix da Tarefa 2.1, devolutiva disparava
+    avanço para em_andamento, gerando 2 transições de status."""
+    assert demanda.status == Demanda.STATUS_NOVO
+    client.force_login(admin_user)
+    resp = client.post(
+        reverse("demandas:demanda_concluir", args=[demanda.pk]),
+        {
+            "devolutiva_data": timezone.now().date().isoformat(),
+            "devolutiva_canal": "whatsapp",
+            "devolutiva_conteudo": "Comunicado à Maria.",
+            "resultado": Demanda.RESULTADO_ATENDIDO,
+            "resultado_observacao": "",
+        },
+    )
+    assert resp.status_code == 302
+    demanda.refresh_from_db()
+    assert demanda.status == Demanda.STATUS_CONCLUIDA
+    # Critério principal: UMA transição de status (novo→concluida).
+    # Sem o fix: 2 transições (novo→em_andamento + em_andamento→concluida).
+    transicoes = demanda.interacoes.filter(tipo=Interacao.TIPO_MUDANCA_STATUS)
+    assert transicoes.count() == 1
+    transicao = transicoes.first()
+    assert "Novo" in transicao.conteudo
+    assert "Concluída" in transicao.conteudo

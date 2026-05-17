@@ -134,6 +134,13 @@ _TIPOS_INTERACAO_NAO_OPERACIONAIS = frozenset(
         Interacao.TIPO_MUDANCA_RESPONSAVEL,
         Interacao.TIPO_MUDANCA_RESULTADO,
         Interacao.TIPO_ARQUIVAMENTO,
+        # Revisão fim-Fase-6: devolutiva é parte do fluxo de FECHAMENTO
+        # (ConcluirDemandaView). Não deve fazer demanda em 'novo' avançar
+        # para 'em_andamento' só por ter sido criada — a view logo a seguir
+        # vai setar status='concluida'. Sem este skip, a timeline ganhava
+        # 3 eventos (devolutiva + novo→em_andamento + em_andamento→concluida)
+        # quando deveria ter 2 (devolutiva + novo→concluida).
+        Interacao.TIPO_DEVOLUTIVA,
     }
 )
 
