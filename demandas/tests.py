@@ -1585,3 +1585,35 @@ def test_analise_responsavel_de_restrita_ve_no_painel(client, admin_user, pessoa
     por_mes = resp.context["por_mes"]
     total = sum(m["total"] for m in por_mes)
     assert total >= 1
+
+
+# --- Export CSV respeita visibilidade restrita (Tarefa 1.4 do roteiro v0.7.2) ---
+
+
+def test_export_csv_oculta_demanda_restrita_de_coord(client, coord_juridico, admin_user):
+    """Coordenador NÃO consegue exportar demanda restrita de outra coord via CSV.
+    Confirma que _filtrar_visiveis aplicado no get_queryset cobre o fluxo
+    de export."""
+    publica = Demanda.objects.create(
+        titulo="Publica",
+        descricao="X",
+        canal_entrada="presencial",
+        coordenacao_responsavel="comunicacao",
+        criado_por=admin_user,
+        anonimo=True,
+    )
+    restrita = Demanda.objects.create(
+        titulo="SegredoMaximo",
+        descricao="X",
+        canal_entrada="presencial",
+        coordenacao_responsavel="juridico",
+        criado_por=admin_user,
+        anonimo=True,
+        restrito=True,
+    )
+    client.force_login(coord_juridico)
+    resp = client.get(reverse("demandas:demanda_export_csv"))
+    assert resp.status_code == 200
+    assert publica.numero.encode() in resp.content
+    assert restrita.numero.encode() not in resp.content
+    assert b"SegredoMaximo" not in resp.content
