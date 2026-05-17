@@ -762,3 +762,43 @@ def test_auditlog_registra_alteracao_de_pessoa(db, pessoa_basica):
     pessoa_basica.save()
     entries = LogEntry.objects.get_for_object(pessoa_basica)
     assert entries.filter(action=LogEntry.Action.UPDATE).exists()
+
+
+# --- slug_publico com retry em colisão (ADR 0051) ---
+
+
+def test_slug_publico_retenta_em_colisao(db, usuario_admin, monkeypatch):
+    """Simula colisão de slug: primeiro uuid colide com pessoa já criada;
+    segundo uuid é único e o save sucede. Sem o retry, IntegrityError
+    vazaria para o caller."""
+    from pessoas import models as pessoas_models
+
+    # Cria a primeira pessoa normalmente.
+    p1 = Pessoa.objects.create(
+        nome="Primeira",
+        sobrenome="Pessoa",
+        bairro="X",
+        cidade="Y",
+        criado_por=usuario_admin,
+    )
+    slug_existente = p1.slug_publico
+
+    # Sequência forçada: primeiro retorno = slug já usado, segundo = slug novo.
+    sequencia = iter([slug_existente + "00000000", "ffffffffffff00000000"])
+
+    class FakeUUID:
+        def __init__(self, hex_str):
+            self.hex = hex_str
+
+    monkeypatch.setattr(pessoas_models.uuid, "uuid4", lambda: FakeUUID(next(sequencia)))
+
+    p2 = Pessoa.objects.create(
+        nome="Segunda",
+        sobrenome="Pessoa",
+        bairro="X",
+        cidade="Y",
+        criado_por=usuario_admin,
+    )
+    # Retry funcionou: usou o segundo slug.
+    assert p2.slug_publico == "ffffffffffff"
+    assert p2.slug_publico != p1.slug_publico
