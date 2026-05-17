@@ -204,6 +204,21 @@ Ideia que parece "óbvia" e não está no doc → primeiro vira ADR ou backlog.
 
 **179 testes passando** ao final da v0.7 (+8 sobre v0.6: CSV export OK, CSV bloqueia assessor, CSV respeita querystring, auditoria abre p/ admin, auditoria bloqueia coord, análise abre p/ coord, análise bloqueia assessor, verificar_integridade detecta devolutiva faltando). ADRs 0001–0047.
 
+**UX polishings (v0.7.1):** topbar reordenada (Inbox primeiro); autocomplete server-side de Pessoa/Entidade (endpoints `*_buscar_json`); papel das partes (DemandaPessoa/DemandaEntidade) ganha choices com "Outro" + texto livre; popup AJAX para criar Tema in-line no form de demanda. **190 testes passando.**
+
+**Fechamento de Fase 6 — segurança e robustez (v0.7.2):**
+A revisão técnica de fim-de-Fase-6 (chefe de área Anthropic, 2026-05-17) identificou 5 gaps. Endereçados em [`docs/roteiro-v0.7.2.md`](./docs/roteiro-v0.7.2.md):
+- **Centralização de checagem de papel** ([core/permissoes.py](core/permissoes.py)) — `eh_cg_plus`/`eh_co_plus` substituem 11 ocorrências de `groups.filter(name__in=[...])`. ADR 0048 (resolve violação de ADR 0024).
+- **Visibilidade de restritas no `/analise`** — manager `Demanda.objects.visiveis_para(user)`; 6 métricas + `top_pessoas` agora filtram corretamente. ADR 0049.
+- **Auditlog estendido** para `Interacao` e `ItemInbox` — fecha rastreabilidade de edição de devolutiva e descarte de inbox. ADR 0050 (revisita 0029).
+- **`slug_publico`** migrou de `pre_save` para `save()` com retry em IntegrityError dentro de savepoint — fecha TOCTOU. ADR 0051 (revisita 0038).
+- **Robustez de signals** — `TIPO_DEVOLUTIVA` adicionado a `_TIPOS_INTERACAO_NAO_OPERACIONAIS`: conclusão de demanda em `novo` gera 1 transição, não 2 (timeline limpa).
+- **Pequenos UX/perf** — `AnexoUploadView` retorna 404 (não 500) para objeto pai inexistente; `ProcessarInboxView` redireciona com mensagem em vez de 404 vazio; `_setup_anexos_orfaos` ganha handlers nomeados; `carga_assessores` em annotate única (elimina N+1); `PessoaCSVExport` usa cache de prefetch.
+- **Deps**: `factory-boy` removido (zero uso); `django-htmx` mantido. ADR 0052.
+- `pyproject.toml`: version `0.4.1` → `0.7.2`.
+
+**207 testes passando** ao final da v0.7.2 (+17 sobre v0.7.1: 3 papel, 2 auditlog, 4 analise/restritas, 1 CSV regressão, 1 transição única, 1 slug retry, 1 anexo 404, 2 inbox conflito, 1 carga N+1, 1 CSV N+1). ADRs 0001–0052.
+
 **Próximo marco:** v1.0 — Fase 7 (Polimento e Web). Ver [`roadmap.md`](./roadmap.md) §Fase 7.
 
 ---
@@ -283,4 +298,4 @@ Para o histórico completo ver [`docs/decisoes.md`](./docs/decisoes.md). Decisõ
 
 ---
 
-*Atualizar este arquivo ao fim de cada fase. Última atualização: 2026-05-17 (v0.7 — Fase 6 Segurança, Visualização, Exportação; LGPD adiada para Fase 8 via ADR 0047).*
+*Atualizar este arquivo ao fim de cada fase. Última atualização: 2026-05-17 (v0.7.2 — fechamento de Fase 6: segurança/auditoria/robustez via ADRs 0048–0052).*

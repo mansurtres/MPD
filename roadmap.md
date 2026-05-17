@@ -48,6 +48,8 @@ Tudo open source, gratuito enquanto local, pronto para deploy. Detalhes e justif
 - `v0.5` — Fase 4: Visões Transversais (lente de leitura sobre as partículas)
 - `v0.6` — Fase 5: Inbox GTD + Minhas Pendências
 - `v0.7` — Fase 6: Segurança, Visualização, Exportação (LGPD adiada — ADR 0047)
+- `v0.7.1` — UX polishings nos forms de demanda
+- `v0.7.2` — Fechamento de Fase 6 (segurança/auditoria/robustez — ADRs 0048–0052)
 - `v1.0` — Fase 7: Polimento e Web
 - `v1.1` — Fase 8: Privacidade, LGPD e lançamento público
 
@@ -474,9 +476,10 @@ pytest demandas/ -v -k "inbox or pendencia"
 
 ---
 
-### Fase 6 — Segurança, Visualização, Exportação
+### Fase 6 — Segurança, Visualização, Exportação ✅
 
-**Versão:** `v0.7`
+**Versão:** `v0.7` (escopo principal) + `v0.7.1` (UX polishings) + `v0.7.2` (fechamento via ADRs 0048–0052)
+**Status:** **fechada em 2026-05-17** após revisão técnica externa que identificou e endereçou 5 gaps de segurança/robustez. Detalhes em [`docs/roteiro-v0.7.2.md`](./docs/roteiro-v0.7.2.md) e nas ADRs 0048–0052.
 **Objetivo:** amplificar o trabalho da equipe. Filtros poderosos para encontrar; exportação para preparar relatórios; painel para ver o mandato em números; auditoria UI para rastreabilidade interna; infra básica para confiabilidade operacional.
 
 > **Mudança de escopo (ADR 0047):** privacidade/LGPD adiada para a Fase 8 (v1.1). MVP é uso interno do mandato, sem exposição pública — urgência de compliance só aparece com hospedagem aberta.
@@ -518,16 +521,17 @@ Fase 5 concluída.
 
 #### 4.6.3. Critérios de Aceite
 
-- [ ] Filtros combinam via querystring corretamente e são preservados na paginação.
-- [ ] CSV abre no Excel BR com acentuação correta.
-- [ ] Exportação registra log no auditlog.
-- [ ] Painel `/analise` carrega em < 1s para 1000 registros.
-- [ ] Cada métrica do painel oferece toggle tabela/gráfico e ambos renderizam os mesmos números.
-- [ ] Editar uma Pessoa registra log com diff visível em `/auditoria`.
-- [ ] Filtros em `/auditoria` (usuário/modelo/período) funcionam.
-- [ ] `/healthz` retorna 200 quando o banco está acessível.
-- [ ] `backup.sh` gera dump válido (verificável com `pg_restore --list`).
-- [ ] `verificar_integridade` detecta cada um dos 5 casos da especificação.
+- [x] Filtros combinam via querystring corretamente e são preservados na paginação.
+- [x] CSV abre no Excel BR com acentuação correta.
+- [x] Exportação registra log no auditlog (via `core.utils.registrar_export`).
+- [x] Painel `/analise` carrega em < 1s para 1000 registros.
+- [x] Cada métrica do painel oferece toggle tabela/gráfico e ambos renderizam os mesmos números.
+- [x] Editar uma Pessoa registra log com diff visível em `/auditoria`.
+- [x] Filtros em `/auditoria` (usuário/modelo/período) funcionam.
+- [x] `/healthz` retorna 200 quando o banco está acessível.
+- [x] `backup.sh` gera dump válido (verificável com `pg_restore --list`).
+- [x] `verificar_integridade` detecta cada um dos 5 casos da especificação.
+- [x] **v0.7.2:** Painel `/analise` respeita visibilidade restrita (ADR 0049). `Interacao` e `ItemInbox` no auditlog (ADR 0050). `slug_publico` com retry (ADR 0051). Checagem de papel centralizada (ADR 0048).
 
 #### 4.6.4. Validação
 
