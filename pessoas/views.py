@@ -642,8 +642,13 @@ class PessoaCSVExportView(LoginRequiredMixin, View):
             ]
         )
         for p in qs:
-            tel = p.telefones.first()
-            email = p.emails.first()
+            # list() força uso do cache do prefetch_related — `.first()`
+            # ignora cache e dispara nova query por pessoa (N+1). Para 10k
+            # pessoas isso virava 20k queries só por telefones/emails.
+            telefones = list(p.telefones.all())
+            emails = list(p.emails.all())
+            tel = telefones[0] if telefones else None
+            email = emails[0] if emails else None
             tags = ", ".join(t.nome for t in p.tags.all())
             writer.writerow(
                 [
