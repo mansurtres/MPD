@@ -50,8 +50,8 @@
 <div class="text-sm mb-4">
   <span class="text-xs text-slate-500 mr-1">Partes:</span>
   {% if partes_pessoas or partes_entidades %}
-  {% for dp in partes_pessoas %}<a href="{% url 'pessoas:pessoa_detalhe' dp.pessoa.slug_publico %}" class="text-slate-800 hover:underline">{{ dp.pessoa.nome_exibicao }}</a>{% if dp.papel %} <span class="text-slate-500">({{ dp.papel }})</span>{% endif %}{% if not forloop.last or partes_entidades %} <span class="text-slate-300">·</span> {% endif %}{% endfor %}
-  {% for de in partes_entidades %}<a href="{% url 'pessoas:entidade_detalhe' de.entidade.slug_publico %}" class="text-slate-800 hover:underline">{{ de.entidade.nome }}</a>{% if de.papel %} <span class="text-slate-500">({{ de.papel }})</span>{% endif %}{% if not forloop.last %} <span class="text-slate-300">·</span> {% endif %}{% endfor %}
+  {% for dp in partes_pessoas %}<a href="{% url 'pessoas:pessoa_detalhe' dp.pessoa.slug_publico %}" class="text-slate-800 hover:underline">{{ dp.pessoa.nome_exibicao }}</a>{% if dp.papel %} <span class="text-slate-500">({{ dp.papel_display }})</span>{% endif %}{% if not forloop.last or partes_entidades %} <span class="text-slate-300">·</span> {% endif %}{% endfor %}
+  {% for de in partes_entidades %}<a href="{% url 'pessoas:entidade_detalhe' de.entidade.slug_publico %}" class="text-slate-800 hover:underline">{{ de.entidade.nome }}</a>{% if de.papel %} <span class="text-slate-500">({{ de.papel_display }})</span>{% endif %}{% if not forloop.last %} <span class="text-slate-300">·</span> {% endif %}{% endfor %}
   {% elif demanda.anonimo %}<span class="text-slate-500 italic">Demanda anônima.</span>
   {% else %}<span class="text-slate-500 italic">Sem partes vinculadas.</span>{% endif %}
 </div>

@@ -684,3 +684,67 @@ class PessoaCSVExportView(LoginRequiredMixin, View):
 
         registrar_export(request.user, "Pessoa", dict(request.GET.lists()), total_filtrado)
         return response
+
+
+# --- Fase 6: Endpoint de busca para autocomplete (ADR sobre escala 10k+) ---
+
+
+class PessoaBuscarJSONView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    """Retorna até 20 pessoas que casem com `q` (case-insensitive em nome,
+    sobrenome, nome_social). Resposta JSON consumida pelo JS de
+    autocomplete em forms de demanda/vínculo. Ordem de grandeza esperada:
+    dezenas de milhares — sem GIN trigram ainda, mas iLIKE com índice de
+    prefixo cobre os casos comuns. Otimização avançada (FTS, trigram) em
+    fase posterior se necessário."""
+
+    permission_required = "pessoas.view_pessoa"
+
+    def get(self, request):
+        from django.http import JsonResponse
+
+        q = request.GET.get("q", "").strip()
+        qs = Pessoa.objects.filter(ativo=True)
+        if q:
+            qs = qs.filter(
+                Q(nome__icontains=q) | Q(sobrenome__icontains=q) | Q(nome_social__icontains=q)
+            )
+        qs = qs.order_by("nome", "sobrenome")[:20]
+        return JsonResponse(
+            {
+                "resultados": [
+                    {
+                        "id": p.pk,
+                        "label": p.nome_exibicao,
+                        "secundario": " · ".join(filter(None, [p.bairro, p.cidade])),
+                    }
+                    for p in qs
+                ]
+            }
+        )
+
+
+class EntidadeBuscarJSONView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    permission_required = "pessoas.view_entidade"
+
+    def get(self, request):
+        from django.http import JsonResponse
+
+        q = request.GET.get("q", "").strip()
+        qs = Entidade.objects.filter(ativo=True)
+        if q:
+            qs = qs.filter(
+                Q(nome__icontains=q) | Q(nome_fantasia__icontains=q) | Q(cnpj__icontains=q)
+            )
+        qs = qs.order_by("nome")[:20]
+        return JsonResponse(
+            {
+                "resultados": [
+                    {
+                        "id": e.pk,
+                        "label": e.nome,
+                        "secundario": e.get_tipo_display(),
+                    }
+                    for e in qs
+                ]
+            }
+        )

@@ -297,12 +297,33 @@ class Demanda(AuditavelMixin, models.Model):
 
 
 class DemandaPessoa(models.Model):
+    PAPEL_SOLICITANTE = "solicitante"
+    PAPEL_AFETADA = "afetada"
+    PAPEL_TESTEMUNHA = "testemunha"
+    PAPEL_REPRESENTANTE = "representante"
+    PAPEL_OUTRO = "outro"
+    PAPEL_CHOICES = [
+        (PAPEL_SOLICITANTE, "Solicitante"),
+        (PAPEL_AFETADA, "Afetada"),
+        (PAPEL_TESTEMUNHA, "Testemunha"),
+        (PAPEL_REPRESENTANTE, "Representante"),
+        (PAPEL_OUTRO, "Outro"),
+    ]
+
     demanda = models.ForeignKey(Demanda, on_delete=models.CASCADE, related_name="demanda_pessoas")
     pessoa = models.ForeignKey(
         "pessoas.Pessoa", on_delete=models.PROTECT, related_name="demanda_pessoas"
     )
-    papel = models.CharField(max_length=100, blank=True, default="")
-    observacao = models.TextField(blank=True, default="")
+    papel = models.CharField(
+        max_length=20, choices=PAPEL_CHOICES, blank=True, default=PAPEL_SOLICITANTE
+    )
+    papel_outro = models.CharField(
+        "papel (outro)",
+        max_length=100,
+        blank=True,
+        default="",
+        help_text="Preencha apenas se papel = 'Outro'.",
+    )
     criado_em = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -320,18 +341,48 @@ class DemandaPessoa(models.Model):
             models.Index(fields=["pessoa"]),
         ]
 
+    def clean(self):
+        super().clean()
+        if self.papel == self.PAPEL_OUTRO and not self.papel_outro:
+            raise ValidationError({"papel_outro": "Especifique o papel quando escolher 'Outro'."})
+
+    @property
+    def papel_display(self):
+        """Texto a exibir: papel_outro quando 'Outro', senão o display do choice."""
+        if self.papel == self.PAPEL_OUTRO and self.papel_outro:
+            return self.papel_outro
+        return self.get_papel_display()
+
     def __str__(self):
-        sufixo = f" ({self.papel})" if self.papel else ""
-        return f"{self.pessoa.nome_exibicao}{sufixo}"
+        return f"{self.pessoa.nome_exibicao} ({self.papel_display})"
 
 
 class DemandaEntidade(models.Model):
+    PAPEL_REPRESENTADA = "representada"
+    PAPEL_AFETADA = "afetada"
+    PAPEL_PARCEIRA = "parceira"
+    PAPEL_OUTRO = "outro"
+    PAPEL_CHOICES = [
+        (PAPEL_REPRESENTADA, "Representada"),
+        (PAPEL_AFETADA, "Afetada"),
+        (PAPEL_PARCEIRA, "Parceira"),
+        (PAPEL_OUTRO, "Outro"),
+    ]
+
     demanda = models.ForeignKey(Demanda, on_delete=models.CASCADE, related_name="demanda_entidades")
     entidade = models.ForeignKey(
         "pessoas.Entidade", on_delete=models.PROTECT, related_name="demanda_entidades"
     )
-    papel = models.CharField(max_length=100, blank=True, default="")
-    observacao = models.TextField(blank=True, default="")
+    papel = models.CharField(
+        max_length=20, choices=PAPEL_CHOICES, blank=True, default=PAPEL_REPRESENTADA
+    )
+    papel_outro = models.CharField(
+        "papel (outro)",
+        max_length=100,
+        blank=True,
+        default="",
+        help_text="Preencha apenas se papel = 'Outro'.",
+    )
     criado_em = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -349,9 +400,19 @@ class DemandaEntidade(models.Model):
             models.Index(fields=["entidade"]),
         ]
 
+    def clean(self):
+        super().clean()
+        if self.papel == self.PAPEL_OUTRO and not self.papel_outro:
+            raise ValidationError({"papel_outro": "Especifique o papel quando escolher 'Outro'."})
+
+    @property
+    def papel_display(self):
+        if self.papel == self.PAPEL_OUTRO and self.papel_outro:
+            return self.papel_outro
+        return self.get_papel_display()
+
     def __str__(self):
-        sufixo = f" ({self.papel})" if self.papel else ""
-        return f"{self.entidade.nome}{sufixo}"
+        return f"{self.entidade.nome} ({self.papel_display})"
 
 
 class Interacao(models.Model):

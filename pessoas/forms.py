@@ -168,6 +168,7 @@ class VinculoForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self._pessoa = pessoa
         self.fields["entidade"].queryset = Entidade.objects.ativas()
+        self.fields["entidade"].widget.attrs["data-autocomplete"] = "entidade"
         aplicar_tailwind(self)
 
     def save(self, commit=True):

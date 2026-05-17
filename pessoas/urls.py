@@ -8,6 +8,12 @@ urlpatterns = [
     # Pessoas (slug curto na URL pública)
     path("pessoas/", views.PessoaListView.as_view(), name="pessoa_lista"),
     path("pessoas/export.csv", views.PessoaCSVExportView.as_view(), name="pessoa_export_csv"),
+    path("pessoas/buscar.json", views.PessoaBuscarJSONView.as_view(), name="pessoa_buscar_json"),
+    path(
+        "entidades/buscar.json",
+        views.EntidadeBuscarJSONView.as_view(),
+        name="entidade_buscar_json",
+    ),
     path("pessoas/nova/", views.PessoaCreateView.as_view(), name="pessoa_nova"),
     path("pessoas/<str:slug>/", views.PessoaDetailView.as_view(), name="pessoa_detalhe"),
     path("pessoas/<str:slug>/editar/", views.PessoaUpdateView.as_view(), name="pessoa_editar"),

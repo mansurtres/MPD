@@ -1339,3 +1339,105 @@ def test_verificar_integridade_detecta_devolutiva_faltando(db, admin_user, pesso
         assert e.code == 1
     saida = out.getvalue()
     assert "Sem devolutiva" in saida or "responsiva concluída" in saida
+
+
+# --- Endpoints de busca (autocomplete) ---
+
+
+def test_pessoa_buscar_json_retorna_resultados(client, admin_user):
+    from pessoas.models import Pessoa
+
+    Pessoa.objects.create(nome="Maria", sobrenome="Silva", bairro="Centro", criado_por=admin_user)
+    Pessoa.objects.create(nome="Joao", sobrenome="Souza", bairro="Centro", criado_por=admin_user)
+    client.force_login(admin_user)
+    resp = client.get(reverse("pessoas:pessoa_buscar_json") + "?q=Maria")
+    assert resp.status_code == 200
+    data = resp.json()
+    nomes = [r["label"] for r in data["resultados"]]
+    assert any("Maria" in n for n in nomes)
+    assert not any("Joao" in n for n in nomes)
+
+
+def test_pessoa_buscar_json_exige_login(client):
+    resp = client.get(reverse("pessoas:pessoa_buscar_json") + "?q=x")
+    assert resp.status_code == 302  # redirect para login
+
+
+def test_pessoa_buscar_json_limite_20(client, admin_user):
+    from pessoas.models import Pessoa
+
+    for i in range(30):
+        Pessoa.objects.create(
+            nome=f"Pessoa{i:02d}", sobrenome="Sobrenome", bairro="X", criado_por=admin_user
+        )
+    client.force_login(admin_user)
+    resp = client.get(reverse("pessoas:pessoa_buscar_json") + "?q=Pessoa")
+    assert resp.status_code == 200
+    assert len(resp.json()["resultados"]) == 20
+
+
+def test_entidade_buscar_json_retorna_resultados(client, admin_user):
+    from pessoas.models import Entidade
+
+    Entidade.objects.create(nome="Associacao X", tipo="associacao", criado_por=admin_user)
+    Entidade.objects.create(nome="Sindicato Y", tipo="sindicato", criado_por=admin_user)
+    client.force_login(admin_user)
+    resp = client.get(reverse("pessoas:entidade_buscar_json") + "?q=Associ")
+    assert resp.status_code == 200
+    data = resp.json()
+    nomes = [r["label"] for r in data["resultados"]]
+    assert any("Associacao" in n for n in nomes)
+    assert not any("Sindicato" in n for n in nomes)
+
+
+# --- Papel com choices + Outro (Fase 6.1) ---
+
+
+def test_demanda_pessoa_papel_outro_exige_descricao(db, admin_user, pessoa):
+    """DemandaPessoa.clean() bloqueia papel='outro' sem papel_outro."""
+    d = Demanda.objects.create(
+        titulo="Teste",
+        descricao="X",
+        canal_entrada="presencial",
+        coordenacao_responsavel="gabinete",
+        criado_por=admin_user,
+        anonimo=True,
+    )
+    dp = DemandaPessoa(demanda=d, pessoa=pessoa, papel=DemandaPessoa.PAPEL_OUTRO, papel_outro="")
+    with pytest.raises(ValidationError):
+        dp.full_clean()
+
+
+def test_demanda_pessoa_papel_outro_com_descricao_funciona(db, admin_user, pessoa):
+    d = Demanda.objects.create(
+        titulo="Teste",
+        descricao="X",
+        canal_entrada="presencial",
+        coordenacao_responsavel="gabinete",
+        criado_por=admin_user,
+        anonimo=True,
+    )
+    dp = DemandaPessoa(
+        demanda=d,
+        pessoa=pessoa,
+        papel=DemandaPessoa.PAPEL_OUTRO,
+        papel_outro="Advogado",
+    )
+    dp.full_clean()
+    dp.save()
+    assert dp.papel_display == "Advogado"
+
+
+def test_demanda_pessoa_papel_choice_padrao_usa_display(db, admin_user, pessoa):
+    d = Demanda.objects.create(
+        titulo="Teste",
+        descricao="X",
+        canal_entrada="presencial",
+        coordenacao_responsavel="gabinete",
+        criado_por=admin_user,
+        anonimo=True,
+    )
+    dp = DemandaPessoa.objects.create(
+        demanda=d, pessoa=pessoa, papel=DemandaPessoa.PAPEL_SOLICITANTE
+    )
+    assert dp.papel_display == "Solicitante"

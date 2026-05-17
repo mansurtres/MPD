@@ -76,18 +76,20 @@
       {% endif %}
       <div class="space-y-3" id="formset-pessoas">
         {% for sub in formsets.pessoas %}
-        <div class="grid grid-cols-1 md:grid-cols-12 gap-2 items-end border border-slate-100 rounded-lg p-3">
-          <div class="md:col-span-5">
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-2 items-end border border-slate-100 rounded-lg p-3 papel-row">
+          <div class="md:col-span-6">
             <label class="block text-xs font-medium text-slate-600 mb-1">Pessoa</label>
             {{ sub.pessoa }}
+            {% for e in sub.pessoa.errors %}<p class="mt-1 text-xs text-red-600">{{ e }}</p>{% endfor %}
           </div>
           <div class="md:col-span-3">
             <label class="block text-xs font-medium text-slate-600 mb-1">Papel</label>
             {{ sub.papel }}
           </div>
-          <div class="md:col-span-3">
-            <label class="block text-xs font-medium text-slate-600 mb-1">Observação</label>
-            {{ sub.observacao }}
+          <div class="md:col-span-2 papel-outro-wrap">
+            <label class="block text-xs font-medium text-slate-600 mb-1">Especifique</label>
+            {{ sub.papel_outro }}
+            {% for e in sub.papel_outro.errors %}<p class="mt-1 text-xs text-red-600">{{ e }}</p>{% endfor %}
           </div>
           <div class="md:col-span-1 flex items-center justify-end">
             {% if sub.instance.pk %}<label class="text-xs text-red-600 inline-flex items-center gap-1">{{ sub.DELETE }} remover</label>{% endif %}
@@ -108,18 +110,20 @@
       {% endif %}
       <div class="space-y-3" id="formset-entidades">
         {% for sub in formsets.entidades %}
-        <div class="grid grid-cols-1 md:grid-cols-12 gap-2 items-end border border-slate-100 rounded-lg p-3">
-          <div class="md:col-span-5">
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-2 items-end border border-slate-100 rounded-lg p-3 papel-row">
+          <div class="md:col-span-6">
             <label class="block text-xs font-medium text-slate-600 mb-1">Entidade</label>
             {{ sub.entidade }}
+            {% for e in sub.entidade.errors %}<p class="mt-1 text-xs text-red-600">{{ e }}</p>{% endfor %}
           </div>
           <div class="md:col-span-3">
             <label class="block text-xs font-medium text-slate-600 mb-1">Papel</label>
             {{ sub.papel }}
           </div>
-          <div class="md:col-span-3">
-            <label class="block text-xs font-medium text-slate-600 mb-1">Observação</label>
-            {{ sub.observacao }}
+          <div class="md:col-span-2 papel-outro-wrap">
+            <label class="block text-xs font-medium text-slate-600 mb-1">Especifique</label>
+            {{ sub.papel_outro }}
+            {% for e in sub.papel_outro.errors %}<p class="mt-1 text-xs text-red-600">{{ e }}</p>{% endfor %}
           </div>
           <div class="md:col-span-1 flex items-center justify-end">
             {% if sub.instance.pk %}<label class="text-xs text-red-600 inline-flex items-center gap-1">{{ sub.DELETE }} remover</label>{% endif %}
