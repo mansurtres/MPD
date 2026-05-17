@@ -149,6 +149,11 @@ class InteracaoForm(forms.ModelForm):
                 Interacao.TIPO_ARQUIVAMENTO,
                 Interacao.TIPO_REGISTRO_INICIAL,
                 Interacao.TIPO_DEVOLUTIVA,
+                # Encaminhamento e retorno externo vivem dentro do fluxo de
+                # Encaminhamento (+ Novo encaminhamento / Registrar resposta).
+                # Oferecer aqui criaria Interações órfãs sem objeto encaminhamento.
+                Interacao.TIPO_ENCAMINHAMENTO,
+                Interacao.TIPO_RETORNO_EXTERNO,
             )
         ]
         self.fields["tipo"].choices = manuais
@@ -185,6 +190,8 @@ class FollowupForm(forms.Form):
                 Interacao.TIPO_ARQUIVAMENTO,
                 Interacao.TIPO_REGISTRO_INICIAL,
                 Interacao.TIPO_DEVOLUTIVA,
+                Interacao.TIPO_ENCAMINHAMENTO,
+                Interacao.TIPO_RETORNO_EXTERNO,
             )
         ]
         aplicar_tailwind(self)

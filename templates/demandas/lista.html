@@ -49,6 +49,13 @@
       {% for v, label in coord_choices %}<option value="{{ v }}" {% if coord_atual == v %}selected{% endif %}>{{ label }}</option>{% endfor %}
     </select>
   </div>
+  <div class="min-w-[160px]">
+    <label class="block text-xs font-medium text-slate-600 mb-1">Tema</label>
+    <select name="tema" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400">
+      <option value="">Todos</option>
+      {% for t in temas_disponiveis %}<option value="{{ t.id }}" {% if tema_atual == t.id|stringformat:'s' %}selected{% endif %}>{{ t.nome }}</option>{% endfor %}
+    </select>
+  </div>
   <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2 rounded-lg">Filtrar</button>
 </form>
 
@@ -72,8 +79,24 @@
           <a href="{% url 'demandas:demanda_detalhe' d.pk %}" class="hover:underline">{{ d.numero }}</a>
           {% if d.restrito %}<span class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800">restrita</span>{% endif %}
         </td>
-        <td class="px-4 py-3 font-medium text-slate-900">
-          <a href="{% url 'demandas:demanda_detalhe' d.pk %}" class="hover:underline">{{ d.titulo }}</a>
+        <td class="px-4 py-3">
+          <a href="{% url 'demandas:demanda_detalhe' d.pk %}" class="font-medium text-slate-900 hover:underline">{{ d.titulo }}</a>
+          {# Partes (pessoas + entidades) — limitadas para não poluir #}
+          <div class="text-xs text-slate-500 mt-1">
+            {% if d.anonimo and not d.demanda_pessoas.all and not d.demanda_entidades.all %}
+            <span class="italic">Anônima</span>
+            {% else %}
+              {% for dp in d.demanda_pessoas.all|slice:":2" %}<a href="{% url 'pessoas:pessoa_detalhe' dp.pessoa.slug_publico %}" class="hover:underline">{{ dp.pessoa.nome_exibicao }}</a>{% if not forloop.last or d.demanda_entidades.all %} · {% endif %}{% endfor %}
+              {% for de in d.demanda_entidades.all|slice:":2" %}<a href="{% url 'pessoas:entidade_detalhe' de.entidade.slug_publico %}" class="hover:underline">{{ de.entidade.nome }}</a>{% if not forloop.last %} · {% endif %}{% endfor %}
+              {% with extra=d.demanda_pessoas.all|length|add:d.demanda_entidades.all|length %}{% if extra > 4 %} <span class="text-slate-400">+{{ extra|add:-4 }}</span>{% endif %}{% endwith %}
+            {% endif %}
+          </div>
+          {# Temas como chips coloridos #}
+          {% if d.temas.all %}
+          <div class="mt-1 flex flex-wrap gap-1">
+            {% for t in d.temas.all %}{% if t.cor %}<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium" style="background: color-mix(in srgb, {{ t.cor }} 18%, white); color: color-mix(in srgb, {{ t.cor }} 75%, black);">{{ t.nome }}</span>{% else %}<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600">{{ t.nome }}</span>{% endif %}{% endfor %}
+          </div>
+          {% endif %}
         </td>
         <td class="px-4 py-3 text-slate-600">{{ d.get_status_display }}</td>
         <td class="px-4 py-3 text-slate-600">

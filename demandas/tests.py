@@ -810,3 +810,122 @@ def test_pessoa_detalhe_oculta_demanda_restrita_de_outra_coord(
     resp = client.get(reverse("pessoas:pessoa_detalhe", args=[pessoa.slug_publico]))
     assert resp.status_code == 200
     assert d.numero.encode() not in resp.content
+
+
+# --- Filtro de tipos da Interacao manual (impede Interações órfãs) ---
+
+
+def test_interacao_form_nao_oferece_tipos_geridos_pelo_sistema(db):
+    """InteracaoForm não deve oferecer tipos que vivem em fluxos dedicados:
+    devolutiva (criada pelo CTA Concluir), encaminhamento_externo e
+    retorno_externo_recebido (criados pelo fluxo de Encaminhamento).
+    Oferecer manualmente criaria Interações órfãs sem objeto associado.
+    """
+    from demandas.forms import InteracaoForm
+
+    form = InteracaoForm()
+    tipos_disponiveis = dict(form.fields["tipo"].choices)
+    for tipo_proibido in (
+        Interacao.TIPO_DEVOLUTIVA,
+        Interacao.TIPO_ENCAMINHAMENTO,
+        Interacao.TIPO_RETORNO_EXTERNO,
+        Interacao.TIPO_MUDANCA_STATUS,
+        Interacao.TIPO_MUDANCA_RESPONSAVEL,
+        Interacao.TIPO_MUDANCA_RESULTADO,
+        Interacao.TIPO_ARQUIVAMENTO,
+        Interacao.TIPO_REGISTRO_INICIAL,
+    ):
+        assert (
+            tipo_proibido not in tipos_disponiveis
+        ), f"Tipo '{tipo_proibido}' não pode aparecer no seletor manual."
+    # Tipos manuais legítimos devem estar lá.
+    for tipo_esperado in (
+        Interacao.TIPO_CONTATO_PESSOA,
+        Interacao.TIPO_CONTATO_INTERNO,
+        Interacao.TIPO_REUNIAO,
+        Interacao.TIPO_ANOTACAO,
+    ):
+        assert tipo_esperado in tipos_disponiveis
+
+
+# --- Anexos opcionais na criação da demanda ---
+
+
+def test_criar_demanda_com_anexo_inicial(client, admin_user, pessoa):
+    """POST /demandas/nova/ aceita arquivos opcionais e cria Anexos
+    polimórficos apontando para a Demanda recém-criada."""
+    from django.contrib.contenttypes.models import ContentType
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    client.force_login(admin_user)
+    pdf = SimpleUploadedFile("contrato.pdf", b"%PDF-1.4 test", content_type="application/pdf")
+    resp = client.post(
+        reverse("demandas:demanda_nova"),
+        {
+            "titulo": "Com anexo inicial",
+            "descricao": "Teste anexo",
+            "origem": Demanda.ORIGEM_RESPONSIVA,
+            "canal_entrada": "presencial",
+            "coordenacao_responsavel": "gabinete",
+            "prioridade": "normal",
+            # Inline formsets vazios (mas com management form):
+            "dp-TOTAL_FORMS": "1",
+            "dp-INITIAL_FORMS": "0",
+            "dp-MIN_NUM_FORMS": "0",
+            "dp-MAX_NUM_FORMS": "1000",
+            "dp-0-pessoa": pessoa.pk,
+            "dp-0-papel": "solicitante",
+            "dp-0-observacao": "",
+            "de-TOTAL_FORMS": "0",
+            "de-INITIAL_FORMS": "0",
+            "de-MIN_NUM_FORMS": "0",
+            "de-MAX_NUM_FORMS": "1000",
+            "arquivos": pdf,
+        },
+        follow=False,
+    )
+    assert resp.status_code == 302, f"Esperado redirect; veio {resp.status_code}"
+    d = Demanda.objects.get(titulo="Com anexo inicial")
+    ct = ContentType.objects.get_for_model(Demanda)
+    anexos = Anexo.objects.filter(content_type=ct, object_id=d.pk)
+    assert anexos.count() == 1
+    assert anexos.first().nome_original == "contrato.pdf"
+
+
+def test_criar_demanda_com_anexo_invalido_rejeita_tudo(client, admin_user, pessoa):
+    """Se algum anexo falha validação (mime fora da whitelist), a transação
+    rola atrás — nem a Demanda é criada."""
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    client.force_login(admin_user)
+    exe = SimpleUploadedFile(
+        "malicioso.exe", b"MZ binary garbage", content_type="application/x-msdownload"
+    )
+    titulo = "Não pode salvar"
+    resp = client.post(
+        reverse("demandas:demanda_nova"),
+        {
+            "titulo": titulo,
+            "descricao": "Teste anexo inválido",
+            "origem": Demanda.ORIGEM_RESPONSIVA,
+            "canal_entrada": "presencial",
+            "coordenacao_responsavel": "gabinete",
+            "prioridade": "normal",
+            "dp-TOTAL_FORMS": "1",
+            "dp-INITIAL_FORMS": "0",
+            "dp-MIN_NUM_FORMS": "0",
+            "dp-MAX_NUM_FORMS": "1000",
+            "dp-0-pessoa": pessoa.pk,
+            "dp-0-papel": "solicitante",
+            "dp-0-observacao": "",
+            "de-TOTAL_FORMS": "0",
+            "de-INITIAL_FORMS": "0",
+            "de-MIN_NUM_FORMS": "0",
+            "de-MAX_NUM_FORMS": "1000",
+            "arquivos": exe,
+        },
+        follow=False,
+    )
+    # Form inválido renderiza 200 com erro no topo.
+    assert resp.status_code == 200
+    assert not Demanda.objects.filter(titulo=titulo).exists()

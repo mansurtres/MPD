@@ -8,7 +8,7 @@
     <h1 class="text-xl font-semibold text-slate-900">{{ titulo }}</h1>
   </div>
 
-  <form method="post" novalidate class="space-y-6" id="demanda-form">
+  <form method="post" enctype="multipart/form-data" novalidate class="space-y-6" id="demanda-form">
     {% csrf_token %}
 
     {% if form.non_field_errors %}
@@ -140,6 +140,21 @@
         </label>
         {% endfor %}
       </div>
+    </section>
+    {% endif %}
+
+    {# Anexos iniciais — opcionais. Só aparecem no detalhe depois de salvar. #}
+    {% if not view.object %}
+    <section class="bg-white border border-slate-200 rounded-xl p-6">
+      <h2 class="text-base font-semibold text-slate-900 mb-1">Anexos iniciais</h2>
+      <p class="text-xs text-slate-500 mb-3">Opcional. Pode anexar documentos, fotos ou prints que a demanda já trouxe consigo. Você pode adicionar mais depois.</p>
+      <input type="file" name="arquivos" multiple
+             class="block w-full text-sm text-slate-700
+                    file:mr-3 file:py-1.5 file:px-3 file:rounded-lg
+                    file:border-0 file:text-sm file:font-medium
+                    file:bg-slate-800 file:text-white file:cursor-pointer
+                    hover:file:bg-slate-700">
+      <p class="text-[11px] text-slate-400 mt-2">Tipos aceitos: PDF, imagens (JPG/PNG/GIF/WebP), Word, Excel, texto, CSV. Limite de 25 MB por arquivo.</p>
     </section>
     {% endif %}
 

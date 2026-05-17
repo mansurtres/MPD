@@ -126,7 +126,7 @@ class DemandaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         ctx["status_atual"] = self.request.GET.get("status", "")
         ctx["resultado_atual"] = self.request.GET.get("resultado", "")
         ctx["coord_atual"] = self.request.GET.get("coord", "")
-        ctx["tag_id"] = self.request.GET.get("tag", "")
+        ctx["tema_atual"] = self.request.GET.get("tema", "")
         ctx["status_choices"] = Demanda.STATUS_CHOICES
         ctx["resultado_choices"] = Demanda.RESULTADO_CHOICES
         ctx["coord_choices"] = Demanda.COORDENACAO_CHOICES
@@ -170,7 +170,7 @@ class DemandaDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView)
         ctx["pode_reabrir"] = u.has_perm("demandas.pode_reabrir_demanda")
         ctx["pode_atribuir"] = u.has_perm("demandas.pode_atribuir_responsavel")
         ctx["form_interacao"] = InteracaoForm()
-        ctx["form_followup"] = FollowupForm()
+        ctx["form_followup"] = FollowupForm(prefix="fu")
         ctx["form_encaminhamento"] = EncaminhamentoForm()
         ctx["form_anexo"] = AnexoForm()
         ctx["form_arquivar"] = ArquivarForm(instance=d)
@@ -223,15 +223,21 @@ class _DemandaFormMixin:
         if not (form.is_valid() and all(fs.is_valid() for fs in formsets.values())):
             return self.form_invalid(form, formsets)
 
-        with transaction.atomic():
-            self._salvar(form, formsets)
-            if not self.object.anonimo and not self.object.tem_partes():
-                form.add_error(
-                    None,
-                    "Demanda não-anônima exige ao menos uma parte (pessoa ou entidade).",
-                )
-                transaction.set_rollback(True)
-                return self.form_invalid(form, formsets)
+        try:
+            with transaction.atomic():
+                self._salvar(form, formsets)
+                if not self.object.anonimo and not self.object.tem_partes():
+                    form.add_error(
+                        None,
+                        "Demanda não-anônima exige ao menos uma parte (pessoa ou entidade).",
+                    )
+                    transaction.set_rollback(True)
+                    return self.form_invalid(form, formsets)
+        except ValidationError:
+            # Erros já estão em form.errors (adicionados em _salvar). Atomic
+            # fez rollback ao propagar a exceção; agora renderizamos o form
+            # de volta com as mensagens.
+            return self.form_invalid(form, formsets)
 
         return self._sucesso()
 
@@ -257,6 +263,41 @@ class DemandaCreateView(LoginRequiredMixin, PermissionRequiredMixin, _DemandaFor
         if not form.instance.coordenacao_responsavel and self.request.user.coordenacao:
             form.instance.coordenacao_responsavel = self.request.user.coordenacao
         super()._salvar(form, formsets)
+        self._processar_anexos_iniciais(form)
+
+    def _processar_anexos_iniciais(self, form):
+        """Anexos opcionais enviados no momento da criação. Valida tamanho/mime
+        de cada um antes de salvar; se algum falhar, adiciona erro ao form e
+        levanta ValidationError pra abortar a transação."""
+        arquivos = self.request.FILES.getlist("arquivos")
+        if not arquivos:
+            return
+        erros = []
+        for arquivo in arquivos:
+            if arquivo.size > Anexo.TAMANHO_MAXIMO_BYTES:
+                erros.append(
+                    f"'{arquivo.name}': excede o limite de "
+                    f"{Anexo.TAMANHO_MAXIMO_BYTES // (1024 * 1024)} MB."
+                )
+                continue
+            mime = getattr(arquivo, "content_type", "") or ""
+            if mime and mime not in Anexo.MIME_WHITELIST:
+                erros.append(f"'{arquivo.name}': tipo {mime} não permitido.")
+        if erros:
+            for msg in erros:
+                form.add_error(None, msg)
+            raise ValidationError(erros)
+        ct = ContentType.objects.get_for_model(Demanda)
+        for arquivo in arquivos:
+            Anexo.objects.create(
+                content_type=ct,
+                object_id=self.object.pk,
+                arquivo=arquivo,
+                nome_original=arquivo.name,
+                tamanho_bytes=arquivo.size,
+                mime_type=getattr(arquivo, "content_type", "") or "application/octet-stream",
+                enviado_por=self.request.user,
+            )
 
     def _sucesso(self):
         messages.success(self.request, f"Demanda {self.object.numero} cadastrada.")
@@ -351,15 +392,22 @@ class ConcluirDemandaView(LoginRequiredMixin, PermissionRequiredMixin, View):
                     canal_key = form.cleaned_data["devolutiva_canal"]
                     canal_label = dict(Demanda.CANAL_CHOICES).get(canal_key, canal_key)
                     data_dev = form.cleaned_data["devolutiva_data"]
+                    # Posição na timeline: se devolutiva é hoje, usa o instante
+                    # atual (vai para o fim da timeline). Se é dia anterior,
+                    # ancora no fim daquele dia (23:59) para ficar após eventos
+                    # do mesmo dia mas antes dos posteriores.
+                    hoje = timezone.now().date()
+                    if data_dev == hoje:
+                        data_ocorr = timezone.now()
+                    else:
+                        data_ocorr = timezone.make_aware(datetime.combine(data_dev, time(23, 59)))
                     Interacao.objects.create(
                         demanda=demanda,
                         autor=request.user,
                         tipo=Interacao.TIPO_DEVOLUTIVA,
                         conteudo=f"Canal: {canal_label}\n\n{form.cleaned_data['devolutiva_conteudo']}",
                         status=Interacao.STATUS_REALIZADA,
-                        data_ocorrencia=timezone.make_aware(
-                            datetime.combine(data_dev, time(12, 0))
-                        ),
+                        data_ocorrencia=data_ocorr,
                         automatica=False,
                     )
                     demanda.resultado = form.cleaned_data["resultado"]
@@ -439,7 +487,7 @@ class AdicionarInteracaoView(LoginRequiredMixin, PermissionRequiredMixin, View):
         if not demanda.pode_ser_visto_por(request.user):
             raise Http404
         form = InteracaoForm(request.POST)
-        followup = FollowupForm(request.POST)
+        followup = FollowupForm(request.POST, prefix="fu")
         if not form.is_valid() or not followup.is_valid():
             erros_lista = list(form.errors.values()) + list(followup.errors.values())
             for grupo in erros_lista:
