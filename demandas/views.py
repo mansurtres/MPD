@@ -45,10 +45,11 @@ from .models import Anexo, Demanda, Encaminhamento, Interacao, ItemInbox, Tema
 
 
 def _filtrar_visiveis(qs, user):
-    """Restritas só são visíveis para responsável, ADM, CG e superuser."""
-    if eh_cg_plus(user):
-        return qs
-    return qs.filter(Q(restrito=False) | Q(responsavel=user))
+    """Wrapper para chamadas legadas. A regra vive em
+    `DemandaQuerySet.visiveis_para` (ADR 0049). Mantido como função porque
+    várias views já consomem como callable — refactor inline pode ser
+    feito em passo separado."""
+    return qs.visiveis_para(user)
 
 
 def _pode_exportar(user):

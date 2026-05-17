@@ -59,15 +59,19 @@ class AnaliseView(LoginRequiredMixin, UserPassesTestMixin, ListView):
         ctx = super().get_context_data(**kwargs)
         from datetime import timedelta
 
-        from django.db.models import Count
+        from django.db.models import Count, Q
         from django.db.models.functions import TruncMonth
         from django.utils import timezone as tz
 
         from demandas.models import Demanda, Encaminhamento
 
+        # ADR 0049: todas as métricas filtram por demandas visíveis ao usuário.
+        # Coordenador (não-ADM/CG) NÃO vê contagens de restritas de outras coords.
+        demandas_visiveis = Demanda.objects.visiveis_para(self.request.user)
+
         # 1. Demandas por tema
         ctx["por_tema"] = list(
-            Demanda.objects.values("temas__nome", "temas__cor")
+            demandas_visiveis.values("temas__nome", "temas__cor")
             .annotate(total=Count("id"))
             .exclude(temas__nome__isnull=True)
             .order_by("-total")[:12]
@@ -76,7 +80,7 @@ class AnaliseView(LoginRequiredMixin, UserPassesTestMixin, ListView):
         # 2. Demandas por mês (últimos 12 meses)
         limite_mes = tz.now() - timedelta(days=365)
         ctx["por_mes"] = list(
-            Demanda.objects.filter(criado_em__gte=limite_mes)
+            demandas_visiveis.filter(criado_em__gte=limite_mes)
             .annotate(mes=TruncMonth("criado_em"))
             .values("mes")
             .annotate(total=Count("id"))
@@ -85,7 +89,7 @@ class AnaliseView(LoginRequiredMixin, UserPassesTestMixin, ListView):
 
         # 3. Demandas por coordenação
         ctx["por_coordenacao"] = list(
-            Demanda.objects.values("coordenacao_responsavel")
+            demandas_visiveis.values("coordenacao_responsavel")
             .annotate(total=Count("id"))
             .order_by("-total")
         )
@@ -95,32 +99,37 @@ class AnaliseView(LoginRequiredMixin, UserPassesTestMixin, ListView):
                 item["coordenacao_responsavel"], item["coordenacao_responsavel"]
             )
 
-        # 4. Top 20 pessoas com mais demandas (sem anônimas)
+        # 4. Top 20 pessoas com mais demandas — agregação condicional para
+        #    contar apenas demandas visíveis ao usuário. Sem isso, count
+        #    incluía restritas (vazamento de PII associada a caso sigiloso).
         from pessoas.models import Pessoa
 
+        filtro_visivel = Q(demanda_pessoas__demanda__in=demandas_visiveis)
         ctx["top_pessoas"] = list(
-            Pessoa.objects.annotate(total=Count("demanda_pessoas"))
+            Pessoa.objects.annotate(total=Count("demanda_pessoas", filter=filtro_visivel))
             .filter(total__gt=0)
             .order_by("-total")[:20]
             .values("nome", "sobrenome", "slug_publico", "total")
         )
 
-        # 5. Encaminhamentos pendentes por órgão
+        # 5. Encaminhamentos pendentes por órgão — filtra por demandas visíveis
         ctx["enc_por_orgao"] = list(
             Encaminhamento.objects.filter(
-                status__in=[Encaminhamento.STATUS_ENVIADO, Encaminhamento.STATUS_PRAZO_VENCIDO]
+                demanda__in=demandas_visiveis,
+                status__in=[Encaminhamento.STATUS_ENVIADO, Encaminhamento.STATUS_PRAZO_VENCIDO],
             )
             .values("destinatario_orgao")
             .annotate(total=Count("id"))
             .order_by("-total")[:15]
         )
 
-        # 6. Carga por assessor (responsável com demandas abertas/vencidas)
+        # 6. Carga por assessor (responsável com demandas abertas/vencidas).
+        # N+1 conhecido — refactor em 1 query (Tarefa 3.3).
         from accounts.models import Usuario
 
         assessores = []
         for u in Usuario.objects.filter(is_active=True):
-            abertas = Demanda.objects.filter(
+            abertas = demandas_visiveis.filter(
                 responsavel=u,
                 status__in=[
                     Demanda.STATUS_NOVO,
@@ -130,7 +139,7 @@ class AnaliseView(LoginRequiredMixin, UserPassesTestMixin, ListView):
                 ],
             ).count()
             vencidas = (
-                Demanda.objects.filter(
+                demandas_visiveis.filter(
                     responsavel=u,
                     prazo__lt=tz.now().date(),
                 )

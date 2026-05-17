@@ -30,6 +30,23 @@ from django.utils import timezone
 from core.mixins import AuditavelMixin
 
 
+class DemandaQuerySet(models.QuerySet):
+    def visiveis_para(self, user):
+        """Filtra demandas pela regra de visibilidade restrita (ADR 0049).
+        Restritas só aparecem para: responsável, ADM, CG ou superuser.
+        Centraliza a regra que antes vivia em `_filtrar_visiveis` (views).
+        """
+        from core.permissoes import eh_cg_plus
+
+        if eh_cg_plus(user):
+            return self
+        return self.filter(models.Q(restrito=False) | models.Q(responsavel=user))
+
+
+class DemandaManager(models.Manager.from_queryset(DemandaQuerySet)):
+    pass
+
+
 class Tema(models.Model):
     """Categoria/assunto de Demanda. Separado de pessoas.Tag por decisão de
     produto: tema mede 'do que se trata' (Saúde, Educação, Mobilidade);
@@ -167,6 +184,8 @@ class Demanda(AuditavelMixin, models.Model):
     anexos = GenericRelation(
         "Anexo", content_type_field="content_type", object_id_field="object_id"
     )
+
+    objects = DemandaManager()
 
     class Meta:
         verbose_name = "demanda"
