@@ -41,6 +41,50 @@ Quando um item for resolvido, mover para a seção **Resolvidos** no fim com a r
 
 ---
 
+## Demandas (Fase 3)
+
+### DT-013 — Campo `papel` em `DemandaPessoa`/`DemandaEntidade` é ornamental
+
+**Prioridade:** Média
+**Sintoma:** `DemandaPessoa.papel` (5 choices + `papel_outro`) e `DemandaEntidade.papel` (4 choices + `papel_outro`) aparecem no form de demanda, na tela de processar inbox e no detalhe, mas zero leitores no código: nenhuma view filtra, nenhum signal consulta, nenhuma regra de negócio depende. Em uso real, `solicitante`/`representada` (os defaults) cobrem ~100% dos registros.
+**Por que é cheiro:** o usuário escolhe num seletor de 5 valores em todo cadastro sem que a escolha afete nada — custo de UX sem retorno operacional. Vocabulário ("testemunha", "representada") herdado mais de processo judicial do que de mandato parlamentar; gera atrito sem ganho informacional.
+**Proposta:** drop dos 4 campos (decisão registrada em **ADR 0054**). Migration dropa colunas; forms (`DemandaPessoaForm`/`DemandaEntidadeForm`) e templates (`demandas/form.html`, `demandas/inbox/processar.html`, `demandas/detalhe.html`) removem widgets/displays; ~9 testes limpam atribuições `papel="solicitante"`. Se a figura de **contraparte** aparecer no uso real, retorna como `eh_contraparte: bool` específico — não como lista.
+**Gatilho:** **Fase 7** (`v1.0`). Item "Limpeza" de §4.6.2 do roadmap; critério explícito em §4.6.3.
+
+### DT-014 — Cobertura de filtros combinados em listagens
+
+**Prioridade:** Média
+**Sintoma:** Listagens principais (`/demandas/`, `/encaminhamentos/`, `/pessoas/`) suportam combinação de filtros via querystring (`?status=...&coord=...&tema=...&q=...`). Testes existentes (Fases 4 e 6) cobrem cada filtro isoladamente. **Combinações não têm teste.**
+**Por que é cheiro:** bug que afete só uma combinação específica (`status=concluida & resultado=pendente` retornar 0 indevidamente; ordem de `.filter()` rompendo `.distinct()` em joins M:N) passa batido. O risco é baixo enquanto o handler de listagem reusa o mesmo `filter()` chain do Django ORM, mas o roadmap §4.4.3 lista o critério literal e está marcado `[ ]`.
+**Proposta:** 2 testes por listagem principal (Demanda, Encaminhamento, Pessoa) verificando combinações realistas: e.g. `?status=concluida&coord=juridico&tema=X` retorna apenas registros que casam **todos** os filtros; `?q=texto&status=novo` aplica busca textual após o filtro de status. Total ~6 testes.
+**Gatilho:** **Fase 7** (`v1.0`). Critério §4.4.3 do roadmap só fecha quando isso entrar.
+
+### DT-015 — `tipo="associacao"` inválido em teste
+
+**Prioridade:** Baixa
+**Sintoma:** [`test_entidades_quick_filter_com_demanda_aberta`](demandas/tests.py#L2007) cria `Entidade(tipo="associacao")`, mas o valor real do `TIPO_CHOICES` é `"associacao_de_moradores"` ([pessoas/models.py:220](pessoas/models.py#L220)). Funciona porque `CharField(choices=...)` só valida em `full_clean()`/`Form.is_valid()`, não em `.objects.create()`.
+**Por que é cheiro:** dado de teste manifestamente inválido vira pegadinha se alguém replicar como template para outro teste. Quebra a expectativa de que fixtures refletem dados reais. Não vaza PII (não é dado real) — risco operacional zero.
+**Proposta:** trocar para `tipo="associacao_de_moradores"` ou `tipo=Entidade.TIPO_CHOICES[0][0]`. ~1 linha.
+**Gatilho:** próxima sessão que tocar o arquivo (oportunista) ou **higiene da Fase 7**.
+
+### DT-016 — Filtro `ate` em `/auditoria` sem teste de regressão
+
+**Prioridade:** Baixa
+**Sintoma:** [`AuditoriaListView.get_queryset`](core/views.py#L189-L191) aplica `?ate=AAAA-MM-DD` via `timestamp__date__lte`, mas o teste correspondente ([`test_auditoria_filtra_por_periodo_desde`](demandas/tests.py#L2049)) só cobre `?desde=`. Bug em `ate__lte` passaria batido.
+**Por que é cheiro:** cobertura parcial. Custo de espelhar é trivial.
+**Proposta:** clonar o teste de `desde` invertendo (`ate=ontem` deve esvaziar resultado). ~10 linhas.
+**Gatilho:** **higiene da Fase 7**.
+
+### DT-017 — Badges de envelhecimento em `/inbox/` acopladas a classes Tailwind
+
+**Prioridade:** Baixa
+**Sintoma:** [`test_inbox_lista_marca_envelhecimento_amber_e_red`](demandas/tests.py#L2027) asserta `b"bg-amber-100" in body` e `b"bg-red-100" in body`. Se alguém trocar `bg-amber-100` por `bg-yellow-100` no template, o teste quebra — sentinela funcionando, mas sentinela acoplada a detalhe visual.
+**Por que é cheiro:** teste de view virou teste de classe CSS. A intenção (item +7d marcado como envelhecido, +30d como atrasado) sumiu na assertion.
+**Proposta:** adicionar `data-envelhecimento="amber|red|fresh"` no `<tr>` do template e mudar o assert para `b'data-envelhecimento="amber"' in body`. Âncora estável contra refactor visual.
+**Gatilho:** próxima vez que o template `/inbox/lista.html` for tocado (oportunista) ou **higiene da Fase 7**.
+
+---
+
 ## Resolvidos
 
 ### DT-001 — Normalização vazada entre `clean()` e `save()` em Pessoa/Entidade

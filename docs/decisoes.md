@@ -1886,4 +1886,50 @@ Campos do `LogEntry`:
 
 ---
 
+## ADR 0054 — Remoção do campo `papel` em `DemandaPessoa` e `DemandaEntidade`
+
+**Data:** 2026-05-17 (decisão; execução prevista para Fase 7 / `v1.0`)
+
+### Contexto
+
+`DemandaPessoa` e `DemandaEntidade` têm desde a Fase 3 um campo `papel` com lista fechada — pessoa: `solicitante`/`afetada`/`testemunha`/`representante`/`outro`; entidade: `representada`/`afetada`/`parceira`/`outro` — mais um `papel_outro` como escape de texto livre. Estrutura consolidada na migration `0007_papel_choices_drop_observacao`.
+
+Auditoria de uso real (sessão 2026-05-17) mostrou que o campo é **ornamental**:
+
+- Nenhuma view filtra por `papel`.
+- Nenhum signal lê `papel`.
+- Nenhuma permissão ou regra de negócio depende de `papel`.
+- O painel `/analise` não distingue por `papel`.
+- A inferência de "quem trouxe a demanda" não usa `papel` — `Demanda.origem` (responsiva/proativa) e `Interacao(tipo=devolutiva)` cobrem o ciclo de fechamento sem ele (ADR 0043).
+- Em fixtures, comandos e testes, `papel="solicitante"` é o único valor praticamente atribuído. O default cobre 100% dos casos.
+
+A discussão também identificou problemas semânticos:
+
+- "Testemunha" é vocabulário judicial — não aparece em demanda parlamentar real.
+- "Representada"/"representante" colidem foneticamente entre pessoa e entidade sem semântica clara.
+- A figura legítima latente é a do **demandado/contraparte** (vizinho da reclamação, empresa infratora). Mas ela é **rara e binária** — não cabe num select de 5 sinônimos.
+
+### Decisão
+
+Remover `papel` e `papel_outro` de `DemandaPessoa` e `DemandaEntidade`. **Execução adiada para a Fase 7** (`v1.0`), encaixada no item "Limpeza: remover código morto" de §4.6.2 do roadmap.
+
+Razão de não executar imediatamente: v0.7.3 já fechou e mergeou em `main`; criar uma versão patch dedicada a este item rompe a coerência do versionamento (versões patch são polimento dentro de uma fase). Fase 7 é o próximo marco natural e tem "limpeza" como categoria já prevista.
+
+Se a figura de **contraparte** se materializar como caso recorrente no uso da v1.0, retornará como coluna binária específica (`eh_contraparte: bool` ou enum `relacao: parte | contraparte`) — não como retorno da lista de papéis.
+
+### Consequências
+
+- Formulário de criação/edição de demanda e tela de processar inbox (`/inbox/<uuid>/processar/`) ficam visualmente mais limpos — uma coluna a menos por linha de formset.
+- Template `demandas/detalhe.html` deixa de exibir " (solicitante)"/"(representada)" no parágrafo de partes — a identidade da pessoa/entidade já basta.
+- Migration na Fase 7 dropa 4 colunas (`papel`, `papel_outro` em cada modelo).
+- ~9 testes em `demandas/tests.py` e o comando `criar_dados_teste` são limpados (`papel="solicitante"` removido).
+- Glossário do `roadmap.md` (§7) deixa de listar papéis como categoria de "Parte" e de "Pessoa".
+
+### Referências
+
+- Espelho operacional: `DT-013` (`docs/debito-tecnico.md`).
+- Execução rastreada no critério §4.6.3 da Fase 7 (`roadmap.md`).
+
+---
+
 *Decisões adicionadas em ordem cronológica conforme surgem. Cada decisão registrada uma vez; alterações futuras criam nova ADR (não editam a anterior).*

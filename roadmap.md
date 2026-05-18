@@ -559,20 +559,41 @@ curl http://localhost:8000/healthz
 **Versão:** `v1.0`
 **Objetivo:** sistema pronto para uso interno do gabinete e deploy.
 
+> **Insumos da revisão técnica de fim-de-Fase-6 (2026-05-17)** ficaram registrados em `docs/debito-tecnico.md` como DTs e atravessam o escopo desta fase. Itens relevantes: DT-011 (gestão de usuários via Groups), DT-013 (drop de `papel` ornamental), DT-014 (filtros combinados), DT-015–017 (higiene de testes). Cada um aparece nas especificações ou nos critérios de aceite abaixo, com a referência ao DT.
+
 #### 4.6.1. Pré-requisitos
 
-Fase 6 concluída.
+Fase 6 concluída (v0.7.3 — incluindo fechamento via ADRs 0048–0053).
 
 #### 4.6.2. Especificações
 
-1. **UX**: revisão mobile (320–768px), empty states, mensagens claras, confirmações modais.
+1. **UX**:
+   - Revisão mobile (320–768px), empty states, mensagens claras.
+   - **Modal de confirmação ao classificar `resultado`** no painel "Estado" da Demanda — ação é one-way (clean() bloqueia volta a `pendente`), usuário precisa saber antes de clicar. Levantado na revisão técnica como UX subótimo com consequência permanente.
 2. **Documentação**: `docs/manual.md` (manual de uso para a equipe), `docs/deploy.md`.
-3. **Configuração de produção**: `production.py` revisado, Whitenoise, logging estruturado, Sentry opcional.
+3. **Configuração de produção**:
+   - `production.py` revisado, Whitenoise, logging estruturado, Sentry opcional.
+   - **Backup robusto** (revisão técnica): trocar `scripts/backup.sh` plano para `pg_dump -Fc` (custom format — compressão + restore seletivo); rotação automática (manter 7 diários + 4 semanais); encriptação at-rest (gpg ou age) para arquivos com PII. Smoke test em CI verifica que `pg_restore --list` no dump gerado retorna ≥1 tabela.
 4. **Docker**: `Dockerfile`, `docker-compose.yml`, `docker-compose.dev.yml`.
-5. **Performance**: auditoria de queries, `select_related`/`prefetch_related`, gzip.
+5. **Performance**:
+   - Auditoria de queries, `select_related`/`prefetch_related`, gzip.
+   - Confirmar que `/analise` carrega em <1s para 1000 demandas (critério §4.6.3 da Fase 6 não testado em CI — validação manual com `criar_dados_teste` em escala).
 6. **Acessibilidade básica**: contraste WCAG AA, navegação por teclado, `aria-label`.
 7. **Compatibilidade**: Chrome, Firefox, Safari, Edge (últimas 2 versões).
-8. **Limpeza**: remover código morto, atualizar dependências.
+8. **Permissões — fechar DT-011**:
+   - Criar permissão customizada `accounts.gerenciar_usuarios`; migrar `UsuarioListView`/`CreateView`/`UpdateView`/`ToggleAtivoView` de `StaffRequiredMixin` para `PermissionRequiredMixin`.
+   - Atribuir a permissão ao grupo `Administrador` via data migration.
+   - Forms deixam de expor `is_staff` editável; promoção a staff/superuser fica reservada ao Django Admin.
+   - Remover `StaffRequiredMixin` de `accounts/views.py`.
+9. **Limpeza**:
+   - Drop de `papel`/`papel_outro` em `DemandaPessoa`/`DemandaEntidade` (ADR 0054 — DT-013).
+   - Atualizar dependências.
+   - Remover código morto.
+10. **Higiene de testes (DT-014 a DT-017)**:
+    - DT-014: ≥2 testes por listagem principal cobrindo combinações de filtros (`?status=...&coord=...&tema=...`).
+    - DT-015: corrigir `tipo="associacao"` para valor real do `TIPO_CHOICES`.
+    - DT-016: teste de regressão para `?ate=` em `/auditoria`.
+    - DT-017: trocar assert de classe Tailwind por `data-envelhecimento` em `/inbox/`.
 
 #### 4.6.3. Critérios de Aceite
 
@@ -582,6 +603,13 @@ Fase 6 concluída.
 - [ ] Documentação de deploy permite hospedar em VPS em <2h.
 - [ ] Lighthouse: Performance ≥ 85, Accessibility ≥ 90.
 - [ ] Sem warnings no console.
+- [ ] **DT-011 fechado**: `grep -r 'is_staff' accounts/views.py accounts/forms.py` não encontra checagens de gating (apenas o campo no model). Promoção via Admin Django apenas.
+- [ ] **DT-013 fechado**: campo `papel`/`papel_outro` removido de `DemandaPessoa` e `DemandaEntidade` (ADR 0054); formulário de demanda e tela de processar inbox não exibem mais o seletor.
+- [ ] **DT-014 fechado**: ≥2 testes por listagem principal cobrem combinações de filtros via querystring; §4.4.3 marca filtros combinados como `[x]`.
+- [ ] **DT-015–017 fechados**: 3 ajustes de higiene aplicados.
+- [ ] **Backup**: `scripts/backup.sh` usa `-Fc`, gera arquivo encriptado e respeita rotação. CI roda smoke test (`pg_restore --list` >0 linhas).
+- [ ] **EstadoForm**: classificar `resultado` exibe modal de confirmação no front; usuário confirma explicitamente antes da ação one-way.
+- [ ] Painel `/analise` carrega em < 1s para 1000 registros (validação manual com `criar_dados_teste` em escala).
 - [ ] Tag `v1.0` no GitHub com release notes.
 
 #### 4.6.4. Validação
@@ -728,9 +756,9 @@ A partir de `v1.0`, evolução guiada por uso real.
 ## 7. Glossário
 
 - **Demanda** — registro de uma necessidade ou pedido trazido ao mandato. Tem uma ou mais partes (pessoas e/ou entidades) ou é anônima.
-- **Pessoa** — pessoa física que se relaciona com o mandato (solicitante, afetada, representante, etc.).
+- **Pessoa** — pessoa física que se relaciona com o mandato.
 - **Entidade** — organização, coletivo ou agrupamento de qualquer natureza (formal ou informal) que se relaciona com o mandato.
-- **Parte** — pessoa ou entidade vinculada a uma demanda específica, com um papel (solicitante, afetada, representante, etc.).
+- **Parte** — pessoa ou entidade vinculada a uma demanda específica.
 - **Coordenação** — área funcional do gabinete (gabinete, jurídico, comunicação).
 - **Encaminhamento** — comunicação a terceiro (órgão público, concessionária) feita a partir de uma demanda. Tem lifecycle próprio (enviado → respondido/vencido).
 - **Inbox** — fila de itens capturados rapidamente, sem estrutura, aguardando triagem.
