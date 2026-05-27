@@ -4,32 +4,14 @@
 <style>
   /* Detalhe da demanda — fiel ao v2/detalhe-demanda.html */
 
-  /* O documento · papel sobre mesa */
+  /* O documento · papel sobre mesa.
+     Filete navy 6px no topo — antes ficava no .doc-bar (removido); agora
+     direto no .doc para que o breadcrumb fique fora, sobre o papel cru. */
   .doc {
     background: var(--surface-2);
     box-shadow: var(--shadow-lg);
-  }
-
-  /* DOC-BAR · breadcrumb interno do documento (filete navy de 6px + gradiente) */
-  .doc-bar {
     border-top: 6px solid var(--primary);
-    background: linear-gradient(180deg, var(--surface-2), var(--surface-1));
-    padding: 14px 36px 12px;
-    border-bottom: 1px solid var(--rule);
   }
-  .doc-bar .crumb {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--ink-mute);
-    display: flex; align-items: center; gap: 10px;
-  }
-  .doc-bar .crumb a { text-decoration: none; color: var(--ink-mute); }
-  .doc-bar .crumb a:hover { color: var(--primary); }
-  .doc-bar .crumb .sep { color: var(--rule-strong); }
-  .doc-bar .crumb .num { color: var(--primary); font-weight: var(--fw-bold); letter-spacing: 0.04em; }
-  .doc-bar .crumb .ed { color: var(--ink-mute); margin-left: auto; }
 
   /* DOC-GRID · 2 colunas, gap 0, divisor por border-right + aside com surface-1 */
   .doc-grid {
@@ -660,16 +642,21 @@
   @media (max-width: 720px) { .add-painel .field-grid { grid-template-columns: 1fr; } }
 </style>
 
-<article class="doc">
-  <header class="doc-bar">
-    <div class="crumb">
-      <a href="{% url 'demandas:demanda_lista' %}">Demandas</a>
+{# Breadcrumb fora do documento — sobre o papel cru, mesma posição da lista #}
+<div class="page-head" style="margin-bottom: 16px">
+  <div>
+    <div class="breadcrumb">
+      <a href="/" style="text-decoration:none;color:var(--ink-mute)">Início</a>
       <span class="sep">/</span>
-      <span class="num">{{ demanda.numero }}</span>
-      {% if demanda.atualizado_em %}<span class="ed">Atualizada {{ demanda.atualizado_em|timesince }} atrás</span>{% endif %}
+      <a href="{% url 'demandas:demanda_lista' %}" style="text-decoration:none;color:var(--ink-mute)">Demandas</a>
+      <span class="sep">/</span>
+      <span style="color:var(--primary);font-weight:var(--fw-semibold)">{{ demanda.numero }}</span>
+      {% if demanda.atualizado_em %}<span style="margin-left:auto;color:var(--ink-mute)">Atualizada {{ demanda.atualizado_em|timesince }} atrás</span>{% endif %}
     </div>
-  </header>
+  </div>
+</div>
 
+<article class="doc">
   <div class="doc-grid">
     <section class="main">
       <h1 class="main-title">{{ demanda.titulo }}</h1>
