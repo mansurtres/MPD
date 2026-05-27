@@ -43,23 +43,28 @@
         {% if papel_cg_plus %}
         <a href="{% url 'core:auditoria' %}">Auditoria</a>
         {% endif %}
-        <a href="{% url 'core:configuracoes' %}">Configurações</a>
       </nav>
       <div class="divider"></div>
-      <div class="me">
+      <div class="me-wrap">
         {% with nome=request.user.nome_completo|default:request.user.email %}
-        <a href="{% url 'accounts:perfil' %}" class="av" title="{{ nome }} — Perfil">
-          {{ nome|slice:":1"|upper }}{{ request.user.email|slice:":1"|upper }}
-        </a>
-        <div>
-          <span class="who">{{ nome }}</span>
-          <span class="role">{% if papel_eh_admin %}Admin{% elif papel_eh_chefe %}Chefe de Gabinete{% elif papel_eh_coordenador %}Coordenador{% else %}Assessor{% endif %}</span>
+        <button type="button" id="me-trigger" class="me" aria-haspopup="menu" aria-expanded="false" aria-controls="me-dropdown" title="{{ nome }}">
+          <span class="av" aria-hidden="true">{{ nome|slice:":1"|upper }}{{ request.user.email|slice:":1"|upper }}</span>
+          <span class="me-text">
+            <span class="who">{{ nome }}</span>
+            <span class="role">{% if papel_eh_admin %}Admin{% elif papel_eh_chefe %}Chefe de Gabinete{% elif papel_eh_coordenador %}Coordenador{% else %}Assessor{% endif %}</span>
+          </span>
+          <span class="caret" aria-hidden="true">▾</span>
+        </button>
+        <div id="me-dropdown" class="me-dropdown hidden" role="menu" aria-labelledby="me-trigger">
+          <a href="{% url 'accounts:perfil' %}" role="menuitem">Perfil</a>
+          <a href="{% url 'core:configuracoes' %}" role="menuitem">Configurações</a>
+          <div class="sep" role="none"></div>
+          <form method="post" action="{% url 'accounts:logout' %}" role="none">
+            {% csrf_token %}
+            <button type="submit" role="menuitem" class="me-logout">Sair</button>
+          </form>
         </div>
         {% endwith %}
-        <form method="post" action="{% url 'accounts:logout' %}">
-          {% csrf_token %}
-          <button type="submit" class="logout" title="Sair">Sair</button>
-        </form>
       </div>
     </div>
   </div>
@@ -161,6 +166,28 @@
       form.requestSubmit();
     }
   });
+  const meTrigger = document.getElementById('me-trigger');
+  const meDropdown = document.getElementById('me-dropdown');
+  function meOpen() {
+    meDropdown.classList.remove('hidden');
+    meTrigger.setAttribute('aria-expanded', 'true');
+  }
+  function meClose() {
+    meDropdown.classList.add('hidden');
+    meTrigger.setAttribute('aria-expanded', 'false');
+  }
+  meTrigger.addEventListener('click', e => {
+    e.stopPropagation();
+    if (meDropdown.classList.contains('hidden')) meOpen(); else meClose();
+  });
+  document.addEventListener('click', e => {
+    if (meDropdown.classList.contains('hidden')) return;
+    if (!meDropdown.contains(e.target) && e.target !== meTrigger) meClose();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !meDropdown.classList.contains('hidden')) meClose();
+  });
+
   form.addEventListener('submit', async e => {
     e.preventDefault();
     errBox.style.display = 'none';
