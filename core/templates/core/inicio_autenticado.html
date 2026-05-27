@@ -63,85 +63,150 @@
   }
   .home-v2 .hero .lede strong { color: var(--ink); font-weight: 600; font-style: normal; }
 
-  /* Composer minimalista — caixa sutil sobre o papel cru.
-     Inspiração: claude.ai/new e chatgpt.com.
-     Sem borda; surface-2 (papel claro) + sombra leve dão ancoragem visual
-     sem virar formulário institucional. Helper abaixo do texto, micro.
-     Botão "Capturar →" só aparece quando há texto. */
+  /* Composer · "Marginalia"
+     Referência: anotação à margem de manuscrito, citação em bloco de
+     jornal editorial, caderno de gabinete. Sem caixa. O filete navy
+     vertical à esquerda é a única ancoragem — um gesto de "marcar" o
+     papel cru. Helper abaixo, indentado. Botão sem chrome: tipografia
+     em mono que ganha presença com hover.
+     Em focus, o filete pulsa e escurece.
+  */
   .home-v2 .composer {
-    background: var(--surface-2);
-    border: 0;
-    box-shadow: var(--shadow-sm);
-    padding: 20px 22px 16px;
-    margin-bottom: 4px;
     position: relative;
-    transition: box-shadow .15s;
+    background: transparent;
+    border: 0;
+    padding: 0 0 0 28px;
+    margin: 8px 0 6px;
   }
-  .home-v2 .composer:focus-within { box-shadow: var(--shadow-md); }
+  /* Filete vertical à esquerda — o "marcador" da anotação.
+     Em idle: rule-strong, fino. Em focus/texto: navy, pulsa uma vez. */
+  .home-v2 .composer::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 4px; bottom: 14px;
+    width: 2px;
+    background: var(--rule-strong);
+    transition: background .2s, width .2s, left .2s;
+  }
+  .home-v2 .composer:focus-within::before,
+  .home-v2 .composer.has-text::before {
+    background: var(--primary);
+    width: 3px;
+    left: -1px;
+    animation: composer-mark 1.6s ease-out;
+  }
+  @keyframes composer-mark {
+    0%   { opacity: 0.4; transform: scaleY(0.85); transform-origin: top; }
+    40%  { opacity: 1;   transform: scaleY(1); }
+    100% { opacity: 1;   transform: scaleY(1); }
+  }
+
   .home-v2 .composer textarea {
     border: 0; outline: 0;
     width: 100%; resize: none;
     background: transparent;
     font-family: var(--font-serif);
-    font-size: 22px;
+    font-size: 23px;
     line-height: 1.45;
     color: var(--ink);
-    padding: 2px 0;
+    padding: 0;
     min-height: 88px;
     caret-color: var(--primary);
+    font-variation-settings: 'opsz' 22;
   }
   .home-v2 .composer textarea::placeholder {
     color: var(--ink-mute);
     font-style: italic;
-    opacity: 0.75;
+    opacity: 0.7;
   }
-  /* Quando focado: nada muda visualmente — o composer continua flutuando
-     no papel cru. A única ancoragem é o filete que aparece acima do rodapé. */
-  .home-v2 .composer textarea:focus { outline: 0; }
+  .home-v2 .composer textarea::selection {
+    background: var(--navy-100);
+    color: var(--navy-800);
+  }
 
-  /* Rodapé do composer: helper à esquerda + botão à direita.
-     Linha divisória sutil aparece só quando focado/com texto. */
+  /* Rodapé do composer — alinhado ao baseline do texto (sem padding extra
+     à esquerda; o filete cobre os dois). Sem linha divisória. */
   .home-v2 .comp-foot {
-    display: flex; align-items: center; justify-content: space-between;
-    gap: 16px; padding-top: 10px;
-    border-top: 1px solid transparent;
-    transition: border-color .15s;
-  }
-  .home-v2 .composer:focus-within .comp-foot,
-  .home-v2 .composer.has-text .comp-foot {
-    border-top-color: var(--rule);
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 24px; margin-top: 14px;
   }
   .home-v2 .comp-foot .helper {
     font-family: var(--font-serif);
     font-style: italic;
     font-size: 13.5px;
-    line-height: 1.4;
+    line-height: 1.45;
     color: var(--ink-mute);
     max-width: 58ch;
+    /* Glyph ↳ antes do helper, em mono, pra ligar visualmente ao filete */
+    position: relative;
+  }
+  .home-v2 .comp-foot .helper::before {
+    content: "↳";
+    display: inline-block;
+    margin-right: 6px;
+    font-family: var(--font-mono);
+    font-style: normal;
+    color: var(--rule-strong);
+    font-size: 12px;
+    transform: translateY(-1px);
+  }
+  .home-v2 .composer:focus-within .comp-foot .helper::before,
+  .home-v2 .composer.has-text .comp-foot .helper::before {
+    color: var(--primary);
   }
   .home-v2 .comp-foot .helper strong {
     color: var(--ink-soft);
     font-weight: 600;
     font-style: normal;
   }
+
+  /* Botão sem chrome — tipografia editorial.
+     Em idle (sem texto): invisível.
+     Em hover com texto: cor primária + underline animado. */
   .home-v2 .comp-foot .send {
-    background: var(--primary); color: var(--primary-fg);
-    border: 1px solid var(--primary);
-    font-family: var(--font-mono); font-size: 12px; font-weight: 600;
-    padding: 8px 18px;
-    letter-spacing: 0.06em; text-transform: uppercase;
+    background: transparent;
+    border: 0;
+    padding: 0;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--primary);
     cursor: pointer;
-    display: inline-flex; align-items: center; gap: 8px;
-    opacity: 0; transform: translateY(2px);
-    transition: opacity .18s, transform .18s, background .12s;
+    display: inline-flex; align-items: baseline; gap: 8px;
+    opacity: 0;
+    transform: translateY(2px);
+    transition: opacity .22s ease-out, transform .22s ease-out, color .12s;
     pointer-events: none;
     flex-shrink: 0;
+    position: relative;
+  }
+  .home-v2 .comp-foot .send::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; bottom: -3px;
+    height: 1px;
+    background: currentColor;
+    transform: scaleX(0);
+    transform-origin: right;
+    transition: transform .25s ease-out;
   }
   .home-v2 .composer.has-text .comp-foot .send {
-    opacity: 1; transform: translateY(0);
+    opacity: 1;
+    transform: translateY(0);
     pointer-events: auto;
   }
-  .home-v2 .comp-foot .send:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
+  .home-v2 .comp-foot .send:hover { color: var(--navy-700); }
+  .home-v2 .comp-foot .send:hover::after {
+    transform: scaleX(1);
+    transform-origin: left;
+  }
+  .home-v2 .comp-foot .send .arr {
+    font-family: var(--font-mono);
+    font-weight: 400;
+    letter-spacing: 0;
+  }
 
   /* Atalhos personalizados */
   .home-v2 .quick-jumps {
