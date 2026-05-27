@@ -78,7 +78,7 @@ O mandato é **municipal e genérico** (sem nome travado). O protótipo deve usa
 | **Entidade** | Organização (associação, escola, secretaria, família, grupo informal etc.). 14 tipos. Pode ter vínculos com pessoas. |
 | **Vínculo** | Relação entre Pessoa e Entidade (presidente da associação X, mãe de aluno da escola Y). |
 | **Tag** | Rótulo plano e colorido em Pessoa ou Entidade (sem categoria/hierarquia). 11 cores fixas. |
-| **Demanda** | Solicitação ou ação registrada. Tem origem (responsiva = veio do cidadão; proativa = gabinete iniciou). Identificada por número `MPD-AAAA-NNNNN`. |
+| **Demanda** | Solicitação ou ação registrada. Tem origem (responsiva = veio do cidadão; proativa = gabinete iniciou). Identificada por número `D-AAMM-NNNNN` (ex.: `D-2605-72918`). |
 | **Status da demanda** | Eixo do ciclo de trabalho: `novo` → `em_andamento` → `aguardando_*` → `concluida` → `arquivada`. |
 | **Resultado da demanda** | Eixo do desfecho material: `pendente`, `atendido`, `atendido_parcialmente`, `nao_atendido`, `inviavel`, `nao_se_aplica`. **Independente do status.** |
 | **Devolutiva** | Retorno formal ao demandante. É uma **Interação** especial (tipo `devolutiva`). Responsiva só pode ser concluída com devolutiva registrada. |
@@ -137,11 +137,11 @@ Variações úteis a incluir:
 ### Protótipo 1 — Shell autenticado (frame de todas as telas internas)
 
 **Componentes do shell:**
-- **Topbar** fixa no topo. Esquerda: logomarca + nome "MPD". Centro: busca global (placeholder "Buscar pessoa, demanda, MPD-AAAA-NNNNN…"). Direita (nessa ordem): Inbox (com badge cinza com count de pendentes) · Pendências (com badge vermelho de vencidas) · Demandas · Pessoas · Entidades · Encaminhamentos · Análise · Auditoria · Configurações · avatar do usuário (dropdown com Perfil / Sair).
+- **Topbar** fixa no topo. Esquerda: logomarca + nome "MPD". Centro: busca global (placeholder "Buscar pessoa, demanda, D-AAMM-NNNNN…"). Direita (nessa ordem): Inbox (com badge cinza com count de pendentes) · Pendências (com badge vermelho de vencidas) · Demandas · Pessoas · Entidades · Encaminhamentos · Análise · Auditoria · Configurações · avatar do usuário (dropdown com Perfil / Sair).
 - **FAB** (botão flutuante) `+` no canto inferior direito, sempre visível. Abre o **modal de captura rápida** (Ctrl+K).
 - **Modal Ctrl+K**: aparece centralizado, fundo escurecido. Textarea grande, dica "Enter envia, Shift+Enter quebra linha, Esc fecha". Após envio: confirmação "Capturado!" 800ms, fecha sozinho.
 - **Toast** (canto inferior direito): aparece após ações (sucesso, erro, info). Auto-dismiss em 4s. Empilhável.
-- **Breadcrumb** (opcional, no topo das telas internas): "Demandas › MPD-2026-00042".
+- **Breadcrumb** (opcional, no topo das telas internas): "Demandas › D-2605-72918".
 - **Footer minimalista**: versão do sistema, link para suporte.
 
 **Variação mobile:**
@@ -209,7 +209,7 @@ A tela mais usada. Modelo de referência para 8 listas do sistema.
 - Chips de filtros ativos aparecem abaixo, com X para remover individualmente. Botão "Limpar tudo".
 
 **Tabela:**
-- Colunas: Nº (MPD-AAAA-NNNNN, monospace) · Título · Status (badge colorido) · Resultado (badge colorido) · Responsável · Tema · Atualizada em.
+- Colunas: Nº (D-AAMM-NNNNN, monospace) · Título · Status (badge colorido) · Resultado (badge colorido) · Responsável · Tema · Atualizada em.
 - Linha clicável (vai para o detalhe). Hover destaca a linha.
 - Ícones inline: 📎 se tem anexo, 📨 se tem encaminhamento aberto, 🔒 se restrita.
 - Densidade: confortável, mas com line-height controlado para caber ~15 linhas em viewport 1080p.
@@ -279,7 +279,7 @@ Cobre todos os `/nova/` e `/editar/`. Mostra os padrões mais difíceis.
 A tela onde mora a maior parte do trabalho. Densa de informação, mas precisa respirar.
 
 **Header:**
-- Número em destaque (`MPD-2026-00042`, monospace, grande)
+- Número em destaque (`D-2605-72918`, monospace, grande)
 - Título da demanda (h1)
 - Linha de meta: criada em DD/MM/AAAA por Fulano · atualizada em DD/MM/AAAA
 - Badges: Status, Resultado, Restrita (se aplicável), Origem

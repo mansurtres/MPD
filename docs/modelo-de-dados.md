@@ -292,7 +292,7 @@ Coração operacional.
 | Campo | Tipo | Constraints | Notas |
 |---|---|---|---|
 | 🔑 `id` | UUID | PRIMARY KEY | |
-| 🔒 `numero` * | VARCHAR(20) | NOT NULL, UNIQUE | Formato `MPD-AAAA-NNNNN` |
+| 🔒 `numero` * | VARCHAR(20) | NOT NULL, UNIQUE | Formato `D-AAMM-NNNNN` (ver ADR 0056) |
 | `titulo` * | VARCHAR(200) | NOT NULL | |
 | `descricao` * | TEXT | NOT NULL | |
 | `origem` * | VARCHAR(15) | NOT NULL | CHECK IN ('responsiva','proativa') |
@@ -352,7 +352,7 @@ A **devolutiva ao demandante** é registrada como `Interacao(tipo='devolutiva')`
 
 **Status × Resultado — duas dimensões independentes.** Detalhes da relação entre os dois em `fluxos-de-estado.md`.
 
-**Geração de número:** método de classe `Demanda.gerar_numero()`. Formato `MPD-AAAA-NNNNN`. Reinicia a cada ano. Thread-safe via `select_for_update`.
+**Geração de número:** método de classe `Demanda.gerar_numero()`. Formato `D-AAMM-NNNNN` (ADR 0056): prefixo `D-`, ano em 2 dígitos + mês em 2 dígitos (`AAMM` para ordenação cronológica como string), e 5 dígitos aleatórios no intervalo `10000–99999`. Colisão tratada por retry sob savepoint (max 10 tentativas) — mesmo padrão da [ADR 0051](decisoes.md#adr-0051--robustez-do-slug_publico-toctou).
 
 **Mudanças de estado geram interações automáticas:**
 - `signal post_save` em Demanda compara estado anterior vs atual.

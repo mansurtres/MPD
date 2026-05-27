@@ -17,6 +17,7 @@ caracteriza Pessoa/Entidade. Decisão registrada em ADR 0042 (supersede
 parcialmente ADR 0039 para o domínio de demandas).
 """
 
+import random
 import uuid
 from datetime import timedelta
 
@@ -24,7 +25,7 @@ from django.conf import settings
 from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelation
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
-from django.db import models, transaction
+from django.db import IntegrityError, models, transaction
 from django.utils import timezone
 
 from core.mixins import AuditavelMixin
@@ -271,32 +272,37 @@ class Demanda(AuditavelMixin, models.Model):
             )
 
     def save(self, *args, **kwargs):
-        if not self.numero:
-            self.numero = self.gerar_numero()
         if self.status == self.STATUS_ARQUIVADO and not self.arquivado_em:
             self.arquivado_em = timezone.now()
-        super().save(*args, **kwargs)
+        if self.numero:
+            super().save(*args, **kwargs)
+            return
+        # Numeração nova: gera D-AAMM-NNNNN e tenta INSERT em savepoint.
+        # Em caso de colisão (UNIQUE), regenera o sufixo até 10 vezes.
+        # Padrão idêntico ao slug_publico (ADR 0051).
+        ultima_excecao = None
+        for _ in range(10):
+            self.numero = self.gerar_numero()
+            try:
+                with transaction.atomic():
+                    super().save(*args, **kwargs)
+                return
+            except IntegrityError as exc:
+                ultima_excecao = exc
+                continue
+        raise ultima_excecao  # 10 colisões consecutivas — improvável em 90k espaço
 
     @classmethod
-    @transaction.atomic
     def gerar_numero(cls):
-        """Formato MPD-AAAA-NNNNN. Reinicia a cada ano. Thread-safe."""
-        ano = timezone.now().year
-        prefixo = f"MPD-{ano}-"
-        # select_for_update bloqueia concorrência em ambientes com banco real;
-        # SQLite (testes) ignora silenciosamente — sequência ainda é correta
-        # porque pytest-django usa transação por teste.
-        ultima = (
-            cls.objects.select_for_update()
-            .filter(numero__startswith=prefixo)
-            .order_by("-numero")
-            .first()
-        )
-        if ultima:
-            seq = int(ultima.numero.rsplit("-", 1)[1]) + 1
-        else:
-            seq = 1
-        return f"{prefixo}{seq:05d}"
+        """Formato D-AAMM-NNNNN (ADR 0056).
+
+        - `AA` = ano em 2 dígitos, `MM` = mês em 2 dígitos (ordenação cronológica como string).
+        - `NNNNN` = aleatório uniforme em [10000, 99999] (sempre 5 dígitos visualmente).
+        Colisão é tratada no `save()` por retry em savepoint.
+        """
+        agora = timezone.now()
+        sufixo = random.randint(10000, 99999)
+        return f"D-{agora.strftime('%y%m')}-{sufixo}"
 
     def tem_partes(self):
         """Demanda não-anônima precisa ter ao menos uma parte vinculada."""

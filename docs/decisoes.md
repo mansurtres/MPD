@@ -1974,4 +1974,59 @@ Matriz documentada em [`docs/permissoes.md`](permissoes.md) §3.12 e §3.13.
 
 ---
 
+## ADR 0056 — Novo formato de número da demanda (`D-AAMM-NNNNN`)
+
+**Data:** 2026-05-27
+**Status:** Aceito (supersede ADR de origem implícita em [`docs/modelo-de-dados.md`](modelo-de-dados.md) §11 e [`roadmap.md`](../roadmap.md) §Fase 3 para o formato `MPD-AAAA-NNNNN`)
+
+### Contexto
+
+O formato original `MPD-AAAA-NNNNN` (13 caracteres, sequencial reiniciado por ano) tem dois problemas práticos identificados em uso:
+
+1. **Tamanho.** 13 chars ocupam espaço relevante em colunas de lista, breadcrumb, header de detalhe e em qualquer texto onde o número apareça inline.
+2. **Vazamento de volume.** Sendo sequencial, o número revela quantas demandas o mandato recebeu no ano. `MPD-2026-00042` deixa explícito que houve só 42 demandas até aquele ponto — informação operacional que não deveria ser inferível de um identificador opaco.
+
+A revisão de produto (2026-05-27, Pedro) concluiu que o identificador da demanda é dado opaco — ninguém calcula a data ou o volume a partir dele — então não há ganho em manter o ano completo nem o sequencial visível.
+
+### Decisão
+
+Novo formato: **`D-AAMM-NNNNN`** (12 caracteres).
+
+- **Prefixo `D-`** identifica como demanda em conversa/email/busca. Mantido curto (1 letra) para preservar o ganho de tamanho.
+- **`AAMM`** — ano em 2 dígitos + mês em 2 dígitos (ex.: `2605` para mai/2026). Escolha de `AAMM` (e não `MMAA`) preserva ordenação cronológica como string: `2605` < `2612` < `2701`.
+- **`NNNNN`** — 5 dígitos **aleatórios** uniformes no intervalo `10000–99999` (sempre 5 dígitos visualmente, nunca começa com zero). 90.000 combinações por mês tornam colisão estatisticamente desprezível mesmo em volumes altos.
+- **Geração** com retry defensivo em caso de colisão: tenta `INSERT`, captura `IntegrityError` em savepoint, regenera o sequencial e retenta (max 10 tentativas — se estourar, propaga). Mesmo padrão de [ADR 0051](#adr-0051--robustez-do-slug_publico-toctou).
+
+### Alternativas consideradas
+
+- **Manter `MPD-AAAA-NNNNN` sequencial.** Tamanho e vazamento de volume permanecem.
+- **`AAMM-NNNNN` sem prefixo (11 chars).** Mais curto, mas perde fast-path da busca global e fica ambíguo em conversa ("demanda 2605-72918" pode soar como CEP ou data).
+- **`MMAA` em vez de `AAMM`.** Mais natural visualmente para usuário BR (acostumado a DD/MM), mas quebra ordenação cronológica como string. Como o número é identificador opaco, o usuário não calcula data a partir dele — ordenação correta vence.
+- **Sequencial mascarado (hash do sequencial).** Esconde volume mas mantém complexidade interna sequencial e exige tabela de mapeamento. Aleatório uniforme é mais simples.
+- **5 dígitos aleatórios sempre permitindo `00000`.** Visualmente inconsistente (`D-2605-00342` parece um número "menos legítimo"). Restringir a `10000–99999` perde 10% do espaço, mas espaço residual continua >> volume esperado.
+
+### Justificativa
+
+Identificador opaco deve ser **curto, identificável, imprevisível e ordenável cronologicamente**. `D-AAMM-NNNNN` entrega os quatro com mudança mínima na camada de código (basta reescrever `Demanda.gerar_numero()` e atualizar fast-path da busca).
+
+Sem produção ainda — data migration renumera as demandas existentes (decisão de produto: exercitar o caminho que será usado se um dia for necessário trocar o formato em produção).
+
+### Consequências
+
+- [demandas/models.py](../demandas/models.py): `gerar_numero()` reescrito — `random.randint(10000, 99999)`, loop com retry sob `transaction.atomic` + savepoint, sem `select_for_update`. Coluna `numero` permanece `VARCHAR(20)` (cabe 12 chars folgado).
+- [core/views.py](../core/views.py) — fast-path da busca global passa a reconhecer o novo formato (`busca_global` continua usando `icontains`, mas o comentário/lookup-prioritário atualiza para `D-AAMM-NNNNN`).
+- [demandas/tests.py](../demandas/tests.py) — testes que afirmavam formato antigo ou sequência sequencial são atualizados/substituídos: `test_gera_numero_no_save` verifica regex `D-\d{4}-\d{5}`; `test_numeros_sequenciais` deixa de existir (substituído por `test_numero_aleatorio_unico`).
+- Data migration `0008_renumerar_demandas_formato_d_aamm_nnnnn` renumera todas as demandas existentes para o novo formato (ano+mês derivados de `criado_em`, sequencial sorteado). Idempotente: se o número já está no formato novo, pula.
+- [docs/modelo-de-dados.md](modelo-de-dados.md) §11 e [docs/briefing-prototipo-frontend.md](briefing-prototipo-frontend.md) atualizados.
+- Placeholder da busca em [templates/layouts/app.html](../templates/layouts/app.html) atualizado.
+- Protótipos em `prototipo/project/` **não** são atualizados — são mockups históricos, não fonte de verdade.
+
+### Referências
+
+- [demandas/models.py](../demandas/models.py) — `Demanda.gerar_numero()`.
+- [demandas/migrations/0008_renumerar_demandas_formato_d_aamm_nnnnn.py](../demandas/migrations/0008_renumerar_demandas_formato_d_aamm_nnnnn.py) — data migration de renumeração.
+- ADR 0051 — padrão de retry com savepoint para colisão de campo único.
+
+---
+
 *Decisões adicionadas em ordem cronológica conforme surgem. Cada decisão registrada uma vez; alterações futuras criam nova ADR (não editam a anterior).*

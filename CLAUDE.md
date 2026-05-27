@@ -140,7 +140,7 @@ Ideia que parece "óbvia" e não está no doc → primeiro vira ADR ou backlog.
 **Fase 3 — Demandas e Interações (v0.4.0):**
 - App `demandas` com `Demanda`, `DemandaPessoa`, `DemandaEntidade`, `Interacao`, `Encaminhamento`, `Anexo` (polimórfico via GenericForeignKey), `ItemInbox` (modelo só; UX em Fase 4).
 - Demanda com 2 eixos independentes: `status` (novo→em_andamento→aguardando_*→respondido→arquivado) e `resultado` (pendente, atendido, parcial, não atendido, inviável, não se aplica). Regra de fechamento codificada em `clean()`: `respondido` exige retorno + resultado classificado. Resultado classificado não volta a pendente.
-- Geração de número thread-safe `MPD-AAAA-NNNNN` via `select_for_update`.
+- Geração de número no formato `D-AAMM-NNNNN` (ADR 0056 — supersede `MPD-AAAA-NNNNN`): prefixo curto, ano+mês compactos, 5 dígitos aleatórios `10000–99999`. Retry com savepoint cobre colisão (padrão ADR 0051).
 - Mudanças de status/responsável/resultado disparam **Interacao automática** via `post_save`. Snapshot de estado original em `__init__`. Middleware `UsuarioAtualMiddleware` repassa `request.user` para os signals.
 - Schedule follow-up: ao salvar Interacao realizada, opcionalmente cria nova agendada com `interacao_origem` apontando para a anterior. Cadeia reconstruível.
 - Janela de edição de 24h codificada em `Interacao.pode_editar`. Automáticas são imutáveis para todos. ADM/CG editam alheia.

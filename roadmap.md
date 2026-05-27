@@ -291,7 +291,7 @@ Fase 2 concluída.
 1. App `demandas` com modelos: `Demanda`, `DemandaPessoa`, `DemandaEntidade`, `Interacao`, `Encaminhamento`, `Anexo`, `ItemInbox`.
 2. **Regra de fechamento** codificada conforme `docs/fluxos-de-estado.md`: status `respondido` exige `retorno_data`, `retorno_conteudo` E `resultado` ≠ `pendente`.
 3. **Partes M:N**: formulário de criação exige ao menos uma parte (pessoa ou entidade) vinculada, ou flag `anonimo=True`. Validado no formulário/view.
-4. **Geração de número** thread-safe. Formato `MPD-AAAA-NNNNN`.
+4. **Geração de número** com retry em colisão. Formato `D-AAMM-NNNNN` (ver ADR 0056 — supersede o `MPD-AAAA-NNNNN` original).
 5. **Tema da demanda** = uma tag vinculada via M:N. Critério de "qual tag pode ser tema" decidido na ADR de implementação (ver ADR 0039).
 6. **Visibilidade** via boolean `restrito`.
 7. **Resultado da demanda**: campo `resultado` com 6 valores + campo `resultado_observacao`. Editável a qualquer momento por quem pode editar a demanda.

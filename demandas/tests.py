@@ -4,6 +4,7 @@ Cobre os 22 critérios de aceite do roadmap §4.3.3 com casos diretos.
 Para cada bloco, comentário aponta o critério.
 """
 
+import re
 from datetime import timedelta
 
 import pytest
@@ -110,7 +111,7 @@ def demanda(db, admin_user, pessoa):
     return d
 
 
-# --- Geração de número (critério: implícito no schema MPD-AAAA-NNNNN) ---
+# --- Geração de número (formato D-AAMM-NNNNN, ADR 0056) ---
 
 
 def test_gera_numero_no_save(db, admin_user, pessoa):
@@ -121,11 +122,13 @@ def test_gera_numero_no_save(db, admin_user, pessoa):
         coordenacao_responsavel="gabinete",
         criado_por=admin_user,
     )
-    assert d.numero.startswith(f"MPD-{timezone.now().year}-")
-    assert len(d.numero.rsplit("-", 1)[1]) == 5
+    agora = timezone.now()
+    assert d.numero.startswith(f"D-{agora.strftime('%y%m')}-")
+    assert re.fullmatch(r"D-\d{4}-\d{5}", d.numero)
 
 
-def test_numeros_sequenciais(db, admin_user):
+def test_numero_aleatorio_e_unico(db, admin_user):
+    """Duas demandas no mesmo mês têm sufixos diferentes (retry cobre colisão)."""
     a = Demanda.objects.create(
         titulo="A",
         descricao="X",
@@ -142,9 +145,10 @@ def test_numeros_sequenciais(db, admin_user):
         criado_por=admin_user,
         anonimo=True,
     )
-    sa = int(a.numero.rsplit("-", 1)[1])
-    sb = int(b.numero.rsplit("-", 1)[1])
-    assert sb == sa + 1
+    assert a.numero != b.numero
+    # 5 dígitos: 10000–99999
+    assert 10000 <= int(a.numero.rsplit("-", 1)[1]) <= 99999
+    assert 10000 <= int(b.numero.rsplit("-", 1)[1]) <= 99999
 
 
 # --- Critérios 1-3: criar com partes / anônima / só entidade ---

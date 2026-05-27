@@ -272,8 +272,8 @@ def buscar_global_json(request):
         ]}
 
     Limite de 5 por categoria, ordenado pela categoria mais provável de uso
-    (Demanda primeiro porque o number lookup `MPD-AAAA-NNNNN` é o caso mais
-    comum de busca direta).
+    (Demanda primeiro porque o number lookup `D-AAMM-NNNNN` — ADR 0056 — é o
+    caso mais comum de busca direta).
     """
     from django.db.models import Q
     from django.http import JsonResponse
@@ -285,7 +285,7 @@ def buscar_global_json(request):
     if not q or len(q) < 2:
         return JsonResponse({"resultados": []})
 
-    # 1. Demandas — número primeiro (caso mais comum: MPD-2026-00042)
+    # 1. Demandas — número primeiro (caso mais comum: D-2605-72918, ADR 0056)
     if request.user.has_perm("demandas.view_demanda"):
         from demandas.models import Demanda
 
