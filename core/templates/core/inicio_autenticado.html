@@ -1,44 +1,685 @@
 {% extends "layouts/app.html" %}
 
 {% block app_conteudo %}
-<div class="mb-8">
-  <p class="text-sm uppercase tracking-widest text-slate-500 mb-2">{{ SIGLA_MANDATO }}</p>
-  <h1 class="text-2xl font-semibold text-slate-900">Olá, {{ request.user.nome_completo|default:request.user.email }}.</h1>
-  <p class="text-sm text-slate-500 mt-1">Dashboard ainda em construção. Por enquanto, acesso direto às seções:</p>
+<style>
+  /* ──────────────────────────────────────────────────
+     HOME · porte fiel de prototipo/project/v2/home.html
+     ────────────────────────────────────────────────── */
+
+  /* Escape do wrapper main.page para layout full-width */
+  .home-v2 { margin: -32px -28px -60px; }
+
+  /* HERO (tela cheia menos topbar) */
+  .home-v2 .hero {
+    min-height: calc(100vh - 56px);
+    display: grid;
+    grid-template-rows: 1fr auto;
+    padding: 56px 28px 32px;
+  }
+  .home-v2 .hero-inner {
+    max-width: 1080px; width: 100%;
+    margin: 0 auto;
+    display: flex; flex-direction: column; justify-content: center;
+    align-items: stretch;
+  }
+
+  /* Saudação editorial */
+  .home-v2 .hero .when {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    font-weight: 700;
+    margin-bottom: 18px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .home-v2 .hero .when::before {
+    content: ""; width: 32px; height: 1px;
+    background: var(--primary);
+  }
+  .home-v2 .hero h1 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 72px;
+    line-height: 1.0;
+    letter-spacing: -0.035em;
+    color: var(--ink);
+    margin: 0 0 14px;
+  }
+  .home-v2 .hero h1 em {
+    font-style: italic;
+    font-weight: 400;
+    color: var(--primary);
+  }
+  .home-v2 .hero .lede {
+    font-family: var(--font-serif);
+    font-size: 19px;
+    line-height: 1.5;
+    color: var(--ink-body);
+    margin: 0 0 36px;
+    max-width: 62ch;
+    font-style: italic;
+  }
+  .home-v2 .hero .lede strong { color: var(--ink); font-weight: 600; font-style: normal; }
+
+  /* Composer (input) */
+  .home-v2 .composer {
+    background: var(--surface-2);
+    border: 1px solid var(--rule-strong);
+    border-top: 6px solid var(--primary);
+    box-shadow: var(--shadow-lg);
+    padding: 22px 24px 16px;
+    display: grid;
+    grid-template-rows: 1fr auto;
+    min-height: 168px;
+    transition: border-color .12s, box-shadow .12s;
+  }
+  .home-v2 .composer:focus-within {
+    border-color: var(--primary);
+    box-shadow: 0 8px 24px rgba(31,58,95,0.12), 0 0 0 3px rgba(31,58,95,0.08);
+  }
+  .home-v2 .composer textarea {
+    border: 0; outline: 0;
+    width: 100%; resize: none;
+    background: transparent;
+    font-family: var(--font-serif);
+    font-size: 19px;
+    line-height: 1.55;
+    color: var(--ink);
+    padding: 0;
+    min-height: 88px;
+    caret-color: var(--primary);
+  }
+  .home-v2 .composer textarea::placeholder {
+    color: var(--ink-mute);
+    font-style: italic;
+    opacity: 1;
+  }
+
+  /* Toolbar do composer */
+  .home-v2 .comp-tools {
+    display: flex; align-items: center; gap: 8px;
+    padding-top: 14px;
+    margin-top: 8px;
+    border-top: 1px solid var(--rule);
+  }
+  .home-v2 .comp-tools .gap { flex: 1; }
+  .home-v2 .comp-tools .hint {
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--ink-mute); letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .home-v2 .comp-tools .hint kbd {
+    background: var(--surface-1);
+    border: 1px solid var(--rule-strong);
+    padding: 1px 6px; margin: 0 1px;
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--ink-soft);
+    letter-spacing: 0.04em;
+  }
+  .home-v2 .comp-tools .send {
+    background: var(--primary);
+    color: var(--primary-fg);
+    border: 1px solid var(--primary);
+    font-family: var(--font-mono); font-size: 12px; font-weight: 600;
+    padding: 7px 16px;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .home-v2 .comp-tools .send:hover { background: var(--primary-hover); }
+
+  /* Atalhos personalizados */
+  .home-v2 .quick-jumps {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin-top: 18px;
+    align-items: center;
+  }
+  .home-v2 .quick-jumps .lbl {
+    font-family: var(--font-mono); font-size: 10px;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-mute); font-weight: 700; margin-right: 4px;
+  }
+  .home-v2 .quick-jumps .jump {
+    background: transparent;
+    border: 1px solid var(--rule-strong);
+    color: var(--ink-soft);
+    padding: 6px 12px;
+    text-decoration: none;
+    font-family: var(--font-mono);
+    font-size: 11.5px; letter-spacing: 0.04em;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 8px;
+    transition: border-color .12s, color .12s;
+  }
+  .home-v2 .quick-jumps .jump:hover { color: var(--ink); border-color: var(--ink); }
+  .home-v2 .quick-jumps .jump .num { font-weight: 700; color: var(--ink-strong); font-family: var(--font-mono); }
+  .home-v2 .quick-jumps .jump.urgent .num { color: var(--danger-600); }
+  .home-v2 .quick-jumps .jump .arr { color: var(--ink-mute); opacity: 0.6; }
+  .home-v2 .quick-jumps .jump:hover .arr { color: var(--primary); opacity: 1; }
+
+  /* Scroll hint */
+  .home-v2 .scroll-hint {
+    align-self: end;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    font-weight: 600;
+    padding-top: 24px;
+  }
+  .home-v2 .scroll-hint .chev {
+    display: block; margin: 8px auto 0;
+    font-family: var(--font-mono);
+    font-size: 18px; color: var(--primary);
+    line-height: 1;
+    animation: home-hop 2.4s ease-in-out infinite;
+  }
+  @keyframes home-hop {
+    0%, 100% { transform: translateY(0); opacity: 0.5; }
+    50% { transform: translateY(6px); opacity: 1; }
+  }
+
+  /* ABAIXO DA DOBRA · painel operacional */
+  .home-v2 .below {
+    background: var(--surface-0);
+    border-top: 1px solid var(--rule);
+    padding: 64px 28px 48px;
+    position: relative;
+  }
+  .home-v2 .below::before {
+    content: "";
+    position: absolute; top: -1px; left: 0; right: 0;
+    height: 6px; background: var(--primary);
+    max-width: 1440px; margin: 0 auto;
+  }
+  .home-v2 .below-inner { max-width: 1440px; margin: 0 auto; }
+
+  /* Seção · cabeçalho */
+  .home-v2 .section-head {
+    display: flex; align-items: baseline; gap: 14px;
+    margin-bottom: 18px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--ink-200);
+  }
+  .home-v2 .section-head h2 {
+    font-family: var(--font-mono);
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--primary); margin: 0;
+  }
+  .home-v2 .section-head .count {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--ink-mute); letter-spacing: 0.04em;
+  }
+  .home-v2 .section-head .lede {
+    font-family: var(--font-serif); font-size: 13.5px;
+    color: var(--ink-mute); font-style: italic;
+    margin-left: 6px;
+  }
+  .home-v2 .section { margin-bottom: 44px; }
+  .home-v2 .section:last-child { margin-bottom: 0; }
+
+  /* Resumo · 3 cards estilo painel */
+  .home-v2 .metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    margin-bottom: 36px;
+  }
+  .home-v2 .metric {
+    padding: 22px 28px;
+    border-right: 1px solid var(--rule);
+    text-decoration: none;
+    color: inherit;
+    transition: background .12s;
+  }
+  .home-v2 .metric:last-child { border-right: 0; }
+  .home-v2 .metric:hover { background: var(--surface-3); }
+  .home-v2 .metric .k {
+    font-family: var(--font-mono); font-size: 10px;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--ink-mute); margin-bottom: 6px;
+    font-weight: 600;
+    display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .home-v2 .metric .arr { color: var(--rule-strong); font-family: var(--font-mono); }
+  .home-v2 .metric:hover .arr { color: var(--primary); }
+  .home-v2 .metric .v {
+    font-family: var(--font-display);
+    font-weight: 600; font-size: 38px;
+    line-height: 1; letter-spacing: -0.025em;
+    color: var(--ink);
+  }
+  .home-v2 .metric .v.warn { color: var(--danger-600); }
+  .home-v2 .metric .sub {
+    font-family: var(--font-serif); font-size: 13.5px;
+    font-style: italic; color: var(--ink-mute);
+    margin-top: 8px; line-height: 1.4;
+  }
+  .home-v2 .metric .sub strong { color: var(--ink-strong); font-weight: 600; font-style: normal; }
+
+  /* Mosaico (áreas) */
+  .home-v2 .mosaic {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+  .home-v2 .card {
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    padding: 20px 22px 22px;
+    text-decoration: none; color: inherit;
+    display: block;
+    transition: border-color .12s, background .12s;
+  }
+  .home-v2 .card:hover { border-color: var(--ink); background: var(--surface-3); }
+  .home-v2 .card .num {
+    font-family: var(--font-mono); font-size: 10px;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--ink-mute); font-weight: 600; margin-bottom: 8px;
+  }
+  .home-v2 .card .num .alert {
+    background: var(--danger-500); color: #fff;
+    padding: 1px 6px; margin-left: 6px; letter-spacing: 0.04em;
+  }
+  .home-v2 .card h3 {
+    font-family: var(--font-display); font-weight: 600;
+    font-size: 20px; line-height: 1.15;
+    color: var(--ink); margin: 0 0 6px;
+    letter-spacing: -0.015em;
+  }
+  .home-v2 .card p {
+    font-family: var(--font-serif); font-size: 13.5px;
+    line-height: 1.45; color: var(--ink-body); margin: 0;
+  }
+
+  /* Lista de demandas recentes */
+  .home-v2 .recent {
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    border-top: 6px solid var(--primary);
+  }
+  .home-v2 .recent .row {
+    display: grid;
+    grid-template-columns: 130px 1fr auto auto;
+    gap: 18px;
+    padding: 14px 22px;
+    border-top: 1px solid var(--rule);
+    align-items: center;
+    text-decoration: none; color: inherit;
+  }
+  .home-v2 .recent .row:first-of-type { border-top: 0; }
+  .home-v2 .recent .row:hover { background: var(--surface-3); cursor: pointer; }
+  .home-v2 .recent .num {
+    font-family: var(--font-mono); font-size: 12.5px;
+    color: var(--primary); font-weight: 700; letter-spacing: 0.02em;
+  }
+  .home-v2 .recent .num .y { color: var(--ink-mute); font-weight: 400; }
+  .home-v2 .recent .ttl {
+    font-family: var(--font-serif); font-size: 15px;
+    color: var(--ink); line-height: 1.3; font-weight: 500;
+  }
+  .home-v2 .recent .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 9px 4px;
+    font-family: var(--font-mono); font-size: 10.5px;
+    font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    border: 1.5px solid transparent;
+    line-height: 1.2;
+  }
+  .home-v2 .recent .badge .dot { width: 6px; height: 6px; background: currentColor; border-radius: var(--radius-full); }
+  .home-v2 .recent .badge.novo   { background: var(--st-novo-bg);   color: var(--st-novo-fg);   border-color: rgba(31,58,95,0.35); }
+  .home-v2 .recent .badge.andam  { background: var(--st-andam-bg);  color: var(--st-andam-fg);  border-color: rgba(107,74,26,0.35); }
+  .home-v2 .recent .badge.agresp { background: var(--st-agresp-bg); color: var(--st-agresp-fg); border-color: rgba(122,74,20,0.35); }
+  .home-v2 .recent .badge.agterc { background: var(--st-agterc-bg); color: var(--st-agterc-fg); border-color: rgba(94,62,16,0.35); }
+  .home-v2 .recent .badge.conc   { background: var(--st-conc-bg);   color: var(--st-conc-fg);   border-color: rgba(52,64,34,0.35); }
+  .home-v2 .recent .badge.arq    { background: var(--st-arq-bg);    color: var(--st-arq-fg);    border-color: rgba(83,76,65,0.35); }
+  .home-v2 .recent .when {
+    font-family: var(--font-mono); font-size: 11.5px;
+    color: var(--ink-mute); letter-spacing: 0.02em;
+  }
+
+  /* Hub de configurações · mosaico em 3 colunas */
+  .home-v2 .hub-mosaic {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+  .home-v2 .hub-card {
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    padding: 22px 24px 24px;
+    text-decoration: none; color: inherit;
+    display: block;
+    transition: border-color .12s, background .12s;
+  }
+  .home-v2 .hub-card:hover { border-color: var(--ink); background: var(--surface-3); }
+  .home-v2 .hub-card.gated { opacity: 0.5; cursor: not-allowed; }
+  .home-v2 .hub-card .top {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .home-v2 .hub-card .num {
+    font-family: var(--font-mono); font-size: 10px;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--ink-mute); font-weight: 600;
+  }
+  .home-v2 .hub-card .perm {
+    font-family: var(--font-mono);
+    font-size: 9.5px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--ink-mute);
+    padding: 1px 6px;
+    border: 1px solid var(--rule-strong);
+  }
+  .home-v2 .hub-card.gated .perm { color: var(--danger-600); border-color: var(--danger-500); }
+  .home-v2 .hub-card h3 {
+    font-family: var(--font-display); font-weight: 600;
+    font-size: 22px; line-height: 1.15;
+    color: var(--ink); margin: 0 0 6px;
+    letter-spacing: -0.015em;
+  }
+  .home-v2 .hub-card p {
+    font-family: var(--font-serif); font-size: 14px;
+    line-height: 1.45; color: var(--ink-body); margin: 0;
+  }
+
+  @media (max-width: 720px) {
+    .home-v2 .hero h1 { font-size: 48px; }
+    .home-v2 .hero .lede { font-size: 17px; }
+    .home-v2 .mosaic, .home-v2 .hub-mosaic { grid-template-columns: 1fr 1fr; }
+    .home-v2 .metrics { grid-template-columns: 1fr; }
+    .home-v2 .metric { border-right: 0; border-bottom: 1px solid var(--rule); }
+    .home-v2 .metric:last-child { border-bottom: 0; }
+    .home-v2 .recent .row { grid-template-columns: 1fr; gap: 6px; }
+  }
+</style>
+
+<div class="home-v2">
+
+<!-- ════════════════════════════════════════════════════
+     HERO · saudação + composer (tela cheia)
+     ════════════════════════════════════════════════════ -->
+<section class="hero">
+  <div class="hero-inner">
+
+    <div class="when">{% now "l · j M Y · H:i" %}</div>
+
+    {% now "G" as hora_atual %}
+    <h1>{% if hora_atual|add:0 < 12 %}Bom dia{% elif hora_atual|add:0 < 18 %}Boa tarde{% else %}Boa noite{% endif %}, {{ request.user.nome_completo|default:request.user.email|truncatechars:24 }}.<br><em>começamos por onde?</em></h1>
+
+    <p class="lede">
+      Anote o que ouviu, o que precisa virar caso, ou cole uma mensagem do WhatsApp. <strong>Vai entrar no inbox</strong> — você decide depois se vira demanda, encaminhamento, ou nota pra alguém da equipe.
+    </p>
+
+    <!-- Composer -->
+    <form class="composer" id="home-composer" method="post" action="{% url 'demandas:inbox_capturar' %}?ajax=1">
+      {% csrf_token %}
+      <textarea
+        id="home-capture"
+        name="conteudo"
+        autofocus
+        placeholder="Sebastiana acabou de ligar… / Pensar em ofício pra SEMOB sobre… / Cole aqui um print do WhatsApp ou arraste um anexo"
+        rows="4"
+      ></textarea>
+      <div class="comp-tools">
+        <span class="gap"></span>
+        <span class="hint"><kbd>Enter</kbd> capturar · <kbd>⇧ Enter</kbd> quebra de linha</span>
+        <button type="submit" class="send">Capturar →</button>
+      </div>
+    </form>
+
+    <!-- Atalhos personalizados -->
+    <div class="quick-jumps">
+      <span class="lbl">ou ir para</span>
+      {% if topbar_pendencias_vencidas %}
+      <a class="jump urgent" href="{% url 'demandas:minhas_pendencias' %}">
+        <span class="num">{{ topbar_pendencias_vencidas }}</span>
+        pendência{{ topbar_pendencias_vencidas|pluralize }} vencida{{ topbar_pendencias_vencidas|pluralize }}
+        <span class="arr">→</span>
+      </a>
+      {% endif %}
+      {% if topbar_inbox_pendentes %}
+      <a class="jump" href="{% url 'demandas:inbox_lista' %}">
+        <span class="num">{{ topbar_inbox_pendentes }}</span>
+        ite{{ topbar_inbox_pendentes|pluralize:"m,ns" }} no inbox
+        <span class="arr">→</span>
+      </a>
+      {% endif %}
+      <a class="jump" href="{% url 'demandas:demanda_lista' %}?filtro=minhas">
+        {% if demandas_minhas_count %}<span class="num">{{ demandas_minhas_count }}</span> demanda{{ demandas_minhas_count|pluralize }} sua{{ demandas_minhas_count|pluralize }}{% else %}minhas demandas{% endif %}
+        <span class="arr">→</span>
+      </a>
+      <a class="jump" href="{% url 'demandas:minhas_reunioes' %}">
+        próximas reuniões
+        <span class="arr">→</span>
+      </a>
+    </div>
+
+  </div>
+
+  <div class="scroll-hint">
+    deslize para o painel
+    <span class="chev">↓</span>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════
+     ABAIXO DA DOBRA · painel
+     ════════════════════════════════════════════════════ -->
+<section class="below">
+  <div class="below-inner">
+
+    <!-- Métricas resumo -->
+    <div class="metrics">
+      <a class="metric" href="{% url 'demandas:minhas_pendencias' %}">
+        <div class="k">Minhas pendências vencidas <span class="arr">→</span></div>
+        <div class="v {% if topbar_pendencias_vencidas %}warn{% endif %}">{{ topbar_pendencias_vencidas|default:0 }}</div>
+        <div class="sub">{% if topbar_pendencias_vencidas %}revisar no painel de pendências{% else %}sem pendências vencidas{% endif %}</div>
+      </a>
+      <a class="metric" href="{% url 'demandas:inbox_lista' %}">
+        <div class="k">Novos itens no inbox <span class="arr">→</span></div>
+        <div class="v">{{ topbar_inbox_pendentes|default:0 }}</div>
+        <div class="sub">{% if topbar_inbox_pendentes %}aguardando triagem{% else %}inbox limpo{% endif %}</div>
+      </a>
+      <a class="metric" href="{% url 'demandas:demanda_lista' %}?filtro=minhas">
+        <div class="k">Demandas atribuídas a mim <span class="arr">→</span></div>
+        <div class="v">{{ demandas_minhas_count|default:0 }}</div>
+        <div class="sub">{% if demandas_minhas_count %}abertas sob sua responsabilidade{% else %}nenhuma atribuída{% endif %}</div>
+      </a>
+    </div>
+
+    <!-- Áreas do sistema -->
+    <div class="section">
+      <div class="section-head">
+        <h2>Áreas do sistema</h2>
+        <span class="lede">o que você precisa acessar</span>
+      </div>
+
+      <div class="mosaic">
+        {% if perms.demandas.view_demanda %}
+        <a class="card" href="{% url 'demandas:demanda_lista' %}">
+          <div class="num">/ demandas{% if topbar_pendencias_vencidas %} <span class="alert">{{ topbar_pendencias_vencidas }}</span>{% endif %}</div>
+          <h3>Demandas</h3>
+          <p>Listar, filtrar, atender, concluir.</p>
+        </a>
+        {% endif %}
+        {% if perms.pessoas.view_pessoa %}
+        <a class="card" href="{% url 'pessoas:pessoa_lista' %}">
+          <div class="num">/ pessoas</div>
+          <h3>Pessoas</h3>
+          <p>Cadastrar, buscar e classificar pessoas.</p>
+        </a>
+        {% endif %}
+        {% if perms.pessoas.view_entidade %}
+        <a class="card" href="{% url 'pessoas:entidade_lista' %}">
+          <div class="num">/ entidades</div>
+          <h3>Entidades</h3>
+          <p>Organizações, coletivos e agrupamentos.</p>
+        </a>
+        {% endif %}
+        {% if perms.demandas.view_encaminhamento %}
+        <a class="card" href="{% url 'demandas:encaminhamento_lista' %}">
+          <div class="num">/ encaminhamentos</div>
+          <h3>Encaminhamentos</h3>
+          <p>Ofícios e indicações enviados a órgãos.</p>
+        </a>
+        {% endif %}
+        <a class="card" href="{% url 'demandas:inbox_lista' %}">
+          <div class="num">/ inbox{% if topbar_inbox_pendentes %} <span class="alert">{{ topbar_inbox_pendentes }}</span>{% endif %}</div>
+          <h3>Inbox</h3>
+          <p>Captura GTD. Triagem em lote, sugestão de vínculo.</p>
+        </a>
+        <a class="card" href="{% url 'demandas:minhas_pendencias' %}">
+          <div class="num">/ pendências{% if topbar_pendencias_vencidas %} <span class="alert">{{ topbar_pendencias_vencidas }}</span>{% endif %}</div>
+          <h3>Pendências</h3>
+          <p>Devolutivas a entregar, reuniões, ofícios com prazo.</p>
+        </a>
+        {% if papel_co_plus %}
+        <a class="card" href="{% url 'core:analise' %}">
+          <div class="num">/ análise</div>
+          <h3>Análise</h3>
+          <p>Painel operacional: por tema, coordenação, assessor.</p>
+        </a>
+        {% endif %}
+        <a class="card" href="{% url 'core:configuracoes' %}">
+          <div class="num">/ configurações</div>
+          <h3>Configurações</h3>
+          <p>Equipe, tags, temas, auditoria, perfil.</p>
+        </a>
+      </div>
+    </div>
+
+    {% if demandas_recentes %}
+    <!-- Demandas recentes -->
+    <div class="section">
+      <div class="section-head">
+        <h2>Demandas recentes · minha coordenação</h2>
+        <span class="count">{{ demandas_recentes|length }} mais recente{{ demandas_recentes|length|pluralize }}</span>
+        <span class="lede">atualizadas nas últimas 48h</span>
+      </div>
+
+      <div class="recent">
+        {% for d in demandas_recentes %}
+        <a class="row" href="{% url 'demandas:demanda_detalhe' d.pk %}">
+          <span class="num"><span class="y">{{ d.numero|slice:":9" }}</span>{{ d.numero|slice:"9:" }}</span>
+          <span class="ttl">{{ d.titulo|truncatechars:80 }}</span>
+          {% if d.status == 'novo' %}<span class="badge novo"><span class="dot"></span>Novo</span>
+          {% elif d.status == 'em_andamento' %}<span class="badge andam"><span class="dot"></span>Em andamento</span>
+          {% elif d.status == 'aguardando_pessoa' %}<span class="badge agresp"><span class="dot"></span>Aguard. resposta</span>
+          {% elif d.status == 'aguardando_terceiros' %}<span class="badge agterc"><span class="dot"></span>Aguard. terceiros</span>
+          {% elif d.status == 'concluida' %}<span class="badge conc"><span class="dot"></span>Concluída</span>
+          {% elif d.status == 'arquivado' %}<span class="badge arq"><span class="dot"></span>Arquivado</span>{% endif %}
+          <span class="when">{{ d.atualizado_em|default:d.criado_em|timesince }} atrás</span>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Hub de Configurações -->
+    <div class="section" id="configuracoes">
+      <div class="section-head">
+        <h2>Hub · configurações</h2>
+        <span class="lede">gestão do mandato e da equipe</span>
+      </div>
+
+      <div class="hub-mosaic">
+        <a class="hub-card {% if not papel_eh_admin %}gated{% endif %}" href="{% if papel_eh_admin %}{% url 'accounts:usuarios_lista' %}{% else %}#{% endif %}">
+          <div class="top">
+            <div class="num">/ usuários</div>
+            <span class="perm">{% if papel_eh_admin %}Admin{% else %}Apenas ADM{% endif %}</span>
+          </div>
+          <h3>Usuários</h3>
+          <p>Adicionar, suspender, redefinir senha da equipe.</p>
+        </a>
+        {% if perms.pessoas.view_tag %}
+        <a class="hub-card" href="{% url 'pessoas:tag_lista' %}">
+          <div class="top">
+            <div class="num">/ tags</div>
+            <span class="perm">14 cores</span>
+          </div>
+          <h3>Tags</h3>
+          <p>Etiquetas planas para classificar pessoas e entidades.</p>
+        </a>
+        {% endif %}
+        {% if perms.demandas.view_tema %}
+        <a class="hub-card" href="{% url 'demandas:tema_lista' %}">
+          <div class="top">
+            <div class="num">/ temas</div>
+            <span class="perm">classificador</span>
+          </div>
+          <h3>Temas</h3>
+          <p>Categorias temáticas das demandas (mobilidade, saúde, etc.).</p>
+        </a>
+        {% endif %}
+        <a class="hub-card {% if not papel_co_plus %}gated{% endif %}" href="{% if papel_co_plus %}{% url 'core:analise' %}{% else %}#{% endif %}">
+          <div class="top">
+            <div class="num">/ análise</div>
+            <span class="perm">CO+</span>
+          </div>
+          <h3>Painel de Análise</h3>
+          <p>Relatório operacional, gráficos de carga e produtividade.</p>
+        </a>
+        <a class="hub-card {% if not papel_cg_plus %}gated{% endif %}" href="{% if papel_cg_plus %}{% url 'core:auditoria' %}{% else %}#{% endif %}">
+          <div class="top">
+            <div class="num">/ auditoria</div>
+            <span class="perm">CG+</span>
+          </div>
+          <h3>Auditoria</h3>
+          <p>Log completo de mudanças — quem alterou o quê, quando.</p>
+        </a>
+        <a class="hub-card" href="{% url 'accounts:perfil' %}">
+          <div class="top">
+            <div class="num">/ perfil</div>
+            <span class="perm">Eu</span>
+          </div>
+          <h3>Meu perfil</h3>
+          <p>{{ request.user.nome_completo|default:request.user.email }} · {{ request.user.cargo|default:"sem cargo" }}.</p>
+        </a>
+      </div>
+    </div>
+
+  </div>
+</section>
+
 </div>
 
-<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-  {% if perms.pessoas.view_pessoa %}
-  <a href="{% url 'pessoas:pessoa_lista' %}" class="bg-white border border-slate-200 rounded-xl p-6 hover:border-slate-400 transition-colors">
-    <h2 class="text-base font-semibold text-slate-900 mb-1">Pessoas</h2>
-    <p class="text-sm text-slate-500">Cadastrar, buscar e classificar pessoas.</p>
-  </a>
-  {% endif %}
-
-  {% if perms.pessoas.view_entidade %}
-  <a href="{% url 'pessoas:entidade_lista' %}" class="bg-white border border-slate-200 rounded-xl p-6 hover:border-slate-400 transition-colors">
-    <h2 class="text-base font-semibold text-slate-900 mb-1">Entidades</h2>
-    <p class="text-sm text-slate-500">Organizações, coletivos e agrupamentos.</p>
-  </a>
-  {% endif %}
-
-  {% if perms.pessoas.view_tag %}
-  <a href="{% url 'pessoas:tag_lista' %}" class="bg-white border border-slate-200 rounded-xl p-6 hover:border-slate-400 transition-colors">
-    <h2 class="text-base font-semibold text-slate-900 mb-1">Tags</h2>
-    <p class="text-sm text-slate-500">Classificações compartilhadas (tema, perfil, território, livre).</p>
-  </a>
-  {% endif %}
-
-  <a href="{% url 'accounts:perfil' %}" class="bg-white border border-slate-200 rounded-xl p-6 hover:border-slate-400 transition-colors">
-    <h2 class="text-base font-semibold text-slate-900 mb-1">Meu perfil</h2>
-    <p class="text-sm text-slate-500">Editar nome e cargo.</p>
-  </a>
-
-  {% if request.user.is_staff %}
-  <a href="{% url 'accounts:usuarios_lista' %}" class="bg-white border border-slate-200 rounded-xl p-6 hover:border-slate-400 transition-colors">
-    <h2 class="text-base font-semibold text-slate-900 mb-1">Usuários</h2>
-    <p class="text-sm text-slate-500">Gestão de membros da equipe.</p>
-  </a>
-  {% endif %}
-</div>
+<script>
+  // Composer da home: Enter envia, Shift+Enter quebra linha.
+  // Em falha de submit (ex: ausência da rota), abre o modal global Ctrl+K.
+  (function() {
+    const form = document.getElementById('home-composer');
+    const ta = document.getElementById('home-capture');
+    if (!ta || !form) return;
+    ta.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        if (ta.value.trim()) form.requestSubmit();
+      }
+    });
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      const fd = new FormData(form);
+      try {
+        const resp = await fetch(form.action, {
+          method: 'POST', body: fd, headers: {'HX-Request': 'true'},
+        });
+        if (resp.ok) {
+          ta.value = '';
+          const orig = ta.placeholder;
+          ta.placeholder = 'Capturado no inbox · próxima nota?';
+          setTimeout(() => { ta.placeholder = orig; }, 1800);
+        }
+      } catch (err) {
+        document.getElementById('captura-fab')?.click();
+      }
+    });
+  })();
+</script>
 {% endblock %}

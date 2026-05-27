@@ -5,13 +5,39 @@ from django.http import JsonResponse
 from django.shortcuts import render
 from django.views.generic import ListView
 
-from core.permissoes import eh_cg_plus, eh_co_plus
+from core.permissoes import eh_admin, eh_cg_plus
 
 
 def inicio(request):
-    if request.user.is_authenticated:
-        return render(request, "core/inicio_autenticado.html")
-    return render(request, "core/inicio.html")
+    if not request.user.is_authenticated:
+        return render(request, "core/inicio.html")
+
+    # Contagem de demandas atribuídas ao usuário (apenas abertas) +
+    # últimas 5 demandas visíveis para o painel "Demandas recentes" na home.
+    from demandas.models import Demanda
+
+    demandas_minhas_count = (
+        Demanda.objects.filter(
+            responsavel=request.user,
+        )
+        .exclude(
+            status__in=[Demanda.STATUS_CONCLUIDA, Demanda.STATUS_ARQUIVADO],
+        )
+        .count()
+    )
+
+    demandas_recentes = list(
+        Demanda.objects.visiveis_para(request.user).order_by("-atualizado_em", "-criado_em")[:5]
+    )
+
+    return render(
+        request,
+        "core/inicio_autenticado.html",
+        {
+            "demandas_minhas_count": demandas_minhas_count,
+            "demandas_recentes": demandas_recentes,
+        },
+    )
 
 
 @login_required
@@ -40,14 +66,14 @@ def healthz(request):
 
 
 class AnaliseView(LoginRequiredMixin, UserPassesTestMixin, ListView):
-    """Painel de análise. CO+. Métricas textuais + gráficas (Chart.js
+    """Painel de análise. CG+. Métricas textuais + gráficas (Chart.js
     via CDN — toggle por métrica). Não usa ListView de fato; reusa só o
     template/auth — context_data carrega as métricas."""
 
     template_name = "core/analise.html"
 
     def test_func(self):
-        return eh_co_plus(self.request.user)
+        return eh_cg_plus(self.request.user)
 
     def get_queryset(self):
         # Override exigido pelo ListView, mas não usado.
@@ -169,16 +195,16 @@ class AnaliseView(LoginRequiredMixin, UserPassesTestMixin, ListView):
 
 
 class AuditoriaListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
-    """Lista entradas do auditlog cronologicamente. Restrito a Chefe de
-    Gabinete + Administrador (CG+). Diff visual antes/depois renderizado
-    a partir do JSON do auditlog."""
+    """Lista entradas do auditlog cronologicamente. Restrito a
+    Administrador. Diff visual antes/depois renderizado a partir do
+    JSON do auditlog."""
 
     template_name = "core/auditoria.html"
     context_object_name = "logs"
     paginate_by = 50
 
     def test_func(self):
-        return eh_cg_plus(self.request.user)
+        return eh_admin(self.request.user)
 
     def get_queryset(self):
         from auditlog.models import LogEntry
