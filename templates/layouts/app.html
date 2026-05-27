@@ -28,7 +28,7 @@
       <nav>
         <a href="{% url 'demandas:inbox_lista' %}">
           Inbox
-          {% if topbar_inbox_pendentes %}<span class="badge-count">{{ topbar_inbox_pendentes }}</span>{% endif %}
+          <span class="badge-count" id="topbar-badge-inbox" {% if not topbar_inbox_pendentes %}hidden{% endif %}>{{ topbar_inbox_pendentes|default:0 }}</span>
         </a>
         {% if perms.demandas.view_demanda %}
         <a href="{% url 'demandas:demanda_lista' %}">Demandas</a>
@@ -208,6 +208,10 @@
         headers: {'HX-Request': 'true'},
       });
       if (resp.ok) {
+        const data = await resp.json().catch(() => ({}));
+        if (typeof data.inbox_pendentes === 'number') {
+          window.MPDAtualizarBadgeInbox(data.inbox_pendentes);
+        }
         const inboxPath = "{% url 'demandas:inbox_lista' %}";
         if (window.location.pathname === inboxPath) {
           close();
@@ -227,6 +231,16 @@
     }
   });
 })();
+
+// Helper global: atualiza o badge "Inbox" na topbar após capturar via AJAX.
+// Usado tanto pelo modal Ctrl+K quanto pelo composer da home.
+window.MPDAtualizarBadgeInbox = function(n) {
+  const badge = document.getElementById('topbar-badge-inbox');
+  if (!badge) return;
+  badge.textContent = String(n);
+  if (n > 0) badge.removeAttribute('hidden');
+  else badge.setAttribute('hidden', '');
+};
 </script>
 
 <script>

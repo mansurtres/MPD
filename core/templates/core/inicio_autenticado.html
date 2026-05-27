@@ -673,6 +673,10 @@
           method: 'POST', body: fd, headers: {'HX-Request': 'true'},
         });
         if (resp.ok) {
+          const data = await resp.json().catch(() => ({}));
+          if (typeof data.inbox_pendentes === 'number' && window.MPDAtualizarBadgeInbox) {
+            window.MPDAtualizarBadgeInbox(data.inbox_pendentes);
+          }
           ta.value = '';
           const orig = ta.placeholder;
           ta.placeholder = 'Capturado no inbox · próxima nota?';

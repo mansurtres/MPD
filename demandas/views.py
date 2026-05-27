@@ -947,7 +947,13 @@ class CapturarInboxView(LoginRequiredMixin, View):
         item.autor = request.user
         item.save()
         if eh_ajax:
-            return JsonResponse({"ok": True, "id": str(item.pk)}, status=201)
+            # Retorna o novo total de pendentes para o JS atualizar o badge
+            # da topbar sem precisar recarregar a página.
+            inbox_pendentes = ItemInbox.objects.filter(status=ItemInbox.STATUS_PENDENTE).count()
+            return JsonResponse(
+                {"ok": True, "id": str(item.pk), "inbox_pendentes": inbox_pendentes},
+                status=201,
+            )
         messages.success(request, "Capturado no inbox.")
         return redirect("demandas:inbox_lista")
 
