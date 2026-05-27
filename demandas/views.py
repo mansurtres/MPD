@@ -149,6 +149,7 @@ class DemandaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         ctx["coord_choices"] = Demanda.COORDENACAO_CHOICES
         ctx["temas_disponiveis"] = Tema.objects.filter(ativo=True)
         ctx["pode_exportar"] = _pode_exportar(self.request.user)
+        ctx["hoje"] = timezone.now().date()
         return ctx
 
 

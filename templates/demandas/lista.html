@@ -1,139 +1,598 @@
 {% extends "layouts/app.html" %}
 
 {% block app_conteudo %}
-<div class="flex items-center justify-between mb-6">
-  <h1 class="text-xl font-semibold text-slate-900">Demandas</h1>
-  <div class="flex items-center gap-3">
+<style>
+  /* ════════════════════════════════════════════════════════════════
+     LISTA DE DEMANDAS · porte fiel de prototipo/project/v2/lista-demandas.html
+     ════════════════════════════════════════════════════════════════ */
+
+  /* ─── Quick filter chips (sticky abaixo do header)
+        Filete navy 6px contínuo do quick-filters até o ledger. ─── */
+  .lista-page .quick-filters {
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    border-top: 6px solid var(--primary);
+    padding: 14px 18px;
+    display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+    position: sticky; top: 56px; z-index: 10;
+  }
+  .lista-page .quick-filters .lbl {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-right: 6px;
+    font-weight: var(--fw-semibold);
+  }
+  .lista-page .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--surface-3);
+    border: 1px solid var(--rule-strong);
+    color: var(--ink-soft);
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    font-weight: var(--fw-semibold);
+    padding: 5px 11px;
+    text-decoration: none;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    transition: background .12s, border-color .12s, color .12s;
+  }
+  .lista-page .chip:hover { background: var(--surface-1); border-color: var(--ink); color: var(--ink); }
+  .lista-page .chip.on {
+    background: var(--ink-800); color: var(--surface-2);
+    border-color: var(--ink-800);
+  }
+  .lista-page .chip.alert { color: var(--danger-600); border-color: var(--danger-100); background: var(--danger-50); }
+  .lista-page .chip.alert.on { background: var(--danger-500); color: #fff; border-color: var(--danger-500); }
+
+  /* ─── Filtros ativos (chips removíveis) ─── */
+  .lista-page .active-filters {
+    padding: 10px 18px;
+    background: var(--surface-1);
+    border-left: 1px solid var(--rule);
+    border-right: 1px solid var(--rule);
+    display: flex; align-items: center; gap: 6px;
+    flex-wrap: wrap;
+    font-family: var(--font-sans);
+    font-size: 12.5px;
+  }
+  .lista-page .active-filters .lbl {
+    color: var(--ink-mute);
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-right: 4px;
+    font-weight: var(--fw-semibold);
+  }
+  .lista-page .active-filters .fc {
+    background: var(--info-50);
+    border: 1px solid var(--info-100);
+    color: var(--info-700);
+    padding: 3px 9px;
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: var(--fw-medium);
+    letter-spacing: 0.02em;
+    text-decoration: none;
+  }
+  .lista-page .active-filters .fc .x { color: var(--info-500); font-family: var(--font-mono); line-height: 1; }
+  .lista-page .active-filters .fc:hover .x { color: var(--danger-500); }
+  .lista-page .active-filters .clear {
+    margin-left: auto;
+    color: var(--ink-mute);
+    font-family: var(--font-sans);
+    font-size: 12px;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .lista-page .active-filters .clear:hover { color: var(--danger-600); }
+
+  /* ─── Bloco de filtros avançados (collapsible) ─── */
+  .lista-page .filtros-adv {
+    background: var(--surface-2);
+    border-left: 1px solid var(--rule);
+    border-right: 1px solid var(--rule);
+    padding: 16px 18px;
+  }
+  .lista-page .filtros-adv[hidden] { display: none; }
+  .lista-page .filtros-adv form {
+    display: grid; grid-template-columns: 2fr repeat(4, 1fr) auto; gap: 12px;
+    align-items: end;
+  }
+  .lista-page .filtros-adv label {
+    display: block;
+    font-family: var(--font-mono); font-size: 10px;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--ink-mute); font-weight: 700; margin-bottom: 4px;
+  }
+  .lista-page .filtros-adv input,
+  .lista-page .filtros-adv select {
+    width: 100%; border: 1px solid var(--rule-strong) !important;
+    background: var(--surface-3) !important; color: var(--ink) !important;
+    font-family: var(--font-mono); font-size: 12px;
+    padding: 7px 10px; outline: 0;
+    border-radius: 0 !important;
+  }
+  .lista-page .filtros-adv input:focus,
+  .lista-page .filtros-adv select:focus {
+    border-color: var(--primary) !important;
+  }
+  @media (max-width: 1024px) {
+    .lista-page .filtros-adv form { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 720px) {
+    .lista-page .filtros-adv form { grid-template-columns: 1fr; }
+  }
+
+  /* ─── Tabela / Ledger · filete navy fica no quick-filters acima ─── */
+  .lista-page .ledger {
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    border-top: 0;
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+  }
+  .lista-page .ledger table { width: 100%; border-collapse: collapse; }
+  .lista-page .ledger thead th {
+    text-align: left;
+    background: var(--surface-2) !important;
+    color: var(--ink-mute) !important;
+    font-family: var(--font-mono) !important;
+    font-size: 10.5px !important;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: var(--fw-semibold) !important;
+    padding: 12px 18px;
+    white-space: nowrap;
+    border-bottom: 2px solid var(--rule-strong);
+  }
+  .lista-page .ledger thead th.sorted { color: var(--primary) !important; }
+  .lista-page .ledger thead th .sort {
+    font-family: var(--font-mono);
+    color: var(--ink-mute);
+    margin-left: 4px;
+    opacity: 0.5;
+  }
+  .lista-page .ledger thead th.sorted .sort { color: var(--primary); opacity: 1; }
+  .lista-page .ledger tbody tr {
+    border-bottom: 1px solid var(--rule);
+    cursor: pointer;
+    transition: background .08s, box-shadow .14s;
+  }
+  .lista-page .ledger tbody tr:last-child { border-bottom: 0; }
+  .lista-page .ledger tbody tr:hover {
+    background: var(--surface-3) !important;
+    box-shadow: inset 2px 0 0 var(--primary);
+  }
+  .lista-page .ledger tbody td {
+    padding: var(--row-py) 18px;
+    vertical-align: middle;
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    color: var(--ink-body);
+  }
+
+  .lista-page td.col-num {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    white-space: nowrap;
+    width: 160px;
+    font-variant-numeric: tabular-nums;
+  }
+  .lista-page td.col-num a {
+    text-decoration: none; color: inherit;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .lista-page td.col-num .y { color: var(--ink-mute); }
+  .lista-page td.col-num .seq { color: var(--primary); font-weight: var(--fw-semibold); }
+  .lista-page td.col-num .icons {
+    display: inline-flex; align-items: center; gap: 4px;
+    color: var(--ink-mute);
+    font-size: 12px;
+  }
+  .lista-page td.col-num .icons .ic { width: 14px; text-align: center; }
+  .lista-page td.col-num .icons .ic.lock { color: var(--danger-600); }
+
+  .lista-page td.col-title { min-width: 280px; }
+  .lista-page td.col-title .ttl {
+    font-family: var(--font-serif);
+    font-size: var(--text-lg);
+    color: var(--ink);
+    line-height: 1.3;
+    font-weight: var(--fw-medium);
+    margin: 0 0 6px;
+    text-wrap: pretty;
+  }
+  .lista-page td.col-title .ttl a { color: inherit; text-decoration: none; }
+  .lista-page td.col-title .ttl a:hover { color: var(--primary); }
+  .lista-page td.col-title .partes {
+    font-family: var(--font-sans);
+    font-size: 12.5px;
+    color: var(--ink-mute);
+    line-height: 1.4;
+  }
+  .lista-page td.col-title .partes .who { color: var(--ink-body); font-weight: var(--fw-medium); }
+  .lista-page td.col-title .partes .who a { color: inherit; text-decoration: none; }
+  .lista-page td.col-title .partes .who a:hover { color: var(--primary); }
+  .lista-page td.col-title .partes .sep { color: var(--rule-strong); margin: 0 4px; }
+  .lista-page td.col-title .partes .anon { font-style: italic; color: var(--ink-mute); }
+
+  .lista-page .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 9px 4px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: var(--fw-bold);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border: 1.5px solid transparent;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+  .lista-page .badge .dot { width: 6px; height: 6px; background: currentColor; border-radius: var(--radius-full); flex: none; }
+  .lista-page .badge .glyph { font-family: var(--font-mono); font-weight: var(--fw-bold); width: 12px; text-align: center; font-size: 11px; }
+  .lista-page .badge.st-novo   { background: var(--st-novo-bg);   color: var(--st-novo-fg);   border-color: rgba(31,58,95,0.35); }
+  .lista-page .badge.st-andam  { background: var(--st-andam-bg);  color: var(--st-andam-fg);  border-color: rgba(107,74,26,0.35); }
+  .lista-page .badge.st-agresp { background: var(--st-agresp-bg); color: var(--st-agresp-fg); border-color: rgba(122,74,20,0.35); }
+  .lista-page .badge.st-agterc { background: var(--st-agterc-bg); color: var(--st-agterc-fg); border-color: rgba(94,62,16,0.35); }
+  .lista-page .badge.st-conc   { background: var(--st-conc-bg);   color: var(--st-conc-fg);   border-color: rgba(52,64,34,0.35); }
+  .lista-page .badge.st-arq    { background: var(--st-arq-bg);    color: var(--st-arq-fg);    border-color: rgba(83,76,65,0.45); }
+  .lista-page .badge.rs-pend  { background: var(--rs-pend-bg);  color: var(--rs-pend-fg);  border-color: rgba(0,0,0,0.18); }
+  .lista-page .badge.rs-atend { background: var(--rs-atend-bg); color: var(--rs-atend-fg); border-color: rgba(52,64,34,0.35); }
+  .lista-page .badge.rs-parc  { background: var(--rs-parc-bg);  color: var(--rs-parc-fg);  border-color: rgba(107,74,26,0.35); }
+  .lista-page .badge.rs-nao   { background: var(--rs-nao-bg);   color: var(--rs-nao-fg);   border-color: rgba(125,31,31,0.35); }
+  .lista-page .badge.rs-inv   { background: var(--rs-inv-bg);   color: #fff;               border-color: var(--ink-700); }
+  .lista-page .badge.rs-nsa   { background: var(--rs-nsa-bg);   color: var(--rs-nsa-fg);   border-color: rgba(0,0,0,0.18); }
+
+  .lista-page td.col-status,
+  .lista-page td.col-result { white-space: nowrap; }
+  .lista-page td.col-resp {
+    white-space: nowrap;
+    font-family: var(--font-sans);
+    font-size: 13px;
+    color: var(--ink-body);
+  }
+  .lista-page td.col-resp .av {
+    display: inline-grid; place-items: center;
+    width: 24px; height: 24px;
+    background: var(--navy-100); color: var(--navy-700);
+    border-radius: var(--radius-full);
+    font-family: var(--font-sans);
+    font-size: 10px; font-weight: var(--fw-bold);
+    margin-right: 8px; vertical-align: -7px;
+    letter-spacing: 0.02em;
+  }
+  .lista-page td.col-resp .anon {
+    font-style: italic; color: var(--ink-mute);
+  }
+
+  .lista-page td.col-tema { white-space: nowrap; }
+  .lista-page td.col-tema .tema {
+    display: inline-flex; align-items: center;
+    padding: 3px 9px;
+    font-family: var(--font-sans);
+    font-size: 11.5px;
+    font-weight: var(--fw-medium);
+    border: 1px solid currentColor;
+    line-height: 1.2;
+  }
+  .lista-page td.col-tema .more {
+    color: var(--ink-mute); font-family: var(--font-mono);
+    font-size: 11px; margin-left: 4px;
+  }
+
+  .lista-page td.col-when {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    white-space: nowrap;
+    text-align: right;
+    width: 140px;
+    font-variant-numeric: tabular-nums;
+  }
+  .lista-page td.col-when .ago {
+    display: block;
+    margin-top: 3px;
+    font-family: var(--font-sans);
+    font-size: 11px;
+    color: var(--ink-mute);
+  }
+  .lista-page td.col-when.warn { color: var(--warning-600); font-weight: var(--fw-semibold); }
+  .lista-page td.col-when.warn .ago { color: var(--warning-600); }
+  .lista-page td.col-when.late { color: var(--danger-600); font-weight: var(--fw-bold); }
+  .lista-page td.col-when.late .ago { color: var(--danger-600); }
+
+  /* ─── Rodapé com paginação ─── */
+  .lista-page .ledger-foot {
+    padding: 16px 20px;
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--surface-1);
+    border-top: 1px solid var(--rule);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink-soft);
+    letter-spacing: 0.02em;
+  }
+  .lista-page .ledger-foot .info {
+    font-family: var(--font-mono); font-size: 11.5px;
+    color: var(--ink-mute); letter-spacing: 0.02em;
+  }
+  .lista-page .ledger-foot .info strong {
+    color: var(--ink); font-family: var(--font-sans);
+    font-weight: var(--fw-semibold);
+  }
+  .lista-page .ledger-foot .pages { display: flex; gap: 4px; }
+  .lista-page .ledger-foot .pages a {
+    background: var(--surface-3) !important;
+    border: 1px solid var(--rule);
+    padding: 4px 11px;
+    font-family: var(--font-sans); font-size: 12.5px;
+    color: var(--ink-soft) !important;
+    text-decoration: none;
+  }
+  .lista-page .ledger-foot .pages a:hover {
+    color: var(--ink) !important; border-color: var(--ink);
+  }
+  .lista-page .ledger-foot .pages .on {
+    background: var(--primary) !important; color: var(--primary-fg) !important;
+    border-color: var(--primary); font-weight: var(--fw-semibold);
+  }
+
+  /* ─── Estado vazio ─── */
+  .lista-page .empty-state {
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    border-top: 6px solid var(--primary);
+    padding: 80px 32px;
+    text-align: center;
+  }
+  .lista-page .empty-state .icon-area {
+    width: 64px; height: 64px;
+    background: var(--surface-1);
+    border: 1.5px dashed var(--rule-strong);
+    display: grid; place-items: center;
+    margin: 0 auto 24px;
+    font-family: var(--font-mono); font-size: 24px;
+    color: var(--ink-mute);
+  }
+  .lista-page .empty-state h3 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: var(--text-2xl);
+    color: var(--ink);
+    margin: 0 0 8px;
+    letter-spacing: -0.015em;
+  }
+  .lista-page .empty-state .desc {
+    font-family: var(--font-serif);
+    font-size: var(--text-base);
+    color: var(--ink-body);
+    line-height: var(--lh-relaxed);
+    margin: 0 auto 24px;
+    max-width: 48ch;
+  }
+</style>
+
+<div class="lista-page">
+
+<div class="page-head">
+  <div>
+    <div class="breadcrumb">
+      <a href="/" style="text-decoration:none;color:var(--ink-mute)">Início</a>
+      <span class="sep">/</span>
+      <span style="color:var(--primary);font-weight:var(--fw-semibold)">Demandas</span>
+    </div>
+    <h1>Demandas
+      {% if paginator %}
+      <span class="count">
+        <strong>{{ paginator.count }}</strong> no total
+      </span>
+      {% endif %}
+    </h1>
+  </div>
+  <div class="head-actions">
     {% if pode_exportar %}
-    <a href="{% url 'demandas:demanda_export_csv' %}?{{ request.GET.urlencode }}" class="text-sm text-slate-700 hover:text-slate-900 underline">
-      Exportar CSV
-    </a>
+    <a href="{% url 'demandas:demanda_export_csv' %}?{{ request.GET.urlencode }}" class="btn secondary">Exportar CSV <span class="arr">↓</span></a>
     {% endif %}
     {% if perms.demandas.add_demanda %}
-    <a href="{% url 'demandas:demanda_nova' %}" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
-      Nova demanda
-    </a>
+    <a href="{% url 'demandas:demanda_nova' %}" class="btn primary"><span class="arr">+</span>Nova demanda</a>
     {% endif %}
   </div>
 </div>
 
-<div class="flex flex-wrap gap-2 mb-4 text-sm">
+{# Quick filters (chips horizontais) #}
+<div class="quick-filters">
+  <span class="lbl">Visões</span>
   {% with f=filtro %}
-  <a href="?" class="px-3 py-1 rounded border {% if not f %}bg-slate-800 text-white border-slate-800{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-100{% endif %}">Todas</a>
-  <a href="?filtro=minhas" class="px-3 py-1 rounded border {% if f == 'minhas' %}bg-slate-800 text-white border-slate-800{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-100{% endif %}">Minhas</a>
-  <a href="?filtro=minha_coord" class="px-3 py-1 rounded border {% if f == 'minha_coord' %}bg-slate-800 text-white border-slate-800{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-100{% endif %}">Da minha coordenação</a>
-  <a href="?filtro=vencidas" class="px-3 py-1 rounded border {% if f == 'vencidas' %}bg-slate-800 text-white border-slate-800{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-100{% endif %}">Vencidas</a>
-  <a href="?filtro=sem_retorno_30d" class="px-3 py-1 rounded border {% if f == 'sem_retorno_30d' %}bg-slate-800 text-white border-slate-800{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-100{% endif %}">Sem devolutiva +30d</a>
-  <a href="?filtro=atendidas" class="px-3 py-1 rounded border {% if f == 'atendidas' %}bg-slate-800 text-white border-slate-800{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-100{% endif %}">Atendidas</a>
-  <a href="?filtro=nao_atendidas" class="px-3 py-1 rounded border {% if f == 'nao_atendidas' %}bg-slate-800 text-white border-slate-800{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-100{% endif %}">Não atendidas</a>
-  <a href="?filtro=sem_resultado" class="px-3 py-1 rounded border {% if f == 'sem_resultado' %}bg-slate-800 text-white border-slate-800{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-100{% endif %}">Sem resultado</a>
-  <a href="?filtro=com_encaminhamento_aberto" class="px-3 py-1 rounded border {% if f == 'com_encaminhamento_aberto' %}bg-slate-800 text-white border-slate-800{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-100{% endif %}">Com encaminhamento aberto</a>
-  <a href="?filtro=sem_encaminhamento" class="px-3 py-1 rounded border {% if f == 'sem_encaminhamento' %}bg-slate-800 text-white border-slate-800{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-100{% endif %}">Sem encaminhamento</a>
+  <a href="?" class="chip {% if not f %}on{% endif %}">Todas</a>
+  <a href="?filtro=minhas" class="chip {% if f == 'minhas' %}on{% endif %}">Minhas</a>
+  <a href="?filtro=minha_coord" class="chip {% if f == 'minha_coord' %}on{% endif %}">Da minha coordenação</a>
+  <a href="?filtro=vencidas" class="chip alert {% if f == 'vencidas' %}on{% endif %}">Vencidas</a>
+  <a href="?filtro=sem_retorno_30d" class="chip {% if f == 'sem_retorno_30d' %}on{% endif %}">Sem devolutiva +30d</a>
+  <a href="?filtro=com_encaminhamento_aberto" class="chip {% if f == 'com_encaminhamento_aberto' %}on{% endif %}">Com encam. aberto</a>
+  <a href="?filtro=sem_encaminhamento" class="chip {% if f == 'sem_encaminhamento' %}on{% endif %}">Sem encam.</a>
+  <a href="?filtro=atendidas" class="chip {% if f == 'atendidas' %}on{% endif %}">Atendidas</a>
+  <a href="?filtro=nao_atendidas" class="chip {% if f == 'nao_atendidas' %}on{% endif %}">Não atendidas</a>
+  <a href="?filtro=sem_resultado" class="chip {% if f == 'sem_resultado' %}on{% endif %}">Sem resultado</a>
   {% endwith %}
+  <button type="button" class="chip" id="toggle-filtros-adv" style="margin-left:auto;text-transform:none;font-family:var(--font-sans);font-weight:500">Filtros avançados ↓</button>
 </div>
 
-<form method="get" class="bg-white border border-slate-200 rounded-xl p-4 mb-4 flex flex-wrap items-end gap-3">
-  <div class="flex-1 min-w-[220px]">
-    <label class="block text-xs font-medium text-slate-600 mb-1">Buscar</label>
-    <input type="text" name="q" value="{{ q }}" placeholder="Número, título, descrição..." class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400">
-  </div>
-  <div class="min-w-[160px]">
-    <label class="block text-xs font-medium text-slate-600 mb-1">Status</label>
-    <select name="status" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400">
-      <option value="">Todos</option>
-      {% for v, label in status_choices %}<option value="{{ v }}" {% if status_atual == v %}selected{% endif %}>{{ label }}</option>{% endfor %}
-    </select>
-  </div>
-  <div class="min-w-[160px]">
-    <label class="block text-xs font-medium text-slate-600 mb-1">Resultado</label>
-    <select name="resultado" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400">
-      <option value="">Todos</option>
-      {% for v, label in resultado_choices %}<option value="{{ v }}" {% if resultado_atual == v %}selected{% endif %}>{{ label }}</option>{% endfor %}
-    </select>
-  </div>
-  <div class="min-w-[160px]">
-    <label class="block text-xs font-medium text-slate-600 mb-1">Coordenação</label>
-    <select name="coord" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400">
-      <option value="">Todas</option>
-      {% for v, label in coord_choices %}<option value="{{ v }}" {% if coord_atual == v %}selected{% endif %}>{{ label }}</option>{% endfor %}
-    </select>
-  </div>
-  <div class="min-w-[160px]">
-    <label class="block text-xs font-medium text-slate-600 mb-1">Tema</label>
-    <select name="tema" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400">
-      <option value="">Todos</option>
-      {% for t in temas_disponiveis %}<option value="{{ t.id }}" {% if tema_atual == t.id|stringformat:'s' %}selected{% endif %}>{{ t.nome }}</option>{% endfor %}
-    </select>
-  </div>
-  <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2 rounded-lg">Filtrar</button>
-</form>
+{# Filtros ativos (chips removíveis) #}
+{% if q or status_atual or resultado_atual or coord_atual or tema_atual %}
+<div class="active-filters">
+  <span class="lbl">Filtros ativos</span>
+  {% if q %}<a class="fc" href="?">Busca: "{{ q }}" <span class="x">×</span></a>{% endif %}
+  {% if status_atual %}<a class="fc" href="?">Status: {{ status_atual }} <span class="x">×</span></a>{% endif %}
+  {% if resultado_atual %}<a class="fc" href="?">Resultado: {{ resultado_atual }} <span class="x">×</span></a>{% endif %}
+  {% if coord_atual %}<a class="fc" href="?">Coord: {{ coord_atual }} <span class="x">×</span></a>{% endif %}
+  {% if tema_atual %}<a class="fc" href="?">Tema selecionado <span class="x">×</span></a>{% endif %}
+  <a class="clear" href="?">Limpar tudo</a>
+</div>
+{% endif %}
 
-<div class="bg-white border border-slate-200 rounded-xl overflow-hidden">
-  {% if demandas %}
-  <table class="w-full text-sm">
+{# Filtros avançados (collapsible) #}
+<div class="filtros-adv" id="filtros-adv" {% if not q and not status_atual and not resultado_atual and not coord_atual and not tema_atual %}hidden{% endif %}>
+  <form method="get">
+    <div>
+      <label>Buscar</label>
+      <input type="text" name="q" value="{{ q }}" placeholder="número, título, descrição…">
+    </div>
+    <div>
+      <label>Status</label>
+      <select name="status">
+        <option value="">Todos</option>
+        {% for v, label in status_choices %}<option value="{{ v }}" {% if status_atual == v %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label>Resultado</label>
+      <select name="resultado">
+        <option value="">Todos</option>
+        {% for v, label in resultado_choices %}<option value="{{ v }}" {% if resultado_atual == v %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label>Coordenação</label>
+      <select name="coord">
+        <option value="">Todas</option>
+        {% for v, label in coord_choices %}<option value="{{ v }}" {% if coord_atual == v %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label>Tema</label>
+      <select name="tema">
+        <option value="">Todos</option>
+        {% for t in temas_disponiveis %}<option value="{{ t.id }}" {% if tema_atual == t.id|stringformat:'s' %}selected{% endif %}>{{ t.nome }}</option>{% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn primary">Aplicar</button>
+  </form>
+</div>
+
+{# Tabela / Ledger ou Empty state #}
+{% if demandas %}
+<div class="ledger">
+  <table>
     <thead>
-      <tr class="border-b border-slate-200 bg-slate-50">
-        <th class="text-left px-4 py-3 font-medium text-slate-600">Número</th>
-        <th class="text-left px-4 py-3 font-medium text-slate-600">Título</th>
-        <th class="text-left px-4 py-3 font-medium text-slate-600">Status</th>
-        <th class="text-left px-4 py-3 font-medium text-slate-600">Resultado</th>
-        <th class="text-left px-4 py-3 font-medium text-slate-600">Responsável</th>
-        <th class="text-left px-4 py-3 font-medium text-slate-600">Coordenação</th>
+      <tr>
+        <th>Nº</th>
+        <th>Título</th>
+        <th>Status</th>
+        <th>Resultado</th>
+        <th>Responsável</th>
+        <th>Tema</th>
+        <th class="sorted" style="text-align:right">Atualizada <span class="sort">↓</span></th>
       </tr>
     </thead>
-    <tbody class="divide-y divide-slate-100">
+    <tbody>
       {% for d in demandas %}
-      <tr class="hover:bg-slate-50">
-        <td class="px-4 py-3 font-mono text-xs text-slate-700">
-          <a href="{% url 'demandas:demanda_detalhe' d.pk %}" class="hover:underline">{{ d.numero }}</a>
-          {% if d.restrito %}<span class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800">restrita</span>{% endif %}
+      <tr onclick="window.location='{% url 'demandas:demanda_detalhe' d.pk %}'">
+        <td class="col-num">
+          <a href="{% url 'demandas:demanda_detalhe' d.pk %}" onclick="event.stopPropagation()">
+            <span class="seq">{{ d.numero }}</span>
+            {% if d.restrito %}<span class="icons"><span class="ic lock" title="Restrita">🔒</span></span>{% endif %}
+          </a>
         </td>
-        <td class="px-4 py-3">
-          <a href="{% url 'demandas:demanda_detalhe' d.pk %}" class="font-medium text-slate-900 hover:underline">{{ d.titulo }}</a>
-          {# Partes (pessoas + entidades) — limitadas para não poluir #}
-          <div class="text-xs text-slate-500 mt-1">
+        <td class="col-title">
+          <p class="ttl"><a href="{% url 'demandas:demanda_detalhe' d.pk %}" onclick="event.stopPropagation()">{{ d.titulo }}</a></p>
+          <div class="partes">
             {% if d.anonimo and not d.demanda_pessoas.all and not d.demanda_entidades.all %}
-            <span class="italic">Anônima</span>
+              <span class="anon">Demanda anônima</span>
             {% else %}
-              {% for dp in d.demanda_pessoas.all|slice:":2" %}<a href="{% url 'pessoas:pessoa_detalhe' dp.pessoa.slug_publico %}" class="hover:underline">{{ dp.pessoa.nome_exibicao }}</a>{% if not forloop.last or d.demanda_entidades.all %} · {% endif %}{% endfor %}
-              {% for de in d.demanda_entidades.all|slice:":2" %}<a href="{% url 'pessoas:entidade_detalhe' de.entidade.slug_publico %}" class="hover:underline">{{ de.entidade.nome }}</a>{% if not forloop.last %} · {% endif %}{% endfor %}
-              {% with extra=d.demanda_pessoas.all|length|add:d.demanda_entidades.all|length %}{% if extra > 4 %} <span class="text-slate-400">+{{ extra|add:-4 }}</span>{% endif %}{% endwith %}
+              {% for dp in d.demanda_pessoas.all|slice:":2" %}<span class="who"><a href="{% url 'pessoas:pessoa_detalhe' dp.pessoa.slug_publico %}" onclick="event.stopPropagation()">{{ dp.pessoa.nome_exibicao }}</a></span>{% if not forloop.last or d.demanda_entidades.all %} <span class="sep">·</span> {% endif %}{% endfor %}
+              {% for de in d.demanda_entidades.all|slice:":2" %}<span class="who"><a href="{% url 'pessoas:entidade_detalhe' de.entidade.slug_publico %}" onclick="event.stopPropagation()">{{ de.entidade.nome }}</a></span>{% if not forloop.last %} <span class="sep">·</span> {% endif %}{% endfor %}
+              {% with extra=d.demanda_pessoas.all|length|add:d.demanda_entidades.all|length %}{% if extra > 4 %} <span class="sep">·</span> + {{ extra|add:-4 }}{% endif %}{% endwith %}
             {% endif %}
           </div>
-          {# Temas como chips coloridos #}
-          {% if d.temas.all %}
-          <div class="mt-1 flex flex-wrap gap-1">
-            {% for t in d.temas.all %}{% if t.cor %}<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium" style="background: color-mix(in srgb, {{ t.cor }} 18%, white); color: color-mix(in srgb, {{ t.cor }} 75%, black);">{{ t.nome }}</span>{% else %}<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600">{{ t.nome }}</span>{% endif %}{% endfor %}
-          </div>
+        </td>
+        <td class="col-status">
+          {% if d.status == 'novo' %}<span class="badge st-novo"><span class="dot"></span>Novo</span>
+          {% elif d.status == 'em_andamento' %}<span class="badge st-andam"><span class="dot"></span>Em andamento</span>
+          {% elif d.status == 'aguardando_terceiros' %}<span class="badge st-agterc"><span class="dot"></span>Ag. terceiros</span>
+          {% elif d.status == 'aguardando_pessoa' %}<span class="badge st-agresp"><span class="dot"></span>Ag. pessoa</span>
+          {% elif d.status == 'concluida' %}<span class="badge st-conc"><span class="dot"></span>Concluída</span>
+          {% elif d.status == 'arquivado' %}<span class="badge st-arq"><span class="dot"></span>Arquivado</span>{% endif %}
+        </td>
+        <td class="col-result">
+          {% if d.resultado == 'pendente' %}<span class="badge rs-pend"><span class="glyph">○</span>Pendente</span>
+          {% elif d.resultado == 'atendido' %}<span class="badge rs-atend"><span class="glyph">✓</span>Atendido</span>
+          {% elif d.resultado == 'atendido_parcialmente' %}<span class="badge rs-parc"><span class="glyph">◐</span>Parcial</span>
+          {% elif d.resultado == 'nao_atendido' %}<span class="badge rs-nao"><span class="glyph">✗</span>Não atendido</span>
+          {% elif d.resultado == 'inviavel' %}<span class="badge rs-inv"><span class="glyph">⊘</span>Inviável</span>
+          {% elif d.resultado == 'nao_se_aplica' %}<span class="badge rs-nsa"><span class="glyph">—</span>N/A</span>{% endif %}
+        </td>
+        <td class="col-resp">
+          {% if d.responsavel %}
+            <span class="av">{{ d.responsavel.nome_completo|default:d.responsavel.email|slice:":2"|upper }}</span>{{ d.responsavel.nome_completo|default:d.responsavel.email|truncatechars:20 }}
+          {% else %}
+            <span class="anon">—</span>
           {% endif %}
         </td>
-        <td class="px-4 py-3 text-slate-600">{{ d.get_status_display }}</td>
-        <td class="px-4 py-3 text-slate-600">
-          {% if d.resultado == 'pendente' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">Pendente</span>
-          {% elif d.resultado == 'atendido' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Atendido</span>
-          {% elif d.resultado == 'atendido_parcialmente' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800">Parcial</span>
-          {% elif d.resultado == 'nao_atendido' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">Não atendido</span>
-          {% elif d.resultado == 'inviavel' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">Inviável</span>
-          {% else %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-200 text-slate-700">{{ d.get_resultado_display }}</span>{% endif %}
+        <td class="col-tema">
+          {% with primeiro=d.temas.all|first %}
+          {% if primeiro %}
+            {% if primeiro.cor %}<span class="tema" style="color:{{ primeiro.cor }};background:color-mix(in srgb, {{ primeiro.cor }} 14%, white);border-color:{{ primeiro.cor }}">{{ primeiro.nome }}</span>
+            {% else %}<span class="tema" style="color:var(--ink-strong);background:var(--ink-100);border-color:var(--rule-strong)">{{ primeiro.nome }}</span>{% endif %}
+            {% with total=d.temas.all|length %}{% if total > 1 %}<span class="more">+{{ total|add:-1 }}</span>{% endif %}{% endwith %}
+          {% endif %}
+          {% endwith %}
         </td>
-        <td class="px-4 py-3 text-slate-600">{% if d.responsavel %}{{ d.responsavel.nome_completo|default:d.responsavel.email }}{% else %}—{% endif %}</td>
-        <td class="px-4 py-3 text-slate-600">{{ d.get_coordenacao_responsavel_display }}</td>
+        <td class="col-when{% if d.prazo and hoje and d.prazo < hoje and d.status != 'concluida' and d.status != 'arquivado' %} late{% endif %}">
+          {% if d.atualizado_em %}{{ d.atualizado_em|date:"d/m/y" }}<span class="ago">{{ d.atualizado_em|timesince }} atrás</span>
+          {% else %}{{ d.criado_em|date:"d/m/y" }}<span class="ago">{{ d.criado_em|timesince }} atrás</span>{% endif %}
+        </td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
-  {% else %}
-  <div class="px-4 py-12 text-center text-sm text-slate-500">Nenhuma demanda encontrada.</div>
-  {% endif %}
-</div>
 
-{% if is_paginated %}
-<div class="flex items-center justify-between mt-4 text-sm text-slate-600">
-  <span>Página {{ page_obj.number }} de {{ paginator.num_pages }}</span>
-  <div class="flex gap-2">
-    {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-1 rounded border border-slate-300 hover:bg-slate-100">Anterior</a>{% endif %}
-    {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="px-3 py-1 rounded border border-slate-300 hover:bg-slate-100">Próxima</a>{% endif %}
+  <div class="ledger-foot">
+    <div class="info">
+      {% if is_paginated %}
+        Mostrando <strong>{{ page_obj.start_index }}–{{ page_obj.end_index }}</strong> de <strong>{{ paginator.count }}</strong> demanda{{ paginator.count|pluralize }}
+      {% else %}
+        <strong>{{ demandas|length }}</strong> demanda{{ demandas|length|pluralize }}
+      {% endif %}
+    </div>
+    {% if is_paginated %}
+    <div class="pages">
+      {% if page_obj.has_previous %}<a href="?{% if request.GET.urlencode %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.previous_page_number }}">← Anterior</a>{% endif %}
+      <a class="on" href="?{% if request.GET.urlencode %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.number }}">{{ page_obj.number }}</a>
+      {% if page_obj.has_next %}<a href="?{% if request.GET.urlencode %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.next_page_number }}">Próxima →</a>{% endif %}
+    </div>
+    {% endif %}
   </div>
 </div>
+{% else %}
+<div class="empty-state">
+  <div class="icon-area">◌</div>
+  <h3>{% if filtro or q or status_atual or resultado_atual or coord_atual or tema_atual %}Nenhuma demanda encontrada{% else %}Você ainda não tem demandas{% endif %}</h3>
+  <p class="desc">{% if filtro or q or status_atual or resultado_atual or coord_atual or tema_atual %}Tente ajustar os filtros ou limpar a busca para ver outros resultados.{% else %}Comece registrando a primeira — uma ligação, uma visita, um pedido que chegou hoje.{% endif %}</p>
+  {% if perms.demandas.add_demanda %}
+  <a href="{% url 'demandas:demanda_nova' %}" class="btn primary"><span class="arr">+</span>Nova demanda</a>
+  {% endif %}
+</div>
 {% endif %}
+
+</div>
+
+<script>
+(function() {
+  // Toggle do bloco de filtros avançados
+  const btn = document.getElementById('toggle-filtros-adv');
+  const adv = document.getElementById('filtros-adv');
+  if (btn && adv) {
+    function sync() {
+      btn.textContent = adv.hidden ? 'Filtros avançados ↓' : 'Filtros avançados ↑';
+    }
+    btn.addEventListener('click', () => { adv.hidden = !adv.hidden; sync(); });
+    sync();
+  }
+})();
+</script>
 {% endblock %}
