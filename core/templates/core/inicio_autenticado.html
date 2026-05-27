@@ -747,7 +747,12 @@
 
     // ─── Toggle .has-text ───────────────────────────────────────────
     function syncHasText() {
-      form.classList.toggle('has-text', ta.value.trim().length > 0);
+      const temTexto = ta.value.trim().length > 0;
+      form.classList.toggle('has-text', temTexto);
+      // Placeholder rotativo pausa quando há texto, retoma quando vazio.
+      // Foco/blur sozinho não pausa — o ciclo continua enquanto não há conteúdo.
+      if (temTexto) pausar();
+      else retomar();
     }
     ta.addEventListener('input', syncHasText);
 
@@ -802,9 +807,6 @@
       pausado = false;
       tick();
     }
-    // Pausa quando focado (não distrair quem está digitando)
-    ta.addEventListener('focus', pausar);
-    ta.addEventListener('blur', retomar);
 
     // Inicia
     timer = setTimeout(tick, 500);
