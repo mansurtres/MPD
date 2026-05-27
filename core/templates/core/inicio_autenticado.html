@@ -63,72 +63,82 @@
   }
   .home-v2 .hero .lede strong { color: var(--ink); font-weight: 600; font-style: normal; }
 
-  /* Composer (input) */
+  /* Composer minimalista — sem borda, fundo papel cru.
+     Inspiração: claude.ai/new e chatgpt.com.
+     A explicação fica como helper abaixo do texto, micro e discreta.
+     Botão "Capturar →" só aparece quando há texto. */
   .home-v2 .composer {
-    background: var(--surface-2);
-    border: 1px solid var(--rule-strong);
-    border-top: 6px solid var(--primary);
-    box-shadow: var(--shadow-lg);
-    padding: 22px 24px 16px;
-    display: grid;
-    grid-template-rows: 1fr auto;
-    min-height: 168px;
-    transition: border-color .12s, box-shadow .12s;
-  }
-  .home-v2 .composer:focus-within {
-    border-color: var(--primary);
-    box-shadow: 0 8px 24px rgba(31,58,95,0.12), 0 0 0 3px rgba(31,58,95,0.08);
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    padding: 0;
+    margin-bottom: 4px;
+    position: relative;
   }
   .home-v2 .composer textarea {
     border: 0; outline: 0;
     width: 100%; resize: none;
     background: transparent;
     font-family: var(--font-serif);
-    font-size: 19px;
-    line-height: 1.55;
+    font-size: 24px;
+    line-height: 1.45;
     color: var(--ink);
-    padding: 0;
-    min-height: 88px;
+    padding: 6px 0;
+    min-height: 96px;
     caret-color: var(--primary);
   }
   .home-v2 .composer textarea::placeholder {
     color: var(--ink-mute);
     font-style: italic;
-    opacity: 1;
+    opacity: 0.75;
   }
+  /* Quando focado: nada muda visualmente — o composer continua flutuando
+     no papel cru. A única ancoragem é o filete que aparece acima do rodapé. */
+  .home-v2 .composer textarea:focus { outline: 0; }
 
-  /* Toolbar do composer */
-  .home-v2 .comp-tools {
-    display: flex; align-items: center; gap: 8px;
-    padding-top: 14px;
-    margin-top: 8px;
-    border-top: 1px solid var(--rule);
+  /* Rodapé do composer: helper à esquerda + botão à direita.
+     Linha divisória sutil aparece só quando focado/com texto. */
+  .home-v2 .comp-foot {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; padding-top: 10px;
+    border-top: 1px solid transparent;
+    transition: border-color .15s;
   }
-  .home-v2 .comp-tools .gap { flex: 1; }
-  .home-v2 .comp-tools .hint {
-    font-family: var(--font-mono); font-size: 10px;
-    color: var(--ink-mute); letter-spacing: 0.06em;
-    text-transform: uppercase;
+  .home-v2 .composer:focus-within .comp-foot,
+  .home-v2 .composer.has-text .comp-foot {
+    border-top-color: var(--rule);
   }
-  .home-v2 .comp-tools .hint kbd {
-    background: var(--surface-1);
-    border: 1px solid var(--rule-strong);
-    padding: 1px 6px; margin: 0 1px;
-    font-family: var(--font-mono); font-size: 10px;
+  .home-v2 .comp-foot .helper {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 13.5px;
+    line-height: 1.4;
+    color: var(--ink-mute);
+    max-width: 58ch;
+  }
+  .home-v2 .comp-foot .helper strong {
     color: var(--ink-soft);
-    letter-spacing: 0.04em;
+    font-weight: 600;
+    font-style: normal;
   }
-  .home-v2 .comp-tools .send {
-    background: var(--primary);
-    color: var(--primary-fg);
+  .home-v2 .comp-foot .send {
+    background: var(--primary); color: var(--primary-fg);
     border: 1px solid var(--primary);
     font-family: var(--font-mono); font-size: 12px; font-weight: 600;
-    padding: 7px 16px;
+    padding: 8px 18px;
     letter-spacing: 0.06em; text-transform: uppercase;
     cursor: pointer;
     display: inline-flex; align-items: center; gap: 8px;
+    opacity: 0; transform: translateY(2px);
+    transition: opacity .18s, transform .18s, background .12s;
+    pointer-events: none;
+    flex-shrink: 0;
   }
-  .home-v2 .comp-tools .send:hover { background: var(--primary-hover); }
+  .home-v2 .composer.has-text .comp-foot .send {
+    opacity: 1; transform: translateY(0);
+    pointer-events: auto;
+  }
+  .home-v2 .comp-foot .send:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
 
   /* Atalhos personalizados */
   .home-v2 .quick-jumps {
@@ -413,24 +423,17 @@
     {% now "G" as hora_atual %}
     <h1>{% if hora_atual|add:0 < 12 %}Bom dia{% elif hora_atual|add:0 < 18 %}Boa tarde{% else %}Boa noite{% endif %}, {{ request.user.nome_completo|default:request.user.email|truncatechars:24 }}.<br><em>começamos por onde?</em></h1>
 
-    <p class="lede">
-      Anote o que ouviu, o que precisa virar caso, ou cole uma mensagem do WhatsApp. <strong>Vai entrar no inbox</strong> — você decide depois se vira demanda, encaminhamento, ou nota pra alguém da equipe.
-    </p>
-
-    <!-- Composer -->
+    <!-- Composer minimalista -->
     <form class="composer" id="home-composer" method="post" action="{% url 'demandas:inbox_capturar' %}?ajax=1">
       {% csrf_token %}
       <textarea
         id="home-capture"
         name="conteudo"
-        autofocus
-        placeholder="Sebastiana acabou de ligar… / Pensar em ofício pra SEMOB sobre… / Cole aqui um print do WhatsApp ou arraste um anexo"
-        rows="4"
+        rows="3"
       ></textarea>
-      <div class="comp-tools">
-        <span class="gap"></span>
-        <span class="hint"><kbd>Enter</kbd> capturar · <kbd>⇧ Enter</kbd> quebra de linha</span>
-        <button type="submit" class="send">Capturar →</button>
+      <div class="comp-foot">
+        <span class="helper"><strong>Vai entrar no inbox</strong> — você decide depois se vira demanda, encaminhamento ou nota.</span>
+        <button type="submit" class="send">Capturar <span class="arr">→</span></button>
       </div>
     </form>
 
@@ -653,12 +656,82 @@
 </div>
 
 <script>
-  // Composer da home: Enter envia, Shift+Enter quebra linha.
-  // Em falha de submit (ex: ausência da rota), abre o modal global Ctrl+K.
+  // Composer da home — minimalista estilo claude.ai/new.
+  // (1) Placeholder rotativo: digita uma sugestão devagar, pausa, apaga, próxima.
+  //     Para enquanto há foco com texto, retoma quando vazio e sem foco.
+  // (2) Toggle .has-text no form quando há conteúdo — revela o botão Capturar.
+  // (3) Enter envia (Shift+Enter quebra linha); submit envia AJAX e atualiza
+  //     o badge da topbar via window.MPDAtualizarBadgeInbox.
   (function() {
     const form = document.getElementById('home-composer');
     const ta = document.getElementById('home-capture');
     if (!ta || !form) return;
+
+    // ─── Toggle .has-text ───────────────────────────────────────────
+    function syncHasText() {
+      form.classList.toggle('has-text', ta.value.trim().length > 0);
+    }
+    ta.addEventListener('input', syncHasText);
+
+    // ─── Placeholder rotativo ───────────────────────────────────────
+    const sugestoes = [
+      "Sebastiana acabou de ligar pedindo ajuda com a matrícula da neta…",
+      "Conferir prazo do ofício enviado à SEMOB semana passada",
+      "Devolver ligação para o presidente da Associação do Centro",
+      "Moção de aplausos para o time do bairro que ganhou o estadual",
+      "Cole aqui a mensagem do WhatsApp que chegou agora",
+      "Lembrete: agendar visita ao CMEI da dona Lurdes",
+      "Pensar em indicação sobre iluminação na Rua Antônio Ataíde",
+      "Falar com chefe de gabinete sobre evento do fim de semana",
+    ];
+    let sugIdx = 0;
+    let charIdx = 0;
+    let apagando = false;
+    let timer = null;
+    let pausado = false;
+
+    function tick() {
+      if (pausado) return;
+      const alvo = sugestoes[sugIdx];
+      if (!apagando) {
+        // Digitando
+        charIdx++;
+        ta.placeholder = alvo.slice(0, charIdx);
+        if (charIdx >= alvo.length) {
+          apagando = true;
+          timer = setTimeout(tick, 1800);  // pausa antes de apagar
+          return;
+        }
+        // Velocidade natural: 40-70ms por char, leve random
+        timer = setTimeout(tick, 40 + Math.random() * 30);
+      } else {
+        // Apagando
+        charIdx--;
+        ta.placeholder = alvo.slice(0, charIdx);
+        if (charIdx <= 0) {
+          apagando = false;
+          sugIdx = (sugIdx + 1) % sugestoes.length;
+          timer = setTimeout(tick, 350);
+          return;
+        }
+        timer = setTimeout(tick, 22);
+      }
+    }
+    function pausar() { pausado = true; clearTimeout(timer); }
+    function retomar() {
+      if (ta.value.trim()) return;
+      if (!pausado) return;
+      pausado = false;
+      tick();
+    }
+    // Pausa quando focado (não distrair quem está digitando)
+    ta.addEventListener('focus', pausar);
+    ta.addEventListener('blur', retomar);
+
+    // Inicia
+    timer = setTimeout(tick, 500);
+
+    // ─── Submit ─────────────────────────────────────────────────────
     ta.addEventListener('keydown', e => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
@@ -678,9 +751,16 @@
             window.MPDAtualizarBadgeInbox(data.inbox_pendentes);
           }
           ta.value = '';
-          const orig = ta.placeholder;
-          ta.placeholder = 'Capturado no inbox · próxima nota?';
-          setTimeout(() => { ta.placeholder = orig; }, 1800);
+          syncHasText();
+          // Pequena confirmação no placeholder antes de retomar o ciclo
+          pausar();
+          ta.placeholder = '✓ Capturado no inbox · próxima nota?';
+          setTimeout(() => {
+            charIdx = 0; apagando = false;
+            ta.placeholder = '';
+            pausado = false;
+            tick();
+          }, 1600);
         }
       } catch (err) {
         document.getElementById('captura-fab')?.click();
