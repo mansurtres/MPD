@@ -102,9 +102,9 @@
   }
 
   .home-v2 .composer textarea {
-    border: 0; outline: 0;
+    border: 0 !important; outline: 0 !important;
     width: 100%; resize: none;
-    background: transparent;
+    background: transparent !important;
     font-family: var(--font-serif);
     font-size: 23px;
     line-height: 1.45;
@@ -113,6 +113,16 @@
     min-height: 88px;
     caret-color: var(--primary);
     font-variation-settings: 'opsz' 22;
+  }
+  /* Anula o ring/borda global do bridge CSS (input:focus tem !important).
+     No "marginalia", a única indicação visual de foco é o filete navy
+     à esquerda — sem rings, sem borda em volta do textarea. */
+  .home-v2 .composer textarea:focus,
+  .home-v2 .composer textarea:focus-visible {
+    border: 0 !important;
+    outline: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
   }
   .home-v2 .composer textarea::placeholder {
     color: var(--ink-mute);
