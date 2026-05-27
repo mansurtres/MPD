@@ -190,8 +190,18 @@ Permissão de visualização segue a entidade à qual o anexo pertence (demanda,
 
 | Ação | ADM | CG | CO | AS |
 |---|---|---|---|---|
-| Ver log de auditoria | ✅ | ✅ | ❌ | ❌ |
-| Exportar log | ✅ | ✅ | ❌ | ❌ |
+| Ver log de auditoria (`/auditoria`) | ✅ | ❌ | ❌ | ❌ |
+| Exportar log | ✅ | ❌ | ❌ | ❌ |
+
+Auditoria é informação de governança sensível (quem acessou o quê, quando). Mantida exclusiva do Administrador para reduzir superfície de leitura do log a uma única pessoa responsável.
+
+### 3.13 Painel de Análise
+
+| Ação | ADM | CG | CO | AS |
+|---|---|---|---|---|
+| Acessar `/analise` (métricas agregadas) | ✅ | ✅ | ❌ | ❌ |
+
+Coordenadores têm visão restrita à própria coordenação; painel agregado cruza todos os eixos do mandato e fica como ferramenta de gestão (CG+).
 
 ---
 

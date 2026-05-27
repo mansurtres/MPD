@@ -1932,4 +1932,46 @@ Se a figura de **contraparte** se materializar como caso recorrente no uso da v1
 
 ---
 
+## ADR 0055 — Elevação dos gates de `/analise` (CG+) e `/auditoria` (ADM)
+
+**Data:** 2026-05-27
+
+### Contexto
+
+A Fase 6 (`v0.7`) abriu `/analise` para CO+ (Coordenador, Chefe de Gabinete, Administrador) e `/auditoria` para CG+ (Chefe de Gabinete, Administrador). A racional original era operacional: coordenadores teriam o painel para acompanhar a carga da própria coordenação, e o Chefe de Gabinete teria acesso direto ao log de alterações.
+
+Revisão de produto (2026-05-27) identificou que:
+
+- **`/analise` é uma visão agregada do mandato inteiro** — cruza coordenações, temas, top-pessoas, carga por assessor. A informação útil ao Coordenador da própria coordenação já está nas listas `/demandas/` filtradas (incluindo o quick filter "da minha coordenação"). O painel agregado é ferramenta de gestão, não de operação.
+- **`/auditoria` carrega risco de leitura sensível** — quem viu o quê, quando, por quem. Concentrar a porta de entrada em um único papel (Administrador) reduz a superfície de leitura do log e converge com a regra "ADM responde pela governança do sistema".
+
+### Decisão
+
+- `/analise` passa de CO+ para **CG+** (Administrador e Chefe de Gabinete).
+- `/auditoria` passa de CG+ para **ADM** apenas.
+
+Codificado em `core/views.py`:
+- `AnaliseView.test_func` consome `eh_cg_plus(user)`.
+- `AuditoriaListView.test_func` consome novo helper `eh_admin(user)` em [core/permissoes.py](../core/permissoes.py).
+
+Topbar (`templates/layouts/app.html`) e card de Configurações (`core/templates/core/configuracoes.html`) gated por `papel_cg_plus` (Análise) e `papel_eh_admin` (Auditoria).
+
+Matriz documentada em [`docs/permissoes.md`](permissoes.md) §3.12 e §3.13.
+
+### Consequências
+
+- Coordenadores deixam de ver `Análise` na topbar e recebem 403 ao acessar `/analise` direto. As listas filtradas (`/demandas/?coordenacao=X`) continuam cobrindo a operação diária.
+- Chefe de Gabinete deixa de ver `Auditoria` na topbar e recebe 403 ao acessar `/auditoria` direto. Se houver necessidade de consulta pontual ao log, ADM faz a consulta e compartilha.
+- `eh_co_plus` permanece em `core/permissoes.py` — ainda gera **exportação CSV** e **remoção de anexos alheios** (`pessoas/views.py`, `demandas/views.py`, `demandas/models.py`).
+- ADR 0049 (filtro `visiveis_para` no painel) fica como **defesa em profundidade**. O caso observável (Coord vendo restritas filtradas no painel) desaparece, mas o `manager` permanece aplicado — se algum dia o gate for reaberto, o filtro não precisa ser reintroduzido. Os 3 testes que cobriam o caso CO+restrita no painel foram removidos da suíte porque a premissa (CO acessando `/analise`) não é mais alcançável.
+- ADR 0048 (centralização de checagem de papel) cresce com `eh_admin(user)` — único lugar autorizado a checar o grupo "Administrador" pelo nome, fora migrations.
+
+### Referências
+
+- Helpers: [core/permissoes.py](../core/permissoes.py) (`eh_admin`, `eh_cg_plus`, `eh_co_plus`).
+- Doc: [docs/permissoes.md](permissoes.md) §3.12, §3.13.
+- Testes: `core/tests.py::test_eh_admin_chefe_nao_e_admin`, `demandas/tests.py::test_auditoria_bloqueia_chefe`, `test_analise_acessivel_a_chefe`, `test_analise_bloqueia_coordenador`.
+
+---
+
 *Decisões adicionadas em ordem cronológica conforme surgem. Cada decisão registrada uma vez; alterações futuras criam nova ADR (não editam a anterior).*

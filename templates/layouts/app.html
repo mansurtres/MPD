@@ -37,10 +37,10 @@
           Pendências
           {% if topbar_pendencias_vencidas %}<span class="badge-count alert">{{ topbar_pendencias_vencidas }}</span>{% endif %}
         </a>
-        {% if papel_co_plus %}
+        {% if papel_cg_plus %}
         <a href="{% url 'core:analise' %}">Análise</a>
         {% endif %}
-        {% if papel_cg_plus %}
+        {% if papel_eh_admin %}
         <a href="{% url 'core:auditoria' %}">Auditoria</a>
         {% endif %}
       </nav>

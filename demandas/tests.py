@@ -1286,14 +1286,20 @@ def test_auditoria_acessivel_a_admin(client, admin_user, demanda):
     assert resp.status_code == 200
 
 
+def test_auditoria_bloqueia_chefe(client, chefe):
+    client.force_login(chefe)
+    resp = client.get(reverse("core:auditoria"))
+    assert resp.status_code == 403
+
+
 def test_auditoria_bloqueia_coordenador(client, coord_juridico):
     client.force_login(coord_juridico)
     resp = client.get(reverse("core:auditoria"))
     assert resp.status_code == 403
 
 
-def test_analise_acessivel_a_coordenador(client, coord_juridico, demanda):
-    client.force_login(coord_juridico)
+def test_analise_acessivel_a_chefe(client, chefe, demanda):
+    client.force_login(chefe)
     resp = client.get(reverse("core:analise"))
     assert resp.status_code == 200
     # Métricas no contexto
@@ -1301,6 +1307,12 @@ def test_analise_acessivel_a_coordenador(client, coord_juridico, demanda):
     assert "por_mes" in resp.context
     assert "top_pessoas" in resp.context
     assert "carga_assessores" in resp.context
+
+
+def test_analise_bloqueia_coordenador(client, coord_juridico):
+    client.force_login(coord_juridico)
+    resp = client.get(reverse("core:analise"))
+    assert resp.status_code == 403
 
 
 def test_analise_bloqueia_assessor(client, assessor):
@@ -1521,41 +1533,11 @@ def test_auditlog_registra_descarte_de_inbox(db, admin_user):
     assert logs.filter(action=LogEntry.Action.UPDATE).exists()
 
 
-# --- /analise filtra demandas restritas (ADR 0049) ---
-
-
-def test_analise_oculta_demandas_restritas_para_coord(
-    client, coord_juridico, admin_user, demanda_restrita_juridico
-):
-    """Coordenador da Jurídico NÃO responsável da restrita não vê seu count
-    em por_mes. Pela regra, só responsável + ADM/CG enxerga restrita."""
-    # Demanda pública pra comparar.
-    Demanda.objects.create(
-        titulo="Pública",
-        descricao="X",
-        canal_entrada="presencial",
-        coordenacao_responsavel="comunicacao",
-        criado_por=admin_user,
-        anonimo=True,
-    )
-    client.force_login(coord_juridico)
-    resp = client.get(reverse("core:analise"))
-    assert resp.status_code == 200
-    por_mes = resp.context["por_mes"]
-    total_visivel = sum(m["total"] for m in por_mes)
-    # Só a pública entra — restrita oculta para coord não-responsável.
-    assert total_visivel == 1
-
-
-def test_analise_top_pessoas_oculta_partes_de_restrita(
-    client, coord_juridico, demanda_restrita_juridico
-):
-    """top_pessoas não revela nome de quem aparece só em demanda restrita."""
-    client.force_login(coord_juridico)
-    resp = client.get(reverse("core:analise"))
-    nomes_visiveis = {p["nome"] for p in resp.context["top_pessoas"]}
-    pessoa_restrita = demanda_restrita_juridico.demanda_pessoas.first().pessoa
-    assert pessoa_restrita.nome not in nomes_visiveis
+# --- /analise filtra demandas restritas (ADR 0049, defesa em profundidade) ---
+# ADR 0054 elevou /analise para CG+, então todo viewer já tem visibilidade
+# plena de restritas. O manager `visiveis_para(user)` permanece aplicado no
+# painel como rede de proteção (defesa em profundidade), mas o único caso
+# observável agora é o admin/CG vendo restritas — testado abaixo.
 
 
 def test_analise_admin_ve_demanda_restrita(client, admin_user, demanda_restrita_juridico):
@@ -1565,26 +1547,6 @@ def test_analise_admin_ve_demanda_restrita(client, admin_user, demanda_restrita_
     por_mes = resp.context["por_mes"]
     total_admin = sum(m["total"] for m in por_mes)
     assert total_admin >= 1  # ao menos a restrita
-
-
-def test_analise_responsavel_de_restrita_ve_no_painel(client, admin_user, pessoa, coord_juridico):
-    """Coordenador responsável de uma demanda restrita VÊ a demanda no painel
-    (regra: responsável + ADM/CG enxergam)."""
-    d = Demanda.objects.create(
-        titulo="Restrita do coord",
-        descricao="X",
-        canal_entrada="oficio",
-        coordenacao_responsavel="juridico",
-        criado_por=admin_user,
-        responsavel=coord_juridico,
-        restrito=True,
-    )
-    DemandaPessoa.objects.create(demanda=d, pessoa=pessoa, papel="solicitante")
-    client.force_login(coord_juridico)
-    resp = client.get(reverse("core:analise"))
-    por_mes = resp.context["por_mes"]
-    total = sum(m["total"] for m in por_mes)
-    assert total >= 1
 
 
 # --- Export CSV respeita visibilidade restrita (Tarefa 1.4 do roteiro v0.7.2) ---

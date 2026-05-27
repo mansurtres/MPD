@@ -194,12 +194,12 @@ Ideia que parece "óbvia" e não está no doc → primeiro vira ADR ou backlog.
 
 **Fase 6 — Segurança, Visualização, Exportação (v0.7):**
 - **Filtros + Exportação CSV** em `/demandas/`, `/pessoas/`, `/encaminhamentos/`. UTF-8 BOM + separador `;` (Excel BR). Limite 10k. Permissão CO+ (`_pode_exportar` em `demandas/views.py`). Cada exportação registra evento via `core.utils.registrar_export` (logger `mpd.exports`).
-- **Painel `/analise`** (CO+) com 6 métricas: demandas por tema, por mês (últimos 12), por coordenação, top 20 pessoas, encaminhamentos pendentes por órgão, carga por assessor. Cada bloco tem **toggle tabela/gráfico** (Chart.js v4 via CDN — bar, line, doughnut).
-- **Auditoria UI `/auditoria`** (CG+): lista paginada do `auditlog_logentry` com filtros (usuário, modelo, ação, período). Diff visual antes/depois por campo. `actor` pode ser `None` (eventos do sistema) — template trata.
+- **Painel `/analise`** (CG+ desde ADR 0055; era CO+ até v0.7.3) com 6 métricas: demandas por tema, por mês (últimos 12), por coordenação, top 20 pessoas, encaminhamentos pendentes por órgão, carga por assessor. Cada bloco tem **toggle tabela/gráfico** (Chart.js v4 via CDN — bar, line, doughnut).
+- **Auditoria UI `/auditoria`** (ADM apenas desde ADR 0055; era CG+ até v0.7.3): lista paginada do `auditlog_logentry` com filtros (usuário, modelo, ação, período). Diff visual antes/depois por campo. `actor` pode ser `None` (eventos do sistema) — template trata.
 - **`/healthz`** verifica conexão ao DB (retorna 503 se cursor.execute falha); público.
 - **`scripts/backup.sh`** lê `.env`, prefere `DATABASE_URL`, fallback para variáveis individuais. Timestamp no nome do arquivo. Doc inline.
 - **`manage.py verificar_integridade`** detecta 5 categorias: responsiva concluída sem devolutiva, anexo órfão (arquivo ou content_type), encaminhamento prazo passado com status=enviado, ItemInbox pendente +90d, Interação agendada +180d. Exit code 1 se encontrou problema (cron monitorado).
-- **Topbar** ganha card "Auditoria" (CG+) e "Painel de análise" (CO+) em `/configuracoes/`. Flags `papel_eh_admin`, `papel_eh_chefe`, `papel_eh_coordenador`, `papel_cg_plus`, `papel_co_plus` adicionados ao `context_processors.pendencias_usuario` para uso simples em templates.
+- **Topbar** ganha card "Auditoria" (ADM apenas, era CG+ — ADR 0055) e "Painel de análise" (CG+, era CO+ — ADR 0055) em `/configuracoes/`. Flags `papel_eh_admin`, `papel_eh_chefe`, `papel_eh_coordenador`, `papel_cg_plus`, `papel_co_plus` adicionados ao `context_processors.pendencias_usuario` para uso simples em templates.
 - **LGPD adiada** para Fase 8 (v1.1) — ADR 0047 explica a decisão (LGPD obrigatória só com exposição pública; MVP é uso interno).
 
 **179 testes passando** ao final da v0.7 (+8 sobre v0.6: CSV export OK, CSV bloqueia assessor, CSV respeita querystring, auditoria abre p/ admin, auditoria bloqueia coord, análise abre p/ coord, análise bloqueia assessor, verificar_integridade detecta devolutiva faltando). ADRs 0001–0047.

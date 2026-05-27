@@ -26,14 +26,14 @@
   </a>
   {% endif %}
 
-  {% if papel_cg_plus %}
+  {% if papel_eh_admin %}
   <a href="{% url 'core:auditoria' %}" class="block bg-white border border-slate-200 rounded-xl p-6 hover:border-slate-400 transition-colors">
     <h2 class="text-base font-semibold text-slate-900 mb-1">Auditoria</h2>
     <p class="text-sm text-slate-500">Histórico imutável de alterações no sistema (quem mudou o quê e quando).</p>
   </a>
   {% endif %}
 
-  {% if papel_co_plus %}
+  {% if papel_cg_plus %}
   <a href="{% url 'core:analise' %}" class="block bg-white border border-slate-200 rounded-xl p-6 hover:border-slate-400 transition-colors">
     <h2 class="text-base font-semibold text-slate-900 mb-1">Painel de análise</h2>
     <p class="text-sm text-slate-500">Visão consolidada do mandato em números — demandas por tema, top pessoas, carga por assessor.</p>

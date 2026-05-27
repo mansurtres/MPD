@@ -4,7 +4,8 @@ dos grupos. Qualquer rename de grupo só toca este arquivo.
 ADR 0024 (`nunca checar grupo pelo nome no código de produto`) tem como
 única exceção controlada esta camada: as funções abaixo são o único
 lugar autorizado a referenciar os literais. O resto do código consome
-`eh_cg_plus(user)` e `eh_co_plus(user)` — não as strings.
+`eh_admin(user)`, `eh_cg_plus(user)` e `eh_co_plus(user)` — não as
+strings.
 
 Migrations que criam os grupos (`*_grupos_padrao_*.py`) também usam os
 nomes literais; é inerente — elas escrevem no banco. Mantidas como
@@ -17,9 +18,19 @@ GRUPO_CO = "Coordenador"
 GRUPO_AS = "Assessor"
 
 
+def eh_admin(user):
+    """Apenas Administrador (ou superuser). Acesso à auditoria,
+    edição/criação de usuários, configurações sensíveis."""
+    if not getattr(user, "is_authenticated", False):
+        return False
+    if user.is_superuser:
+        return True
+    return user.groups.filter(name=GRUPO_ADM).exists()
+
+
 def eh_cg_plus(user):
     """Admin ou Chefe de Gabinete (ou superuser). Visibilidade plena de
-    restritas, acesso à auditoria, edição de interação alheia."""
+    restritas, painel /analise, edição de interação alheia."""
     if not getattr(user, "is_authenticated", False):
         return False
     if user.is_superuser:
@@ -28,8 +39,8 @@ def eh_cg_plus(user):
 
 
 def eh_co_plus(user):
-    """Admin, CG ou Coordenador (ou superuser). Exportação CSV, painel
-    /analise, remoção de anexos alheios."""
+    """Admin, CG ou Coordenador (ou superuser). Exportação CSV,
+    remoção de anexos alheios."""
     if not getattr(user, "is_authenticated", False):
         return False
     if user.is_superuser:
