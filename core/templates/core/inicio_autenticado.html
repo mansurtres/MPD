@@ -582,7 +582,8 @@
     </div>
     {% endif %}
 
-    <!-- Hub de Configurações -->
+    {% if papel_eh_admin %}
+    <!-- Hub de Configurações — apenas para Administrador -->
     <div class="section" id="configuracoes">
       <div class="section-head">
         <h2>Hub · configurações</h2>
@@ -590,10 +591,10 @@
       </div>
 
       <div class="hub-mosaic">
-        <a class="hub-card {% if not papel_eh_admin %}gated{% endif %}" href="{% if papel_eh_admin %}{% url 'accounts:usuarios_lista' %}{% else %}#{% endif %}">
+        <a class="hub-card" href="{% url 'accounts:usuarios_lista' %}">
           <div class="top">
             <div class="num">/ usuários</div>
-            <span class="perm">{% if papel_eh_admin %}Admin{% else %}Apenas ADM{% endif %}</span>
+            <span class="perm">Admin</span>
           </div>
           <h3>Usuários</h3>
           <p>Adicionar, suspender, redefinir senha da equipe.</p>
@@ -618,7 +619,7 @@
           <p>Categorias temáticas das demandas (mobilidade, saúde, etc.).</p>
         </a>
         {% endif %}
-        <a class="hub-card {% if not papel_co_plus %}gated{% endif %}" href="{% if papel_co_plus %}{% url 'core:analise' %}{% else %}#{% endif %}">
+        <a class="hub-card" href="{% url 'core:analise' %}">
           <div class="top">
             <div class="num">/ análise</div>
             <span class="perm">CO+</span>
@@ -626,7 +627,7 @@
           <h3>Painel de Análise</h3>
           <p>Relatório operacional, gráficos de carga e produtividade.</p>
         </a>
-        <a class="hub-card {% if not papel_cg_plus %}gated{% endif %}" href="{% if papel_cg_plus %}{% url 'core:auditoria' %}{% else %}#{% endif %}">
+        <a class="hub-card" href="{% url 'core:auditoria' %}">
           <div class="top">
             <div class="num">/ auditoria</div>
             <span class="perm">CG+</span>
@@ -644,6 +645,7 @@
         </a>
       </div>
     </div>
+    {% endif %}
 
   </div>
 </section>
