@@ -1,287 +1,843 @@
 {% extends "layouts/app.html" %}
 
 {% block app_conteudo %}
-<div class="flex items-center gap-3 mb-4">
-  <a href="{% url 'demandas:demanda_lista' %}" class="text-sm text-slate-500 hover:text-slate-800">← Demandas</a>
-  <span class="text-slate-300">/</span>
-  <span class="font-mono text-sm text-slate-600">{{ demanda.numero }}</span>
-  {% if demanda.restrito %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">restrita</span>{% endif %}
-</div>
+<style>
+  /* Detalhe da demanda — fiel ao v2/detalhe-demanda.html */
 
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-  <div class="lg:col-span-2 space-y-4">
+  /* O documento · papel sobre mesa */
+  .doc {
+    background: var(--surface-2);
+    box-shadow: var(--shadow-lg);
+  }
 
-<div class="flex items-start justify-between gap-3 mb-2">
-  <h1 class="text-xl font-semibold text-slate-900">{{ demanda.titulo }}</h1>
-  {% if pode_editar and demanda.status != 'arquivado' %}
-  <a href="{% url 'demandas:demanda_editar' demanda.pk %}" class="text-sm text-slate-500 hover:text-slate-800 underline shrink-0 mt-1">Editar</a>
-  {% endif %}
-</div>
-<div class="flex flex-wrap items-center gap-2 mb-3 text-sm text-slate-600">
-  {# Status como badge colorido por estado #}
-  {% if demanda.status == 'novo' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">Novo</span>
-  {% elif demanda.status == 'em_andamento' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800">Em andamento</span>
-  {% elif demanda.status == 'aguardando_terceiros' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">Aguardando terceiros</span>
-  {% elif demanda.status == 'aguardando_pessoa' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">Aguardando pessoa</span>
-  {% elif demanda.status == 'concluida' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800">Concluída</span>
-  {% elif demanda.status == 'arquivado' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-200 text-slate-700">Arquivado</span>{% endif %}
-  {# Resultado como badge colorido por desfecho #}
-  {% if demanda.resultado == 'pendente' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">Pendente</span>
-  {% elif demanda.resultado == 'atendido' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Atendido</span>
-  {% elif demanda.resultado == 'atendido_parcialmente' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800">Parcial</span>
-  {% elif demanda.resultado == 'nao_atendido' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">Não atendido</span>
-  {% elif demanda.resultado == 'inviavel' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">Inviável</span>
-  {% else %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-200 text-slate-700">{{ demanda.get_resultado_display }}</span>{% endif %}
-  <span class="text-slate-300">·</span>
-  <span class="text-slate-500">{{ demanda.get_coordenacao_responsavel_display }}</span>
-  {% if demanda.responsavel %}<span class="text-slate-300">·</span><span class="text-slate-500">Resp.: {{ demanda.responsavel.nome_completo|default:demanda.responsavel.email }}</span>{% endif %}
-  {% if demanda.prazo %}<span class="text-slate-300">·</span><span class="text-slate-500">Prazo: {{ demanda.prazo|date:"d/m/Y" }}</span>{% endif %}
-</div>
+  /* DOC-BAR · breadcrumb interno do documento (filete navy de 6px + gradiente) */
+  .doc-bar {
+    border-top: 6px solid var(--primary);
+    background: linear-gradient(180deg, var(--surface-2), var(--surface-1));
+    padding: 14px 36px 12px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .doc-bar .crumb {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .doc-bar .crumb a { text-decoration: none; color: var(--ink-mute); }
+  .doc-bar .crumb a:hover { color: var(--primary); }
+  .doc-bar .crumb .sep { color: var(--rule-strong); }
+  .doc-bar .crumb .num { color: var(--primary); font-weight: var(--fw-bold); letter-spacing: 0.04em; }
+  .doc-bar .crumb .ed { color: var(--ink-mute); margin-left: auto; }
 
-{# Temas (badges coloridos) #}
-{% if demanda.temas.all %}
-<div class="flex flex-wrap items-center gap-1 mb-3">
-  <span class="text-xs text-slate-500 mr-1">Temas:</span>
-  {% for t in demanda.temas.all %}{% if t.cor %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium" style="background: color-mix(in srgb, {{ t.cor }} 18%, white); color: color-mix(in srgb, {{ t.cor }} 75%, black);">{{ t.nome }}</span>{% else %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">{{ t.nome }}</span>{% endif %}{% endfor %}
-</div>
-{% endif %}
+  /* DOC-GRID · 2 colunas, gap 0, divisor por border-right + aside com surface-1 */
+  .doc-grid {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 0;
+  }
+  .doc-grid .main {
+    padding: 32px 36px 36px;
+    border-right: 1px solid var(--rule);
+  }
+  .doc-grid .aside {
+    background: var(--surface-1);
+    padding: 24px 24px 36px;
+  }
+  @media (max-width: 1024px) {
+    .doc-grid { grid-template-columns: 1fr; }
+    .doc-grid .main { border-right: 0; border-bottom: 1px solid var(--rule); padding: 24px 20px 28px; }
+    .doc-grid .aside { padding: 24px 20px 28px; }
+  }
 
-{# Partes #}
-<div class="text-sm mb-4">
-  <span class="text-xs text-slate-500 mr-1">Partes:</span>
-  {% if partes_pessoas or partes_entidades %}
-  {% for dp in partes_pessoas %}<a href="{% url 'pessoas:pessoa_detalhe' dp.pessoa.slug_publico %}" class="text-slate-800 hover:underline">{{ dp.pessoa.nome_exibicao }}</a>{% if dp.papel %} <span class="text-slate-500">({{ dp.papel_display }})</span>{% endif %}{% if not forloop.last or partes_entidades %} <span class="text-slate-300">·</span> {% endif %}{% endfor %}
-  {% for de in partes_entidades %}<a href="{% url 'pessoas:entidade_detalhe' de.entidade.slug_publico %}" class="text-slate-800 hover:underline">{{ de.entidade.nome }}</a>{% if de.papel %} <span class="text-slate-500">({{ de.papel_display }})</span>{% endif %}{% if not forloop.last %} <span class="text-slate-300">·</span> {% endif %}{% endfor %}
-  {% elif demanda.anonimo %}<span class="text-slate-500 italic">Demanda anônima.</span>
-  {% else %}<span class="text-slate-500 italic">Sem partes vinculadas.</span>{% endif %}
-</div>
+  /* MAIN */
+  .main-title {
+    font-family: var(--font-display); font-weight: 600;
+    font-size: var(--text-4xl); line-height: 1.1;
+    letter-spacing: -0.025em;
+    color: var(--ink); margin: 0 0 14px;
+    max-width: 28ch; text-wrap: balance;
+  }
+  .main-meta {
+    display: flex; flex-wrap: wrap; gap: 6px 14px;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--ink-mute);
+    align-items: baseline;
+    padding-bottom: 22px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 0;
+  }
+  .main-meta .item { display: inline-flex; align-items: baseline; gap: 6px; }
+  .main-meta .item .k {
+    font-size: 9.5px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--ink-mute);
+    font-weight: var(--fw-semibold);
+  }
+  .main-meta .item .v { color: var(--ink-strong); font-weight: var(--fw-semibold); letter-spacing: 0.02em; }
+  .main-meta .item .v.warn { color: var(--danger-600); font-weight: var(--fw-bold); }
+  .main-meta .sep { color: var(--rule-strong); }
 
-{# Anexos da demanda — estilo Outlook (chips horizontais) #}
-<div class="flex flex-wrap items-center gap-2 mb-4">
-  <span class="text-xs text-slate-500">📎 Anexos:</span>
-  {% for a in anexos %}
-  <span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 border border-slate-200 text-xs">
-    <a href="{{ a.arquivo.url }}" target="_blank" rel="noopener" class="text-slate-800 hover:underline truncate max-w-[200px]">{{ a.nome_original }}</a>
-    <form method="post" action="{% url 'demandas:anexo_remover' a.pk %}" class="inline" onsubmit="return confirm('Remover este anexo?');">{% csrf_token %}<button type="submit" class="text-slate-400 hover:text-red-600" title="Remover">✕</button></form>
-  </span>
-  {% empty %}
-  <span class="text-xs text-slate-400 italic">Nenhum.</span>
-  {% endfor %}
-  {% if perms.demandas.add_anexo and demanda.status != 'arquivado' %}
-  <details class="inline-block">
-    <summary class="cursor-pointer text-xs text-slate-600 hover:text-slate-900 underline">+ Anexar arquivo</summary>
-    <form method="post" enctype="multipart/form-data" action="{% url 'demandas:anexo_upload' 'demanda' demanda.pk %}" class="mt-2 flex flex-wrap items-center gap-2">
-      {% csrf_token %}
-      <input type="file" name="arquivo" required
-             class="text-xs text-slate-700
-                    file:mr-2 file:py-1 file:px-2 file:rounded
-                    file:border-0 file:text-xs file:font-medium
-                    file:bg-slate-800 file:text-white file:cursor-pointer
-                    hover:file:bg-slate-700">
-      <input type="text" name="descricao" placeholder="Descrição (opcional)"
-             class="text-xs rounded border border-slate-300 px-2 py-1">
-      <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-white text-xs font-medium px-2 py-1 rounded">Enviar</button>
-    </form>
-  </details>
-  {% endif %}
-</div>
+  /* Alert banda edge-to-edge dentro do main · variante danger (devolutiva pendente)
+     ou warning (arquivar sem concluir) */
+  .alert-banda {
+    border-bottom: 1px solid var(--rule);
+    padding: 14px 36px;
+    margin: 0 -36px 28px;
+    display: grid;
+    grid-template-columns: 32px 1fr auto;
+    gap: 16px;
+    align-items: center;
+  }
+  .alert-banda.danger { background: var(--danger-50); border-top: 2px solid var(--danger-500); }
+  .alert-banda.warning { background: var(--warning-50); border-top: 2px solid var(--warning-500); }
+  .alert-banda .ic {
+    width: 28px; height: 28px;
+    display: grid; place-items: center;
+    font-family: var(--font-serif);
+    font-size: 18px; font-weight: var(--fw-bold);
+    line-height: 1; color: #fff;
+  }
+  .alert-banda.danger .ic { background: var(--danger-500); }
+  .alert-banda.warning .ic { background: var(--warning-500); }
+  .alert-banda .lbl {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-weight: var(--fw-bold);
+    margin-bottom: 3px;
+  }
+  .alert-banda.danger .lbl { color: var(--danger-600); }
+  .alert-banda.warning .lbl { color: var(--warning-600); }
+  .alert-banda .msg {
+    font-family: var(--font-serif);
+    font-size: 14.5px;
+    line-height: 1.5;
+    color: var(--ink);
+    margin: 0;
+  }
+  .alert-banda.danger .msg strong { color: var(--danger-700); font-weight: var(--fw-bold); }
+  .alert-banda.warning .msg strong { color: var(--warning-700); font-weight: var(--fw-bold); }
 
-{# Descrição — último elemento do bloco de identidade #}
-<div class="mb-2">
-  <p class="text-xs font-medium text-slate-500 mb-1">Descrição</p>
-  <p class="text-sm text-slate-700 whitespace-pre-line">{{ demanda.descricao }}</p>
-</div>
+  /* Relato */
+  .relato { padding-top: 20px; margin-bottom: 36px; }
+  .section-mark {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--primary);
+    font-weight: var(--fw-bold);
+    margin-bottom: 14px;
+    display: flex; align-items: baseline; gap: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .section-mark .aux {
+    margin-left: auto;
+    color: var(--ink-mute);
+    font-weight: var(--fw-medium);
+    letter-spacing: 0.04em;
+    text-transform: none;
+  }
+  .relato p {
+    font-family: var(--font-serif);
+    font-size: var(--text-lg);
+    line-height: var(--lh-relaxed);
+    color: var(--ink-body);
+    margin: 0 0 14px;
+    text-wrap: pretty;
+    font-variation-settings: 'opsz' 18;
+    white-space: pre-line;
+  }
+  .relato p strong { color: var(--ink); font-weight: var(--fw-semibold); }
+  .relato p em { font-style: italic; }
+  .relato .source {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--rule-strong);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-mute);
+    letter-spacing: 0.04em;
+    display: flex; flex-wrap: wrap; gap: 4px 10px;
+  }
+  .relato .source .sep { color: var(--rule-strong); }
+  .relato .source .who { color: var(--ink-strong); font-weight: var(--fw-semibold); }
 
-    <section class="bg-white border border-slate-200 rounded-xl p-6">
-      <h2 class="text-base font-semibold text-slate-900 mb-1">Linha do tempo</h2>
-      <p class="text-xs text-slate-500 mb-4">Do mais antigo (topo) ao mais recente (base).</p>
-      <ul class="space-y-5">
-        {% for i in interacoes %}
-        {# Cor da borda lateral por categoria semântica do tipo #}
-        {% if i.tipo == 'registro_inicial' or i.tipo == 'devolutiva' %}{% with cor_borda="border-emerald-400" cor_badge_bg="bg-emerald-50" cor_badge_tx="text-emerald-800" %}{% endwith %}
+  /* Timeline */
+  .tl-head {
+    display: flex; align-items: baseline; gap: 12px;
+    margin-bottom: 4px;
+  }
+  .tl-head h2 {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--primary);
+    font-weight: var(--fw-bold);
+    margin: 0;
+  }
+  .tl-head .count {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--ink-mute);
+    margin-left: auto;
+    letter-spacing: 0.04em;
+  }
+  .entries { border-top: 1px solid var(--rule); }
+  .tl {
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    gap: 26px;
+    padding: 20px 0;
+    border-bottom: 1px solid var(--rule);
+    align-items: start;
+  }
+  .tl:last-of-type { border-bottom: 0; }
+  .tl .marg {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-mute);
+    text-align: right;
+    padding-top: 2px;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.6;
+  }
+  .tl .marg .day {
+    display: block;
+    color: var(--primary);
+    font-weight: var(--fw-bold);
+    font-size: 14px;
+    letter-spacing: 0.04em;
+  }
+  .tl .marg .time { display: block; margin-top: 1px; color: var(--ink-mute); letter-spacing: 0.04em; }
+  .tl .marg .by {
+    display: block;
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid var(--rule);
+    color: var(--ink-soft);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.04em;
+  }
+  .tl .marg .by strong {
+    display: block;
+    color: var(--ink-strong);
+    font-weight: var(--fw-semibold);
+    letter-spacing: 0.02em;
+    font-size: 11px;
+    margin-bottom: 1px;
+  }
+  .tl .body .type {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: var(--fw-bold);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .tl .body .type::before {
+    content: ""; width: 8px; height: 8px;
+    background: currentColor; flex: none;
+  }
+  .tl.contato .body .type    { color: var(--info-600); }
+  .tl.encam .body .type      { color: var(--danger-600); }
+  .tl.retorno .body .type    { color: var(--success-700); }
+  .tl.interna .body .type    { color: var(--warning-700); }
+  .tl.agendada .body .type   { color: var(--danger-500); font-style: italic; }
+  .tl.mudanca .body .type    { color: var(--ink-mute); font-weight: var(--fw-medium); }
+  .tl.mudanca .body .type::before { background: var(--ink-300); width: 6px; height: 6px; }
+  .tl.registro .body .type   { color: var(--ink-mute); }
+  .tl.devolutiva .body .type { color: var(--success-700); }
+  .tl.arquivada .body .type  { color: var(--ink-soft); }
+  .tl .body p.txt {
+    font-family: var(--font-serif);
+    font-size: 15px;
+    line-height: 1.55;
+    color: var(--ink-body);
+    margin: 0;
+    text-wrap: pretty;
+    white-space: pre-line;
+  }
+  .tl .body p.txt strong { color: var(--ink); font-weight: var(--fw-semibold); }
+  .tl .body p.txt em { font-style: italic; }
+  .tl.mudanca .body p.txt {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink-mute);
+    letter-spacing: 0.02em;
+  }
+  .tl.mudanca .body p.txt strong { color: var(--ink-strong); font-weight: var(--fw-semibold); }
+  .tl.mudanca { padding: 14px 0; }
+  .tl.agendada {
+    background: repeating-linear-gradient(135deg,
+      var(--surface-2) 0 8px,
+      var(--surface-1) 8px 9px);
+    margin: 4px -16px;
+    padding: 18px 16px;
+    border-bottom: 0;
+  }
+  .tl.agendada + .tl { border-top: 1px solid var(--rule); }
+  .tl.agendada .marg .day { color: var(--danger-500); }
+  .tl.agendada .body p.txt { font-style: italic; color: var(--ink-soft); }
+
+  /* Encaminhamento inline (cartão informativo dentro de uma entrada) */
+  .encam-inline {
+    margin-top: 12px;
+    background: var(--info-50);
+    border: 1px solid var(--info-100);
+    border-left: 3px solid var(--info-500);
+    padding: 12px 16px;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+  }
+  .encam-inline .row {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    gap: 12px;
+    padding: 3px 0;
+  }
+  .encam-inline .row .k {
+    font-size: 9.5px;
+    color: var(--info-500);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: var(--fw-bold);
+    padding-top: 2px;
+  }
+  .encam-inline .row .v {
+    font-size: 12px;
+    color: var(--ink);
+    font-weight: var(--fw-medium);
+    letter-spacing: 0.02em;
+  }
+  .encam-inline .quote {
+    margin-top: 8px; padding-top: 8px;
+    border-top: 1px dashed var(--info-100);
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: var(--ink-body);
+    white-space: pre-line;
+  }
+  .encam-inline .quote::before { content: "« "; color: var(--info-500); font-style: normal; font-weight: var(--fw-bold); }
+  .encam-inline .quote::after { content: " »"; color: var(--info-500); font-style: normal; font-weight: var(--fw-bold); }
+
+  .actions-row {
+    margin-top: 28px;
+    padding: 18px 0 0;
+    border-top: 2px solid var(--ink-200);
+    display: flex; gap: 8px; flex-wrap: wrap;
+  }
+  .actions-row .right { margin-left: auto; display: flex; gap: 8px; }
+
+  /* ASIDE — herda surface-1 do .doc-grid .aside */
+  .aside-actions {
+    background: var(--surface-3);
+    border: 1px solid var(--rule);
+    padding: 12px 14px;
+    margin-bottom: 18px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .aside-actions .btn { justify-content: center; width: 100%; }
+  .aside-actions .helper {
+    font-family: var(--font-serif); font-style: italic;
+    font-size: 11px; color: var(--ink-mute);
+    text-align: center; margin: 2px 0 0;
+  }
+  .btn.lg { font-size: 13px; padding: 12px 22px; }
+
+  .aside-section {
+    margin-bottom: 22px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .aside-section:last-child { border-bottom: 0; padding-bottom: 0; margin-bottom: 0; }
+  .aside-section .h {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--primary);
+    font-weight: var(--fw-bold);
+    margin: 0 0 12px;
+    display: flex; align-items: baseline; justify-content: space-between;
+  }
+  .aside-section .h .count, .aside-section .h .add {
+    font-family: var(--font-mono);
+    font-size: 10px; color: var(--ink-mute);
+    font-weight: var(--fw-medium); letter-spacing: 0.04em;
+  }
+  .aside-section .h .add { text-decoration: none; text-transform: uppercase; }
+  .aside-section .h .add:hover { color: var(--primary); }
+
+  .block { margin-bottom: 12px; }
+  .block:last-child { margin-bottom: 0; }
+  .block .k {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    font-weight: var(--fw-bold);
+    margin-bottom: 5px;
+  }
+  .block .v {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    color: var(--ink);
+    font-weight: var(--fw-semibold);
+    letter-spacing: 0.02em;
+  }
+  .block .who-mini {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    color: var(--ink-strong);
+    font-weight: var(--fw-semibold);
+  }
+  .block .who-mini .av {
+    width: 22px; height: 22px;
+    background: var(--navy-100); color: var(--navy-700);
+    border-radius: var(--radius-full);
+    display: grid; place-items: center;
+    font-family: var(--font-mono); font-size: 10px;
+    font-weight: var(--fw-bold); letter-spacing: 0.02em;
+    flex: none;
+  }
+  .block .badges, .block .pills {
+    display: flex; flex-wrap: wrap; gap: 4px;
+  }
+
+  /* Badges extras locais (origem, restrita) — complementam os tokens globais */
+  .badge.origem    { background: var(--info-50); color: var(--info-700); border: 1.5px solid var(--info-500); }
+  .badge.restrita  { background: var(--danger-50); color: var(--danger-700); border: 1.5px solid var(--danger-500); }
+
+  /* Pill — para Temas e Tags (não confundir com .badge usado em Status/Resultado).
+     Estética leve: borda + dot na cor; fundo é um tint muito suave.
+     A cor é injetada via custom property --pill-color para suportar
+     Tema.cor (hex do banco) sem múltiplas classes. */
+  .pill {
+    --pill-color: var(--ink-soft);
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 2px 7px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: var(--fw-semibold);
+    color: var(--pill-color);
+    background: color-mix(in srgb, var(--pill-color) 14%, var(--surface-2));
+    border: 1px solid color-mix(in srgb, var(--pill-color) 55%, transparent);
+    letter-spacing: 0.02em; line-height: 1.2;
+  }
+  .pill::before {
+    content: ""; width: 6px; height: 6px;
+    background: var(--pill-color); border-radius: var(--radius-full);
+    flex: none;
+  }
+  .pill-add {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 2px 7px;
+    font-family: var(--font-mono);
+    font-size: 10px; font-weight: var(--fw-semibold);
+    color: var(--ink-mute);
+    background: transparent;
+    border: 1px dashed var(--rule-strong);
+    letter-spacing: 0.02em; line-height: 1.2;
+    cursor: pointer; text-decoration: none;
+  }
+  .pill-add:hover { color: var(--primary); border-color: var(--primary); border-style: solid; }
+
+  /* Parte (pessoa/entidade) */
+  .parte {
+    display: grid;
+    grid-template-columns: 32px 1fr;
+    gap: 10px;
+    padding: 9px 0;
+    border-top: 1px dotted var(--rule);
+    align-items: center;
+  }
+  .parte:first-of-type { border-top: 0; padding-top: 0; }
+  .parte .av {
+    width: 32px; height: 32px;
+    background: var(--navy-100); color: var(--navy-700);
+    border-radius: var(--radius-full);
+    display: grid; place-items: center;
+    font-family: var(--font-mono);
+    font-size: 11px; font-weight: var(--fw-bold);
+    letter-spacing: 0.02em;
+  }
+  .parte .av.entidade {
+    background: var(--success-50); color: var(--success-700);
+    border-radius: var(--radius-sm);
+  }
+  .parte .nome {
+    font-family: var(--font-serif);
+    font-size: 14px; color: var(--ink);
+    font-weight: var(--fw-medium); line-height: 1.25;
+  }
+  .parte .nome a { color: var(--ink); text-decoration: none; }
+  .parte .nome a:hover { color: var(--primary); }
+  .parte .papel {
+    font-family: var(--font-mono);
+    font-size: 9.5px; color: var(--ink-mute);
+    letter-spacing: 0.08em; text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  /* Encaminhamento mini-card no aside */
+  .encam-mini {
+    background: var(--surface-3);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--danger-500);
+    padding: 10px 12px;
+    margin-bottom: 6px;
+  }
+  .encam-mini.respondido { border-left-color: var(--success-500); }
+  .encam-mini:last-of-type { margin-bottom: 8px; }
+  .encam-mini .id {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--danger-600);
+    font-weight: var(--fw-bold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .encam-mini.respondido .id { color: var(--success-700); }
+  .encam-mini .destino {
+    font-family: var(--font-serif);
+    font-size: 13.5px;
+    color: var(--ink);
+    margin-top: 2px;
+    font-weight: var(--fw-medium);
+    line-height: 1.3;
+  }
+  .encam-mini .stat {
+    display: flex; align-items: center; gap: 6px;
+    margin-top: 6px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-mute);
+    letter-spacing: 0.04em;
+    justify-content: space-between;
+  }
+  .encam-mini .stat .ok {
+    background: var(--success-600); color: #fff;
+    padding: 1px 6px;
+    letter-spacing: 0.08em;
+    font-weight: var(--fw-bold);
+    text-transform: uppercase;
+    font-size: 9px;
+  }
+  .encam-mini .stat .pend { color: var(--warning-700); font-weight: var(--fw-semibold); }
+
+  /* Anexos — ext em preto (etiqueta de arquivo) */
+  .anexo {
+    display: grid;
+    grid-template-columns: 28px 1fr auto;
+    gap: 10px;
+    align-items: center;
+    padding: 8px 0;
+    border-top: 1px dotted var(--rule);
+  }
+  .anexo:first-of-type { border-top: 0; padding-top: 0; }
+  .anexo .ext {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    background: var(--ink-800); color: var(--surface-2);
+    padding: 3px 5px;
+    letter-spacing: 0.08em;
+    font-weight: var(--fw-bold);
+    text-align: center;
+    text-transform: uppercase;
+  }
+  .anexo .nome {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--ink);
+    font-weight: var(--fw-medium);
+    line-height: 1.25;
+    letter-spacing: 0.02em;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .anexo .nome a { color: var(--ink); text-decoration: none; }
+  .anexo .nome a:hover { color: var(--primary); }
+  .anexo .nome small {
+    display: block; color: var(--ink-mute);
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    margin-top: 2px;
+    letter-spacing: 0.04em;
+    font-weight: var(--fw-normal);
+  }
+  .anexo .tam { font-family: var(--font-mono); font-size: 10px; color: var(--ink-mute); }
+  .anexo-drop {
+    margin-top: 10px;
+    padding: 10px;
+    border: 1px dashed var(--rule-strong);
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-mute);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .anexo-drop:hover { color: var(--primary); border-color: var(--primary); }
+  .anexo-drop input[type="file"] { display: none; }
+
+  /* Drawer */
+  .drawer { position: fixed; inset: 0; z-index: var(--z-drawer); }
+  .drawer.hidden { display: none; }
+  .drawer .backdrop {
+    position: absolute; inset: 0;
+    background: rgba(13, 12, 10, 0.40);
+  }
+  .drawer-panel {
+    position: absolute; inset-block: 0; right: 0;
+    width: 100%; max-width: 480px;
+    background: var(--surface-2);
+    box-shadow: var(--shadow-xl);
+    display: flex; flex-direction: column;
+    overflow-y: auto;
+    border-left: 4px solid var(--primary);
+  }
+  .drawer-panel header {
+    padding: 16px 22px;
+    border-bottom: 1px solid var(--rule);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .drawer-panel header h3 {
+    margin: 0; font-family: var(--font-display);
+    font-size: 20px; font-weight: 600; color: var(--ink);
+  }
+  .drawer-panel header .x {
+    background: none; border: 0; cursor: pointer;
+    font-size: 22px; color: var(--ink-mute);
+  }
+  .drawer-panel header .x:hover { color: var(--ink); }
+  .drawer-panel form, .drawer-panel .body { padding: 18px 22px; }
+  .drawer-panel .helper {
+    font-family: var(--font-serif); font-size: 14px;
+    color: var(--ink-body); line-height: 1.5; margin-bottom: 16px;
+  }
+  .drawer-panel .helper strong { color: var(--ink); }
+  .drawer-panel .field { margin-bottom: 14px; }
+  .drawer-panel .field label {
+    display: block; font-family: var(--font-mono);
+    font-size: 10px; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--ink-mute);
+    font-weight: 700; margin-bottom: 5px;
+  }
+  .drawer-panel .field input, .drawer-panel .field select, .drawer-panel .field textarea {
+    width: 100%; border: 1px solid var(--rule-strong);
+    background: var(--surface-3); color: var(--ink);
+    font-family: var(--font-mono); font-size: 12.5px;
+    padding: 8px 12px; outline: 0;
+  }
+  .drawer-panel .actions {
+    padding: 14px 22px; border-top: 1px solid var(--rule);
+    display: flex; justify-content: flex-end; gap: 8px;
+    background: var(--surface-1);
+  }
+
+  /* Painel inline de adicionar interação/encaminhamento */
+  .add-painel { background: var(--surface-3); border: 1px solid var(--rule); padding: 16px; margin-top: 16px; }
+  .add-painel.hidden { display: none; }
+  .add-painel .helper { font-family: var(--font-serif); font-size: 13px; color: var(--ink-body); margin-bottom: 12px; font-style: italic; }
+  .add-painel .field-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+  .add-painel .field-grid.cols-2 { grid-template-columns: 1fr 1fr; }
+  .add-painel .field { margin-bottom: 12px; }
+  .add-painel label { display: block; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-mute); font-weight: 700; margin-bottom: 4px; }
+  .add-painel input, .add-painel select, .add-painel textarea { width: 100%; border: 1px solid var(--rule-strong); background: var(--surface-3); color: var(--ink); font-family: var(--font-mono); font-size: 12px; padding: 7px 10px; outline: 0; }
+  .add-painel .actions { display: flex; gap: 8px; margin-top: 8px; }
+  @media (max-width: 720px) { .add-painel .field-grid { grid-template-columns: 1fr; } }
+</style>
+
+<article class="doc">
+  <header class="doc-bar">
+    <div class="crumb">
+      <a href="{% url 'demandas:demanda_lista' %}">Demandas</a>
+      <span class="sep">/</span>
+      <span class="num">{{ demanda.numero }}</span>
+      {% if demanda.atualizado_em %}<span class="ed">Atualizada {{ demanda.atualizado_em|timesince }} atrás</span>{% endif %}
+    </div>
+  </header>
+
+  <div class="doc-grid">
+    <section class="main">
+      <h1 class="main-title">{{ demanda.titulo }}</h1>
+
+      <div class="main-meta">
+        <span class="item"><span class="k">Canal</span><span class="v">{{ demanda.get_canal_entrada_display }}</span></span>
+        <span class="sep">·</span>
+        <span class="item"><span class="k">Aberta em</span><span class="v">{{ demanda.criado_em|date:"d/m/Y" }}</span></span>
+        {% if demanda.prazo %}
+        <span class="sep">·</span>
+        <span class="item"><span class="k">Prazo</span><span class="v warn">{{ demanda.prazo|date:"d/m/Y" }}</span></span>
         {% endif %}
-        <li class="border-l-2
-          {% if i.tipo == 'registro_inicial' or i.tipo == 'devolutiva' %}border-emerald-400
-          {% elif i.tipo == 'encaminhamento_externo' or i.tipo == 'retorno_externo_recebido' %}border-indigo-400
-          {% elif i.tipo == 'contato_com_pessoa' or i.tipo == 'contato_interno' or i.tipo == 'reuniao' %}border-blue-400
-          {% elif i.tipo == 'arquivamento' %}border-amber-400
-          {% elif i.automatica %}border-slate-300
-          {% else %}border-blue-300{% endif %} pl-4">
+        <span class="sep">·</span>
+        <span class="item"><span class="k">Atualizada</span><span class="v">{{ demanda.atualizado_em|timesince }} atrás</span></span>
+      </div>
 
-          <div class="flex flex-wrap items-center gap-2 mb-1">
-            {# Badge do tipo (peso visual primário) #}
-            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
-              {% if i.tipo == 'registro_inicial' or i.tipo == 'devolutiva' %}bg-emerald-100 text-emerald-800
-              {% elif i.tipo == 'encaminhamento_externo' or i.tipo == 'retorno_externo_recebido' %}bg-indigo-100 text-indigo-800
-              {% elif i.tipo == 'contato_com_pessoa' or i.tipo == 'contato_interno' or i.tipo == 'reuniao' %}bg-blue-100 text-blue-800
-              {% elif i.tipo == 'arquivamento' %}bg-amber-100 text-amber-800
-              {% elif i.automatica %}bg-slate-100 text-slate-700
-              {% else %}bg-slate-100 text-slate-700{% endif %}">{{ i.get_tipo_display }}</span>
+      {% if demanda.origem == 'responsiva' and demanda.status != 'concluida' and demanda.status != 'arquivado' %}
+      <div class="alert-banda danger">
+        <div class="ic">!</div>
+        <div>
+          <div class="lbl">Devolutiva pendente</div>
+          <p class="msg">Demanda <strong>responsiva</strong> só conclui após retorno ao demandante. Para fechar, registre a devolutiva e classifique o resultado material.</p>
+        </div>
+        {% if pode_concluir %}<button type="button" data-drawer="drawer-concluir" class="drawer-trigger btn primary">Registrar devolutiva</button>{% endif %}
+      </div>
+      {% endif %}
 
-            {% if i.automatica %}<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-500">automática</span>{% endif %}
-            {% if i.status == 'agendada' %}<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium {% if i.vencida %}bg-red-100 text-red-700{% else %}bg-amber-100 text-amber-700{% endif %}">{% if i.vencida %}vencida{% else %}agendada{% endif %}</span>{% endif %}
-            {% if i.status == 'cancelada' %}<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-500">cancelada</span>{% endif %}
+      {% if demanda.descricao %}
+      <div class="relato">
+        <div class="section-mark">
+          Relato inicial
+          <span class="aux">via {{ demanda.get_canal_entrada_display }} · {{ demanda.criado_em|date:"d/m/Y H:i" }}</span>
+        </div>
+        <p>{{ demanda.descricao|linebreaksbr }}</p>
+        <div class="source">
+          <span>Capturada por</span>
+          <span class="who">{{ demanda.criado_por.nome_completo|default:demanda.criado_por.email }}</span>
+          <span class="sep">·</span>
+          <span>{{ demanda.get_coordenacao_responsavel_display }}</span>
+        </div>
+      </div>
+      {% endif %}
 
-            <span class="ml-auto text-xs text-slate-500">{{ i.data_ocorrencia|date:"d/m/Y H:i" }} · {{ i.autor.nome_completo|default:i.autor.email }}</span>
+      <div class="tl-head">
+        <h2>Linha do tempo</h2>
+        <span class="count">{{ interacoes|length }} evento{{ interacoes|length|pluralize:",s" }}</span>
+      </div>
+
+      <div class="entries">
+        {% for i in interacoes %}
+        <article class="tl {% if i.tipo == 'devolutiva' %}devolutiva{% elif i.tipo == 'encaminhamento_externo' %}encam{% elif i.tipo == 'retorno_externo_recebido' %}retorno{% elif i.tipo == 'contato_interno' %}interna{% elif i.tipo == 'contato_com_pessoa' or i.tipo == 'reuniao' %}contato{% elif i.tipo == 'arquivamento' %}arquivada{% elif i.automatica %}mudanca{% else %}registro{% endif %}{% if i.status == 'agendada' %} agendada{% endif %}">
+          <div class="marg">
+            <span class="day">{{ i.data_ocorrencia|date:"d/m" }}</span>
+            <span class="time">{{ i.data_ocorrencia|date:"H:i" }}</span>
+            <span class="by">{% if i.automatica %}AUTO<strong>sistema</strong>{% else %}{% if i.status == 'agendada' %}PARA{% else %}REG.{% endif %}<strong>{{ i.autor.nome_completo|default:i.autor.email|truncatechars:18 }}</strong>{% endif %}</span>
           </div>
+          <div class="body">
+            <div class="type">{{ i.get_tipo_display }}{% if i.status == 'agendada' %} · agendada{% elif i.status == 'cancelada' %} · cancelada{% endif %}</div>
+            <p class="txt">{{ i.conteudo }}</p>
 
-          <div class="text-sm text-slate-800 whitespace-pre-line">{{ i.conteudo }}</div>
-
-          {% if i.encaminhamento %}
-          {% with e=i.encaminhamento %}
-          <details class="mt-2 border-t border-slate-100 pt-2">
-            <summary class="cursor-pointer text-xs text-slate-600 hover:text-slate-900">► Detalhes do encaminhamento</summary>
-            <div class="mt-2 space-y-2 pl-2 border-l border-slate-200">
-              <p class="text-xs text-slate-500">
-                <strong class="text-slate-700">{{ e.get_tipo_documento_display }}</strong>
-                {% if e.numero_documento %}· Nº {{ e.numero_documento }}{% endif %}
-                {% if e.destinatario_pessoa %}· Contato: {{ e.destinatario_pessoa }}{% endif %}
-              </p>
-              <p class="text-xs text-slate-500">
-                Enviado: {{ e.data_envio|date:"d/m/Y" }}
-                {% if e.prazo_resposta %} · Prazo: {{ e.prazo_resposta|date:"d/m/Y" }}{% endif %}
-                · Status atual:
-                {% if e.status == 'enviado' %}<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-800">Enviado</span>
-                {% elif e.status == 'prazo_vencido' %}<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-700">Prazo vencido</span>
-                {% elif e.status == 'respondido_satisfatorio' %}<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-800">Respondido (satisfatório)</span>
-                {% elif e.status == 'respondido_insatisfatorio' %}<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-orange-100 text-orange-800">Respondido (insatisfatório)</span>
-                {% elif e.status == 'sem_resposta' %}<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-200 text-slate-700">Sem resposta</span>{% endif %}
-              </p>
-
-              {% if e.conteudo_resposta %}
-              <div class="text-xs bg-indigo-50 border border-indigo-100 rounded p-2">
-                <p class="font-medium text-indigo-900 mb-1">Resposta de {{ e.destinatario_orgao }}{% if e.data_resposta %} em {{ e.data_resposta|date:"d/m/Y" }}{% endif %}:</p>
-                <p class="text-indigo-800 whitespace-pre-line">{{ e.conteudo_resposta }}</p>
-              </div>
-              {% endif %}
-
-              {# Anexos do encaminhamento — chips estilo Outlook #}
-              <div class="flex flex-wrap items-center gap-2">
-                <span class="text-[11px] text-slate-500">📎 Anexos:</span>
-                {% for a in e.anexos.all %}
-                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-xs">
-                  <a href="{{ a.arquivo.url }}" target="_blank" rel="noopener" class="text-slate-800 hover:underline truncate max-w-[180px]">{{ a.nome_original }}</a>
-                  <form method="post" action="{% url 'demandas:anexo_remover' a.pk %}" class="inline" onsubmit="return confirm('Remover este anexo?');">{% csrf_token %}<button type="submit" class="text-slate-400 hover:text-red-600" title="Remover">✕</button></form>
-                </span>
-                {% empty %}
-                <span class="text-[11px] text-slate-400 italic">Nenhum.</span>
-                {% endfor %}
-                {% if perms.demandas.add_anexo and demanda.status != 'arquivado' %}
-                <details class="inline-block">
-                  <summary class="cursor-pointer text-[11px] text-slate-600 hover:text-slate-900 underline">+ Anexar</summary>
-                  <form method="post" enctype="multipart/form-data" action="{% url 'demandas:anexo_upload' 'encaminhamento' e.pk %}" class="mt-1 flex flex-wrap items-center gap-1">
-                    {% csrf_token %}
-                    <input type="file" name="arquivo" required
-                           class="text-xs text-slate-700
-                                  file:mr-1 file:py-0.5 file:px-2 file:rounded
-                                  file:border-0 file:text-xs file:font-medium
-                                  file:bg-slate-800 file:text-white file:cursor-pointer
-                                  hover:file:bg-slate-700">
-                    <input type="text" name="descricao" placeholder="Descrição (opcional)" class="text-xs rounded border border-slate-300 px-2 py-0.5">
-                    <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-white text-xs font-medium px-2 py-0.5 rounded">Enviar</button>
-                  </form>
-                </details>
-                {% endif %}
-              </div>
-
-              {% if e.status == 'enviado' or e.status == 'prazo_vencido' %}
-              {% if perms.demandas.change_encaminhamento and demanda.status != 'arquivado' %}
-              <details class="mt-1">
-                <summary class="cursor-pointer text-xs text-slate-600 hover:text-slate-900 underline">Registrar resposta</summary>
-                <form method="post" action="{% url 'demandas:encaminhamento_responder' e.pk %}" class="mt-2 space-y-2">
+            {% if i.encaminhamento %}{% with e=i.encaminhamento %}
+            <div class="encam-inline">
+              <div class="row"><div class="k">Documento</div><div class="v">{{ e.get_tipo_documento_display }}{% if e.numero_documento %} · {{ e.numero_documento }}{% endif %}</div></div>
+              <div class="row"><div class="k">Destinatário</div><div class="v">{{ e.destinatario_orgao }}{% if e.destinatario_pessoa %} · {{ e.destinatario_pessoa }}{% endif %}</div></div>
+              {% if e.prazo_resposta %}<div class="row"><div class="k">Prazo</div><div class="v">{{ e.prazo_resposta|date:"d/m/Y" }}</div></div>{% endif %}
+              <div class="row"><div class="k">Status</div><div class="v">{{ e.get_status_display }}</div></div>
+              {% if e.conteudo_resposta %}<p class="quote">{{ e.conteudo_resposta }}</p>{% endif %}
+              {% if e.status == 'enviado' or e.status == 'prazo_vencido' %}{% if perms.demandas.change_encaminhamento and demanda.status != 'arquivado' %}
+              <details style="margin-top:8px">
+                <summary style="cursor:pointer;font-family:var(--font-mono);font-size:10px;color:var(--info-600);letter-spacing:0.04em;text-transform:uppercase;font-weight:700">+ registrar resposta</summary>
+                <form method="post" action="{% url 'demandas:encaminhamento_responder' e.pk %}" style="margin-top:10px;display:grid;gap:8px">
                   {% csrf_token %}
-                  <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    <select name="status" class="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm">
-                      <option value="respondido_satisfatorio">Respondido (satisfatório)</option>
-                      <option value="respondido_insatisfatorio">Respondido (insatisfatório)</option>
-                      <option value="sem_resposta">Sem resposta (encerrar)</option>
-                    </select>
-                    <input type="date" name="data_resposta" class="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm">
-                  </div>
-                  <textarea name="conteudo_resposta" rows="2" placeholder="Conteúdo da resposta" class="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm"></textarea>
-                  <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-3 py-1.5 rounded-lg">Salvar resposta</button>
+                  <select name="status">
+                    <option value="respondido_satisfatorio">Respondido (satisfatório)</option>
+                    <option value="respondido_insatisfatorio">Respondido (insatisfatório)</option>
+                    <option value="sem_resposta">Sem resposta (encerrar)</option>
+                  </select>
+                  <input type="date" name="data_resposta">
+                  <textarea name="conteudo_resposta" rows="2" placeholder="Conteúdo da resposta"></textarea>
+                  <button type="submit" class="btn primary">Salvar resposta</button>
                 </form>
               </details>
-              {% endif %}
-              {% endif %}
+              {% endif %}{% endif %}
             </div>
-          </details>
-          {% endwith %}
-          {% endif %}
+            {% endwith %}{% endif %}
 
-          {% if i.status == 'agendada' and not i.automatica %}
-          <div class="mt-1 flex gap-2 text-xs">
-            <form method="post" action="{% url 'demandas:interacao_realizada' i.pk %}" class="inline">{% csrf_token %}<button class="text-slate-600 hover:text-slate-900 underline">marcar realizada</button></form>
-            <form method="post" action="{% url 'demandas:interacao_cancelar' i.pk %}" class="inline">{% csrf_token %}<button class="text-slate-600 hover:text-slate-900 underline">cancelar</button></form>
+            {% if i.status == 'agendada' and not i.automatica %}
+            <div style="margin-top:10px;display:flex;gap:10px">
+              <form method="post" action="{% url 'demandas:interacao_realizada' i.pk %}" style="display:inline">{% csrf_token %}<button class="btn ghost" style="font-size:10px;padding:4px 8px">marcar realizada</button></form>
+              <form method="post" action="{% url 'demandas:interacao_cancelar' i.pk %}" style="display:inline">{% csrf_token %}<button class="btn ghost" style="font-size:10px;padding:4px 8px">cancelar</button></form>
+            </div>
+            {% endif %}
           </div>
-          {% endif %}
-        </li>
+        </article>
         {% empty %}
-        <li class="text-sm text-slate-500">Nenhuma interação registrada.</li>
+        <article class="tl registro">
+          <div class="marg"><span class="day">—</span></div>
+          <div class="body"><p class="txt" style="font-style:italic;color:var(--ink-mute)">Nenhuma interação registrada ainda.</p></div>
+        </article>
         {% endfor %}
-      </ul>
+      </div>
 
       {% if demanda.status != 'arquivado' %}
-      <div class="mt-6 border-t border-slate-200 pt-4" data-acao-painel>
-        <div class="flex flex-wrap gap-2 mb-3">
-          {% if perms.demandas.add_interacao %}
-          <button type="button" data-acao="interacao"
-                  class="acao-btn px-3 py-1.5 rounded-lg text-sm font-medium border border-slate-300 text-slate-700 hover:bg-slate-50">
-            + Adicionar interação
-          </button>
-          {% endif %}
-          {% if perms.demandas.add_encaminhamento %}
-          <button type="button" data-acao="encaminhamento"
-                  class="acao-btn px-3 py-1.5 rounded-lg text-sm font-medium border border-slate-300 text-slate-700 hover:bg-slate-50">
-            + Novo encaminhamento
-          </button>
-          {% endif %}
+      <div class="actions-row" data-acao-painel>
+        {% if perms.demandas.add_interacao %}
+        <button type="button" data-acao="interacao" class="acao-btn btn secondary">+ Adicionar interação</button>
+        {% endif %}
+        {% if perms.demandas.add_encaminhamento %}
+        <button type="button" data-acao="encaminhamento" class="acao-btn btn secondary">+ Novo encaminhamento</button>
+        {% endif %}
+        {% if perms.demandas.add_anexo %}
+        <label class="btn ghost" style="cursor:pointer">
+          + Anexar arquivo
+          <form method="post" enctype="multipart/form-data" action="{% url 'demandas:anexo_upload' 'demanda' demanda.pk %}" id="form-upload-rapido" style="display:none">{% csrf_token %}<input type="file" name="arquivo" onchange="document.getElementById('form-upload-rapido').submit()"></form>
+        </label>
+        {% endif %}
+        <div class="right">
+          {% if pode_arquivar %}<button type="button" data-drawer="drawer-arquivar" class="drawer-trigger btn danger">Arquivar</button>{% endif %}
         </div>
 
+        {# Form interação inline #}
         {% if perms.demandas.add_interacao %}
-        <div data-acao-form="interacao" class="hidden mt-2">
-          <p class="text-xs text-slate-500 mb-2">Registrar um evento histórico (contato, reunião, anotação). Para um caminho formal a órgão externo, use "Novo encaminhamento".</p>
-          <form method="post" action="{% url 'demandas:interacao_nova' demanda.pk %}" class="space-y-3">
+        <div class="add-painel hidden" data-acao-form="interacao" style="grid-column:1/-1;width:100%">
+          <p class="helper">Registrar um evento (contato, reunião, anotação). Para um caminho formal a órgão externo, use "Novo encaminhamento".</p>
+          <form method="post" action="{% url 'demandas:interacao_nova' demanda.pk %}">
             {% csrf_token %}
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
-              <div><label class="block text-xs font-medium text-slate-600 mb-1">Tipo</label>{{ form_interacao.tipo }}</div>
-              <div><label class="block text-xs font-medium text-slate-600 mb-1">Status</label>{{ form_interacao.status }}</div>
-              <div><label class="block text-xs font-medium text-slate-600 mb-1">Data/Hora</label>{{ form_interacao.data_ocorrencia }}</div>
+            <div class="field-grid">
+              <div><label>Tipo</label>{{ form_interacao.tipo }}</div>
+              <div><label>Status</label>{{ form_interacao.status }}</div>
+              <div><label>Data / hora</label>{{ form_interacao.data_ocorrencia }}</div>
             </div>
-            <div><label class="block text-xs font-medium text-slate-600 mb-1">Conteúdo</label>{{ form_interacao.conteudo }}</div>
-            <details class="text-sm">
-              <summary class="cursor-pointer text-slate-600">Schedule follow-up</summary>
-              <div class="mt-2 grid grid-cols-1 md:grid-cols-3 gap-2 border-t pt-2">
-                <label class="inline-flex items-center gap-2 md:col-span-3">{{ form_followup.criar }} Criar follow-up agendado</label>
-                <div><label class="block text-xs font-medium text-slate-600 mb-1">Tipo</label>{{ form_followup.tipo }}</div>
-                <div><label class="block text-xs font-medium text-slate-600 mb-1">Data/Hora</label>{{ form_followup.data_ocorrencia }}</div>
-                <div class="md:col-span-3"><label class="block text-xs font-medium text-slate-600 mb-1">Conteúdo</label>{{ form_followup.conteudo }}</div>
+            <div class="field"><label>Conteúdo</label>{{ form_interacao.conteudo }}</div>
+            <details>
+              <summary style="cursor:pointer;font-family:var(--font-mono);font-size:11px;color:var(--ink-soft);letter-spacing:0.04em">+ Agendar follow-up</summary>
+              <div style="margin-top:10px;padding:10px;background:var(--surface-1);border:1px solid var(--rule)">
+                <label style="display:flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:11px;color:var(--ink-strong);text-transform:none;letter-spacing:0;font-weight:500;margin-bottom:8px">{{ form_followup.criar }} criar follow-up agendado</label>
+                <div class="field-grid cols-2">
+                  <div><label>Tipo</label>{{ form_followup.tipo }}</div>
+                  <div><label>Data</label>{{ form_followup.data_ocorrencia }}</div>
+                </div>
+                <div class="field"><label>Conteúdo</label>{{ form_followup.conteudo }}</div>
               </div>
             </details>
-            <div class="flex gap-2">
-              <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2 rounded-lg">Registrar interação</button>
-              <button type="button" data-acao-cancelar class="text-sm text-slate-500 hover:text-slate-800 px-2">Cancelar</button>
+            <div class="actions">
+              <button type="submit" class="btn primary">Registrar</button>
+              <button type="button" data-acao-cancelar class="btn ghost">Cancelar</button>
             </div>
           </form>
         </div>
         {% endif %}
 
+        {# Form encaminhamento inline #}
         {% if perms.demandas.add_encaminhamento %}
-        <div data-acao-form="encaminhamento" class="hidden mt-2">
-          <p class="text-xs text-slate-500 mb-2">Abrir um caminho formal para órgão externo (ofício, indicação, requerimento). O encaminhamento entra na linha do tempo e tem ciclo próprio (envio → resposta).</p>
-          <form method="post" action="{% url 'demandas:encaminhamento_novo' demanda.pk %}" class="space-y-2">
+        <div class="add-painel hidden" data-acao-form="encaminhamento" style="grid-column:1/-1;width:100%">
+          <p class="helper">Abrir caminho formal a órgão externo. Entra na linha do tempo com ciclo próprio (envio → resposta).</p>
+          <form method="post" action="{% url 'demandas:encaminhamento_novo' demanda.pk %}">
             {% csrf_token %}
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-              <div><label class="block text-xs font-medium text-slate-600 mb-1">Órgão *</label>{{ form_encaminhamento.destinatario_orgao }}</div>
-              <div><label class="block text-xs font-medium text-slate-600 mb-1">Pessoa contato</label>{{ form_encaminhamento.destinatario_pessoa }}</div>
-              <div><label class="block text-xs font-medium text-slate-600 mb-1">Tipo de documento *</label>{{ form_encaminhamento.tipo_documento }}</div>
-              <div><label class="block text-xs font-medium text-slate-600 mb-1">Número/protocolo</label>{{ form_encaminhamento.numero_documento }}</div>
-              <div><label class="block text-xs font-medium text-slate-600 mb-1">Data envio *</label>{{ form_encaminhamento.data_envio }}</div>
-              <div><label class="block text-xs font-medium text-slate-600 mb-1">Prazo resposta</label>{{ form_encaminhamento.prazo_resposta }}</div>
+            <div class="field-grid cols-2">
+              <div><label>Órgão *</label>{{ form_encaminhamento.destinatario_orgao }}</div>
+              <div><label>Pessoa contato</label>{{ form_encaminhamento.destinatario_pessoa }}</div>
+              <div><label>Tipo de documento *</label>{{ form_encaminhamento.tipo_documento }}</div>
+              <div><label>Número / protocolo</label>{{ form_encaminhamento.numero_documento }}</div>
+              <div><label>Data de envio *</label>{{ form_encaminhamento.data_envio }}</div>
+              <div><label>Prazo resposta</label>{{ form_encaminhamento.prazo_resposta }}</div>
             </div>
-            <div class="flex gap-2">
-              <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2 rounded-lg">Adicionar encaminhamento</button>
-              <button type="button" data-acao-cancelar class="text-sm text-slate-500 hover:text-slate-800 px-2">Cancelar</button>
+            <div class="actions">
+              <button type="submit" class="btn primary">Adicionar encaminhamento</button>
+              <button type="button" data-acao-cancelar class="btn ghost">Cancelar</button>
             </div>
           </form>
         </div>
@@ -290,127 +846,196 @@
       {% endif %}
     </section>
 
+    <aside class="aside">
+      {% if pode_concluir or pode_reabrir or pode_editar %}
+      <div class="aside-actions">
+        {% if pode_concluir %}
+        <button type="button" data-drawer="drawer-concluir" class="drawer-trigger btn primary lg">{% if demanda.origem == 'responsiva' %}Concluir demanda →{% else %}Concluir ação →{% endif %}</button>
+        {% if demanda.origem == 'responsiva' %}<p class="helper">com devolutiva ao demandante</p>{% endif %}
+        {% endif %}
+        {% if pode_reabrir and demanda.status == 'concluida' %}
+        <form method="post" action="{% url 'demandas:demanda_reabrir' demanda.pk %}">{% csrf_token %}<button type="submit" class="btn secondary">Reabrir</button></form>
+        {% endif %}
+        {% if pode_editar and demanda.status != 'arquivado' %}
+        <a href="{% url 'demandas:demanda_editar' demanda.pk %}" class="btn secondary">Editar</a>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      <div class="aside-section">
+        <div class="block">
+          <div class="k">Status</div>
+          {% if demanda.status == 'novo' %}<span class="badge st-novo"><span class="dot"></span>Novo</span>
+          {% elif demanda.status == 'em_andamento' %}<span class="badge st-andam"><span class="dot"></span>Em andamento</span>
+          {% elif demanda.status == 'aguardando_terceiros' %}<span class="badge st-agterc"><span class="dot"></span>Ag. terceiros</span>
+          {% elif demanda.status == 'aguardando_pessoa' %}<span class="badge st-agresp"><span class="dot"></span>Ag. pessoa</span>
+          {% elif demanda.status == 'concluida' %}<span class="badge st-conc"><span class="dot"></span>Concluída</span>
+          {% elif demanda.status == 'arquivado' %}<span class="badge st-arq"><span class="dot"></span>Arquivado</span>{% endif %}
+        </div>
+        <div class="block">
+          <div class="k">Resultado</div>
+          {% if demanda.resultado == 'pendente' %}<span class="badge rs-pend"><span class="glyph">○</span>Pendente</span>
+          {% elif demanda.resultado == 'atendido' %}<span class="badge rs-atend"><span class="glyph">✓</span>Atendido</span>
+          {% elif demanda.resultado == 'atendido_parcialmente' %}<span class="badge rs-parc"><span class="glyph">◐</span>Parcial</span>
+          {% elif demanda.resultado == 'nao_atendido' %}<span class="badge rs-nao"><span class="glyph">✗</span>Não atendido</span>
+          {% elif demanda.resultado == 'inviavel' %}<span class="badge rs-inv"><span class="glyph">⊘</span>Inviável</span>
+          {% elif demanda.resultado == 'nao_se_aplica' %}<span class="badge rs-nsa"><span class="glyph">—</span>N/A</span>{% endif %}
+        </div>
+        <div class="block">
+          <div class="k">Origem{% if demanda.restrito %} · visibilidade{% endif %}</div>
+          <div class="badges">
+            <span class="badge origem">{{ demanda.get_origem_display }}</span>
+            {% if demanda.restrito %}<span class="badge restrita">Restrita</span>{% endif %}
+          </div>
+        </div>
+        {% if demanda.resultado_observacao %}
+        <div class="block">
+          <div class="k">Observação do resultado</div>
+          <p style="font-family:var(--font-serif);font-size:13px;color:var(--ink-body);margin:0;line-height:1.45;font-style:italic">{{ demanda.resultado_observacao }}</p>
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="aside-section">
+        {% if demanda.responsavel %}
+        <div class="block">
+          <div class="k">Responsável</div>
+          <div class="who-mini">
+            <span class="av">{{ demanda.responsavel.nome_completo|default:demanda.responsavel.email|slice:":2"|upper }}</span>
+            {{ demanda.responsavel.nome_completo|default:demanda.responsavel.email }}
+          </div>
+        </div>
+        {% endif %}
+        <div class="block">
+          <div class="k">Coordenação</div>
+          <div class="v">{{ demanda.get_coordenacao_responsavel_display }}</div>
+        </div>
+        {% if demanda.prazo %}
+        <div class="block">
+          <div class="k">Prazo</div>
+          <div class="v">{{ demanda.prazo|date:"d/m/Y" }}</div>
+        </div>
+        {% endif %}
+      </div>
+
+      {% if demanda.temas.all %}
+      <div class="aside-section">
+        <div class="block">
+          <div class="k">Temas</div>
+          <div class="pills">
+            {% for t in demanda.temas.all %}<span class="pill"{% if t.cor %} style="--pill-color: {{ t.cor }}"{% endif %}>{{ t.nome }}</span>{% endfor %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if partes_pessoas or partes_entidades %}
+      <div class="aside-section">
+        <h3 class="h">Partes envolvidas <span class="count">{{ partes_pessoas|length|add:partes_entidades|length }}</span></h3>
+        {% for dp in partes_pessoas %}
+        <div class="parte">
+          <div class="av">{{ dp.pessoa.nome|slice:":1"|upper }}{{ dp.pessoa.sobrenome|slice:":1"|upper }}</div>
+          <div>
+            <div class="nome"><a href="{% url 'pessoas:pessoa_detalhe' dp.pessoa.slug_publico %}">{{ dp.pessoa.nome_exibicao }}</a></div>
+            {% if dp.papel %}<div class="papel">{{ dp.papel_display }}</div>{% endif %}
+          </div>
+        </div>
+        {% endfor %}
+        {% for de in partes_entidades %}
+        <div class="parte">
+          <div class="av entidade">{{ de.entidade.nome|slice:":2"|upper }}</div>
+          <div>
+            <div class="nome"><a href="{% url 'pessoas:entidade_detalhe' de.entidade.slug_publico %}">{{ de.entidade.nome }}</a></div>
+            {% if de.papel %}<div class="papel">{{ de.papel_display }}</div>{% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% elif demanda.anonimo %}
+      <div class="aside-section">
+        <h3 class="h">Partes envolvidas</h3>
+        <p style="font-family:var(--font-serif);font-style:italic;color:var(--ink-mute);font-size:13px;margin:0">Demanda anônima.</p>
+      </div>
+      {% endif %}
+
+      {% if encaminhamentos %}
+      <div class="aside-section">
+        <h3 class="h">Encaminhamentos <span class="count">{{ encaminhamentos|length }}</span></h3>
+        {% for e in encaminhamentos %}
+        <div class="encam-mini {% if 'respondido' in e.status %}respondido{% endif %}">
+          <div class="id">{{ e.get_tipo_documento_display }}{% if e.numero_documento %} · {{ e.numero_documento }}{% endif %}</div>
+          <div class="destino">{{ e.destinatario_orgao }}</div>
+          <div class="stat">
+            {% if 'respondido' in e.status %}<span class="ok">{{ e.get_status_display }}</span>
+            {% elif e.status == 'prazo_vencido' %}<span class="pend">vencido</span>
+            {% else %}<span>{{ e.get_status_display }}</span>{% endif %}
+            {% if e.data_resposta %}<span>{{ e.data_resposta|date:"d/m" }}</span>{% elif e.prazo_resposta %}<span>até {{ e.prazo_resposta|date:"d/m" }}</span>{% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% if anexos %}
+      <div class="aside-section">
+        <h3 class="h">Anexos <span class="count">{{ anexos|length }}</span></h3>
+        {% for a in anexos %}
+        <div class="anexo">
+          <span class="ext">{{ a.nome_original|slice:"-3:"|upper }}</span>
+          <div class="nome">
+            <a href="{{ a.arquivo.url }}" target="_blank" rel="noopener" title="{{ a.nome_original }}">{{ a.nome_original }}</a>
+            <small>{{ a.enviado_por.nome_completo|default:a.enviado_por.email|truncatechars:18 }} · {{ a.criado_em|date:"d/m" }}</small>
+          </div>
+          <form method="post" action="{% url 'demandas:anexo_remover' a.pk %}" onsubmit="return confirm('Remover este anexo?')" style="display:inline">
+            {% csrf_token %}
+            <button type="submit" class="tam" style="background:none;border:0;cursor:pointer;color:var(--ink-mute)" title="Remover">✕</button>
+          </form>
+        </div>
+        {% endfor %}
+        {% if perms.demandas.add_anexo and demanda.status != 'arquivado' %}
+        <label class="anexo-drop">
+          + arrastar arquivo ou clicar
+          <form method="post" enctype="multipart/form-data" action="{% url 'demandas:anexo_upload' 'demanda' demanda.pk %}" id="form-upload-aside" style="display:contents">{% csrf_token %}<input type="file" name="arquivo" onchange="document.getElementById('form-upload-aside').submit()"></form>
+        </label>
+        {% endif %}
+      </div>
+      {% endif %}
+    </aside>
   </div>
+</article>
 
-  <aside class="space-y-6">
-    {# Ações de fechamento — sempre visíveis no aside. #}
-    {% if pode_concluir or pode_arquivar or pode_reabrir %}
-    <section class="bg-white border border-slate-200 rounded-xl p-6 space-y-3">
-      {% if demanda.status == 'concluida' %}
-        <p class="text-xs text-slate-500 mb-2">Demanda <strong class="text-emerald-700">concluída</strong>. Você pode reabrir se houver novo desdobramento.</p>
-      {% elif demanda.status == 'arquivado' %}
-        <p class="text-xs text-slate-500 mb-2">Demanda <strong class="text-slate-700">arquivada</strong>.</p>
-      {% endif %}
-      {% if pode_concluir %}
-      <button type="button" data-drawer="drawer-concluir"
-              class="drawer-trigger w-full bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2 rounded-lg shadow-sm">
-        {% if demanda.origem == 'responsiva' %}Concluir demanda{% else %}Concluir ação{% endif %}
-      </button>
-      {% if demanda.origem == 'responsiva' %}<p class="text-[11px] text-slate-500 text-center -mt-1">com devolutiva ao demandante</p>{% endif %}
-      {% endif %}
-      {% if pode_reabrir and demanda.status == 'concluida' %}
-      <form method="post" action="{% url 'demandas:demanda_reabrir' demanda.pk %}" class="block">
-        {% csrf_token %}
-        <button type="submit" class="w-full bg-slate-700 hover:bg-slate-800 text-white text-sm font-medium px-4 py-2 rounded-lg">Reabrir demanda</button>
-      </form>
-      {% endif %}
-      {% if pode_arquivar and demanda.status != 'arquivado' %}
-      <div class="text-center pt-1">
-        <button type="button" data-drawer="drawer-arquivar" class="drawer-trigger text-sm text-slate-600 hover:text-slate-900 underline">Arquivar</button>
-      </div>
-      {% endif %}
-    </section>
-    {% endif %}
-    {% if pode_editar and demanda.status != 'arquivado' %}
-    <section class="bg-white border border-slate-200 rounded-xl p-6">
-      <h2 class="text-base font-semibold text-slate-900 mb-1">Estado</h2>
-      <p class="text-xs text-slate-500 mb-4">Ajustes do dia a dia. Conclusão e arquivamento têm botão próprio.</p>
-      <form method="post" action="{% url 'demandas:demanda_estado' demanda.pk %}" class="space-y-3">
-        {% csrf_token %}
-        <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Status</label>
-          {{ form_estado.status }}
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Resultado material</label>
-          {{ form_estado.resultado }}
-          <p class="text-[11px] text-slate-500 mt-1">Marque quando souber o desfecho, mesmo antes da devolutiva.</p>
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Responsável</label>
-          {{ form_estado.responsavel }}
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Coordenação</label>
-          {{ form_estado.coordenacao_responsavel }}
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Prazo</label>
-          {{ form_estado.prazo }}
-        </div>
-        <button type="submit" class="w-full bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-3 py-2 rounded-lg">Atualizar estado</button>
-      </form>
-    </section>
-    {% endif %}
-  </aside>
-</div>
-
-{# Drawer: concluir demanda — ADR 0043 #}
+{# Drawer: concluir #}
 {% if pode_concluir %}
-<div id="drawer-concluir" class="drawer hidden fixed inset-0 z-50">
-  <div class="absolute inset-0 bg-slate-900/40" data-close-drawer></div>
-  <aside class="absolute inset-y-0 right-0 w-full sm:max-w-md bg-white shadow-2xl flex flex-col overflow-y-auto">
-    <header class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-      <h3 class="text-lg font-semibold text-slate-900">
-        {% if demanda.origem == 'responsiva' %}Concluir demanda{% else %}Concluir ação{% endif %}
-      </h3>
-      <button type="button" data-close-drawer class="text-slate-400 hover:text-slate-700 text-xl leading-none">×</button>
+<div id="drawer-concluir" class="drawer hidden">
+  <div class="backdrop" data-close-drawer></div>
+  <aside class="drawer-panel">
+    <header>
+      <h3>{% if demanda.origem == 'responsiva' %}Concluir demanda{% else %}Concluir ação{% endif %}</h3>
+      <button type="button" class="x" data-close-drawer>×</button>
     </header>
-
     {% if demanda.origem == 'responsiva' %}
-    <form method="post" action="{% url 'demandas:demanda_concluir' demanda.pk %}" class="px-6 py-4 space-y-4 flex-1">
+    <form method="post" action="{% url 'demandas:demanda_concluir' demanda.pk %}">
       {% csrf_token %}
-      <p class="text-sm text-slate-600">Esta é uma demanda responsiva. Para concluir, registre a <strong>devolutiva ao demandante</strong> (data, canal e conteúdo) e classifique o resultado material. A devolutiva fica visível na timeline.</p>
-      <div>
-        <label class="block text-xs font-medium text-slate-600 mb-1">Data da devolutiva *</label>
-        {{ form_concluir.devolutiva_data }}
-      </div>
-      <div>
-        <label class="block text-xs font-medium text-slate-600 mb-1">Canal *</label>
-        {{ form_concluir.devolutiva_canal }}
-      </div>
-      <div>
-        <label class="block text-xs font-medium text-slate-600 mb-1">O que foi comunicado ao demandante *</label>
-        {{ form_concluir.devolutiva_conteudo }}
-      </div>
-      <div class="border-t border-slate-200 pt-4">
-        <label class="block text-xs font-medium text-slate-600 mb-1">Resultado material *</label>
-        {{ form_concluir.resultado }}
-      </div>
-      <div>
-        <label class="block text-xs font-medium text-slate-600 mb-1">Observação do resultado</label>
-        {{ form_concluir.resultado_observacao }}
-      </div>
-      <div class="flex gap-2 justify-end pt-2">
-        <button type="button" data-close-drawer class="text-sm text-slate-500 hover:text-slate-800 px-4 py-2">Cancelar</button>
-        <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2 rounded-lg">Concluir</button>
+      <p class="helper">Demanda <strong>responsiva</strong>: registre a <strong>devolutiva ao demandante</strong> e classifique o resultado material. A devolutiva entra na timeline.</p>
+      <div class="field"><label>Data da devolutiva *</label>{{ form_concluir.devolutiva_data }}</div>
+      <div class="field"><label>Canal *</label>{{ form_concluir.devolutiva_canal }}</div>
+      <div class="field"><label>O que foi comunicado *</label>{{ form_concluir.devolutiva_conteudo }}</div>
+      <div class="field" style="border-top:1px solid var(--rule);padding-top:14px;margin-top:14px"><label>Resultado material *</label>{{ form_concluir.resultado }}</div>
+      <div class="field"><label>Observação do resultado</label>{{ form_concluir.resultado_observacao }}</div>
+      <div class="actions">
+        <button type="button" class="btn ghost" data-close-drawer>Cancelar</button>
+        <button type="submit" class="btn primary">Concluir</button>
       </div>
     </form>
     {% else %}
-    <form method="post" action="{% url 'demandas:demanda_concluir' demanda.pk %}" class="px-6 py-4 space-y-4 flex-1">
+    <form method="post" action="{% url 'demandas:demanda_concluir' demanda.pk %}">
       {% csrf_token %}
-      <p class="text-sm text-slate-600">Esta é uma demanda proativa (ação do mandato sem demandante esperando retorno). Para concluir, classifique o resultado material.</p>
-      <div>
-        <label class="block text-xs font-medium text-slate-600 mb-1">Resultado material *</label>
-        {{ form_concluir.resultado }}
-      </div>
-      <div>
-        <label class="block text-xs font-medium text-slate-600 mb-1">Observação do resultado</label>
-        {{ form_concluir.resultado_observacao }}
-      </div>
-      <div class="flex gap-2 justify-end pt-2">
-        <button type="button" data-close-drawer class="text-sm text-slate-500 hover:text-slate-800 px-4 py-2">Cancelar</button>
-        <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2 rounded-lg">Concluir</button>
+      <p class="helper">Demanda <strong>proativa</strong>: classifique apenas o resultado material.</p>
+      <div class="field"><label>Resultado material *</label>{{ form_concluir.resultado }}</div>
+      <div class="field"><label>Observação do resultado</label>{{ form_concluir.resultado_observacao }}</div>
+      <div class="actions">
+        <button type="button" class="btn ghost" data-close-drawer>Cancelar</button>
+        <button type="submit" class="btn primary">Concluir</button>
       </div>
     </form>
     {% endif %}
@@ -420,25 +1045,20 @@
 
 {# Drawer: arquivar #}
 {% if pode_arquivar and demanda.status != 'arquivado' %}
-<div id="drawer-arquivar" class="drawer hidden fixed inset-0 z-50">
-  <div class="absolute inset-0 bg-slate-900/40" data-close-drawer></div>
-  <aside class="absolute inset-y-0 right-0 w-full sm:max-w-md bg-white shadow-2xl flex flex-col overflow-y-auto">
-    <header class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-      <h3 class="text-lg font-semibold text-slate-900">Arquivar demanda</h3>
-      <button type="button" data-close-drawer class="text-slate-400 hover:text-slate-700 text-xl leading-none">×</button>
+<div id="drawer-arquivar" class="drawer hidden">
+  <div class="backdrop" data-close-drawer></div>
+  <aside class="drawer-panel">
+    <header>
+      <h3>Arquivar demanda</h3>
+      <button type="button" class="x" data-close-drawer>×</button>
     </header>
-    <form method="post" action="{% url 'demandas:demanda_arquivar' demanda.pk %}" class="px-6 py-4 space-y-4 flex-1">
+    <form method="post" action="{% url 'demandas:demanda_arquivar' demanda.pk %}">
       {% csrf_token %}
-      {% if demanda.status != 'concluida' %}
-      <p class="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">Demanda ainda não concluída — justificativa obrigatória.</p>
-      {% endif %}
-      <div>
-        <label class="block text-xs font-medium text-slate-600 mb-1">Observações</label>
-        {{ form_arquivar.observacoes_arquivamento }}
-      </div>
-      <div class="flex gap-2 justify-end pt-2">
-        <button type="button" data-close-drawer class="text-sm text-slate-500 hover:text-slate-800 px-4 py-2">Cancelar</button>
-        <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2 rounded-lg">Arquivar</button>
+      {% if demanda.status != 'concluida' %}<p class="helper" style="background:var(--warning-50);border-left:3px solid var(--warning-500);padding:10px 14px;color:var(--warning-700)">Demanda ainda não concluída — justificativa obrigatória.</p>{% endif %}
+      <div class="field"><label>Observações do arquivamento</label>{{ form_arquivar.observacoes_arquivamento }}</div>
+      <div class="actions">
+        <button type="button" class="btn ghost" data-close-drawer>Cancelar</button>
+        <button type="submit" class="btn danger">Arquivar</button>
       </div>
     </form>
   </aside>
@@ -447,71 +1067,42 @@
 
 <script>
 (function() {
-  // Drawers (Concluir / Arquivar)
-  function open(id) {
+  function openDrawer(id) {
     const d = document.getElementById(id);
-    if (d) { d.classList.remove('hidden'); document.body.classList.add('overflow-hidden'); }
+    if (d) { d.classList.remove('hidden'); document.body.style.overflow = 'hidden'; }
   }
-  function close(el) {
-    const drawer = el.closest('.drawer');
-    if (drawer) { drawer.classList.add('hidden'); document.body.classList.remove('overflow-hidden'); }
+  function closeDrawer(el) {
+    const d = el.closest('.drawer');
+    if (d) { d.classList.add('hidden'); document.body.style.overflow = ''; }
   }
-  document.querySelectorAll('.drawer-trigger').forEach(btn => {
-    btn.addEventListener('click', () => open(btn.dataset.drawer));
-  });
-  document.querySelectorAll('[data-close-drawer]').forEach(el => {
-    el.addEventListener('click', () => close(el));
-  });
+  document.querySelectorAll('.drawer-trigger').forEach(b => b.addEventListener('click', () => openDrawer(b.dataset.drawer)));
+  document.querySelectorAll('[data-close-drawer]').forEach(el => el.addEventListener('click', () => closeDrawer(el)));
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
-      document.querySelectorAll('.drawer:not(.hidden)').forEach(d => {
-        d.classList.add('hidden');
-        document.body.classList.remove('overflow-hidden');
-      });
+      document.querySelectorAll('.drawer:not(.hidden)').forEach(d => { d.classList.add('hidden'); document.body.style.overflow = ''; });
     }
   });
 
-  // Painel de ação compartilhado (Adicionar interação / Novo encaminhamento)
+  // Painel inline de adicionar interação/encaminhamento
   const painel = document.querySelector('[data-acao-painel]');
   if (painel) {
     const botoes = painel.querySelectorAll('.acao-btn');
     const forms = painel.querySelectorAll('[data-acao-form]');
-    const ATIVO = ['bg-slate-800', 'text-white', 'border-slate-800'];
-    const INATIVO = ['text-slate-700', 'hover:bg-slate-50'];
-
-    function fechar() {
+    function close() {
       forms.forEach(f => f.classList.add('hidden'));
-      botoes.forEach(b => {
-        b.classList.remove(...ATIVO);
-        b.classList.add(...INATIVO);
-      });
+      botoes.forEach(b => b.classList.remove('on'));
     }
-    function abrir(nome) {
-      forms.forEach(f => {
-        if (f.dataset.acaoForm === nome) f.classList.remove('hidden');
-        else f.classList.add('hidden');
-      });
-      botoes.forEach(b => {
-        if (b.dataset.acao === nome) {
-          b.classList.add(...ATIVO);
-          b.classList.remove(...INATIVO);
-        } else {
-          b.classList.remove(...ATIVO);
-          b.classList.add(...INATIVO);
-        }
-      });
+    function open(name) {
+      forms.forEach(f => f.classList.toggle('hidden', f.dataset.acaoForm !== name));
+      botoes.forEach(b => b.classList.toggle('on', b.dataset.acao === name));
     }
-    botoes.forEach(b => {
-      b.addEventListener('click', () => {
-        const jaAtivo = b.classList.contains('bg-slate-800');
-        if (jaAtivo) fechar();
-        else abrir(b.dataset.acao);
-      });
-    });
-    painel.querySelectorAll('[data-acao-cancelar]').forEach(b => {
-      b.addEventListener('click', fechar);
-    });
+    botoes.forEach(b => b.addEventListener('click', () => {
+      b.classList.contains('on') ? close() : open(b.dataset.acao);
+    }));
+    painel.querySelectorAll('[data-acao-cancelar]').forEach(b => b.addEventListener('click', close));
   }
 })();
 </script>
+
+<style>.acao-btn.on { background: var(--primary); color: var(--primary-fg); border-color: var(--primary); }</style>
 {% endblock %}
