@@ -1,0 +1,783 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>MPD · Início</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  body { background: var(--surface-0); padding-bottom: 80px; }
+
+  /* ════════════════════════════════════════════════════
+     SHELL
+     ════════════════════════════════════════════════════ */
+  .topbar {
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--rule);
+    position: sticky; top: 0; z-index: var(--z-sticky);
+    box-shadow: 0 1px 0 rgba(0,0,0,0.02);
+  }
+  .topbar-inner {
+    max-width: 1440px; margin: 0 auto;
+    padding: 0 28px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 24px; align-items: center;
+    min-height: 56px;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink-strong); }
+  .brand .mark { width: 28px; height: 28px; background: var(--primary); color: var(--primary-fg); display: grid; place-items: center; font-family: var(--font-mono); font-weight: 700; font-size: 12px; letter-spacing: 0.04em; }
+  .brand .name { font-family: var(--font-mono); font-weight: 600; font-size: 14px; letter-spacing: 0.04em; }
+  .brand .tag { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; color: var(--ink-mute); text-transform: uppercase; margin-left: 6px; padding-left: 10px; border-left: 1px solid var(--rule-strong); }
+  .topbar-right { display: flex; align-items: center; gap: 4px; }
+  .topbar-right nav { display: flex; align-items: center; }
+  .topbar-right nav a {
+    text-decoration: none; color: var(--ink-soft);
+    font-family: var(--font-mono); font-size: 12px;
+    letter-spacing: 0.04em; padding: 8px 12px;
+    position: relative;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .topbar-right nav a:hover { color: var(--ink); background: var(--surface-1); }
+  .topbar-right nav a.current { color: var(--primary); font-weight: 600; }
+  .topbar-right nav a.current::after {
+    content: ""; position: absolute; bottom: -1px; left: 12px; right: 12px;
+    height: 2px; background: var(--primary);
+  }
+  .topbar-right nav a .badge-count {
+    font-family: var(--font-mono); font-size: 10px;
+    background: var(--ink-200); color: var(--ink-800);
+    padding: 1px 6px; font-weight: 600;
+  }
+  .topbar-right nav a .badge-count.alert { background: var(--danger-500); color: #fff; }
+  .topbar-right .divider { width: 1px; height: 22px; background: var(--rule); margin: 0 8px; }
+  .topbar-right .me { display: flex; align-items: center; gap: 10px; padding: 4px 10px; }
+  .topbar-right .me .av {
+    width: 28px; height: 28px;
+    background: var(--navy-100); color: var(--navy-700);
+    border-radius: var(--radius-full);
+    display: grid; place-items: center;
+    font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+  }
+  .topbar-right .me .who { font-family: var(--font-mono); font-size: 12px; color: var(--ink); font-weight: 600; letter-spacing: 0.02em; }
+  .topbar-right .me .role {
+    display: block; font-family: var(--font-mono);
+    font-size: 10px; color: var(--ink-mute);
+    margin-top: 1px; letter-spacing: 0.04em; text-transform: uppercase;
+  }
+
+  /* ════════════════════════════════════════════════════
+     HERO (full viewport menos topbar)
+     ════════════════════════════════════════════════════ */
+  .hero {
+    min-height: calc(100vh - 56px);
+    display: grid;
+    grid-template-rows: 1fr auto;
+    padding: 56px 28px 32px;
+  }
+  .hero-inner {
+    max-width: 1080px; width: 100%;
+    margin: 0 auto;
+    display: flex; flex-direction: column; justify-content: center;
+    align-items: stretch;
+  }
+
+  /* Saudação editorial */
+  .hero .when {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    font-weight: 700;
+    margin-bottom: 18px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .hero .when::before {
+    content: ""; width: 32px; height: 1px;
+    background: var(--primary);
+  }
+  .hero h1 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 72px;
+    line-height: 1.0;
+    letter-spacing: -0.035em;
+    color: var(--ink);
+    margin: 0 0 14px;
+  }
+  .hero h1 em {
+    font-style: italic;
+    font-weight: 400;
+    color: var(--primary);
+  }
+  .hero .lede {
+    font-family: var(--font-serif);
+    font-size: 19px;
+    line-height: 1.5;
+    color: var(--ink-body);
+    margin: 0 0 36px;
+    max-width: 62ch;
+    font-style: italic;
+  }
+  .hero .lede strong { color: var(--ink); font-weight: 600; font-style: normal; }
+
+  /* ──── Composer (input) ──── */
+  .composer {
+    background: var(--surface-2);
+    border: 1px solid var(--rule-strong);
+    border-top: 6px solid var(--primary);
+    box-shadow: var(--shadow-lg);
+    padding: 22px 24px 16px;
+    display: grid;
+    grid-template-rows: 1fr auto;
+    min-height: 168px;
+    transition: border-color .12s, box-shadow .12s;
+  }
+  .composer:focus-within {
+    border-color: var(--primary);
+    box-shadow: 0 8px 24px rgba(31,58,95,0.12), 0 0 0 3px rgba(31,58,95,0.08);
+  }
+  .composer textarea {
+    border: 0; outline: 0;
+    width: 100%; resize: none;
+    background: transparent;
+    font-family: var(--font-serif);
+    font-size: 19px;
+    line-height: 1.55;
+    color: var(--ink);
+    padding: 0;
+    min-height: 88px;
+  }
+  .composer textarea::placeholder {
+    color: var(--ink-mute);
+    font-style: italic;
+    opacity: 1;
+  }
+  /* Cursor caret cor (Webkit/Firefox) */
+  .composer textarea { caret-color: var(--primary); }
+
+  /* Toolbar do composer */
+  .comp-tools {
+    display: flex; align-items: center; gap: 8px;
+    padding-top: 14px;
+    margin-top: 8px;
+    border-top: 1px solid var(--rule);
+  }
+  .comp-tools .opt {
+    background: var(--surface-3);
+    border: 1px solid var(--rule);
+    color: var(--ink-soft);
+    font-family: var(--font-mono); font-size: 11px;
+    padding: 5px 11px; cursor: pointer;
+    letter-spacing: 0.04em; text-transform: uppercase;
+    font-weight: 600;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .comp-tools .opt:hover { color: var(--ink); border-color: var(--ink-soft); }
+  .comp-tools .opt .ic { color: var(--ink-mute); font-family: var(--font-mono); }
+  .comp-tools .opt.has { background: var(--info-50); color: var(--info-700); border-color: var(--info-300); }
+  .comp-tools .gap { flex: 1; }
+  .comp-tools .hint {
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--ink-mute); letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .comp-tools .hint kbd {
+    background: var(--surface-1);
+    border: 1px solid var(--rule-strong);
+    padding: 1px 6px; margin: 0 1px;
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--ink-soft);
+    letter-spacing: 0.04em;
+  }
+  .comp-tools .send {
+    background: var(--primary);
+    color: var(--primary-fg);
+    border: 1px solid var(--primary);
+    font-family: var(--font-mono); font-size: 12px; font-weight: 600;
+    padding: 7px 16px;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .comp-tools .send:hover { background: var(--primary-hover); }
+
+  /* Atalhos personalizados (sugestões abaixo do composer) */
+  .quick-jumps {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin-top: 18px;
+    align-items: center;
+  }
+  .quick-jumps .lbl {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    font-weight: 700;
+    margin-right: 4px;
+  }
+  .quick-jumps .jump {
+    background: transparent;
+    border: 1px solid var(--rule-strong);
+    color: var(--ink-soft);
+    padding: 6px 12px;
+    text-decoration: none;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 8px;
+    transition: border-color .12s, color .12s;
+  }
+  .quick-jumps .jump:hover { color: var(--ink); border-color: var(--ink); }
+  .quick-jumps .jump .num {
+    font-weight: 700; color: var(--ink-strong);
+    font-family: var(--font-mono);
+  }
+  .quick-jumps .jump.urgent .num { color: var(--danger-600); }
+  .quick-jumps .jump .arr { color: var(--ink-mute); opacity: 0.6; }
+  .quick-jumps .jump:hover .arr { color: var(--primary); opacity: 1; }
+
+  /* Scroll hint */
+  .scroll-hint {
+    align-self: end;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    font-weight: 600;
+    padding-top: 24px;
+  }
+  .scroll-hint .chev {
+    display: block;
+    margin: 8px auto 0;
+    font-family: var(--font-mono);
+    font-size: 18px;
+    color: var(--primary);
+    line-height: 1;
+    animation: hop 2.4s ease-in-out infinite;
+  }
+  @keyframes hop {
+    0%, 100% { transform: translateY(0); opacity: 0.5; }
+    50% { transform: translateY(6px); opacity: 1; }
+  }
+
+  /* ════════════════════════════════════════════════════
+     ABAIXO DA DOBRA · painel operacional
+     ════════════════════════════════════════════════════ */
+  .below {
+    background: var(--surface-0);
+    border-top: 1px solid var(--rule);
+    padding: 64px 28px 48px;
+    position: relative;
+  }
+  .below::before {
+    content: "";
+    position: absolute; top: -1px; left: 0; right: 0;
+    height: 6px; background: var(--primary);
+    max-width: 1440px; margin: 0 auto;
+  }
+  .below-inner { max-width: 1440px; margin: 0 auto; }
+
+  /* Seção · cabeçalho */
+  .section-head {
+    display: flex; align-items: baseline; gap: 14px;
+    margin-bottom: 18px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--ink-200);
+  }
+  .section-head h2 {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--primary);
+    margin: 0;
+  }
+  .section-head .count {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-mute);
+    letter-spacing: 0.04em;
+  }
+  .section-head .lede {
+    font-family: var(--font-serif);
+    font-size: 13.5px;
+    color: var(--ink-mute);
+    font-style: italic;
+    margin-left: 6px;
+  }
+  .section { margin-bottom: 44px; }
+  .section:last-child { margin-bottom: 0; }
+
+  /* Resumo · 3 cards estilo painel */
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    margin-bottom: 36px;
+  }
+  .metric {
+    padding: 22px 28px;
+    border-right: 1px solid var(--rule);
+    text-decoration: none;
+    color: inherit;
+    transition: background .12s;
+  }
+  .metric:last-child { border-right: 0; }
+  .metric:hover { background: var(--surface-3); }
+  .metric .k {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-bottom: 6px;
+    font-weight: 600;
+    display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .metric .arr { color: var(--rule-strong); font-family: var(--font-mono); }
+  .metric:hover .arr { color: var(--primary); }
+  .metric .v {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 38px;
+    line-height: 1;
+    letter-spacing: -0.025em;
+    color: var(--ink);
+  }
+  .metric .v.warn { color: var(--danger-600); }
+  .metric .sub {
+    font-family: var(--font-serif);
+    font-size: 13.5px;
+    font-style: italic;
+    color: var(--ink-mute);
+    margin-top: 8px;
+    line-height: 1.4;
+  }
+  .metric .sub strong { color: var(--ink-strong); font-weight: 600; font-style: normal; }
+
+  /* Mosaico (áreas + hub) */
+  .mosaic {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+  .card {
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    padding: 20px 22px 22px;
+    text-decoration: none;
+    color: inherit;
+    display: block;
+    transition: border-color .12s, background .12s;
+  }
+  .card:hover { border-color: var(--ink); background: var(--surface-3); }
+  .card .num {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  .card .num .alert {
+    background: var(--danger-500); color: #fff;
+    padding: 1px 6px; margin-left: 6px;
+    letter-spacing: 0.04em;
+  }
+  .card h3 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 20px;
+    line-height: 1.15;
+    color: var(--ink);
+    margin: 0 0 6px;
+    letter-spacing: -0.015em;
+  }
+  .card p {
+    font-family: var(--font-serif);
+    font-size: 13.5px;
+    line-height: 1.45;
+    color: var(--ink-body);
+    margin: 0;
+  }
+
+  /* Lista de demandas recentes */
+  .recent {
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    border-top: 6px solid var(--primary);
+  }
+  .recent .row {
+    display: grid;
+    grid-template-columns: 130px 1fr auto auto;
+    gap: 18px;
+    padding: 14px 22px;
+    border-top: 1px solid var(--rule);
+    align-items: center;
+  }
+  .recent .row:first-of-type { border-top: 0; }
+  .recent .row:hover { background: var(--surface-3); cursor: pointer; }
+  .recent .num {
+    font-family: var(--font-mono); font-size: 12.5px;
+    color: var(--primary); font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  .recent .num .y { color: var(--ink-mute); font-weight: 400; }
+  .recent .ttl {
+    font-family: var(--font-serif); font-size: 15px;
+    color: var(--ink); line-height: 1.3; font-weight: 500;
+  }
+  .recent .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 9px 4px;
+    font-family: var(--font-mono); font-size: 10.5px;
+    font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    border: 1.5px solid transparent;
+    line-height: 1.2;
+  }
+  .recent .badge .dot { width: 6px; height: 6px; background: currentColor; border-radius: var(--radius-full); }
+  .recent .badge.andam  { background: var(--st-andam-bg);  color: var(--st-andam-fg);  border-color: rgba(107,74,26,0.35); }
+  .recent .badge.agresp { background: var(--st-agresp-bg); color: var(--st-agresp-fg); border-color: rgba(122,74,20,0.35); }
+  .recent .badge.conc   { background: var(--st-conc-bg);   color: var(--st-conc-fg);   border-color: rgba(52,64,34,0.35); }
+  .recent .when {
+    font-family: var(--font-mono); font-size: 11.5px;
+    color: var(--ink-mute); letter-spacing: 0.02em;
+  }
+
+  /* Hub de configurações · mosaico em 3 colunas */
+  .hub-mosaic {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+  .hub-card {
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    padding: 22px 24px 24px;
+    text-decoration: none;
+    color: inherit;
+    display: block;
+    transition: border-color .12s, background .12s;
+  }
+  .hub-card:hover { border-color: var(--ink); background: var(--surface-3); }
+  .hub-card.gated { opacity: 0.5; cursor: not-allowed; }
+  .hub-card .top {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .hub-card .num {
+    font-family: var(--font-mono); font-size: 10px;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--ink-mute); font-weight: 600;
+  }
+  .hub-card .perm {
+    font-family: var(--font-mono);
+    font-size: 9.5px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--ink-mute);
+    padding: 1px 6px;
+    border: 1px solid var(--rule-strong);
+  }
+  .hub-card.gated .perm { color: var(--danger-600); border-color: var(--danger-500); }
+  .hub-card h3 {
+    font-family: var(--font-display); font-weight: 600;
+    font-size: 22px; line-height: 1.15;
+    color: var(--ink); margin: 0 0 6px;
+    letter-spacing: -0.015em;
+  }
+  .hub-card p {
+    font-family: var(--font-serif); font-size: 14px;
+    line-height: 1.45; color: var(--ink-body); margin: 0;
+  }
+
+  @media (max-width: 720px) {
+    .hero h1 { font-size: 48px; }
+    .hero .lede { font-size: 17px; }
+    .mosaic, .hub-mosaic { grid-template-columns: 1fr 1fr; }
+    .metrics { grid-template-columns: 1fr; }
+    .metric { border-right: 0; border-bottom: 1px solid var(--rule); }
+    .metric:last-child { border-bottom: 0; }
+  }
+</style>
+</head>
+<body>
+
+<!-- SHELL -->
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="design-system.html">
+      <span class="mark">M</span>
+      <span class="name">MPD</span>
+      <span class="tag">Gabinete Demo</span>
+    </a>
+    <div></div>
+    <div class="topbar-right">
+      <nav>
+        <a href="#" class="current">Início</a>
+        <a href="inbox.html">Inbox <span class="badge-count">12</span></a>
+        <a href="pendencias.html">Pendências <span class="badge-count alert">3</span></a>
+        <a href="lista-demandas.html">Demandas</a>
+        <a href="#">Pessoas</a>
+        <a href="analise.html">Análise</a>
+      </nav>
+      <div class="divider"></div>
+      <div class="me">
+        <div class="av">MC</div>
+        <div>
+          <div class="who">Maria Coelho</div>
+          <span class="role">Coordenadora</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ════════════════════════════════════════════════════
+     HERO · saudação + composer (tela cheia)
+     ════════════════════════════════════════════════════ -->
+<section class="hero">
+  <div class="hero-inner">
+
+    <div class="when">Domingo · 17 mai 2026 · 14:08</div>
+
+    <h1>Boa tarde, Maria.<br><em>começamos por onde?</em></h1>
+
+    <p class="lede">
+      Anote o que ouviu, o que precisa virar caso, ou cole uma mensagem do WhatsApp. <strong>Vai entrar no inbox</strong> — você decide depois se vira demanda, encaminhamento, ou nota pra alguém da equipe.
+    </p>
+
+    <!-- Composer -->
+    <form class="composer" onsubmit="event.preventDefault(); alert('Capturado!');">
+      <textarea
+        id="capture"
+        autofocus
+        placeholder="Sebastiana acabou de ligar… / Pensar em ofício pra SEMOB sobre… / Cole aqui um print do WhatsApp ou arraste um anexo"
+        rows="4"
+      ></textarea>
+      <div class="comp-tools">
+        <button type="button" class="opt"><span class="ic">⌘</span> Origem <span style="margin-left:4px;color:var(--ink-mute)">↓</span></button>
+        <button type="button" class="opt"><span class="ic">＃</span> Marcar tema</button>
+        <button type="button" class="opt"><span class="ic">📎</span> Anexar</button>
+        <span class="gap"></span>
+        <span class="hint"><kbd>Enter</kbd> capturar · <kbd>⇧ Enter</kbd> quebra de linha</span>
+        <button type="submit" class="send">Capturar →</button>
+      </div>
+    </form>
+
+    <!-- Atalhos personalizados -->
+    <div class="quick-jumps">
+      <span class="lbl">ou ir para</span>
+      <a class="jump urgent" href="pendencias.html"><span class="num">3</span> pendências vencidas <span class="arr">→</span></a>
+      <a class="jump" href="pendencias.html"><span class="num">14:30</span> devolutiva agendada hoje <span class="arr">→</span></a>
+      <a class="jump" href="inbox.html"><span class="num">12</span> itens no inbox <span class="arr">→</span></a>
+      <a class="jump" href="lista-demandas.html"><span class="num">23</span> demandas suas <span class="arr">→</span></a>
+    </div>
+
+  </div>
+
+  <div class="scroll-hint">
+    deslize para o painel
+    <span class="chev">↓</span>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════
+     ABAIXO DA DOBRA · painel
+     ════════════════════════════════════════════════════ -->
+<section class="below">
+  <div class="below-inner">
+
+    <!-- Métricas resumo -->
+    <div class="metrics">
+      <a class="metric" href="pendencias.html">
+        <div class="k">Minhas pendências vencidas <span class="arr">→</span></div>
+        <div class="v warn">3</div>
+        <div class="sub">a mais antiga <strong>vencida há 7 dias</strong></div>
+      </a>
+      <a class="metric" href="inbox.html">
+        <div class="k">Novos itens no inbox <span class="arr">→</span></div>
+        <div class="v">12</div>
+        <div class="sub"><strong>2 podem virar uma só</strong> (#00342)</div>
+      </a>
+      <a class="metric" href="lista-demandas.html">
+        <div class="k">Demandas atribuídas a mim <span class="arr">→</span></div>
+        <div class="v">23</div>
+        <div class="sub">8 prazo nos próximos 7 dias</div>
+      </a>
+    </div>
+
+    <!-- Áreas do sistema -->
+    <div class="section">
+      <div class="section-head">
+        <h2>Áreas do sistema</h2>
+        <span class="lede">o que você precisa acessar</span>
+      </div>
+
+      <div class="mosaic">
+        <a class="card" href="lista-demandas.html">
+          <div class="num">/ demandas <span class="alert">3</span></div>
+          <h3>Demandas</h3>
+          <p>147 abertas · 38 em curso. Listar, filtrar, exportar.</p>
+        </a>
+        <a class="card" href="#">
+          <div class="num">/ pessoas</div>
+          <h3>Pessoas</h3>
+          <p>847 cadastradas. 23 lideranças, 128 com demanda aberta.</p>
+        </a>
+        <a class="card" href="#">
+          <div class="num">/ entidades</div>
+          <h3>Entidades</h3>
+          <p>186 organizações: associações, escolas, secretarias.</p>
+        </a>
+        <a class="card" href="#">
+          <div class="num">/ encaminhamentos</div>
+          <h3>Encaminhamentos</h3>
+          <p>11 ofícios aguardando resposta. 1 com prazo vencido.</p>
+        </a>
+        <a class="card" href="inbox.html">
+          <div class="num">/ inbox <span class="alert">12</span></div>
+          <h3>Inbox</h3>
+          <p>Captura GTD. Triagem em lote, sugestão de vínculo.</p>
+        </a>
+        <a class="card" href="pendencias.html">
+          <div class="num">/ pendências <span class="alert">3</span></div>
+          <h3>Pendências</h3>
+          <p>Devolutivas a entregar, reuniões, ofícios com prazo.</p>
+        </a>
+        <a class="card" href="analise.html">
+          <div class="num">/ análise</div>
+          <h3>Análise</h3>
+          <p>Painel operacional: por tema, bairro, coordenação.</p>
+        </a>
+        <a class="card" href="#configuracoes">
+          <div class="num">/ configurações</div>
+          <h3>Configurações</h3>
+          <p>Mandato, equipe, tags, temas, integrações, LGPD.</p>
+        </a>
+      </div>
+    </div>
+
+    <!-- Demandas recentes -->
+    <div class="section">
+      <div class="section-head">
+        <h2>Demandas recentes · minha coordenação</h2>
+        <span class="count">5 mais recentes</span>
+        <span class="lede">atualizadas nas últimas 48h</span>
+      </div>
+
+      <div class="recent">
+        <a class="row" href="detalhe-demanda.html">
+          <span class="num"><span class="y">MPD-2026-</span>00342</span>
+          <span class="ttl">Iluminação na Rua Antônio Ataíde — Praça Costa Pereira</span>
+          <span class="badge andam"><span class="dot"></span>Em andamento</span>
+          <span class="when">há 2 horas</span>
+        </a>
+        <div class="row">
+          <span class="num"><span class="y">MPD-2026-</span>00339</span>
+          <span class="ttl">Linha 502 — reforço no horário escolar</span>
+          <span class="badge agresp"><span class="dot"></span>Aguard. resposta</span>
+          <span class="when" style="color:var(--danger-600);font-weight:600">vencida há 7d</span>
+        </div>
+        <div class="row">
+          <span class="num"><span class="y">MPD-2026-</span>00336</span>
+          <span class="ttl">Coleta seletiva em Jardim Camburi — irregularidade</span>
+          <span class="badge andam"><span class="dot"></span>Em andamento</span>
+          <span class="when">há 5 horas</span>
+        </div>
+        <div class="row">
+          <span class="num"><span class="y">MPD-2026-</span>00329</span>
+          <span class="ttl">Reforma do CMEI Maruípe — apoio à reabertura</span>
+          <span class="badge conc"><span class="dot"></span>Concluída</span>
+          <span class="when">ontem · 15h20</span>
+        </div>
+        <div class="row">
+          <span class="num"><span class="y">MPD-2026-</span>00334</span>
+          <span class="ttl">Quadra esportiva São Pedro — cobertura</span>
+          <span class="badge agresp"><span class="dot"></span>Aguard. resposta</span>
+          <span class="when">há 1 dia</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hub de Configurações -->
+    <div class="section" id="configuracoes">
+      <div class="section-head">
+        <h2>Hub · configurações</h2>
+        <span class="count">6 áreas</span>
+        <span class="lede">gestão do mandato e da equipe</span>
+      </div>
+
+      <div class="hub-mosaic">
+        <a class="hub-card gated" href="#">
+          <div class="top">
+            <div class="num">/ usuários</div>
+            <span class="perm">Apenas ADM</span>
+          </div>
+          <h3>Usuários</h3>
+          <p>5 ativos · 4 perfis. Adicionar, suspender, redefinir senha.</p>
+        </a>
+        <a class="hub-card" href="#">
+          <div class="top">
+            <div class="num">/ tags</div>
+            <span class="perm">14 cores</span>
+          </div>
+          <h3>Tags</h3>
+          <p>62 tags ativas para pessoas e entidades. 4 candidatas a fusão.</p>
+        </a>
+        <a class="hub-card" href="#">
+          <div class="top">
+            <div class="num">/ temas</div>
+            <span class="perm">9 ativos</span>
+          </div>
+          <h3>Temas</h3>
+          <p>Categorias temáticas das demandas (Mobilidade, Saúde, etc.).</p>
+        </a>
+        <a class="hub-card" href="analise.html">
+          <div class="top">
+            <div class="num">/ análise</div>
+            <span class="perm">CO+</span>
+          </div>
+          <h3>Painel de Análise</h3>
+          <p>Relatório operacional, gráficos de carga e produtividade.</p>
+        </a>
+        <a class="hub-card gated" href="#">
+          <div class="top">
+            <div class="num">/ auditoria</div>
+            <span class="perm">CG+</span>
+          </div>
+          <h3>Auditoria</h3>
+          <p>2.847 eventos registrados. Log completo de mudanças.</p>
+        </a>
+        <a class="hub-card" href="#">
+          <div class="top">
+            <div class="num">/ perfil</div>
+            <span class="perm">Eu</span>
+          </div>
+          <h3>Meu perfil</h3>
+          <p>Maria Coelho · Coordenadora. Foto, senha, preferências.</p>
+        </a>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<script>
+  // Garante foco no composer ao carregar (mesmo com autofocus, alguns browsers exigem reforço)
+  window.addEventListener('load', function () {
+    var ta = document.getElementById('capture');
+    if (ta) ta.focus();
+  });
+</script>
+
+</body>
+</html>

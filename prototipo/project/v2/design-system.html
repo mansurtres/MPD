@@ -1,0 +1,1239 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>MPD · Design System (Fase 1)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  body { background: var(--surface-0); }
+
+  /* ─────── Layout do guia ─────── */
+  .guide-bar {
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--rule);
+    padding: 14px 32px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px;
+    position: sticky; top: 0;
+    z-index: var(--z-sticky);
+  }
+  .guide-bar .brand {
+    display: flex; align-items: center; gap: 12px;
+    font-family: var(--font-sans);
+    font-weight: var(--fw-semibold);
+    color: var(--ink-strong);
+  }
+  .guide-bar .brand .mark {
+    width: 28px; height: 28px;
+    background: var(--primary); color: var(--primary-fg);
+    display: grid; place-items: center;
+    font-family: var(--font-mono); font-weight: 700; font-size: 12px;
+    letter-spacing: 0.04em;
+    border-radius: var(--radius-sm);
+  }
+  .guide-bar .tag {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--ink-mute);
+    text-transform: uppercase;
+    border: 1px solid var(--rule-strong);
+    padding: 3px 8px;
+    border-radius: var(--radius-sm);
+  }
+  .guide-bar .tag.fase { background: var(--info-50); color: var(--info-600); border-color: var(--info-500); }
+  .guide-bar nav {
+    display: flex; gap: 6px;
+    font-family: var(--font-mono); font-size: 11px;
+    letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  .guide-bar nav a {
+    text-decoration: none; color: var(--ink-mute);
+    padding: 5px 10px; border-radius: var(--radius-sm);
+  }
+  .guide-bar nav a:hover { color: var(--ink); background: var(--surface-3); }
+
+  /* TOC + main */
+  .layout {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    max-width: 1440px;
+    margin: 0 auto;
+  }
+  .toc {
+    border-right: 1px solid var(--rule);
+    padding: 32px 24px 60px 32px;
+    position: sticky; top: 57px;
+    align-self: start;
+    height: calc(100vh - 57px);
+    overflow-y: auto;
+  }
+  .toc .ttl {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    font-weight: var(--fw-semibold);
+    margin-bottom: 12px;
+  }
+  .toc ol { margin: 0; padding: 0; list-style: none; }
+  .toc li {
+    padding: 5px 0;
+    font-family: var(--font-sans); font-size: 13px;
+  }
+  .toc li a {
+    color: var(--ink-soft); text-decoration: none;
+    display: flex; justify-content: space-between; gap: 8px;
+    padding-left: 12px; border-left: 2px solid transparent;
+    transition: color .12s, border-color .12s;
+  }
+  .toc li.on a { color: var(--primary); border-left-color: var(--primary); font-weight: var(--fw-semibold); }
+  .toc li a:hover { color: var(--ink); }
+  .toc li .num {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--ink-mute);
+    letter-spacing: 0.04em;
+  }
+
+  main { padding: 0 56px 100px; max-width: 980px; }
+
+  /* Hero (introdução) */
+  .hero {
+    padding: 64px 0 32px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 56px;
+  }
+  .hero .kicker {
+    font-family: var(--font-mono);
+    font-size: 11px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--primary);
+    font-weight: var(--fw-semibold);
+    margin-bottom: 20px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .hero .kicker::after {
+    content: ""; flex: 1; height: 1px; background: var(--rule-strong);
+    max-width: 160px;
+  }
+  .hero h1 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: var(--text-5xl);
+    line-height: var(--lh-tight);
+    letter-spacing: -0.025em;
+    color: var(--ink);
+    margin: 0 0 16px;
+    max-width: 22ch;
+  }
+  .hero h1 em { font-style: italic; color: var(--primary); }
+  .hero .lede {
+    font-family: var(--font-serif);
+    font-size: var(--text-lg);
+    line-height: var(--lh-relaxed);
+    color: var(--ink-body);
+    max-width: 62ch;
+    margin: 0;
+  }
+  .hero .lede strong { color: var(--ink); font-weight: var(--fw-semibold); }
+
+  /* Seções */
+  section.block { margin-bottom: 72px; scroll-margin-top: 80px; }
+  section.block > header { margin-bottom: 24px; }
+  section.block > header .num {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--primary);
+    font-weight: var(--fw-semibold);
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
+  }
+  section.block > header h2 {
+    font-family: var(--font-serif);
+    font-weight: var(--fw-medium);
+    font-size: var(--text-3xl);
+    line-height: var(--lh-tight);
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    margin: 0 0 8px;
+  }
+  section.block > header .desc {
+    font-family: var(--font-serif);
+    font-size: var(--text-base);
+    color: var(--ink-body);
+    line-height: var(--lh-relaxed);
+    max-width: 64ch;
+    margin: 0;
+  }
+  section.block > header .desc strong { color: var(--ink); font-weight: var(--fw-semibold); }
+
+  /* Notas do designer — comentários inline com background sutil */
+  .note {
+    background: var(--info-50);
+    border-left: 3px solid var(--info-500);
+    padding: 12px 16px;
+    margin: 20px 0;
+    font-family: var(--font-serif);
+    font-size: 14px;
+    line-height: var(--lh-relaxed);
+    color: var(--info-700);
+  }
+  .note .lbl {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--info-500);
+    font-weight: var(--fw-bold);
+    display: block; margin-bottom: 4px;
+  }
+
+  /* Surface swatches */
+  .surfaces {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+  .surface-card {
+    border: 1px solid var(--rule);
+    overflow: hidden;
+    border-radius: var(--radius-md);
+  }
+  .surface-card .swatch {
+    height: 92px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .surface-card .meta {
+    padding: 12px 14px;
+    background: var(--surface-3);
+  }
+  .surface-card .name {
+    font-family: var(--font-sans);
+    font-weight: var(--fw-semibold);
+    font-size: 13.5px;
+    color: var(--ink);
+    margin-bottom: 4px;
+  }
+  .surface-card .hex {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--ink-mute);
+    letter-spacing: 0.02em;
+  }
+  .surface-card .usage {
+    margin-top: 4px;
+    font-family: var(--font-serif);
+    font-size: 12.5px;
+    font-style: italic;
+    color: var(--ink-mute);
+    line-height: 1.4;
+  }
+
+  /* Ink scale (50→950) */
+  .scale {
+    display: grid;
+    grid-template-columns: repeat(11, 1fr);
+    gap: 4px;
+  }
+  .scale .step {
+    aspect-ratio: 1;
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(0,0,0,0.06);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: flex-end;
+    padding: 6px;
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: 0.04em;
+  }
+  .scale .step .l { font-weight: var(--fw-bold); }
+
+  /* Cores (palette section) */
+  .palette {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 28px;
+  }
+  .palette .group h3 {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    font-weight: var(--fw-semibold);
+    margin: 0 0 10px;
+  }
+  .palette .group .why {
+    font-family: var(--font-serif);
+    font-size: 13.5px;
+    color: var(--ink-body);
+    font-style: italic;
+    margin-bottom: 12px;
+    line-height: 1.5;
+  }
+  .palette .group .swatches {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+  }
+  .palette .swatch {
+    height: 64px;
+    display: flex; flex-direction: column;
+    justify-content: flex-end;
+    padding: 6px;
+    border-right: 1px solid rgba(0,0,0,0.08);
+  }
+  .palette .swatch:last-child { border-right: 0; }
+  .palette .swatch .l {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    font-weight: var(--fw-bold);
+    letter-spacing: 0.04em;
+  }
+  .palette .swatch .h {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.02em;
+    opacity: 0.75;
+  }
+
+  /* Badges de status × resultado */
+  .badge-demo {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 16px;
+    align-items: center;
+    padding: 14px 0;
+    border-top: 1px solid var(--rule);
+  }
+  .badge-demo:first-of-type { border-top: 0; }
+  .badge-demo .lhs {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .badge-demo .lhs .k {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-mute);
+    letter-spacing: 0.04em;
+  }
+  .badge-demo .desc {
+    font-family: var(--font-serif);
+    font-size: 14px;
+    color: var(--ink-body);
+    line-height: 1.45;
+    font-style: italic;
+  }
+
+  /* Status badge — carimbo: borda 1.5px, uppercase + tracking, sem raio */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 9px 4px;
+    border-radius: 0;
+    font-family: var(--font-sans);
+    font-size: 11px;
+    font-weight: var(--fw-bold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border: 1.5px solid transparent;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+  .badge .dot {
+    width: 6px; height: 6px;
+    background: currentColor;
+    border-radius: var(--radius-full);
+    flex: none;
+  }
+  .badge .glyph {
+    font-family: var(--font-mono);
+    font-weight: var(--fw-bold);
+    width: 12px;
+    text-align: center;
+    font-size: 11px;
+  }
+
+  /* Status — fundos como tinta sutil, fg escuro, borda 1.5px do mesmo tom */
+  .badge.st-novo   { background: var(--st-novo-bg);   color: var(--st-novo-fg);   border-color: rgba(31,58,95,0.35); }
+  .badge.st-andam  { background: var(--st-andam-bg);  color: var(--st-andam-fg);  border-color: rgba(107,74,26,0.35); }
+  .badge.st-agresp { background: var(--st-agresp-bg); color: var(--st-agresp-fg); border-color: rgba(122,74,20,0.35); }
+  .badge.st-agterc { background: var(--st-agterc-bg); color: var(--st-agterc-fg); border-color: rgba(94,62,16,0.35); }
+  .badge.st-conc   { background: var(--st-conc-bg);   color: var(--st-conc-fg);   border-color: rgba(52,64,34,0.35); }
+  .badge.st-arq    { background: var(--st-arq-bg);    color: var(--st-arq-fg);    border-color: rgba(83,76,65,0.45); }
+
+  /* Resultado — fundos mais sutis, glifo no início, borda 1.5px */
+  .badge.rs-pend  { background: var(--rs-pend-bg);  color: var(--rs-pend-fg);  border-color: rgba(0,0,0,0.18); }
+  .badge.rs-atend { background: var(--rs-atend-bg); color: var(--rs-atend-fg); border-color: rgba(52,64,34,0.35); }
+  .badge.rs-parc  { background: var(--rs-parc-bg);  color: var(--rs-parc-fg);  border-color: rgba(107,74,26,0.35); }
+  .badge.rs-nao   { background: var(--rs-nao-bg);   color: var(--rs-nao-fg);   border-color: rgba(125,31,31,0.35); }
+  .badge.rs-inv   { background: var(--rs-inv-bg);   color: #fff;               border-color: var(--ink-700); }
+  .badge.rs-nsa   { background: var(--rs-nsa-bg);   color: var(--rs-nsa-fg);   border-color: rgba(0,0,0,0.18); }
+
+  /* Tipografia — amostras */
+  .type-row {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 24px;
+    padding: 20px 0;
+    border-top: 1px solid var(--rule);
+    align-items: baseline;
+  }
+  .type-row:first-of-type { border-top: 0; }
+  .type-row .meta {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
+    color: var(--ink-mute);
+    line-height: 1.6;
+  }
+  .type-row .meta strong { color: var(--ink); display: block; font-family: var(--font-sans); font-size: 12px; font-weight: var(--fw-semibold); letter-spacing: 0.02em; margin-bottom: 2px; }
+  .type-row .sample {}
+  .type-row .sample.t-display {
+    font-family: var(--font-display); font-weight: 600;
+    font-size: var(--text-5xl); line-height: var(--lh-tight);
+    letter-spacing: -0.025em; color: var(--ink);
+  }
+  .type-row .sample.t-h1 {
+    font-family: var(--font-display); font-weight: 600;
+    font-size: var(--text-4xl); line-height: var(--lh-tight);
+    letter-spacing: -0.02em; color: var(--ink);
+  }
+  .type-row .sample.t-h2 {
+    font-family: var(--font-serif); font-weight: var(--fw-medium);
+    font-size: var(--text-3xl); line-height: var(--lh-tight);
+    letter-spacing: -0.01em; color: var(--ink);
+  }
+  .type-row .sample.t-h3 {
+    font-family: var(--font-sans); font-weight: var(--fw-semibold);
+    font-size: var(--text-xl); line-height: var(--lh-snug);
+    color: var(--ink);
+  }
+  .type-row .sample.t-body {
+    font-family: var(--font-serif); font-size: var(--text-lg);
+    line-height: var(--lh-relaxed); color: var(--ink-body);
+    max-width: 62ch;
+  }
+  .type-row .sample.t-base {
+    font-family: var(--font-sans); font-size: var(--text-base);
+    color: var(--ink-body);
+  }
+  .type-row .sample.t-meta {
+    font-family: var(--font-sans); font-size: var(--text-xs);
+    letter-spacing: 0.04em;
+    color: var(--ink-mute);
+    text-transform: uppercase;
+  }
+  .type-row .sample.t-mono {
+    font-family: var(--font-mono); font-size: 13.5px;
+    color: var(--ink-strong);
+    letter-spacing: 0.02em;
+  }
+
+  /* Botões — amostras */
+  .btn-grid {
+    display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+    padding: 16px 0;
+  }
+  .btn {
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    font-weight: var(--fw-medium);
+    padding: var(--btn-py) var(--btn-px);
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 8px;
+    transition: background .12s, border-color .12s, color .12s;
+    line-height: 1.2;
+    letter-spacing: 0.01em;
+  }
+  .btn.primary {
+    background: var(--primary);
+    color: var(--primary-fg);
+    border-color: var(--primary);
+  }
+  .btn.primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
+  .btn.primary:focus-visible { outline: 0; box-shadow: var(--focus-ring); }
+  .btn.secondary {
+    background: var(--surface-2);
+    color: var(--ink);
+    border-color: var(--rule-strong);
+  }
+  .btn.secondary:hover { background: var(--surface-3); border-color: var(--ink); }
+  .btn.ghost {
+    background: transparent;
+    color: var(--ink-soft);
+    border-color: transparent;
+  }
+  .btn.ghost:hover { background: var(--surface-2); color: var(--ink); }
+  .btn.danger {
+    background: var(--danger-500);
+    color: #fff;
+    border-color: var(--danger-500);
+  }
+  .btn.danger:hover { background: var(--danger-600); border-color: var(--danger-600); }
+  .btn.sm { font-size: 12px; padding: 6px 12px; }
+  .btn.lg { font-size: var(--text-base); padding: 12px 22px; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn .arr { font-family: var(--font-mono); opacity: 0.7; }
+
+  /* Inputs */
+  .input-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .input-group .lbl {
+    display: block;
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-weight: var(--fw-semibold);
+    color: var(--ink-soft);
+    margin-bottom: 6px;
+    letter-spacing: 0.02em;
+  }
+  .input-group .lbl .hint {
+    font-family: var(--font-serif);
+    font-style: italic;
+    color: var(--ink-mute);
+    font-weight: var(--fw-normal);
+    margin-left: 6px;
+  }
+  .input {
+    width: 100%;
+    background: var(--surface-3);
+    border: 1px solid var(--rule-strong);
+    border-radius: var(--radius-md);
+    padding: var(--field-py) 12px;
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    color: var(--ink);
+    outline: 0;
+    transition: border-color .12s, box-shadow .12s;
+  }
+  .input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(31,58,95,0.10); }
+  .input.error { border-color: var(--danger-500); }
+  .input.error:focus { box-shadow: 0 0 0 3px rgba(154,42,42,0.15); }
+  .input:disabled { background: var(--surface-1); color: var(--ink-mute); cursor: not-allowed; }
+  .input-msg {
+    margin-top: 6px;
+    font-family: var(--font-sans);
+    font-size: 12px;
+    color: var(--ink-mute);
+  }
+  .input-msg.error { color: var(--danger-600); }
+
+  /* Tags coloridas — amostra das 11 cores */
+  .tag-grid {
+    display: flex; flex-wrap: wrap; gap: 6px;
+  }
+  .tag {
+    display: inline-flex;
+    align-items: center; gap: 6px;
+    padding: 3px 9px;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-weight: var(--fw-medium);
+    color: var(--ink-strong);
+    border: 1px solid currentColor;
+  }
+  .tag::before {
+    content: ""; width: 8px; height: 8px;
+    border-radius: var(--radius-full); background: currentColor;
+  }
+  .tag.stone  { color: var(--tag-stone-fg); background: var(--tag-stone-bg); }
+  .tag.clay   { color: var(--tag-clay-fg);  background: var(--tag-clay-bg); }
+  .tag.sage   { color: var(--tag-sage-fg);  background: var(--tag-sage-bg); }
+  .tag.moss   { color: var(--tag-moss-fg);  background: var(--tag-moss-bg); }
+  .tag.mist   { color: var(--tag-mist-fg);  background: var(--tag-mist-bg); }
+  .tag.sky    { color: var(--tag-sky-fg);   background: var(--tag-sky-bg); }
+  .tag.iris   { color: var(--tag-iris-fg);  background: var(--tag-iris-bg); }
+  .tag.plum   { color: var(--tag-plum-fg);  background: var(--tag-plum-bg); }
+  .tag.rose   { color: var(--tag-rose-fg);  background: var(--tag-rose-bg); }
+  .tag.spice  { color: var(--tag-spice-fg); background: var(--tag-spice-bg); }
+  .tag.gold   { color: var(--tag-gold-fg);  background: var(--tag-gold-bg); }
+  .tag.tomato   { color: var(--tag-tomato-fg);   background: var(--tag-tomato-bg); }
+  .tag.flamingo { color: var(--tag-flamingo-fg); background: var(--tag-flamingo-bg); }
+  .tag.graphite { color: var(--tag-graphite-fg); background: var(--tag-graphite-bg); }
+
+  /* Cards de componente */
+  .card {
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-md);
+    padding: 20px 22px;
+  }
+  .card.elev {
+    box-shadow: var(--shadow-md);
+    border-color: var(--rule);
+  }
+
+  /* Espaçamento — escala */
+  .spacing-demo {
+    display: grid;
+    grid-template-columns: 90px 1fr 80px;
+    gap: 12px;
+    align-items: center;
+    padding: 8px 0;
+    border-top: 1px solid var(--rule);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+  .spacing-demo:first-of-type { border-top: 0; }
+  .spacing-demo .name { color: var(--ink); font-weight: var(--fw-semibold); }
+  .spacing-demo .bar { height: 16px; background: var(--primary); border-radius: 2px; }
+  .spacing-demo .px { text-align: right; color: var(--ink-mute); }
+
+  /* Decision log — explicações do designer */
+  .decision-log {
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-md);
+    padding: 22px 26px;
+    margin-top: 28px;
+  }
+  .decision-log h3 {
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-weight: var(--fw-semibold);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--primary);
+    margin: 0 0 16px;
+  }
+  .decision-log .item {
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    gap: 12px;
+    padding: 10px 0;
+    border-top: 1px solid var(--rule);
+  }
+  .decision-log .item:first-of-type { border-top: 0; padding-top: 0; }
+  .decision-log .item .n {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink-mute);
+    font-weight: var(--fw-semibold);
+  }
+  .decision-log .item .body {}
+  .decision-log .item .body strong {
+    display: block;
+    font-family: var(--font-sans);
+    font-size: 13.5px;
+    color: var(--ink);
+    font-weight: var(--fw-semibold);
+    margin-bottom: 3px;
+  }
+  .decision-log .item .body p {
+    font-family: var(--font-serif);
+    font-size: 14px;
+    line-height: var(--lh-relaxed);
+    color: var(--ink-body);
+    margin: 0;
+  }
+
+  /* Tabela demo (status × resultado) */
+  table.matrix {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 16px;
+    font-family: var(--font-sans);
+    font-size: 13.5px;
+  }
+  table.matrix th {
+    text-align: left;
+    background: var(--surface-2);
+    color: var(--ink);
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: var(--fw-semibold);
+    padding: 10px 12px;
+    border-bottom: 2px solid var(--ink-200);
+  }
+  table.matrix td {
+    padding: 14px 12px;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: middle;
+  }
+  table.matrix .ex {
+    font-family: var(--font-serif);
+    font-style: italic;
+    color: var(--ink-mute);
+    font-size: 13px;
+  }
+</style>
+</head>
+<body>
+
+<div class="guide-bar">
+  <div class="brand">
+    <span class="mark">M</span>
+    MPD — Design System
+    <span class="tag fase">Fase 1 · validação</span>
+  </div>
+  <nav>
+    <a href="#paleta">Paleta</a>
+    <a href="#tipo">Tipografia</a>
+    <a href="#status">Status</a>
+    <a href="#botoes">Botões</a>
+    <a href="#inputs">Inputs</a>
+    <a href="#tags">Tags</a>
+    <a href="#espaco">Espaços</a>
+    <a href="lista-demandas.html" style="background:var(--primary);color:var(--primary-fg);font-weight:600">Ver lista de demandas →</a>
+  </nav>
+</div>
+
+<div class="layout">
+
+  <aside class="toc">
+    <div class="ttl">Sumário</div>
+    <ol>
+      <li class="on"><a href="#intro">Por que esta direção <span class="num">§01</span></a></li>
+      <li><a href="#superficies">Superfícies <span class="num">§02</span></a></li>
+      <li><a href="#paleta">Paleta &amp; neutros <span class="num">§03</span></a></li>
+      <li><a href="#tipo">Tipografia <span class="num">§04</span></a></li>
+      <li><a href="#status">Status × Resultado <span class="num">§05</span></a></li>
+      <li><a href="#botoes">Botões <span class="num">§06</span></a></li>
+      <li><a href="#inputs">Inputs &amp; formulário <span class="num">§07</span></a></li>
+      <li><a href="#tags">Tags coloridas <span class="num">§08</span></a></li>
+      <li><a href="#espaco">Espaços &amp; raios <span class="num">§09</span></a></li>
+      <li><a href="#decisoes">Decisões &amp; trade-offs <span class="num">§10</span></a></li>
+    </ol>
+  </aside>
+
+  <main>
+
+    <!-- Hero -->
+    <div class="hero" id="intro">
+      <div class="kicker">Validação · Gabinete Demo · v2 · maio 2026</div>
+      <h1>Um sistema que parece <em>documento</em>, não dashboard.</h1>
+      <p class="lede">
+        O MPD é uma ferramenta de trabalho contínuo: a equipe abre, lê, escreve e fecha demandas o dia inteiro. A linguagem visual aqui prioriza <strong>leitura confortável</strong> (Source Serif 4 nos relatos), <strong>identidade institucional sem peso de governo</strong> (neutros quentes em vez de cinza azulado de SaaS genérico) e <strong>previsibilidade de status</strong> (badges com cor + forma, não só cor — passa em testes de daltonismo).
+      </p>
+    </div>
+
+    <!-- Superfícies -->
+    <section class="block" id="superficies">
+      <header>
+        <div class="num">§ 02</div>
+        <h2>Superfícies</h2>
+        <p class="desc">Quatro tons de papel sobrepostos. <strong>Surface-0</strong> é a página (cinza-areia quente); <strong>surface-2</strong> é o card/paper; <strong>surface-3</strong> é o branco usado em input em foco, modal e toast — pra distinguir o "elemento interativo agora" do papel inerte.</p>
+      </header>
+      <div class="surfaces">
+        <div class="surface-card">
+          <div class="swatch" style="background:var(--surface-0)"></div>
+          <div class="meta">
+            <div class="name">surface-0</div>
+            <div class="hex">#ECE8E0</div>
+            <div class="usage">Página. Fundo de toda tela.</div>
+          </div>
+        </div>
+        <div class="surface-card">
+          <div class="swatch" style="background:var(--surface-1)"></div>
+          <div class="meta">
+            <div class="name">surface-1</div>
+            <div class="hex">#F4F0E6</div>
+            <div class="usage">Áreas secundárias (sidebar, toolbars).</div>
+          </div>
+        </div>
+        <div class="surface-card">
+          <div class="swatch" style="background:var(--surface-2)"></div>
+          <div class="meta">
+            <div class="name">surface-2</div>
+            <div class="hex">#F8F5EE</div>
+            <div class="usage">Card, paper, container principal.</div>
+          </div>
+        </div>
+        <div class="surface-card">
+          <div class="swatch" style="background:var(--surface-3); border-bottom:1px solid var(--rule)"></div>
+          <div class="meta">
+            <div class="name">surface-3</div>
+            <div class="hex">#FFFFFF</div>
+            <div class="usage">Input em foco, modal, toast.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="note">
+        <span class="lbl">Por quê</span>
+        Eu evitei o branco puro como página porque ele compete com o branco do conteúdo destacado (foco de input, modal). Mantendo a página em papel cru, a hierarquia "página → card → elemento ativo" fica visual <em>sem precisar de sombra</em>.
+      </div>
+    </section>
+
+    <!-- Paleta -->
+    <section class="block" id="paleta">
+      <header>
+        <div class="num">§ 03</div>
+        <h2>Paleta &amp; neutros</h2>
+        <p class="desc">Uma cor primária (<strong>navy</strong>) e quatro semânticas retidas. Neutros em escala 50–950 em tom quente (warm-gray), não em cinza azulado.</p>
+      </header>
+
+      <div class="palette">
+        <div class="group">
+          <h3>Primária · Navy</h3>
+          <p class="why">Cor de marca + ação principal + foco. Usada com reserva: links de tabela, botão primário, header de tabela, divisor de seção. Não como acento decorativo.</p>
+          <div class="swatches">
+            <div class="swatch" style="background:var(--navy-50);color:var(--navy-700)"><span class="l">50</span><span class="h">#EAEEF4</span></div>
+            <div class="swatch" style="background:var(--navy-100);color:var(--navy-700)"><span class="l">100</span><span class="h">#D2DAE8</span></div>
+            <div class="swatch" style="background:var(--navy-300);color:#fff"><span class="l">300</span><span class="h">#7791B3</span></div>
+            <div class="swatch" style="background:var(--navy-500);color:#fff"><span class="l">500</span><span class="h">#1F3A5F</span></div>
+            <div class="swatch" style="background:var(--navy-700);color:#fff"><span class="l">700</span><span class="h">#12253D</span></div>
+          </div>
+        </div>
+
+        <div class="group">
+          <h3>Sucesso</h3>
+          <p class="why">Devolutiva registrada, demanda concluída, ação bem-sucedida. Verde-musgo, não verde neon — combina com o papel.</p>
+          <div class="swatches">
+            <div class="swatch" style="background:var(--success-50);color:var(--success-700)"><span class="l">50</span><span class="h">#E8EFE1</span></div>
+            <div class="swatch" style="background:var(--success-100);color:var(--success-700)"><span class="l">100</span><span class="h">#CFDCC1</span></div>
+            <div class="swatch" style="background:var(--success-500);color:#fff"><span class="l">500</span><span class="h">#5A6B3A</span></div>
+            <div class="swatch" style="background:var(--success-600);color:#fff"><span class="l">600</span><span class="h">#485630</span></div>
+            <div class="swatch" style="background:var(--success-700);color:#fff"><span class="l">700</span><span class="h">#344022</span></div>
+          </div>
+        </div>
+
+        <div class="group">
+          <h3>Aviso</h3>
+          <p class="why">Status "em andamento", prazo se aproximando, atenção sem urgência. Âmbar — não amarelo gritante.</p>
+          <div class="swatches">
+            <div class="swatch" style="background:var(--warning-50);color:var(--warning-700)"><span class="l">50</span><span class="h">#F7EFD9</span></div>
+            <div class="swatch" style="background:var(--warning-100);color:var(--warning-700)"><span class="l">100</span><span class="h">#EFDFB0</span></div>
+            <div class="swatch" style="background:var(--warning-500);color:#fff"><span class="l">500</span><span class="h">#A06B1A</span></div>
+            <div class="swatch" style="background:var(--warning-600);color:#fff"><span class="l">600</span><span class="h">#835613</span></div>
+            <div class="swatch" style="background:var(--warning-700);color:#fff"><span class="l">700</span><span class="h">#66420C</span></div>
+          </div>
+        </div>
+
+        <div class="group">
+          <h3>Perigo</h3>
+          <p class="why">Vencido, não atendido, exclusão. Bordô institucional, não vermelho-sangue.</p>
+          <div class="swatches">
+            <div class="swatch" style="background:var(--danger-50);color:var(--danger-700)"><span class="l">50</span><span class="h">#F7E1DE</span></div>
+            <div class="swatch" style="background:var(--danger-100);color:var(--danger-700)"><span class="l">100</span><span class="h">#EFC3BD</span></div>
+            <div class="swatch" style="background:var(--danger-500);color:#fff"><span class="l">500</span><span class="h">#9A2A2A</span></div>
+            <div class="swatch" style="background:var(--danger-600);color:#fff"><span class="l">600</span><span class="h">#7D1F1F</span></div>
+            <div class="swatch" style="background:var(--danger-700);color:#fff"><span class="l">700</span><span class="h">#5F1717</span></div>
+          </div>
+        </div>
+      </div>
+
+      <h3 style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--ink-mute);font-weight:var(--fw-semibold);margin:32px 0 12px">Neutros · ink-50 → ink-950</h3>
+      <p style="font-family:var(--font-serif);font-size:13.5px;color:var(--ink-body);font-style:italic;line-height:1.5;margin-bottom:14px">
+        Escala de 11 tons. Texto principal é <code style="font-family:var(--font-mono);font-size:12.5px;color:var(--ink)">ink-800</code> (não preto), títulos <code style="font-family:var(--font-mono);font-size:12.5px;color:var(--ink)">ink-900</code>, meta/placeholders <code style="font-family:var(--font-mono);font-size:12.5px;color:var(--ink)">ink-500</code>. Réguas em <code style="font-family:var(--font-mono);font-size:12.5px;color:var(--ink)">ink-200</code>.
+      </p>
+      <div class="scale">
+        <div class="step" style="background:var(--ink-50);  color:var(--ink-800)"><span class="l">50</span></div>
+        <div class="step" style="background:var(--ink-100); color:var(--ink-800)"><span class="l">100</span></div>
+        <div class="step" style="background:var(--ink-200); color:var(--ink-800)"><span class="l">200</span></div>
+        <div class="step" style="background:var(--ink-300); color:var(--ink-900)"><span class="l">300</span></div>
+        <div class="step" style="background:var(--ink-400); color:#fff"><span class="l">400</span></div>
+        <div class="step" style="background:var(--ink-500); color:#fff"><span class="l">500</span></div>
+        <div class="step" style="background:var(--ink-600); color:#fff"><span class="l">600</span></div>
+        <div class="step" style="background:var(--ink-700); color:#fff"><span class="l">700</span></div>
+        <div class="step" style="background:var(--ink-800); color:#fff"><span class="l">800</span></div>
+        <div class="step" style="background:var(--ink-900); color:#fff"><span class="l">900</span></div>
+        <div class="step" style="background:var(--ink-950); color:#fff"><span class="l">950</span></div>
+      </div>
+    </section>
+
+    <!-- Tipografia -->
+    <section class="block" id="tipo">
+      <header>
+        <div class="num">§ 04</div>
+        <h2>Tipografia</h2>
+        <p class="desc">Quatro papéis com famílias claras: <strong>Funnel Display</strong> (Pangram) nos títulos grandes — h1 e cabeçalho de coluna de tabela; <strong>Source Serif 4</strong> (Adobe) no relato/descrição longa e em h2 de seção; <strong>Geist Mono</strong> (Vercel) em todo o UI — label, input, botão, breadcrumb, badge — <em>e também</em> em IDs, datas e atalhos. Pôr o UI inteiro em mono reforça a identidade de "instrumento" sobre "vitrine".</p>
+      </header>
+
+      <div class="type-row">
+        <div class="meta"><strong>Display · t-display</strong>Funnel Display<br>48 / 1.15 · 600 · -2.5%</div>
+        <div class="sample t-display">Bom dia, Maria.</div>
+      </div>
+      <div class="type-row">
+        <div class="meta"><strong>H1 · t-h1</strong>Funnel Display<br>38 / 1.15 · 600 · -2%</div>
+        <div class="sample t-h1">Falta de iluminação na Rua X</div>
+      </div>
+      <div class="type-row">
+        <div class="meta"><strong>H2 · t-h2</strong>Source Serif 4<br>30 / 1.15 · medium · -1%</div>
+        <div class="sample t-h2">Histórico de demandas</div>
+      </div>
+      <div class="type-row">
+        <div class="meta"><strong>H3 · t-h3</strong>Geist Mono<br>20 · semibold</div>
+        <div class="sample t-h3">Partes envolvidas</div>
+      </div>
+      <div class="type-row">
+        <div class="meta"><strong>Corpo · relato</strong>Source Serif 4<br>17 / 1.65 · para relatos longos</div>
+        <div class="sample t-body">Sebastiana Oliveira encaminhou via WhatsApp que nove postes de iluminação pública estão sem funcionar há mais de três semanas. Moradores relatam aumento de furtos à noite.</div>
+      </div>
+      <div class="type-row">
+        <div class="meta"><strong>UI · t-base</strong>Geist Mono<br>15 / 1.5 · todo o chrome</div>
+        <div class="sample t-base">Selecione o canal preferido para a devolutiva ao demandante.</div>
+      </div>
+      <div class="type-row">
+        <div class="meta"><strong>Meta · t-meta</strong>Geist Mono<br>12 / uppercase · tracking 4%</div>
+        <div class="sample t-meta">Atualizada em · há 3 horas</div>
+      </div>
+      <div class="type-row">
+        <div class="meta"><strong>Mono frio · t-mono</strong>Geist Mono<br>13.5 · IDs, datas, atalhos</div>
+        <div class="sample t-mono">MPD-2026-00342 · 17/05/2026 · 14:30</div>
+      </div>
+
+      <div class="note">
+        <span class="lbl">Decisão radical</span>
+        UI e Mono usam <strong>a mesma família</strong> — não existe uma "sans" separada. Isso dramatiza a divisão: o sistema fala em mono (instrumento), o cidadão fala em serif (relato), o título é a manchete (display Funnel). É a aposta que valida o conceito de "sistema, não dashboard".
+      </div>
+    </section>
+
+    <!-- Status × Resultado -->
+    <section class="block" id="status">
+      <header>
+        <div class="num">§ 05</div>
+        <h2>Status × Resultado</h2>
+        <p class="desc">Os dois eixos do ciclo de vida da demanda. Status descreve <strong>onde a demanda está</strong> (em curso, aguardando, concluída); Resultado descreve <strong>o desfecho material</strong> (atendido, inviável). São independentes — o briefing é claro nisso. A UI precisa diferenciá-los visualmente <em>e</em> dar pra um daltônico distinguir um do outro sem cor.</p>
+      </header>
+
+      <div class="note">
+        <span class="lbl">Decisão</span>
+        Status usa <strong>badge com dot</strong> (•) no início. Resultado usa <strong>badge com glifo</strong> (✓ ◐ ✗ ⊘ ○ —). Mesma altura, mesma família, mas a forma do indicador difere — passa daltonismo total (cores indistinguíveis ainda preservam significado).
+      </div>
+
+      <div class="note">
+        <span class="lbl">Decisão revisada</span>
+        Voltei à raiz do piloto: status &amp; resultado são <strong>carimbos</strong>, não pílulas. Borda 1.5px em vez de 1px, uppercase com tracking, sem raio. Isso mantém a identidade institucional do MPD (não é SaaS genérico) <em>e</em> ainda atende daltonismo via dot (status) ou glifo (resultado).
+      </div>
+
+      <h3 style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--ink-mute);font-weight:var(--fw-semibold);margin:32px 0 8px">Status (6)</h3>
+
+      <div class="badge-demo">
+        <div class="lhs"><span class="badge st-novo"><span class="dot"></span>Novo</span><span class="k">.st-novo</span></div>
+        <div class="desc">Demanda recém-aberta, sem responsável atribuído ainda.</div>
+      </div>
+      <div class="badge-demo">
+        <div class="lhs"><span class="badge st-andam"><span class="dot"></span>Em andamento</span><span class="k">.st-andam</span></div>
+        <div class="desc">Trabalho em curso — interações, encaminhamentos sendo registrados.</div>
+      </div>
+      <div class="badge-demo">
+        <div class="lhs"><span class="badge st-agresp"><span class="dot"></span>Aguardando resposta</span><span class="k">.st-agresp</span></div>
+        <div class="desc">Gabinete enviou algo (ofício, mensagem) e espera retorno.</div>
+      </div>
+      <div class="badge-demo">
+        <div class="lhs"><span class="badge st-agterc"><span class="dot"></span>Aguardando terceiro</span><span class="k">.st-agterc</span></div>
+        <div class="desc">Bola em campo externo — concessionária, órgão público, demandante.</div>
+      </div>
+      <div class="badge-demo">
+        <div class="lhs"><span class="badge st-conc"><span class="dot"></span>Concluída</span><span class="k">.st-conc</span></div>
+        <div class="desc">Ciclo encerrado — com devolutiva (responsiva) ou resultado (proativa).</div>
+      </div>
+      <div class="badge-demo">
+        <div class="lhs"><span class="badge st-arq"><span class="dot"></span>Arquivada</span><span class="k">.st-arq</span></div>
+        <div class="desc">Fora do trabalho ativo. Preservada para auditoria e relatório.</div>
+      </div>
+
+      <h3 style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--ink-mute);font-weight:var(--fw-semibold);margin:32px 0 8px">Resultado (6) — glifo + cor</h3>
+
+      <div class="badge-demo">
+        <div class="lhs"><span class="badge rs-pend"><span class="glyph">○</span>Pendente</span><span class="k">.rs-pend</span></div>
+        <div class="desc">Ainda sem classificação de desfecho. Não bloqueia trabalho.</div>
+      </div>
+      <div class="badge-demo">
+        <div class="lhs"><span class="badge rs-atend"><span class="glyph">✓</span>Atendido</span><span class="k">.rs-atend</span></div>
+        <div class="desc">Demandante obteve o que pediu.</div>
+      </div>
+      <div class="badge-demo">
+        <div class="lhs"><span class="badge rs-parc"><span class="glyph">◐</span>Atendido parcialmente</span><span class="k">.rs-parc</span></div>
+        <div class="desc">Solução incompleta mas registrada — comum em mobilidade urbana.</div>
+      </div>
+      <div class="badge-demo">
+        <div class="lhs"><span class="badge rs-nao"><span class="glyph">✗</span>Não atendido</span><span class="k">.rs-nao</span></div>
+        <div class="desc">Resposta negativa do órgão competente. Demandante foi avisado.</div>
+      </div>
+      <div class="badge-demo">
+        <div class="lhs"><span class="badge rs-inv"><span class="glyph">⊘</span>Inviável</span><span class="k">.rs-inv</span></div>
+        <div class="desc">Norma legal ou competência impede a ação. Justificativa obrigatória.</div>
+      </div>
+      <div class="badge-demo">
+        <div class="lhs"><span class="badge rs-nsa"><span class="glyph">—</span>Não se aplica</span><span class="k">.rs-nsa</span></div>
+        <div class="desc">Demanda proativa sem desfecho mensurável (ex.: posicionamento público).</div>
+      </div>
+
+      <h3 style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--ink-mute);font-weight:var(--fw-semibold);margin:32px 0 8px">Status + Resultado · uso real</h3>
+
+      <table class="matrix">
+        <thead>
+          <tr>
+            <th>Cenário típico</th>
+            <th>Status</th>
+            <th>Resultado</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Cidadão acabou de chegar com problema</td>
+            <td><span class="badge st-novo"><span class="dot"></span>Novo</span></td>
+            <td><span class="badge rs-pend"><span class="glyph">○</span>Pendente</span></td>
+          </tr>
+          <tr>
+            <td>Ofício enviado, aguardando órgão</td>
+            <td><span class="badge st-agresp"><span class="dot"></span>Aguardando resposta</span></td>
+            <td><span class="badge rs-pend"><span class="glyph">○</span>Pendente</span></td>
+          </tr>
+          <tr>
+            <td>Devolutiva entregue, problema resolvido</td>
+            <td><span class="badge st-conc"><span class="dot"></span>Concluída</span></td>
+            <td><span class="badge rs-atend"><span class="glyph">✓</span>Atendido</span></td>
+          </tr>
+          <tr>
+            <td>Demanda fora da competência do município</td>
+            <td><span class="badge st-conc"><span class="dot"></span>Concluída</span></td>
+            <td><span class="badge rs-inv"><span class="glyph">⊘</span>Inviável</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Botões -->
+    <section class="block" id="botoes">
+      <header>
+        <div class="num">§ 06</div>
+        <h2>Botões</h2>
+        <p class="desc">Hierarquia clara em 5 variantes. Cada ação tem uma e apenas uma forma certa de aparecer.</p>
+      </header>
+
+      <h3 style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--ink-mute);font-weight:var(--fw-semibold);margin:24px 0 8px">Variantes</h3>
+      <div class="btn-grid">
+        <button class="btn primary">Salvar demanda</button>
+        <button class="btn secondary">Cancelar</button>
+        <button class="btn ghost">Adiar</button>
+        <button class="btn danger">Excluir</button>
+        <button class="btn primary" disabled>Desabilitado</button>
+      </div>
+
+      <h3 style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--ink-mute);font-weight:var(--fw-semibold);margin:24px 0 8px">Tamanhos</h3>
+      <div class="btn-grid">
+        <button class="btn primary sm">+ Nova</button>
+        <button class="btn primary">Salvar demanda</button>
+        <button class="btn primary lg">Concluir demanda <span class="arr">→</span></button>
+      </div>
+
+      <h3 style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--ink-mute);font-weight:var(--fw-semibold);margin:24px 0 8px">Com ícone</h3>
+      <div class="btn-grid">
+        <button class="btn primary"><span class="arr">+</span>Nova demanda</button>
+        <button class="btn secondary">Exportar CSV <span class="arr">↓</span></button>
+        <button class="btn ghost">Filtros <span class="arr">⌄</span></button>
+      </div>
+
+      <div class="note">
+        <span class="lbl">Regra</span>
+        Uma tela tem <strong>no máximo um botão primário</strong>. Esse é o "próximo passo natural" da tela. Tudo mais é secondary, ghost ou link.
+      </div>
+    </section>
+
+    <!-- Inputs -->
+    <section class="block" id="inputs">
+      <header>
+        <div class="num">§ 07</div>
+        <h2>Inputs &amp; formulário</h2>
+        <p class="desc">Campo é <strong>surface-3</strong> (branco) sobre <strong>surface-2</strong> (papel) — a diferença suave indica "aqui você pode escrever". Foco sublinha em navy + anel de 3px.</p>
+      </header>
+
+      <div class="input-grid">
+        <div class="input-group">
+          <label class="lbl">Título da demanda <span class="hint">obrigatório</span></label>
+          <input type="text" class="input" value="Falta de iluminação na Rua Antônio Ataíde">
+        </div>
+        <div class="input-group">
+          <label class="lbl">Canal de entrada</label>
+          <input type="text" class="input" placeholder="Ex.: WhatsApp do gabinete">
+        </div>
+        <div class="input-group">
+          <label class="lbl">E-mail <span class="hint">com erro de validação</span></label>
+          <input type="text" class="input error" value="seu-email">
+          <div class="input-msg error">Digite um e-mail válido (ex.: nome@dominio.com).</div>
+        </div>
+        <div class="input-group">
+          <label class="lbl">CPF <span class="hint">desabilitado</span></label>
+          <input type="text" class="input" value="182.···.···-44" disabled>
+        </div>
+      </div>
+
+      <div style="margin-top:24px">
+        <label class="lbl" style="display:block;font-family:var(--font-sans);font-size:12px;font-weight:var(--fw-semibold);color:var(--ink-soft);margin-bottom:6px;letter-spacing:0.02em">Relato da demanda</label>
+        <textarea class="input" rows="4" style="font-family:var(--font-serif);font-size:var(--text-lg);line-height:1.55;resize:vertical">Sebastiana Oliveira encaminhou via WhatsApp denúncia de que nove postes de iluminação pública estão sem funcionar há mais de três semanas na Rua Antônio Ataíde, no trecho entre a Praça Costa Pereira e a Rua Sete de Setembro.</textarea>
+        <div class="input-msg">428 caracteres · sem limite</div>
+      </div>
+    </section>
+
+    <!-- Tags -->
+    <section class="block" id="tags">
+      <header>
+        <div class="num">§ 08</div>
+        <h2>Tags · 14 cores fixas</h2>
+        <p class="desc">Tags são planas (sem hierarquia) e aplicadas a Pessoas e Entidades. Cor é livre escolha do administrador. As 11 cores terra do MPD + 3 da paleta Google Calendar (tomato/flamingo/graphite) para cobrir urgência, mídia e neutro.</p>
+      </header>
+
+      <div class="tag-grid">
+        <span class="tag stone">Stone</span>
+        <span class="tag clay">Clay</span>
+        <span class="tag sage">Sage</span>
+        <span class="tag moss">Moss</span>
+        <span class="tag mist">Mist</span>
+        <span class="tag sky">Sky</span>
+        <span class="tag iris">Iris</span>
+        <span class="tag plum">Plum</span>
+        <span class="tag rose">Rose</span>
+        <span class="tag spice">Spice</span>
+        <span class="tag gold">Gold</span>
+        <span class="tag tomato">Tomato</span>
+        <span class="tag flamingo">Flamingo</span>
+        <span class="tag graphite">Graphite</span>
+      </div>
+
+      <div class="note">
+        <span class="lbl">Por quê 11</span>
+        Pesquisas de UX em sistemas de tagging (Linear, GitHub) convergem em 8–14 cores antes do paradoxo da escolha. Onze é confortável e mantém diferenciação visual entre tons. A escolha das cores específicas favorece <strong>tons retidos</strong> — não compete com badges semânticos.
+      </div>
+    </section>
+
+    <!-- Espaços -->
+    <section class="block" id="espaco">
+      <header>
+        <div class="num">§ 09</div>
+        <h2>Espaços &amp; raios</h2>
+        <p class="desc">Escala Tailwind de 4px. Raios discretos (3-6px). Sem cantos super-arredondados — combina com a sobriedade institucional.</p>
+      </header>
+
+      <div class="spacing-demo">
+        <span class="name">space-1</span>
+        <div class="bar" style="width:4px"></div>
+        <span class="px">4px</span>
+      </div>
+      <div class="spacing-demo">
+        <span class="name">space-2</span>
+        <div class="bar" style="width:8px"></div>
+        <span class="px">8px</span>
+      </div>
+      <div class="spacing-demo">
+        <span class="name">space-3</span>
+        <div class="bar" style="width:12px"></div>
+        <span class="px">12px</span>
+      </div>
+      <div class="spacing-demo">
+        <span class="name">space-4</span>
+        <div class="bar" style="width:16px"></div>
+        <span class="px">16px</span>
+      </div>
+      <div class="spacing-demo">
+        <span class="name">space-6</span>
+        <div class="bar" style="width:24px"></div>
+        <span class="px">24px</span>
+      </div>
+      <div class="spacing-demo">
+        <span class="name">space-8</span>
+        <div class="bar" style="width:32px"></div>
+        <span class="px">32px</span>
+      </div>
+      <div class="spacing-demo">
+        <span class="name">space-12</span>
+        <div class="bar" style="width:48px"></div>
+        <span class="px">48px</span>
+      </div>
+    </section>
+
+    <!-- Decisões -->
+    <section class="block" id="decisoes">
+      <header>
+        <div class="num">§ 10</div>
+        <h2>Decisões &amp; trade-offs</h2>
+        <p class="desc">Onde escolhi um caminho em vez de outro, e por quê. Validar este registro com Pedro antes de aplicar nos 8 protótipos.</p>
+      </header>
+
+      <div class="decision-log">
+        <h3>10 decisões a validar</h3>
+        <div class="item">
+          <div class="n">01</div>
+          <div class="body">
+            <strong>Papel cru em vez de branco puro</strong>
+            <p>Sistemas SaaS modernos (Linear, Notion) usam branco como página. Eu fui de papel cru porque o MPD não é um produto SaaS genérico — é um sistema institucional de gabinete. O tom quente ancora a identidade. Se Pedro preferir branco, é uma troca de variável só (<code style="font-family:var(--font-mono);font-size:12px">--surface-0</code>).</p>
+          </div>
+        </div>
+        <div class="item">
+          <div class="n">02</div>
+          <div class="body">
+            <strong>Source Serif nos relatos</strong>
+            <p>Briefing dá carta branca. Eu mantenho serif no corpo da descrição/relato porque o texto da demanda costuma ter 4-10 linhas — serif lê melhor nesse formato. Em UI estrito é sans.</p>
+          </div>
+        </div>
+        <div class="item">
+          <div class="n">03</div>
+          <div class="body">
+            <strong>Badge com dot vs glifo</strong>
+            <p>Status (estado de trabalho) é cíclico → dot. Resultado (desfecho material) é classificatório → glifo único por categoria. Diferencia daltônicos, mas também ajuda o olho a separar os dois eixos numa lista densa.</p>
+          </div>
+        </div>
+        <div class="item">
+          <div class="n">04</div>
+          <div class="body">
+            <strong>Cor primária = navy, não institucional escuro</strong>
+            <p>Pensei em verde-musgo ou bordô para destacar do "azul corporativo padrão". Mas navy é a cor mais legível em links de tabela e o produto tem muita tabela. Bordô fica reservado para perigo (vencido, exclusão).</p>
+          </div>
+        </div>
+        <div class="item">
+          <div class="n">05</div>
+          <div class="body">
+            <strong>11 cores de tag em paleta retida</strong>
+            <p>Cores saturadas (azul-puro, vermelho-puro) competiriam com badges semânticos. Tags entram em listas ao lado de status — precisam coexistir sem briga.</p>
+          </div>
+        </div>
+        <div class="item">
+          <div class="n">06</div>
+          <div class="body">
+            <strong>Raios discretos (3-6px)</strong>
+            <p>Cantos muito arredondados (12px+) sugerem app de consumo. O MPD é ferramenta de trabalho institucional. Raios pequenos mantêm seriedade sem virar cartório.</p>
+          </div>
+        </div>
+        <div class="item">
+          <div class="n">07</div>
+          <div class="body">
+            <strong>Densidade "confortável", não "compacta"</strong>
+            <p>O briefing pede densidade tipo Linear/Notion. <code style="font-family:var(--font-mono);font-size:12px">--row-py: 16px</code> em tabelas. Cabe ~15 linhas em 1080p, com respiro. Não é Airtable.</p>
+          </div>
+        </div>
+        <div class="item">
+          <div class="n">08</div>
+          <div class="body">
+            <strong>Sem sombras pesadas</strong>
+            <p>Hierarquia vem de tom (surface 0→3), não de elevação dramática. Sombra é usada com economia — drawer, modal, dropdown. Card raramente.</p>
+          </div>
+        </div>
+        <div class="item">
+          <div class="n">09</div>
+          <div class="body">
+            <strong>Mono para IDs, datas frias e atalhos</strong>
+            <p>Número de demanda (<code style="font-family:var(--font-mono);font-size:12px">MPD-2026-00342</code>), data ISO, <kbd style="font-family:var(--font-mono);font-size:11px;background:var(--surface-1);border:1px solid var(--rule-strong);padding:1px 5px;border-radius:3px">Ctrl K</kbd>. Tabular-nums para datas se alinharem em colunas.</p>
+          </div>
+        </div>
+        <div class="item">
+          <div class="n">10</div>
+          <div class="body">
+            <strong>Tradução fiel para Tailwind</strong>
+            <p>Todos os tokens viram <code style="font-family:var(--font-mono);font-size:12px">--mpd-*</code> variables. Componentes usam padrões Tailwind: <code style="font-family:var(--font-mono);font-size:12px">px-4 py-2 rounded-md text-sm font-semibold</code>. Sem nada exótico que dependa de SCSS ou JS de build.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+</div>
+
+</body>
+</html>

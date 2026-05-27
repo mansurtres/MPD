@@ -1,0 +1,633 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>MPD · Pendências</title>
+<meta name="viewport" content="width=1400">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  body { background: var(--bg); }
+  .page { max-width: 1360px; margin: 32px auto 80px; padding: 0 28px; }
+
+  .doc { background: var(--paper); box-shadow: 0 1px 0 rgba(0,0,0,0.04), 0 16px 40px -24px rgba(60,50,30,0.22); }
+
+  .doc-head {
+    border-top: 6px solid var(--navy);
+    padding: 26px 36px 22px;
+    border-bottom: 1px solid var(--rule);
+    background: linear-gradient(180deg, var(--paper), var(--paper-2));
+  }
+  .doc-head .breadcrumb {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-bottom: 14px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .doc-head .breadcrumb .here { color: var(--navy); font-weight: 600; }
+  .doc-head .breadcrumb .sep { color: var(--rule-strong); }
+  .doc-head .row1 {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 24px;
+    align-items: end;
+    margin-bottom: 18px;
+  }
+  .doc-head h1 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 40px;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    margin: 0 0 6px;
+    color: var(--ink);
+  }
+  .doc-head .sub {
+    font-family: var(--serif);
+    font-size: 16px;
+    color: var(--ink-soft);
+    font-style: italic;
+    margin: 0;
+    max-width: 72ch;
+  }
+  .doc-head .sub strong { color: var(--ink); font-style: normal; font-weight: 600; }
+  .doc-head .sub .warn { color: var(--bordo); font-weight: 600; font-style: normal; }
+
+  .stat-ruler {
+    margin-top: 18px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border-top: 1px solid var(--rule);
+    padding-top: 16px;
+  }
+  .stat-ruler .cell {
+    padding-right: 18px;
+    border-right: 1px solid var(--rule);
+  }
+  .stat-ruler .cell:last-child { border-right: 0; }
+  .stat-ruler .k {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-bottom: 4px;
+  }
+  .stat-ruler .v {
+    font-family: var(--serif);
+    font-size: 26px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+    line-height: 1;
+  }
+  .stat-ruler .v.warn { color: var(--bordo); }
+  .stat-ruler .v.ok { color: var(--olive); }
+  .stat-ruler .sub {
+    margin-top: 4px;
+    font-family: var(--sans);
+    font-size: 11px;
+    color: var(--ink-mute);
+  }
+
+  /* Body */
+  .doc-body { padding: 36px 36px 44px; }
+
+  .section { margin-bottom: 44px; }
+  .section:last-child { margin-bottom: 0; }
+  .section-head {
+    display: flex; align-items: baseline; gap: 12px;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--navy);
+  }
+  .section-head.urg { border-bottom-color: var(--bordo); }
+  .section-head h2 {
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--navy);
+    margin: 0;
+  }
+  .section-head.urg h2 { color: var(--bordo); }
+  .section-head .count {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-mute);
+    letter-spacing: 0.04em;
+  }
+  .section-head .lede {
+    font-family: var(--serif);
+    font-size: 14px;
+    color: var(--ink-mute);
+    font-style: italic;
+    margin-left: 6px;
+  }
+  .section-head .all {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-mute);
+    text-decoration: none;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  /* Item de pendência — formato de linha do tempo */
+  .item {
+    display: grid;
+    grid-template-columns: 110px 1fr auto;
+    gap: 24px;
+    padding: 18px 0;
+    border-bottom: 1px solid var(--rule);
+    align-items: start;
+  }
+  .item .when {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-mute);
+    text-align: right;
+    padding-top: 4px;
+    line-height: 1.4;
+  }
+  .item .when .d {
+    display: block;
+    font-family: var(--serif);
+    font-size: 22px;
+    color: var(--ink);
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: -0.01em;
+    margin-bottom: 2px;
+  }
+  .item .when .m {
+    display: block;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+  }
+  .item .when .ago {
+    display: block;
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid var(--rule);
+    font-family: var(--sans);
+    font-size: 11px;
+    color: var(--bordo);
+    font-weight: 600;
+  }
+  .item.late .when .d { color: var(--bordo); }
+
+  .item .body { padding-top: 4px; }
+  .item .body .type {
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-bottom: 6px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .item .body .type .mark {
+    width: 8px; height: 8px;
+    background: currentColor;
+    display: inline-block;
+  }
+  .item.devolutiva .body .type { color: var(--bordo); }
+  .item.reuniao .body .type { color: var(--navy); }
+  .item.encam .body .type { color: var(--tan); }
+  .item.demanda .body .type { color: var(--amber); }
+
+  .item .body .ttl {
+    font-family: var(--serif);
+    font-size: 16.5px;
+    color: var(--ink);
+    line-height: 1.3;
+    margin: 0 0 4px;
+    font-weight: 500;
+    text-wrap: pretty;
+  }
+  .item .body .ttl a {
+    color: var(--ink);
+    text-decoration: none;
+  }
+  .item .body .ttl a:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .item .body .sub {
+    font-family: var(--serif);
+    font-size: 13.5px;
+    color: var(--ink-soft);
+    line-height: 1.5;
+    margin: 0 0 6px;
+  }
+  .item .body .meta {
+    margin-top: 4px;
+    font-family: var(--sans);
+    font-size: 12px;
+    color: var(--ink-mute);
+  }
+  .item .body .meta .demanda {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--navy);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  .item .body .meta .sep { color: var(--rule-strong); margin: 0 6px; }
+  .item .body .meta .resp {
+    font-family: var(--sans);
+    color: var(--ink-soft);
+    font-weight: 500;
+  }
+
+  .item .actions {
+    display: flex; gap: 4px;
+    align-items: start;
+    flex-direction: column;
+    min-width: 200px;
+  }
+  .item .actions .ar {
+    display: flex; gap: 4px;
+    width: 100%;
+  }
+  .btn {
+    background: transparent;
+    border: 1px solid var(--rule-strong);
+    font-family: var(--sans);
+    font-size: 11.5px;
+    padding: 5px 10px;
+    color: var(--ink-soft);
+    cursor: pointer;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    text-align: center;
+  }
+  .btn:hover { background: var(--paper-2); border-color: var(--ink); color: var(--ink); }
+  .btn.primary {
+    background: var(--navy);
+    border-color: var(--navy);
+    color: var(--paper);
+    font-weight: 600;
+    flex: 1;
+  }
+  .btn.primary:hover { background: var(--navy-deep); }
+  .btn.danger { color: var(--bordo); border-color: var(--bordo); }
+
+  /* Vazio (caso de "tudo em dia") */
+  .empty {
+    padding: 28px 32px;
+    text-align: center;
+    background: var(--paper-2);
+    border: 1px dashed var(--rule-strong);
+    color: var(--ink-soft);
+    font-family: var(--serif);
+    font-size: 15px;
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+
+<header class="appbar">
+  <div class="appbar-inner">
+    <a class="brand" href="home.html">
+      <span class="mark">M</span>
+      <span class="name">MPD</span>
+      <span class="tag">Pedro Trés · 11ª Legislatura</span>
+    </a>
+    <nav>
+      <a href="home.html">Início</a>
+      <a href="05-inbox.html">Entrada <span class="alert">7</span></a>
+      <a href="04-lista.html">Demandas</a>
+      <a href="pessoas.html">Pessoas</a>
+      <a href="entidades.html">Entidades</a>
+      <a href="encaminhamentos.html">Encaminhamentos</a>
+      <a href="pendencias.html" class="current">Pendências <span class="alert">3</span></a>
+    </nav>
+    <div class="me">
+      <div class="who">
+        <span class="av">MC</span>
+        <span>
+          <span class="name">Mariana Costa</span>
+          <span class="role">Gabinete · resp.</span>
+        </span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="page">
+  <article class="doc">
+
+    <header class="doc-head">
+      <div class="breadcrumb">
+        <span class="here">PENDÊNCIAS</span>
+        <span class="sep">/</span>
+        <span>MINHAS · MAI 2026</span>
+      </div>
+      <div class="row1">
+        <div>
+          <h1>Pendências</h1>
+          <p class="sub">O que está <strong>aguardando você</strong>: devolutivas a registrar, reuniões agendadas, ofícios com prazo. <span class="warn">3 itens em atraso.</span></p>
+        </div>
+      </div>
+
+      <div class="stat-ruler">
+        <div class="cell">
+          <div class="k">Devolutivas pendentes</div>
+          <div class="v warn">4</div>
+          <div class="sub">2 atrasadas · 1 hoje · 1 amanhã</div>
+        </div>
+        <div class="cell">
+          <div class="k">Reuniões agendadas</div>
+          <div class="v">3</div>
+          <div class="sub">1 hoje · 2 esta semana</div>
+        </div>
+        <div class="cell">
+          <div class="k">Ofícios com prazo</div>
+          <div class="v warn">5</div>
+          <div class="sub"><strong>1 vencido</strong> · 4 em até 7 dias</div>
+        </div>
+        <div class="cell">
+          <div class="k">Concluídas sem devolutiva</div>
+          <div class="v">2</div>
+          <div class="sub">não podem ser arquivadas</div>
+        </div>
+      </div>
+    </header>
+
+    <div class="doc-body">
+
+      <!-- Devolutivas pendentes -->
+      <div class="section">
+        <div class="section-head urg">
+          <h2>Devolutivas pendentes</h2>
+          <span class="count">4 itens</span>
+          <span class="lede">demanda responsiva só conclui depois de retornar ao demandante</span>
+          <a class="all" href="04-lista.html?filtro=sem_retorno_30d">Ver na lista →</a>
+        </div>
+
+        <div class="item late devolutiva">
+          <div class="when">
+            <span class="d">10</span>
+            <span class="m">mai 2026</span>
+            <span class="ago">há 7 dias</span>
+          </div>
+          <div class="body">
+            <div class="type"><span class="mark"></span>Devolutiva atrasada · MPD-2026-00339</div>
+            <p class="ttl"><a href="#">Retornar ao Conselho de Pais EMEF Eunice sobre linha 502</a></p>
+            <p class="sub">SEMOB respondeu em 28/04 que a frequência será mantida e que reforço só seria possível com novo edital. Falta comunicar a Marta Vieira e ao Conselho.</p>
+            <div class="meta">
+              <span class="demanda">MPD-2026-00339</span>
+              <span class="sep">·</span>
+              <span class="resp">Lucas Almeida</span>
+              <span class="sep">·</span>
+              <span>canal sugerido: presencial na reunião do Conselho</span>
+            </div>
+          </div>
+          <div class="actions">
+            <div class="ar"><button class="btn primary">Registrar devolutiva</button></div>
+            <div class="ar"><button class="btn">Adiar</button><button class="btn">Delegar</button></div>
+          </div>
+        </div>
+
+        <div class="item late devolutiva">
+          <div class="when">
+            <span class="d">12</span>
+            <span class="m">mai 2026</span>
+            <span class="ago">há 5 dias</span>
+          </div>
+          <div class="body">
+            <div class="type"><span class="mark"></span>Devolutiva atrasada · MPD-2026-00321</div>
+            <p class="ttl"><a href="#">Devolver aos Comerciantes Reunidos do Centro sobre ronda PM</a></p>
+            <p class="sub">DETRAN-ES informou aumento de 30% nas rondas (atendido parcial). Reunião marcada com Sr. Antônio para 19/05, mas a devolutiva formal pode ir antes.</p>
+            <div class="meta">
+              <span class="demanda">MPD-2026-00321</span>
+              <span class="sep">·</span>
+              <span class="resp">Mariana Costa</span>
+              <span class="sep">·</span>
+              <span>canal sugerido: WhatsApp</span>
+            </div>
+          </div>
+          <div class="actions">
+            <div class="ar"><button class="btn primary">Registrar devolutiva</button></div>
+            <div class="ar"><button class="btn">Adiar</button><button class="btn">Delegar</button></div>
+          </div>
+        </div>
+
+        <div class="item devolutiva">
+          <div class="when">
+            <span class="d">17</span>
+            <span class="m">mai 2026</span>
+            <span class="ago" style="color:var(--amber)">hoje · 14:30</span>
+          </div>
+          <div class="body">
+            <div class="type"><span class="mark"></span>Devolutiva agendada · MPD-2026-00342</div>
+            <p class="ttl"><a href="01-prontuario.html">Retornar a Sebastiana Oliveira sobre a iluminação da Antônio Ataíde</a></p>
+            <p class="sub">SEMOB respondeu com previsão de execução até 12/06. Combinar visita conjunta se reparo não começar antes da reunião mensal.</p>
+            <div class="meta">
+              <span class="demanda">MPD-2026-00342</span>
+              <span class="sep">·</span>
+              <span class="resp">Mariana Costa</span>
+              <span class="sep">·</span>
+              <span>WhatsApp · agendada</span>
+            </div>
+          </div>
+          <div class="actions">
+            <div class="ar"><button class="btn primary">Registrar devolutiva</button></div>
+            <div class="ar"><button class="btn">Adiar</button><button class="btn">Delegar</button></div>
+          </div>
+        </div>
+
+        <div class="item devolutiva">
+          <div class="when">
+            <span class="d">18</span>
+            <span class="m">mai 2026</span>
+            <span class="ago" style="color:var(--ink-mute)">amanhã</span>
+          </div>
+          <div class="body">
+            <div class="type"><span class="mark"></span>Devolutiva agendada · MPD-2026-00336</div>
+            <p class="ttl"><a href="#">Devolver a Cláudia Bonfim sobre a coleta seletiva de Jardim Camburi</a></p>
+            <p class="sub">Aguarda resposta do Of. 0145 (enviado 07/05, prazo 21/05). Se vier antes, devolutiva pode ser antecipada.</p>
+            <div class="meta">
+              <span class="demanda">MPD-2026-00336</span>
+              <span class="sep">·</span>
+              <span class="resp">Bia Ferreira</span>
+              <span class="sep">·</span>
+              <span>aguarda Of. 0145 → SEMSE</span>
+            </div>
+          </div>
+          <div class="actions">
+            <div class="ar"><button class="btn primary">Abrir caso</button></div>
+            <div class="ar"><button class="btn">Adiar</button><button class="btn">Delegar</button></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Reuniões agendadas -->
+      <div class="section">
+        <div class="section-head">
+          <h2>Reuniões agendadas</h2>
+          <span class="count">3 itens</span>
+          <span class="lede">marcações em sua agenda atravessando casos</span>
+        </div>
+
+        <div class="item reuniao">
+          <div class="when">
+            <span class="d">17</span>
+            <span class="m">mai 2026</span>
+            <span class="ago" style="color:var(--amber)">hoje · 16:00</span>
+          </div>
+          <div class="body">
+            <div class="type"><span class="mark"></span>Reunião · com entidade</div>
+            <p class="ttl"><a href="#">Assoc. Moradores do Centro — pauta mensal</a></p>
+            <p class="sub">Sebastiana confirmou. Pauta inclui iluminação, bancos da Costa Pereira (inviabilizado, explicar) e novo pedido sobre poda de árvores.</p>
+            <div class="meta">
+              <span>Sede da AM Centro · Rua Sete de Setembro, 22</span>
+              <span class="sep">·</span>
+              <span class="resp">com Pedro e Bia</span>
+            </div>
+          </div>
+          <div class="actions">
+            <div class="ar"><button class="btn primary">Abrir entidade</button></div>
+            <div class="ar"><button class="btn">Notas</button><button class="btn">Reagendar</button></div>
+          </div>
+        </div>
+
+        <div class="item reuniao">
+          <div class="when">
+            <span class="d">19</span>
+            <span class="m">mai 2026</span>
+            <span class="ago" style="color:var(--ink-mute)">em 2 dias · 10:00</span>
+          </div>
+          <div class="body">
+            <div class="type"><span class="mark"></span>Visita com demandante</div>
+            <p class="ttl"><a href="#">Vistoria conjunta com Sr. Antônio — Rua Antônio Ataíde</a></p>
+            <p class="sub">Verificar se SEMOB iniciou o reparo. Caso não, fotodocumentar e usar como base para ofício de cobrança.</p>
+            <div class="meta">
+              <span>Rua Antônio Ataíde, 412 · Centro</span>
+              <span class="sep">·</span>
+              <span class="demanda">MPD-2026-00342</span>
+            </div>
+          </div>
+          <div class="actions">
+            <div class="ar"><button class="btn primary">Abrir caso</button></div>
+            <div class="ar"><button class="btn">Notas</button><button class="btn">Reagendar</button></div>
+          </div>
+        </div>
+
+        <div class="item reuniao">
+          <div class="when">
+            <span class="d">22</span>
+            <span class="m">mai 2026</span>
+            <span class="ago" style="color:var(--ink-mute)">em 5 dias · 14:00</span>
+          </div>
+          <div class="body">
+            <div class="type"><span class="mark"></span>Reunião · com órgão público</div>
+            <p class="ttl"><a href="#">Reunião com Lia Garcia (SEMUS) — edital de pediatria</a></p>
+            <p class="sub">Falar sobre vagas remanescentes do edital. Apresentar a UBS Maruípe como prioridade. Pedro vai junto.</p>
+            <div class="meta">
+              <span>SEMUS · sede</span>
+              <span class="sep">·</span>
+              <span class="demanda">MPD-2026-00343</span>
+              <span class="sep">·</span>
+              <span class="resp">Pedro &amp; Mariana</span>
+            </div>
+          </div>
+          <div class="actions">
+            <div class="ar"><button class="btn primary">Abrir caso</button></div>
+            <div class="ar"><button class="btn">Notas</button><button class="btn">Reagendar</button></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ofícios com prazo -->
+      <div class="section">
+        <div class="section-head urg">
+          <h2>Ofícios com prazo</h2>
+          <span class="count">5 itens</span>
+          <span class="lede">prazos vencidos exigem ofício de cobrança ou escalonamento</span>
+          <a class="all" href="encaminhamentos.html">Ver todos os ofícios →</a>
+        </div>
+
+        <div class="item late encam">
+          <div class="when">
+            <span class="d">14</span>
+            <span class="m">mai 2026</span>
+            <span class="ago">vencido há 3 dias</span>
+          </div>
+          <div class="body">
+            <div class="type"><span class="mark"></span>Prazo de resposta vencido · Of. 0118/2026</div>
+            <p class="ttl"><a href="encaminhamentos.html">SEDU não respondeu sobre atendimento médico em fila</a></p>
+            <p class="sub">Requerimento de informação enviado em 22/04. Sem resposta há 25 dias. Caso restrito — escalonar via ofício de cobrança ou requerimento direto ao Secretário.</p>
+            <div class="meta">
+              <span class="demanda">MPD-2026-00328</span>
+              <span class="sep">·</span>
+              <span class="resp">Mariana Costa</span>
+            </div>
+          </div>
+          <div class="actions">
+            <div class="ar"><button class="btn primary">Of. de cobrança</button></div>
+            <div class="ar"><button class="btn">Encerrar sem resp.</button></div>
+          </div>
+        </div>
+
+        <div class="item encam">
+          <div class="when">
+            <span class="d">18</span>
+            <span class="m">mai 2026</span>
+            <span class="ago" style="color:var(--amber)">amanhã · 11:00</span>
+          </div>
+          <div class="body">
+            <div class="type"><span class="mark"></span>Prazo amanhã · Of. 0138/2026</div>
+            <p class="ttl"><a href="encaminhamentos.html">SEDU — creche pública Bento Ferreira</a></p>
+            <p class="sub">Ofício enviado em 04/05. Prazo de 14 dias úteis vence amanhã às 11h. Se não vier, conversar antes de mandar cobrança — Bia tem contato no setor.</p>
+            <div class="meta">
+              <span class="demanda">MPD-2026-00341</span>
+              <span class="sep">·</span>
+              <span class="resp">Bia Ferreira</span>
+            </div>
+          </div>
+          <div class="actions">
+            <div class="ar"><button class="btn primary">Abrir ofício</button></div>
+            <div class="ar"><button class="btn">Notas</button></div>
+          </div>
+        </div>
+
+        <div class="item encam">
+          <div class="when">
+            <span class="d">20</span>
+            <span class="m">mai 2026</span>
+            <span class="ago" style="color:var(--ink-mute)">em 3 dias</span>
+          </div>
+          <div class="body">
+            <div class="type"><span class="mark"></span>Prazo próximo · Of. 0144/2026</div>
+            <p class="ttl"><a href="encaminhamentos.html">SEMOB — linha 502 horário escolar</a></p>
+            <div class="meta">
+              <span class="demanda">MPD-2026-00339</span>
+              <span class="sep">·</span>
+              <span class="resp">Lucas Almeida</span>
+            </div>
+          </div>
+          <div class="actions">
+            <div class="ar"><button class="btn primary">Abrir ofício</button></div>
+            <div class="ar"><button class="btn">Notas</button></div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </article>
+</main>
+
+</body>
+</html>

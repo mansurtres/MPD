@@ -1,0 +1,706 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>MPD · Nova demanda</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  body { background: var(--surface-0); padding-bottom: 80px; }
+
+  /* SHELL — mesma estrutura das outras telas */
+  .topbar { background: var(--surface-2); border-bottom: 1px solid var(--rule); position: sticky; top: 0; z-index: var(--z-sticky); }
+  .topbar-inner { max-width: 1440px; margin: 0 auto; padding: 0 28px; display: grid; grid-template-columns: auto 1fr auto; gap: 24px; align-items: center; min-height: 56px; }
+  .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink-strong); }
+  .brand .mark { width: 28px; height: 28px; background: var(--primary); color: var(--primary-fg); display: grid; place-items: center; font-family: var(--font-mono); font-weight: 700; font-size: 12px; letter-spacing: 0.04em; }
+  .brand .name { font-family: var(--font-mono); font-weight: 600; font-size: 14px; letter-spacing: 0.04em; }
+  .brand .tag { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; color: var(--ink-mute); text-transform: uppercase; margin-left: 6px; padding-left: 10px; border-left: 1px solid var(--rule-strong); }
+  .topbar-right { display: flex; align-items: center; gap: 4px; }
+  .topbar-right nav a { text-decoration: none; color: var(--ink-soft); font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em; padding: 8px 12px; display: inline-flex; align-items: center; gap: 6px; position: relative; }
+  .topbar-right nav a.current { color: var(--primary); font-weight: 600; }
+  .topbar-right nav a.current::after { content: ""; position: absolute; bottom: -1px; left: 12px; right: 12px; height: 2px; background: var(--primary); }
+  .topbar-right .me { display: flex; align-items: center; gap: 10px; padding: 4px 10px; }
+  .topbar-right .me .av { width: 28px; height: 28px; background: var(--navy-100); color: var(--navy-700); border-radius: var(--radius-full); display: grid; place-items: center; font-family: var(--font-mono); font-size: 11px; font-weight: 700; }
+  .topbar-right .me .who { font-family: var(--font-mono); font-size: 12px; color: var(--ink); font-weight: 600; letter-spacing: 0.02em; }
+  .topbar-right .me .role { display: block; font-family: var(--font-mono); font-size: 10px; color: var(--ink-mute); margin-top: 1px; letter-spacing: 0.04em; text-transform: uppercase; }
+
+  .page { max-width: 920px; margin: 0 auto; padding: 24px 28px 60px; }
+
+  /* Documento do form */
+  .doc { background: var(--surface-2); box-shadow: var(--shadow-lg); }
+  .doc-bar {
+    border-top: 6px solid var(--primary);
+    background: linear-gradient(180deg, var(--surface-2), var(--surface-1));
+    padding: 14px 32px 12px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .doc-bar .crumb {
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--ink-mute);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .doc-bar .crumb a { text-decoration: none; color: var(--ink-mute); }
+  .doc-bar .crumb a:hover { color: var(--primary); }
+  .doc-bar .crumb .sep { color: var(--rule-strong); }
+  .doc-bar .crumb .here { color: var(--primary); font-weight: 700; letter-spacing: 0.04em; }
+
+  .form-head { padding: 32px 36px 24px; border-bottom: 1px solid var(--rule); }
+  .form-head h1 {
+    font-family: var(--font-display); font-weight: 600;
+    font-size: 36px; line-height: 1.1; letter-spacing: -0.025em;
+    color: var(--ink); margin: 0 0 8px;
+  }
+  .form-head .sub {
+    font-family: var(--font-serif); font-size: 15px;
+    line-height: 1.55; color: var(--ink-body);
+    margin: 0; max-width: 60ch; font-style: italic;
+  }
+  .form-head .sub strong { color: var(--ink); font-weight: 600; font-style: normal; }
+
+  /* Sections */
+  .form-body { padding: 28px 36px 36px; }
+  .section { margin-bottom: 32px; padding-bottom: 28px; border-bottom: 1px solid var(--rule); }
+  .section:last-of-type { border-bottom: 0; padding-bottom: 0; margin-bottom: 0; }
+  .section-mark {
+    font-family: var(--font-mono); font-size: 10.5px;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--primary); font-weight: 700;
+    margin-bottom: 14px;
+    display: flex; align-items: baseline; gap: 12px;
+  }
+  .section-mark .num { color: var(--ink-mute); }
+  .section-mark .req {
+    margin-left: auto; color: var(--ink-mute);
+    font-weight: 500; letter-spacing: 0.04em; text-transform: none;
+    font-style: italic; font-family: var(--font-serif); font-size: 13px;
+  }
+
+  /* Field */
+  .field { margin-bottom: 16px; }
+  .field label {
+    display: block;
+    font-family: var(--font-mono); font-size: 10.5px;
+    font-weight: 700; color: var(--ink-mute);
+    letter-spacing: 0.1em; text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .field label .req { color: var(--danger-500); margin-left: 2px; }
+  .field label .hint {
+    font-family: var(--font-serif); font-style: italic;
+    color: var(--ink-mute); font-weight: 400; font-size: 12px;
+    text-transform: none; letter-spacing: 0;
+    margin-left: 8px;
+  }
+  .field input[type=text], .field input[type=date], .field input[type=number],
+  .field textarea, .field select {
+    width: 100%;
+    background: var(--surface-3);
+    border: 1px solid var(--rule-strong);
+    color: var(--ink);
+    font-family: var(--font-mono); font-size: 13px;
+    padding: 9px 12px;
+    outline: 0;
+  }
+  .field input:focus, .field textarea:focus, .field select:focus {
+    border-color: var(--primary); box-shadow: 0 0 0 3px rgba(31,58,95,0.10);
+  }
+  .field input.big {
+    font-family: var(--font-serif); font-size: 18px;
+    line-height: 1.4; padding: 12px 14px;
+  }
+  .field textarea {
+    font-family: var(--font-serif); font-size: 16px; line-height: 1.55;
+    resize: vertical; min-height: 140px;
+  }
+  .field .help {
+    font-family: var(--font-serif); font-style: italic;
+    font-size: 12.5px; color: var(--ink-mute);
+    margin-top: 6px; line-height: 1.4;
+  }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .field-row.three { grid-template-columns: 1fr 1fr 1fr; }
+
+  /* Radio segmentado · origem */
+  .seg {
+    display: flex; gap: 0;
+    border: 1px solid var(--rule-strong);
+  }
+  .seg label {
+    flex: 1; cursor: pointer;
+    padding: 9px 14px;
+    border-right: 1px solid var(--rule-strong);
+    font-family: var(--font-mono); font-size: 11.5px;
+    letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--ink-soft); font-weight: 600;
+    text-align: center;
+    background: var(--surface-3);
+    margin: 0;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .seg label:last-child { border-right: 0; }
+  .seg label:has(input:checked) {
+    background: var(--primary); color: var(--primary-fg);
+  }
+  .seg label input { display: none; }
+  .seg label .desc {
+    font-family: var(--font-serif); font-style: italic;
+    font-size: 11.5px; opacity: 0.85; text-transform: none;
+    letter-spacing: 0; font-weight: 400;
+  }
+
+  /* Checkbox · restrita */
+  .check {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 12px 14px;
+    background: var(--surface-3);
+    border: 1px solid var(--rule-strong);
+    cursor: pointer;
+  }
+  .check input { margin-top: 4px; accent-color: var(--primary); }
+  .check .body { font-family: var(--font-sans); font-size: 12.5px; color: var(--ink-body); line-height: 1.45; }
+  .check .body strong { color: var(--ink); font-weight: 600; }
+
+  /* Temas chips */
+  .chips { display: flex; flex-wrap: wrap; gap: 5px; }
+  .chip {
+    background: var(--surface-3);
+    border: 1px solid var(--rule-strong);
+    padding: 5px 11px;
+    font-family: var(--font-mono); font-size: 11.5px;
+    color: var(--ink-soft); cursor: pointer;
+    letter-spacing: 0.04em; text-transform: uppercase;
+    font-weight: 600;
+  }
+  .chip.on { background: var(--ink-800); color: var(--surface-2); border-color: var(--ink-800); }
+  .chip.add { border-style: dashed; color: var(--ink-mute); }
+
+  /* Autocomplete pessoa/entidade */
+  .autocomplete {
+    background: var(--surface-3);
+    border: 1px solid var(--rule-strong);
+    box-shadow: var(--shadow-md);
+    margin-top: 4px;
+  }
+  .autocomplete .head {
+    background: var(--surface-1);
+    padding: 6px 12px;
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--ink-mute); letter-spacing: 0.1em; text-transform: uppercase;
+    border-bottom: 1px solid var(--rule);
+  }
+  .autocomplete .opt {
+    display: grid; grid-template-columns: 28px 1fr auto;
+    gap: 10px; padding: 9px 12px; align-items: center;
+    border-bottom: 1px solid var(--rule); cursor: pointer;
+  }
+  .autocomplete .opt:last-child { border-bottom: 0; }
+  .autocomplete .opt:hover { background: var(--surface-1); }
+  .autocomplete .opt .av {
+    width: 28px; height: 28px;
+    background: var(--navy-100); color: var(--navy-700);
+    border-radius: var(--radius-full);
+    display: grid; place-items: center;
+    font-family: var(--font-mono); font-size: 10px; font-weight: 700;
+  }
+  .autocomplete .opt .nome {
+    font-family: var(--font-serif); font-size: 14px;
+    color: var(--ink); font-weight: 500;
+  }
+  .autocomplete .opt .meta {
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--ink-mute); letter-spacing: 0.04em; text-transform: uppercase;
+    margin-top: 2px;
+  }
+  .autocomplete .new {
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--primary); border: 1px solid var(--primary);
+    padding: 3px 8px; letter-spacing: 0.04em; text-transform: uppercase;
+    font-weight: 600;
+  }
+
+  /* Formset: lista de partes adicionadas */
+  .formset {
+    border: 1px solid var(--rule-strong);
+    background: var(--surface-3);
+  }
+  .formset-row {
+    display: grid; grid-template-columns: 1fr 200px 36px;
+    gap: 10px; padding: 10px 12px;
+    border-bottom: 1px solid var(--rule);
+    align-items: center;
+  }
+  .formset-row:last-of-type { border-bottom: 0; }
+  .formset-row .pessoa {
+    display: flex; align-items: center; gap: 10px;
+    font-family: var(--font-serif); font-size: 14px;
+    color: var(--ink); font-weight: 500;
+  }
+  .formset-row .pessoa .av {
+    width: 26px; height: 26px;
+    background: var(--navy-100); color: var(--navy-700);
+    border-radius: var(--radius-full);
+    display: grid; place-items: center;
+    font-family: var(--font-mono); font-size: 10px; font-weight: 700;
+  }
+  .formset-row .pessoa .av.ent {
+    background: var(--success-50); color: var(--success-700);
+    border-radius: var(--radius-sm);
+  }
+  .formset-row select {
+    width: 100%;
+    background: var(--surface-3); border: 1px solid var(--rule-strong);
+    padding: 6px 10px;
+    font-family: var(--font-mono); font-size: 12px; color: var(--ink);
+  }
+  .formset-row .x {
+    background: transparent; border: 1px solid var(--rule-strong);
+    color: var(--ink-mute); cursor: pointer;
+    font-family: var(--font-mono); font-size: 14px;
+    width: 36px; height: 32px;
+    display: grid; place-items: center;
+  }
+  .formset-row .x:hover { color: var(--danger-600); border-color: var(--danger-500); }
+  .formset-add {
+    padding: 10px 12px;
+    background: var(--surface-1);
+    border-top: 1px solid var(--rule);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .formset-add .search-inp {
+    flex: 1; display: flex; align-items: center; gap: 8px;
+    background: var(--surface-3); border: 1px solid var(--rule-strong);
+    padding: 7px 11px;
+  }
+  .formset-add .search-inp input {
+    flex: 1; border: 0; outline: 0; background: transparent;
+    font-family: var(--font-mono); font-size: 13px; color: var(--ink);
+  }
+  .formset-add .search-inp input::placeholder { color: var(--ink-mute); font-style: italic; }
+  .formset-add .pre { font-family: var(--font-mono); color: var(--ink-mute); }
+
+  /* Drop area */
+  .drop {
+    background: var(--surface-3);
+    border: 1.5px dashed var(--rule-strong);
+    padding: 24px 18px;
+    text-align: center;
+    font-family: var(--font-serif);
+    color: var(--ink-mute);
+    cursor: pointer;
+  }
+  .drop strong { color: var(--ink); font-weight: 600; }
+  .drop .or { font-style: italic; margin: 0 6px; }
+  .drop .browse {
+    background: var(--surface-2); border: 1px solid var(--rule-strong);
+    padding: 5px 12px;
+    font-family: var(--font-mono); font-size: 12px; color: var(--ink);
+    letter-spacing: 0.04em; text-transform: uppercase; font-weight: 600;
+    cursor: pointer;
+  }
+  .drop .types {
+    margin-top: 8px;
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--ink-mute); letter-spacing: 0.06em; text-transform: uppercase;
+  }
+
+  /* Anexo selecionado */
+  .anexo-sel {
+    display: grid; grid-template-columns: 28px 1fr auto auto;
+    gap: 12px; align-items: center;
+    padding: 10px 12px;
+    background: var(--surface-3); border: 1px solid var(--rule);
+    margin-top: 8px;
+  }
+  .anexo-sel .ext {
+    font-family: var(--font-mono); font-size: 9px;
+    background: var(--ink-800); color: var(--surface-2);
+    padding: 3px 5px; letter-spacing: 0.08em; font-weight: 700; text-align: center;
+  }
+  .anexo-sel .nome {
+    font-family: var(--font-mono); font-size: 12.5px; color: var(--ink);
+    font-weight: 500;
+  }
+  .anexo-sel .tam {
+    font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-mute);
+  }
+  .anexo-sel .x {
+    background: transparent; border: 0;
+    color: var(--ink-mute); cursor: pointer;
+    font-family: var(--font-mono); font-size: 14px;
+    padding: 2px 6px;
+  }
+  .anexo-sel .x:hover { color: var(--danger-600); }
+
+  /* Sticky footer */
+  .form-foot {
+    position: sticky; bottom: 0;
+    background: var(--surface-1);
+    border-top: 2px solid var(--ink-200);
+    padding: 16px 36px;
+    display: flex; justify-content: space-between; align-items: center; gap: 14px;
+  }
+  .form-foot .left {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--ink-mute); letter-spacing: 0.02em;
+  }
+  .form-foot .left strong { color: var(--ink-strong); font-weight: 700; }
+  .form-foot .right { display: flex; gap: 8px; }
+
+  /* Botões */
+  .btn {
+    font-family: var(--font-mono); font-size: 12px; font-weight: 600;
+    letter-spacing: 0.04em; text-transform: uppercase;
+    padding: 10px 18px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 8px;
+    line-height: 1.2; white-space: nowrap;
+  }
+  .btn.primary { background: var(--primary); color: var(--primary-fg); border-color: var(--primary); }
+  .btn.primary:hover { background: var(--primary-hover); }
+  .btn.secondary { background: var(--surface-3); color: var(--ink); border-color: var(--rule-strong); }
+  .btn.ghost { background: transparent; color: var(--ink-soft); border-color: transparent; }
+
+  /* Banner de erro no topo do form */
+  .form-err {
+    margin: 0 36px 24px;
+    background: var(--danger-50);
+    border-left: 3px solid var(--danger-500);
+    padding: 14px 18px;
+    font-family: var(--font-serif); font-size: 14px;
+    line-height: 1.5; color: var(--danger-700);
+  }
+  .form-err .lbl {
+    font-family: var(--font-mono); font-size: 10px;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--danger-600); font-weight: 700;
+    display: block; margin-bottom: 4px;
+  }
+  .form-err ul { margin: 4px 0 0; padding-left: 20px; }
+  .form-err strong { color: var(--ink); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<!-- SHELL -->
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="design-system.html">
+      <span class="mark">M</span>
+      <span class="name">MPD</span>
+      <span class="tag">Gabinete Demo</span>
+    </a>
+    <div></div>
+    <div class="topbar-right">
+      <nav>
+        <a href="home.html">Início</a>
+        <a href="inbox.html">Inbox <span class="badge-count">12</span></a>
+        <a href="pendencias.html">Pendências <span class="badge-count alert">3</span></a>
+        <a href="lista-demandas.html" class="current">Demandas</a>
+        <a href="#">Pessoas</a>
+        <a href="analise.html">Análise</a>
+      </nav>
+      <div class="me">
+        <div class="av">MC</div>
+        <div>
+          <div class="who">Maria Coelho</div>
+          <span class="role">Coordenadora</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="page">
+
+  <article class="doc">
+
+    <header class="doc-bar">
+      <div class="crumb">
+        <a href="lista-demandas.html">DEMANDAS</a>
+        <span class="sep">/</span>
+        <span class="here">NOVA</span>
+      </div>
+    </header>
+
+    <header class="form-head">
+      <h1>Nova demanda</h1>
+      <p class="sub">Registre uma nova solicitação ou ação do mandato. Receberá o número <strong>MPD-2026-00343</strong> ao salvar.</p>
+    </header>
+
+    <div class="form-body">
+
+      <!-- ─── Identificação ─── -->
+      <section class="section">
+        <div class="section-mark"><span class="num">01</span>Identificação<span class="req">campos obrigatórios *</span></div>
+
+        <div class="field">
+          <label>Título <span class="req">*</span></label>
+          <input type="text" class="big" placeholder="Frase curta que descreve o caso" value="Falta de iluminação na Rua Antônio Ataíde — trecho da Praça Costa Pereira">
+        </div>
+
+        <div class="field">
+          <label>Origem <span class="req">*</span></label>
+          <div class="seg">
+            <label><input type="radio" name="origem" checked> Responsiva <span class="desc">— cidadão pediu</span></label>
+            <label><input type="radio" name="origem"> Proativa <span class="desc">— gabinete iniciou</span></label>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label>Canal de entrada <span class="req">*</span></label>
+            <select>
+              <option>WhatsApp</option>
+              <option>Telefone</option>
+              <option>Presencial</option>
+              <option>E-mail</option>
+              <option>DM Instagram</option>
+              <option>Ofício recebido</option>
+              <option>Indicação interna</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Data de entrada</label>
+            <input type="text" value="17/05/2026 · 10:42">
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Tema <span class="req">*</span> <span class="hint">marque um ou mais</span></label>
+          <div class="chips">
+            <button type="button" class="chip on">Mobilidade urbana</button>
+            <button type="button" class="chip on">Segurança pública</button>
+            <button type="button" class="chip">Saúde</button>
+            <button type="button" class="chip">Educação</button>
+            <button type="button" class="chip">Urbanismo</button>
+            <button type="button" class="chip">Cultura</button>
+            <button type="button" class="chip">Meio ambiente</button>
+            <button type="button" class="chip">Direitos sociais</button>
+            <button type="button" class="chip add">+ Novo tema</button>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label>Coordenação <span class="req">*</span></label>
+            <select>
+              <option>Gabinete</option>
+              <option>Jurídico</option>
+              <option>Comunicação</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Responsável <span class="req">*</span></label>
+            <select>
+              <option>Maria Coelho (CO · Gabinete)</option>
+              <option>Lucas Almeida (AS · Gabinete)</option>
+              <option>Bia Ferreira (AS · Gabinete)</option>
+              <option>Pedro Trindade (ADM)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="check">
+            <input type="checkbox">
+            <span class="body"><strong>Marcar como restrita.</strong> Demandas restritas só são visíveis para responsável, autor e usuários da mesma coordenação + CG/ADM. Use em casos sensíveis (saúde individual, denúncia).</span>
+          </label>
+        </div>
+      </section>
+
+      <!-- ─── Descrição ─── -->
+      <section class="section">
+        <div class="section-mark"><span class="num">02</span>Descrição</div>
+
+        <div class="field">
+          <label>Relato completo <span class="req">*</span></label>
+          <textarea>Sebastiana Oliveira, líder da Associação de Moradores do Centro, encaminhou via WhatsApp denúncia de que nove postes de iluminação pública estão sem funcionar há mais de três semanas na Rua Antônio Ataíde, no trecho entre a Praça Costa Pereira e a Rua Sete de Setembro. Moradores relatam aumento de ocorrências de furto à noite e dificuldade para idosos retornarem do centro comercial após o expediente.
+
+A líder anexou fotos do local feitas na noite de 01/05 e relatou que protocolou demanda direta junto à concessionária há duas semanas, sem retorno. Pede intermediação do mandato junto à SEMOB e à EDP-ES.</textarea>
+          <div class="help">872 caracteres · use parágrafos. O texto fica preservado em serif na ficha da demanda.</div>
+        </div>
+      </section>
+
+      <!-- ─── Partes envolvidas (formset) ─── -->
+      <section class="section">
+        <div class="section-mark"><span class="num">03</span>Partes envolvidas<span class="req">opcional se demanda anônima</span></div>
+
+        <div class="field">
+          <label>Pessoas</label>
+          <div class="formset">
+            <div class="formset-row">
+              <div class="pessoa"><span class="av">SO</span>Sebastiana Oliveira</div>
+              <select>
+                <option>Solicitante</option>
+                <option>Afetada</option>
+                <option>Testemunha</option>
+                <option>Representante</option>
+                <option>Outro</option>
+              </select>
+              <button class="x" title="Remover">×</button>
+            </div>
+            <div class="formset-row">
+              <div class="pessoa"><span class="av">AO</span>Antônio Oliveira</div>
+              <select>
+                <option>Solicitante</option>
+                <option>Afetada</option>
+                <option selected>Testemunha</option>
+              </select>
+              <button class="x">×</button>
+            </div>
+            <div class="formset-add">
+              <div class="search-inp">
+                <span class="pre">⌕</span>
+                <input type="text" placeholder="Buscar pessoa por nome, CPF ou telefone…">
+              </div>
+              <button class="btn ghost">+ Cadastrar pessoa</button>
+            </div>
+          </div>
+
+          <!-- Autocomplete preview -->
+          <div class="autocomplete" style="margin-top:6px">
+            <div class="head">3 resultados</div>
+            <div class="opt">
+              <div class="av">IM</div>
+              <div>
+                <div class="nome">Ivete Magalhães</div>
+                <div class="meta">Centro · Comerciante · 0 demandas</div>
+              </div>
+              <span></span>
+            </div>
+            <div class="opt">
+              <div class="av">IB</div>
+              <div>
+                <div class="nome">Ivete Bittencourt</div>
+                <div class="meta">Jardim Camburi · 2 demandas</div>
+              </div>
+              <span></span>
+            </div>
+            <div class="opt">
+              <div class="av" style="background:var(--surface-2);color:var(--ink-mute)">+</div>
+              <div>
+                <div class="nome" style="font-style:italic;color:var(--ink-soft)">Cadastrar nova pessoa: "Ivete"</div>
+                <div class="meta">Abre formulário inline</div>
+              </div>
+              <span class="new">+ Nova</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="field" style="margin-top:18px">
+          <label>Entidades</label>
+          <div class="formset">
+            <div class="formset-row">
+              <div class="pessoa"><span class="av ent">AM</span>Assoc. Moradores Centro</div>
+              <select>
+                <option>Representada</option>
+                <option>Afetada</option>
+                <option>Parceira</option>
+              </select>
+              <button class="x">×</button>
+            </div>
+            <div class="formset-add">
+              <div class="search-inp">
+                <span class="pre">⌕</span>
+                <input type="text" placeholder="Buscar entidade por nome ou CNPJ…">
+              </div>
+              <button class="btn ghost">+ Cadastrar entidade</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── Prazos ─── -->
+      <section class="section">
+        <div class="section-mark"><span class="num">04</span>Prazos<span class="req">opcional</span></div>
+
+        <div class="field-row">
+          <div class="field">
+            <label>Início</label>
+            <input type="text" value="17/05/2026">
+          </div>
+          <div class="field">
+            <label>Prazo de conclusão</label>
+            <input type="text" placeholder="DD/MM/AAAA" value="28/05/2026">
+            <div class="help">Define o cálculo de vencimento na lista.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── Anexos ─── -->
+      <section class="section">
+        <div class="section-mark"><span class="num">05</span>Anexos<span class="req">até 25 MB por arquivo</span></div>
+
+        <div class="drop">
+          <strong>Arraste arquivos aqui</strong>
+          <span class="or">ou</span>
+          <button class="browse">Escolher do computador</button>
+          <div class="types">PDF · DOC · imagens · áudio · até 25 MB</div>
+        </div>
+
+        <div class="anexo-sel">
+          <span class="ext">JPG</span>
+          <div class="nome">fotos-local-noite-01.jpg</div>
+          <span class="tam">1,2 MB</span>
+          <button class="x">×</button>
+        </div>
+        <div class="anexo-sel">
+          <span class="ext">OGG</span>
+          <div class="nome">audio-sebastiana.ogg</div>
+          <span class="tam">1,1 MB</span>
+          <button class="x">×</button>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Sticky footer -->
+    <footer class="form-foot">
+      <div class="left"><strong>5 seções</strong> · campos obrigatórios marcados com asterisco</div>
+      <div class="right">
+        <button class="btn ghost">Cancelar</button>
+        <button class="btn secondary">Salvar rascunho</button>
+        <button class="btn primary">Salvar demanda →</button>
+      </div>
+    </footer>
+
+  </article>
+
+  <!-- Estado · com erro -->
+  <div style="margin:64px 0 24px;text-align:center;font-family:var(--font-mono);font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--primary);font-weight:700">Estado · validação com erros</div>
+
+  <article class="doc">
+    <header class="doc-bar">
+      <div class="crumb">
+        <a href="lista-demandas.html">DEMANDAS</a>
+        <span class="sep">/</span>
+        <span class="here">NOVA</span>
+      </div>
+    </header>
+
+    <header class="form-head">
+      <h1>Nova demanda</h1>
+      <p class="sub">Registre uma nova solicitação ou ação do mandato.</p>
+    </header>
+
+    <div class="form-err">
+      <span class="lbl">Não foi possível salvar — corrija os pontos abaixo</span>
+      <ul>
+        <li><strong>Título</strong> é obrigatório.</li>
+        <li><strong>Pelo menos uma parte</strong> (pessoa ou entidade) precisa ser vinculada — ou marque como anônima.</li>
+        <li><strong>Pessoa duplicada</strong> na lista de partes: Sebastiana Oliveira aparece 2 vezes.</li>
+      </ul>
+    </div>
+
+    <div class="form-body">
+      <p style="font-family:var(--font-serif);font-style:italic;color:var(--ink-mute);font-size:14px;line-height:1.5;margin:0">
+        Os erros são apontados em banner no topo + também nos campos individualmente (borda vermelha). O rascunho fica preservado.
+      </p>
+    </div>
+  </article>
+
+</main>
+
+</body>
+</html>

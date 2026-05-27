@@ -1,0 +1,605 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>MPD · Configurações</title>
+<meta name="viewport" content="width=1400">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  body { background: var(--bg); }
+  .page { max-width: 1280px; margin: 32px auto 80px; padding: 0 28px; }
+
+  .doc { background: var(--paper); box-shadow: 0 1px 0 rgba(0,0,0,0.04), 0 16px 40px -24px rgba(60,50,30,0.22); }
+
+  .doc-head {
+    border-top: 6px solid var(--navy);
+    padding: 26px 36px 22px;
+    border-bottom: 1px solid var(--rule);
+    background: linear-gradient(180deg, var(--paper), var(--paper-2));
+  }
+  .doc-head .breadcrumb {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--ink-mute);
+    margin-bottom: 14px; display: flex; gap: 10px;
+  }
+  .doc-head .breadcrumb .here { color: var(--navy); font-weight: 600; }
+  .doc-head .breadcrumb .sep { color: var(--rule-strong); }
+  .doc-head h1 {
+    font-family: var(--serif); font-weight: 500; font-size: 40px;
+    line-height: 1.1; letter-spacing: -0.01em;
+    margin: 0 0 6px; color: var(--ink);
+  }
+  .doc-head .sub {
+    font-family: var(--serif); font-style: italic;
+    font-size: 16px; color: var(--ink-soft); margin: 0;
+    max-width: 70ch;
+  }
+
+  /* Sumário lateral */
+  .doc-body {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 0;
+  }
+  .toc {
+    border-right: 1px solid var(--rule);
+    padding: 28px 18px 28px 36px;
+    background: var(--paper-2);
+    position: sticky;
+    top: 56px;
+    align-self: start;
+  }
+  .toc .lbl {
+    font-family: var(--mono); font-size: 10px;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ink-mute); font-weight: 600;
+    margin-bottom: 12px;
+  }
+  .toc ul { margin: 0; padding: 0; list-style: none; }
+  .toc li {
+    padding: 5px 0;
+    font-family: var(--sans);
+    font-size: 13px;
+    border-left: 2px solid transparent;
+    padding-left: 10px;
+    margin-left: -12px;
+  }
+  .toc li a {
+    color: var(--ink-soft); text-decoration: none;
+    display: flex; justify-content: space-between;
+    align-items: center; gap: 8px;
+  }
+  .toc li a:hover { color: var(--navy); }
+  .toc li.on {
+    border-left-color: var(--navy);
+  }
+  .toc li.on a { color: var(--navy); font-weight: 600; }
+  .toc li .ct {
+    font-family: var(--mono); font-size: 10px;
+    color: var(--ink-mute); letter-spacing: 0.02em;
+  }
+
+  .content { padding: 32px 40px 48px; }
+
+  .section { margin-bottom: 40px; }
+  .section-head {
+    display: flex; align-items: baseline; gap: 14px;
+    margin-bottom: 18px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--navy);
+  }
+  .section-head h2 {
+    font-family: var(--serif); font-weight: 500;
+    font-size: 22px; line-height: 1.2;
+    color: var(--ink); margin: 0;
+    letter-spacing: -0.005em;
+  }
+  .section-head .lede {
+    font-family: var(--serif); font-size: 14px;
+    color: var(--ink-mute); font-style: italic;
+    margin-left: auto;
+  }
+
+  /* Card grid de funções */
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  .card {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    padding: 16px 18px;
+    text-decoration: none;
+    color: var(--ink);
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+    align-items: start;
+    transition: border-color .12s, background .12s;
+  }
+  .card:hover {
+    border-color: var(--ink);
+    background: var(--paper-2);
+  }
+  .card .tt {
+    font-family: var(--sans);
+    font-size: 14.5px;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 3px;
+  }
+  .card .d {
+    font-family: var(--serif);
+    font-size: 13px;
+    color: var(--ink-soft);
+    line-height: 1.45;
+    grid-column: 1 / -1;
+  }
+  .card .ct {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-mute);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    padding: 1px 8px;
+    border: 1px solid var(--rule-strong);
+    background: var(--paper-2);
+  }
+  .card .ct.warn {
+    color: var(--bordo);
+    border-color: var(--bordo);
+  }
+  .card .ct.ok {
+    color: var(--olive);
+    border-color: var(--olive);
+  }
+
+  /* Bloco de info do mandato */
+  .mandato-info {
+    background: var(--paper);
+    border: 1px solid var(--navy);
+    padding: 20px 24px;
+  }
+  .mandato-info .info-row {
+    display: grid;
+    grid-template-columns: 160px 1fr auto;
+    gap: 16px;
+    align-items: center;
+    padding: 9px 0;
+    border-top: 1px dotted var(--rule);
+  }
+  .mandato-info .info-row:first-of-type { border-top: 0; padding-top: 0; }
+  .mandato-info .info-row .k {
+    font-family: var(--mono); font-size: 10px;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--ink-mute);
+  }
+  .mandato-info .info-row .v {
+    font-family: var(--serif);
+    font-size: 15px;
+    color: var(--ink);
+    font-weight: 500;
+  }
+  .mandato-info .info-row .v.mono { font-family: var(--mono); font-size: 13px; }
+  .mandato-info .info-row .edit {
+    font-family: var(--sans); font-size: 11.5px;
+    color: var(--navy); text-decoration: none;
+    font-weight: 500;
+  }
+  .mandato-info .info-row .edit:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+  /* Integrações com status */
+  .integration {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    padding: 14px 18px;
+    display: grid;
+    grid-template-columns: 50px 1fr auto auto;
+    gap: 14px;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+  .integration .mark {
+    width: 40px; height: 40px;
+    background: var(--paper-2);
+    border: 1px solid var(--rule-strong);
+    display: grid; place-items: center;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-soft);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  .integration .mark.on { background: var(--navy); color: var(--paper); border-color: var(--navy); }
+  .integration .tt {
+    font-family: var(--sans); font-size: 14px;
+    font-weight: 600; color: var(--ink);
+  }
+  .integration .d {
+    font-family: var(--serif); font-size: 12.5px;
+    color: var(--ink-mute);
+    margin-top: 2px;
+    line-height: 1.4;
+  }
+  .integration .status {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 600;
+    padding: 2px 8px;
+    border: 1.5px solid currentColor;
+  }
+  .integration .status.ok { color: var(--olive); }
+  .integration .status.off { color: var(--ink-mute); }
+  .integration .config-btn {
+    background: var(--paper);
+    border: 1px solid var(--rule-strong);
+    padding: 5px 12px;
+    font-family: var(--sans);
+    font-size: 12px;
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .integration .config-btn:hover { background: var(--paper-2); border-color: var(--ink); }
+
+  /* Auditoria mini-log */
+  .audit-log {
+    background: var(--paper-2);
+    border: 1px solid var(--rule);
+    padding: 14px 16px;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    line-height: 1.7;
+  }
+  .audit-log .when { color: var(--navy); font-weight: 600; }
+  .audit-log .who { color: var(--ink); font-family: var(--sans); font-weight: 600; font-size: 12px; }
+  .audit-log .row { padding: 3px 0; border-bottom: 1px dotted var(--rule); }
+  .audit-log .row:last-child { border-bottom: 0; }
+  .audit-log .all {
+    margin-top: 10px;
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-mute);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    text-decoration: none;
+    border: 1px solid var(--rule-strong);
+    padding: 4px 10px;
+    background: var(--paper);
+  }
+  .audit-log .all:hover { color: var(--navy); border-color: var(--navy); }
+</style>
+</head>
+<body>
+
+<header class="appbar">
+  <div class="appbar-inner">
+    <a class="brand" href="home.html">
+      <span class="mark">M</span>
+      <span class="name">MPD</span>
+      <span class="tag">Pedro Trés · 11ª Legislatura</span>
+    </a>
+    <nav>
+      <a href="home.html">Início</a>
+      <a href="05-inbox.html">Entrada <span class="alert">7</span></a>
+      <a href="04-lista.html">Demandas</a>
+      <a href="pessoas.html">Pessoas</a>
+      <a href="entidades.html">Entidades</a>
+      <a href="encaminhamentos.html">Encaminhamentos</a>
+      <a href="pendencias.html">Pendências <span class="alert">3</span></a>
+    </nav>
+    <div class="me">
+      <div class="who">
+        <span class="av">MC</span>
+        <span>
+          <span class="name">Mariana Costa</span>
+          <span class="role">Gabinete · resp.</span>
+        </span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="page">
+  <article class="doc">
+
+    <header class="doc-head">
+      <div class="breadcrumb">
+        <span class="here">CONFIGURAÇÕES</span>
+        <span class="sep">/</span>
+        <span>MANDATO PEDRO TRÉS</span>
+      </div>
+      <h1>Configurações</h1>
+      <p class="sub">Mandato, equipe, categorização e integrações. Apenas administradores do gabinete podem editar.</p>
+    </header>
+
+    <div class="doc-body">
+
+      <!-- Sumário lateral -->
+      <aside class="toc">
+        <div class="lbl">Áreas</div>
+        <ul>
+          <li class="on"><a href="#mandato">O mandato <span class="ct">§1</span></a></li>
+          <li><a href="#equipe">Equipe e permissões <span class="ct">§2</span></a></li>
+          <li><a href="#categorias">Categorização <span class="ct">§3</span></a></li>
+          <li><a href="#integracoes">Integrações <span class="ct">§4</span></a></li>
+          <li><a href="#auditoria">Auditoria e LGPD <span class="ct">§5</span></a></li>
+          <li><a href="#exportacao">Exportação <span class="ct">§6</span></a></li>
+        </ul>
+      </aside>
+
+      <div class="content">
+
+        <!-- §1 Mandato -->
+        <div class="section" id="mandato">
+          <div class="section-head">
+            <h2>O mandato</h2>
+            <span class="lede">dados institucionais visíveis em relatórios oficiais</span>
+          </div>
+
+          <div class="mandato-info">
+            <div class="info-row">
+              <div class="k">Nome completo</div>
+              <div class="v">Pedro Trés Cardoso</div>
+              <a href="#" class="edit">Editar</a>
+            </div>
+            <div class="info-row">
+              <div class="k">Nome curto</div>
+              <div class="v">Pedro Trés</div>
+              <a href="#" class="edit">Editar</a>
+            </div>
+            <div class="info-row">
+              <div class="k">Cargo</div>
+              <div class="v">Vereador · 11ª Legislatura</div>
+              <a href="#" class="edit">Editar</a>
+            </div>
+            <div class="info-row">
+              <div class="k">Casa legislativa</div>
+              <div class="v">Câmara Municipal de Vitória</div>
+              <a href="#" class="edit">Editar</a>
+            </div>
+            <div class="info-row">
+              <div class="k">Mandato</div>
+              <div class="v">01/01/2025 — 31/12/2028</div>
+              <a href="#" class="edit">Editar</a>
+            </div>
+            <div class="info-row">
+              <div class="k">Endereço do gabinete</div>
+              <div class="v">Av. Mal. Mascarenhas de Moraes, 1057 · Bento Ferreira · Vitória/ES</div>
+              <a href="#" class="edit">Editar</a>
+            </div>
+            <div class="info-row">
+              <div class="k">CNPJ</div>
+              <div class="v mono">38.947.221/0001-04</div>
+              <a href="#" class="edit">Editar</a>
+            </div>
+            <div class="info-row">
+              <div class="k">Brasão / logo</div>
+              <div class="v" style="font-family:var(--serif);font-style:italic;color:var(--ink-mute)">Não configurado · usa marca textual MPD</div>
+              <a href="#" class="edit">Carregar</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- §2 Equipe -->
+        <div class="section" id="equipe">
+          <div class="section-head">
+            <h2>Equipe e permissões</h2>
+            <span class="lede">quem opera o sistema e o que pode fazer</span>
+          </div>
+
+          <div class="cards">
+            <a class="card" href="#">
+              <div>
+                <div class="tt">Usuários do sistema</div>
+                <div class="d">5 ativos · Mariana, Lucas, Bia, Pedro, Igor (suporte). Adicionar ou remover acessos.</div>
+              </div>
+              <span class="ct">5</span>
+            </a>
+            <a class="card" href="#">
+              <div>
+                <div class="tt">Grupos &amp; permissões</div>
+                <div class="d">Administração (1), Coordenação Geral (2), Operação (4), Suporte (1). Define o que cada grupo enxerga e altera.</div>
+              </div>
+              <span class="ct">4</span>
+            </a>
+            <a class="card" href="#">
+              <div>
+                <div class="tt">Coordenações</div>
+                <div class="d">Gabinete · Jurídico · Comunicação. Define o agrupamento de demandas e responsabilidades internas.</div>
+              </div>
+              <span class="ct">3</span>
+            </a>
+            <a class="card" href="#">
+              <div>
+                <div class="tt">Sessões ativas</div>
+                <div class="d">Acompanhe quem está logado agora e encerre sessões remotamente em caso de comprometimento.</div>
+              </div>
+              <span class="ct ok">3 agora</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- §3 Categorização -->
+        <div class="section" id="categorias">
+          <div class="section-head">
+            <h2>Categorização</h2>
+            <span class="lede">temas para demandas e tags para pessoas/entidades</span>
+          </div>
+
+          <div class="cards">
+            <a class="card" href="#">
+              <div>
+                <div class="tt">Temas de demanda</div>
+                <div class="d">Categorias usadas em análise por área (Mobilidade, Saúde, Educação…). Reorganize, una temas duplicados, defina cores.</div>
+              </div>
+              <span class="ct">9 ativos</span>
+            </a>
+            <a class="card" href="#">
+              <div>
+                <div class="tt">Tags livres</div>
+                <div class="d">Etiquetas em pessoas, entidades e demandas (Líder local, Mídia espontânea, Pauta recorrente). Sugerimos consolidar 4 candidatas a fusão.</div>
+              </div>
+              <span class="ct warn">62 ativas · 4 a fundir</span>
+            </a>
+            <a class="card" href="#">
+              <div>
+                <div class="tt">Tipos de entidade</div>
+                <div class="d">14 tipos pré-definidos (Associação, Conselho, Igreja, Órgão público…). Use "Outros" com cautela e revise periodicamente.</div>
+              </div>
+              <span class="ct">14</span>
+            </a>
+            <a class="card" href="#">
+              <div>
+                <div class="tt">Papéis de pessoa em demanda</div>
+                <div class="d">Solicitante, Afetada, Testemunha, Representante, Outro. Editar quando aparecer padrão recorrente em "Outro".</div>
+              </div>
+              <span class="ct">5</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- §4 Integrações -->
+        <div class="section" id="integracoes">
+          <div class="section-head">
+            <h2>Integrações</h2>
+            <span class="lede">canais externos que o MPD escuta ou fala</span>
+          </div>
+
+          <div class="integration">
+            <div class="mark on">WA</div>
+            <div>
+              <div class="tt">WhatsApp Business · número do mandato</div>
+              <div class="d">(27) 9 9700-0100 · mensagens recebidas viram itens na Entrada. Resposta automatizada de boas-vindas configurada.</div>
+            </div>
+            <span class="status ok">● Ativo</span>
+            <button class="config-btn">Configurar</button>
+          </div>
+
+          <div class="integration">
+            <div class="mark on">EM</div>
+            <div>
+              <div class="tt">E-mail institucional</div>
+              <div class="d">gabinete@pedro3.es.gov.br · IMAP. E-mails marcados com etiqueta "demanda" entram automaticamente no inbox.</div>
+            </div>
+            <span class="status ok">● Ativo</span>
+            <button class="config-btn">Configurar</button>
+          </div>
+
+          <div class="integration">
+            <div class="mark on">CE</div>
+            <div>
+              <div class="tt">ViaCEP</div>
+              <div class="d">Preenche bairro/cidade automaticamente quando o operador digita CEP em um cadastro de pessoa.</div>
+            </div>
+            <span class="status ok">● Ativo</span>
+            <button class="config-btn">Configurar</button>
+          </div>
+
+          <div class="integration">
+            <div class="mark">IG</div>
+            <div>
+              <div class="tt">Instagram · DM</div>
+              <div class="d">Sincronização de mensagens diretas do perfil oficial. Inativo — autorização do Meta Business expirou em 12/04.</div>
+            </div>
+            <span class="status off">○ Desativado</span>
+            <button class="config-btn">Reconectar</button>
+          </div>
+
+          <div class="integration">
+            <div class="mark">SI</div>
+            <div>
+              <div class="tt">SIPLAN · Câmara Municipal</div>
+              <div class="d">Integração com o sistema de protocolo da Câmara. Permite enviar ofícios diretamente, sem reentrada de dados.</div>
+            </div>
+            <span class="status off">○ Não configurado</span>
+            <button class="config-btn">Conectar</button>
+          </div>
+        </div>
+
+        <!-- §5 Auditoria -->
+        <div class="section" id="auditoria">
+          <div class="section-head">
+            <h2>Auditoria e LGPD</h2>
+            <span class="lede">histórico de quem fez o quê e direitos do titular</span>
+          </div>
+
+          <div class="cards" style="margin-bottom:14px">
+            <a class="card" href="#">
+              <div>
+                <div class="tt">Log de auditoria</div>
+                <div class="d">Toda alteração em demandas, pessoas e configurações fica registrada. Filtrar por usuário, ação e período.</div>
+              </div>
+              <span class="ct">2.847 eventos</span>
+            </a>
+            <a class="card" href="#">
+              <div>
+                <div class="tt">Solicitações LGPD</div>
+                <div class="d">Anonimização, exportação e remoção de dados solicitadas por titulares. Fluxo de aprovação e prazo de 15 dias.</div>
+              </div>
+              <span class="ct">2 pendentes</span>
+            </a>
+          </div>
+
+          <div class="audit-log">
+            <div class="row"><span class="when">17/05 09:42</span> · <span class="who">Mariana C.</span> editou ficha de Sebastiana Oliveira (notas)</div>
+            <div class="row"><span class="when">17/05 09:14</span> · <span class="who">sistema</span> registrou login de Mariana Costa via 191.123.45.67</div>
+            <div class="row"><span class="when">16/05 17:42</span> · <span class="who">Pedro T.</span> capturou item no inbox · "Falar com Lia da SEMUS"</div>
+            <div class="row"><span class="when">16/05 11:08</span> · <span class="who">Mariana C.</span> registrou interação na MPD-2026-00342</div>
+            <div class="row"><span class="when">15/05 15:20</span> · <span class="who">Bia F.</span> concluiu MPD-2026-00329 · resultado atendido</div>
+            <a class="all" href="#">Ver log completo →</a>
+          </div>
+        </div>
+
+        <!-- §6 Exportação -->
+        <div class="section" id="exportacao">
+          <div class="section-head">
+            <h2>Exportação</h2>
+            <span class="lede">levar dados do MPD para fora — para análise externa ou prestação de contas</span>
+          </div>
+
+          <div class="cards">
+            <a class="card" href="#">
+              <div>
+                <div class="tt">Exportar demandas (CSV)</div>
+                <div class="d">Tudo, ou filtrado por período, coordenação, tema. Inclui partes e timeline opcionalmente.</div>
+              </div>
+              <span class="ct">CSV</span>
+            </a>
+            <a class="card" href="#">
+              <div>
+                <div class="tt">Exportar pessoas e entidades</div>
+                <div class="d">Para campanhas de comunicação, contatos institucionais ou backup. Anonimização opcional.</div>
+              </div>
+              <span class="ct">CSV · XLSX</span>
+            </a>
+            <a class="card" href="analise.html">
+              <div>
+                <div class="tt">Relatório institucional</div>
+                <div class="d">Documento longo de prestação de contas. Quadrimestral por padrão; também por período customizado.</div>
+              </div>
+              <span class="ct">PDF</span>
+            </a>
+            <a class="card" href="#">
+              <div>
+                <div class="tt">Backup completo</div>
+                <div class="d">Arquivo criptografado com todos os dados do mandato. Gerar manualmente ou agendar (semanal). Último backup: 14/05.</div>
+              </div>
+              <span class="ct">ENC</span>
+            </a>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </article>
+</main>
+
+</body>
+</html>

@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>MPD · Comparar paletas de tag</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="../tokens.css">
+<style>
+  body { background: var(--surface-0); padding: 56px 32px 80px; }
+  .wrap { max-width: 1280px; margin: 0 auto; }
+
+  .head {
+    margin-bottom: 32px;
+  }
+  .head .kicker {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    font-weight: 700;
+    margin-bottom: 14px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .head .kicker::after {
+    content: ""; flex: 1; height: 1px;
+    background: var(--rule-strong); max-width: 200px;
+  }
+  .head h1 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 38px;
+    line-height: 1.1;
+    letter-spacing: -0.025em;
+    color: var(--ink);
+    margin: 0 0 14px;
+    max-width: 28ch;
+  }
+  .head .lede {
+    font-family: var(--font-serif);
+    font-size: 17px;
+    line-height: 1.6;
+    color: var(--ink-body);
+    max-width: 64ch;
+    margin: 0;
+  }
+  .head .lede strong { color: var(--ink); font-weight: 600; }
+
+  /* Tabela comparativa */
+  .compare {
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    border-top: 6px solid var(--primary);
+    margin-top: 32px;
+    overflow: hidden;
+  }
+  .compare table { width: 100%; border-collapse: collapse; }
+  .compare thead th {
+    text-align: left;
+    background: var(--surface-2);
+    padding: 14px 18px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--ink-mute);
+    border-bottom: 2px solid var(--ink-200);
+  }
+  .compare thead th .sub {
+    display: block;
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 12px;
+    color: var(--ink-mute);
+    letter-spacing: 0;
+    text-transform: none;
+    margin-top: 4px;
+    font-weight: 400;
+  }
+  .compare tbody td {
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: middle;
+  }
+  .compare tbody tr:last-child td { border-bottom: 0; }
+
+  /* Nome da cor */
+  .name {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink-strong);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .name .alt {
+    display: block;
+    margin-top: 3px;
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 12px;
+    color: var(--ink-mute);
+    letter-spacing: 0;
+    text-transform: none;
+    font-weight: 400;
+  }
+
+  /* Célula com pill + swatch */
+  .demo {
+    display: flex; align-items: center; gap: 14px;
+  }
+  .demo .swatch {
+    width: 36px; height: 36px;
+    border: 1px solid rgba(0,0,0,0.08);
+    flex: none;
+  }
+  .demo .meta {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--ink-mute);
+    letter-spacing: 0.02em;
+  }
+  .demo .meta strong {
+    display: block;
+    color: var(--ink-strong);
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+
+  /* Pill — mesmo estilo do design-system */
+  .pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 2px 7px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    border: 1px solid currentColor;
+    letter-spacing: 0.02em;
+    line-height: 1.2;
+    margin-right: 6px;
+  }
+  .pill::before {
+    content: ""; width: 6px; height: 6px;
+    background: currentColor; border-radius: var(--radius-full);
+  }
+
+  /* CURRENT pills (paleta atual MPD) */
+  .pill.cur-stone  { color: #5b5246; background: #f0ebdf; }
+  .pill.cur-clay   { color: #8a5a3a; background: #f5e2d2; }
+  .pill.cur-sage   { color: #5a6b3a; background: #e8efd9; }
+  .pill.cur-moss   { color: #485630; background: #d8e3c8; }
+  .pill.cur-mist   { color: #4a6680; background: #e1eaf2; }
+  .pill.cur-sky    { color: #2a5d8a; background: #d6e6f1; }
+  .pill.cur-iris   { color: #6a4f8a; background: #ebe2f1; }
+  .pill.cur-plum   { color: #6a3470; background: #e8d8ee; }
+  .pill.cur-rose   { color: #8a3a4a; background: #f3dadf; }
+  .pill.cur-spice  { color: #8a3a1a; background: #f0d8cb; }
+  .pill.cur-gold   { color: #7a5a14; background: #f0e3bd; }
+
+  /* GOOGLE-INSPIRED pills (proposta) */
+  .pill.gg-tomato    { color: #a33327; background: #fadbd8; }
+  .pill.gg-flamingo  { color: #a05047; background: #fde4e1; }
+  .pill.gg-tangerine { color: #a05420; background: #fde2cd; }
+  .pill.gg-banana    { color: #7a5a14; background: #fbedcc; }
+  .pill.gg-sage      { color: #2c6b3e; background: #dcefe0; }
+  .pill.gg-basil     { color: #0d6e3a; background: #cce5d2; }
+  .pill.gg-peacock   { color: #0a6996; background: #d6e9f5; }
+  .pill.gg-blueberry { color: #2f3d8a; background: #dbe0f3; }
+  .pill.gg-lavender  { color: #5560a6; background: #e2e5f7; }
+  .pill.gg-grape     { color: #6e2884; background: #ecdaf0; }
+  .pill.gg-graphite  { color: #3a3a37; background: #e3e3e1; }
+
+  /* Painel de uso em contexto (lista de demandas mock) */
+  .context {
+    margin-top: 48px;
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    padding: 24px 28px;
+  }
+  .context .h {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--primary);
+    font-weight: 700;
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .context-row {
+    display: grid;
+    grid-template-columns: 100px 1fr 1fr;
+    gap: 24px;
+    padding: 12px 0;
+    border-top: 1px solid var(--rule);
+    align-items: center;
+  }
+  .context-row:first-of-type { border-top: 0; }
+  .context-row .lbl {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    font-weight: 600;
+  }
+  .context-row .demo-row {
+    font-family: var(--font-serif);
+    font-size: 14px;
+    color: var(--ink-body);
+    line-height: 1.4;
+    display: flex; align-items: center; gap: 8px;
+    flex-wrap: wrap;
+  }
+  .context-row .demo-row .num {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--primary);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  /* Status carimbos (para mostrar a convivência) */
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 8px 4px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border: 1.5px solid currentColor;
+    line-height: 1.2;
+  }
+  .badge .dot { width: 5px; height: 5px; background: currentColor; border-radius: 50%; }
+  .badge.st-andam  { background: var(--st-andam-bg);  color: var(--st-andam-fg);  border-color: rgba(107,74,26,0.35); }
+  .badge.rs-pend   { background: var(--rs-pend-bg);   color: var(--rs-pend-fg);   border-color: rgba(0,0,0,0.18); }
+
+  /* Veredicto / propostas */
+  .verdict {
+    margin-top: 48px;
+    background: var(--info-50);
+    border-left: 3px solid var(--info-500);
+    padding: 22px 28px;
+    font-family: var(--font-serif);
+    font-size: 15px;
+    line-height: 1.65;
+    color: var(--info-700);
+    max-width: 80ch;
+  }
+  .verdict h3 {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--info-500);
+    font-weight: 700;
+    margin: 0 0 10px;
+  }
+  .verdict strong { color: var(--ink); font-weight: 600; }
+  .verdict ul { margin: 8px 0 0; padding-left: 22px; }
+  .verdict li { margin-bottom: 4px; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="head">
+    <div class="kicker">⚗ Lab · paleta de tags</div>
+    <h1>Atual <em style="font-style:italic;color:var(--ink-mute)">vs</em> Google Calendar — 11 cores lado a lado</h1>
+    <p class="lede">
+      Comparação direta entre a <strong>paleta atual do MPD</strong> (stone, clay, sage, moss, mist, sky, iris, plum, rose, spice, gold) e a <strong>proposta inspirada no Google Calendar</strong> (Tomato, Flamingo, Tangerine, Banana, Sage, Basil, Peacock, Blueberry, Lavender, Grape, Graphite), <strong>adaptadas ao tom muted do MPD</strong> — bg com ~10–15% de saturação e fg com contraste AAA.
+    </p>
+  </header>
+
+  <!-- Tabela 1:1 -->
+  <section class="compare">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:160px">Posição</th>
+          <th>Atual MPD<span class="sub">stone, clay, sage…</span></th>
+          <th>Proposta Google Calendar<span class="sub">tomato, flamingo, tangerine…</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="name">01<span class="alt">Vermelho / Tomato</span></span></td>
+          <td><div class="demo">
+            <div class="swatch" style="background:#f0ebdf"></div>
+            <div><span class="pill cur-stone">Centro</span><div class="meta"><strong>stone</strong>fg #5b5246 · bg #f0ebdf</div></div>
+          </div></td>
+          <td><div class="demo">
+            <div class="swatch" style="background:#fadbd8"></div>
+            <div><span class="pill gg-tomato">Urgente</span><div class="meta"><strong>tomato</strong>fg #a33327 · bg #fadbd8</div></div>
+          </div></td>
+        </tr>
+        <tr>
+          <td><span class="name">02<span class="alt">Coral / Flamingo</span></span></td>
+          <td><div class="demo">
+            <div class="swatch" style="background:#f5e2d2"></div>
+            <div><span class="pill cur-clay">Comerciante</span><div class="meta"><strong>clay</strong>fg #8a5a3a · bg #f5e2d2</div></div>
+          </div></td>
+          <td><div class="demo">
+            <div class="swatch" style="background:#fde4e1"></div>
+            <div><span class="pill gg-flamingo">Mídia espont.</span><div class="meta"><strong>flamingo</strong>fg #a05047 · bg #fde4e1</div></div>
+          </div></td>
+        </tr>
+        <tr>
+          <td><span class="name">03<span class="alt">Laranja / Tangerine</span></span></td>
+          <td><div class="demo">
+            <div class="swatch" style="background:#e8efd9"></div>
+            <div><span class="pill cur-sage">Sindicato</span><div class="meta"><strong>sage (atual)</strong>fg #5a6b3a · bg #e8efd9</div></div>
+          </div></td>
+          <td><div class="demo">
+            <div class="swatch" style="background:#fde2cd"></div>
+            <div><span class="pill gg-tangerine">Liderança</span><div class="meta"><strong>tangerine</strong>fg #a05420 · bg #fde2cd</div></div>
+          </div></td>
+        </tr>
+        <tr>
+          <td><span class="name">04<span class="alt">Amarelo / Banana</span></span></td>
+          <td><div class="demo">
+            <div class="swatch" style="background:#d8e3c8"></div>
+            <div><span class="pill cur-moss">Pastoral</span><div class="meta"><strong>moss</strong>fg #485630 · bg #d8e3c8</div></div>
+          </div></td>
+          <td><div class="demo">
+            <div class="swatch" style="background:#fbedcc"></div>
+            <div><span class="pill gg-banana">Imprensa</span><div class="meta"><strong>banana</strong>fg #7a5a14 · bg #fbedcc</div></div>
+          </div></td>
+        </tr>
+        <tr>
+          <td><span class="name">05<span class="alt">Verde claro / Sage</span></span></td>
+          <td><div class="demo">
+            <div class="swatch" style="background:#e1eaf2"></div>
+            <div><span class="pill cur-mist">Conselho</span><div class="meta"><strong>mist</strong>fg #4a6680 · bg #e1eaf2</div></div>
+          </div></td>
+          <td><div class="demo">
+            <div class="swatch" style="background:#dcefe0"></div>
+            <div><span class="pill gg-sage">Saúde local</span><div class="meta"><strong>sage</strong>fg #2c6b3e · bg #dcefe0</div></div>
+          </div></td>
+        </tr>
+        <tr>
+          <td><span class="name">06<span class="alt">Verde escuro / Basil</span></span></td>
+          <td><div class="demo">
+            <div class="swatch" style="background:#d6e6f1"></div>
+            <div><span class="pill cur-sky">SEMOB</span><div class="meta"><strong>sky</strong>fg #2a5d8a · bg #d6e6f1</div></div>
+          </div></td>
+          <td><div class="demo">
+            <div class="swatch" style="background:#cce5d2"></div>
+            <div><span class="pill gg-basil">Educação</span><div class="meta"><strong>basil</strong>fg #0d6e3a · bg #cce5d2</div></div>
+          </div></td>
+        </tr>
+        <tr>
+          <td><span class="name">07<span class="alt">Ciano / Peacock</span></span></td>
+          <td><div class="demo">
+            <div class="swatch" style="background:#ebe2f1"></div>
+            <div><span class="pill cur-iris">Sindicato</span><div class="meta"><strong>iris</strong>fg #6a4f8a · bg #ebe2f1</div></div>
+          </div></td>
+          <td><div class="demo">
+            <div class="swatch" style="background:#d6e9f5"></div>
+            <div><span class="pill gg-peacock">Sec. Municipal</span><div class="meta"><strong>peacock</strong>fg #0a6996 · bg #d6e9f5</div></div>
+          </div></td>
+        </tr>
+        <tr>
+          <td><span class="name">08<span class="alt">Azul / Blueberry</span></span></td>
+          <td><div class="demo">
+            <div class="swatch" style="background:#e8d8ee"></div>
+            <div><span class="pill cur-plum">EDP-ES</span><div class="meta"><strong>plum</strong>fg #6a3470 · bg #e8d8ee</div></div>
+          </div></td>
+          <td><div class="demo">
+            <div class="swatch" style="background:#dbe0f3"></div>
+            <div><span class="pill gg-blueberry">Câmara</span><div class="meta"><strong>blueberry</strong>fg #2f3d8a · bg #dbe0f3</div></div>
+          </div></td>
+        </tr>
+        <tr>
+          <td><span class="name">09<span class="alt">Lilás / Lavender</span></span></td>
+          <td><div class="demo">
+            <div class="swatch" style="background:#f3dadf"></div>
+            <div><span class="pill cur-rose">UPA</span><div class="meta"><strong>rose</strong>fg #8a3a4a · bg #f3dadf</div></div>
+          </div></td>
+          <td><div class="demo">
+            <div class="swatch" style="background:#e2e5f7"></div>
+            <div><span class="pill gg-lavender">Pastoral</span><div class="meta"><strong>lavender</strong>fg #5560a6 · bg #e2e5f7</div></div>
+          </div></td>
+        </tr>
+        <tr>
+          <td><span class="name">10<span class="alt">Roxo / Grape</span></span></td>
+          <td><div class="demo">
+            <div class="swatch" style="background:#f0d8cb"></div>
+            <div><span class="pill cur-spice">Aposentado</span><div class="meta"><strong>spice</strong>fg #8a3a1a · bg #f0d8cb</div></div>
+          </div></td>
+          <td><div class="demo">
+            <div class="swatch" style="background:#ecdaf0"></div>
+            <div><span class="pill gg-grape">Restrita</span><div class="meta"><strong>grape</strong>fg #6e2884 · bg #ecdaf0</div></div>
+          </div></td>
+        </tr>
+        <tr>
+          <td><span class="name">11<span class="alt">Cinza / Graphite</span></span></td>
+          <td><div class="demo">
+            <div class="swatch" style="background:#f0e3bd"></div>
+            <div><span class="pill cur-gold">Idoso</span><div class="meta"><strong>gold</strong>fg #7a5a14 · bg #f0e3bd</div></div>
+          </div></td>
+          <td><div class="demo">
+            <div class="swatch" style="background:#e3e3e1"></div>
+            <div><span class="pill gg-graphite">Arquivada</span><div class="meta"><strong>graphite</strong>fg #3a3a37 · bg #e3e3e1</div></div>
+          </div></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- Convivência com status badges -->
+  <section class="context">
+    <div class="h">Convivência com carimbos de status — linha de demanda simulada</div>
+
+    <div class="context-row">
+      <span class="lbl">Atual</span>
+      <div class="demo-row">
+        <span class="num">MPD-2026-00342</span>
+        <span class="badge st-andam"><span class="dot"></span>Em andamento</span>
+        <span class="badge rs-pend">Pendente</span>
+        <span class="pill cur-mist">Centro</span>
+        <span class="pill cur-sky">SEMOB</span>
+        <span class="pill cur-spice">EDP-ES</span>
+      </div>
+      <div></div>
+    </div>
+
+    <div class="context-row">
+      <span class="lbl">Google</span>
+      <div class="demo-row">
+        <span class="num">MPD-2026-00342</span>
+        <span class="badge st-andam"><span class="dot"></span>Em andamento</span>
+        <span class="badge rs-pend">Pendente</span>
+        <span class="pill gg-peacock">Mobilidade</span>
+        <span class="pill gg-tomato">Urgente</span>
+        <span class="pill gg-lavender">Líder local</span>
+      </div>
+      <div></div>
+    </div>
+
+    <div class="context-row">
+      <span class="lbl">Ambas</span>
+      <div class="demo-row" style="grid-column: span 2">
+        <span class="pill cur-stone">stone</span><span class="pill gg-graphite">graphite</span>
+        <span class="pill cur-mist">mist</span><span class="pill gg-peacock">peacock</span>
+        <span class="pill cur-sky">sky</span><span class="pill gg-blueberry">blueberry</span>
+        <span class="pill cur-rose">rose</span><span class="pill gg-tomato">tomato</span>
+        <span class="pill cur-iris">iris</span><span class="pill gg-grape">grape</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Veredicto -->
+  <section class="verdict">
+    <h3>Notas para decisão</h3>
+    <p>
+      A paleta Google traz <strong>vermelho/laranja/amarelo</strong> que a atual não tem — útil para tags de urgência ou alerta. Em compensação, sacrifica os tons quentes-terra (stone, clay, spice, gold) que conversam melhor com a paleta papel-cru do MPD.
+    </p>
+    <ul>
+      <li>Atual <strong>conversa melhor</strong> com a paleta papel-cru — sem cores quentes-puras que destacariam demais.</li>
+      <li>Google <strong>tem maior contraste</strong> entre tags — útil quando uma pessoa tem 4–5 tags simultâneas.</li>
+      <li>O <strong>tomato/peacock</strong> compete com o navy (cor primária do MPD); pode causar conflito visual em listas.</li>
+      <li>O <strong>basil/sage</strong> compete com o verde-musgo do status concluída.</li>
+    </ul>
+    <p style="margin-top:12px">
+      <strong>Caminho híbrido possível:</strong> manter os tons terra atuais como base e adicionar 2-3 cores Google só para semântica de urgência (tomato), alerta (tangerine), mídia (peacock). Diga se quer essa terceira proposta.
+    </p>
+  </section>
+
+</div>
+
+</body>
+</html>

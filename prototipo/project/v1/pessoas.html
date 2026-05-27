@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>MPD · Pessoas</title>
+<meta name="viewport" content="width=1400">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  body { background: var(--bg); }
+  .page { max-width: 1360px; margin: 32px auto 80px; padding: 0 28px; }
+
+  .page-head {
+    background: var(--paper);
+    border-top: 6px solid var(--navy);
+    padding: 26px 32px 22px;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.04), 0 16px 40px -24px rgba(60,50,30,0.22);
+  }
+  .page-head .breadcrumb {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-bottom: 14px;
+    display: flex; gap: 10px;
+  }
+  .page-head .breadcrumb .here { color: var(--navy); font-weight: 600; }
+  .page-head .breadcrumb .sep { color: var(--rule-strong); }
+  .page-head .row1 {
+    display: grid; grid-template-columns: 1fr auto; gap: 24px; align-items: end;
+    margin-bottom: 16px;
+  }
+  .page-head h1 {
+    font-family: var(--serif); font-weight: 500;
+    font-size: 38px; line-height: 1.1; letter-spacing: -0.01em;
+    margin: 0; color: var(--ink);
+  }
+  .page-head h1 .total {
+    font-family: var(--mono); font-size: 16px; color: var(--ink-mute);
+    margin-left: 12px; vertical-align: 4px; font-weight: 400; letter-spacing: 0.02em;
+  }
+  .page-head .actions { display: flex; gap: 8px; }
+
+  .btn {
+    font-family: var(--sans); font-size: 13px; font-weight: 500;
+    padding: 8px 16px; border: 1px solid var(--rule-strong);
+    background: var(--paper); color: var(--ink); cursor: pointer;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn:hover { background: #fff; border-color: var(--ink); }
+  .btn.primary { background: var(--navy); border-color: var(--navy); color: #fff; }
+  .btn.primary:hover { background: var(--navy-deep); }
+  .btn.ghost { background: transparent; }
+
+  /* Stats */
+  .stat-ruler {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    border-top: 1px solid var(--rule); padding-top: 14px;
+  }
+  .stat-ruler .cell { padding-right: 18px; border-right: 1px solid var(--rule); }
+  .stat-ruler .cell:last-child { border-right: 0; }
+  .stat-ruler .k {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--ink-mute); margin-bottom: 4px;
+  }
+  .stat-ruler .v {
+    font-family: var(--serif); font-size: 26px; font-weight: 500;
+    color: var(--ink); letter-spacing: -0.01em; line-height: 1;
+  }
+  .stat-ruler .v.ok { color: var(--olive); }
+  .stat-ruler .sub {
+    margin-top: 4px; font-family: var(--sans); font-size: 11px; color: var(--ink-mute);
+  }
+
+  /* Views */
+  .views {
+    background: var(--paper); border-left: 1px solid var(--rule); border-right: 1px solid var(--rule);
+    display: flex; padding-top: 14px;
+  }
+  .views .v {
+    background: transparent; border: 0; padding: 10px 18px 12px;
+    font-family: var(--sans); font-size: 13px; color: var(--ink-mute);
+    cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .views .v:hover { color: var(--ink); }
+  .views .v.on { color: var(--ink); font-weight: 600; border-bottom-color: var(--navy); }
+  .views .v .ct {
+    font-family: var(--mono); font-size: 10px; color: var(--ink-mute);
+    background: var(--paper-2); padding: 1px 6px; letter-spacing: 0.02em;
+  }
+  .views .v.on .ct { background: var(--navy); color: #fff; }
+  .views .add {
+    margin-left: auto; background: transparent; border: 0; padding: 10px 18px;
+    color: var(--ink-mute); font-family: var(--mono); font-size: 11px;
+    letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer;
+  }
+
+  /* Filters */
+  .filter-row {
+    background: var(--paper); border: 1px solid var(--rule); border-top: 2px solid var(--ink);
+    padding: 14px 20px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
+  }
+  .filter-row .lbl {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--ink-mute); margin-right: 6px;
+  }
+  .chip {
+    background: transparent; border: 1px solid var(--rule-strong);
+    color: var(--ink-soft); font-family: var(--sans); font-size: 12.5px;
+    padding: 5px 11px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .chip:hover { background: var(--paper-2); border-color: var(--ink); }
+  .chip.on { background: var(--ink); color: var(--paper); border-color: var(--ink); font-weight: 500; }
+  .chip .num { font-family: var(--mono); font-size: 10px; opacity: 0.65; margin-left: 2px; }
+
+  /* Toolbar */
+  .toolbar {
+    background: var(--paper-2); border-left: 1px solid var(--rule); border-right: 1px solid var(--rule);
+    padding: 12px 16px; display: grid; grid-template-columns: 1fr auto auto auto;
+    gap: 8px; align-items: center;
+  }
+  .toolbar .search {
+    display: flex; align-items: center; gap: 10px;
+    border: 1px solid var(--rule-strong); padding: 6px 12px; background: var(--paper);
+  }
+  .toolbar .search input {
+    flex: 1; border: 0; outline: 0; background: transparent;
+    font-family: var(--sans); font-size: 13px; color: var(--ink); padding: 4px 0; min-width: 220px;
+  }
+  .toolbar .search input::placeholder { color: var(--ink-mute); font-style: italic; }
+  .toolbar .search .pre { font-family: var(--mono); font-size: 13px; color: var(--ink-mute); }
+  .toolbar .search .k {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em;
+    color: var(--ink-mute); text-transform: uppercase;
+    border: 1px solid var(--rule-strong); padding: 1px 5px;
+  }
+  .toolbar select {
+    background: var(--paper); border: 1px solid var(--rule-strong);
+    font-family: var(--sans); font-size: 13px; color: var(--ink); padding: 7px 10px;
+  }
+  .toolbar .count {
+    font-family: var(--mono); font-size: 11px; color: var(--ink-mute);
+    letter-spacing: 0.04em; padding: 0 8px;
+  }
+
+  /* Table */
+  .ledger {
+    background: var(--paper); border: 1px solid var(--rule);
+    overflow: hidden; box-shadow: 0 2px 12px -8px rgba(60,50,30,0.18);
+  }
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    text-align: left; background: var(--navy); color: var(--paper);
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em;
+    text-transform: uppercase; font-weight: 600; padding: 14px 18px; white-space: nowrap;
+  }
+  tbody tr.group-row {
+    background: var(--paper-2); border-top: 2px solid var(--navy); border-bottom: 1px solid var(--rule-strong);
+  }
+  tbody tr.group-row td {
+    padding: 12px 18px; font-family: var(--mono); font-size: 11.5px;
+    letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink); font-weight: 600;
+  }
+  tbody tr.group-row .ct { color: var(--ink-mute); font-weight: 500; margin-left: 8px; }
+  tbody tr.group-row .meta {
+    color: var(--ink-mute); font-weight: 400; margin-left: 14px;
+    text-transform: none; letter-spacing: 0; font-family: var(--serif);
+    font-size: 13px; font-style: italic;
+  }
+
+  tbody tr:not(.group-row) { border-bottom: 1px solid var(--rule); transition: background .08s; }
+  tbody tr:not(.group-row):hover { background: var(--paper-2); cursor: pointer; }
+  tbody td {
+    padding: 20px 18px; vertical-align: top;
+    font-family: var(--sans); font-size: 14px; color: var(--ink);
+  }
+
+  td.col-nome {
+    min-width: 280px;
+    display: flex; gap: 14px; align-items: center;
+  }
+  td.col-nome .av {
+    width: 42px; height: 42px; flex: none;
+    background: var(--navy-soft); border: 1px solid var(--navy); color: var(--navy);
+    display: grid; place-items: center;
+    font-family: var(--sans); font-size: 13px; font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  td.col-nome .av.lider { background: var(--navy); color: var(--paper); }
+  td.col-nome .nm {
+    font-family: var(--serif); font-size: 17px; color: var(--ink);
+    font-weight: 500; line-height: 1.25; margin-bottom: 4px;
+  }
+  td.col-nome .nm a { color: var(--ink); text-decoration: none; }
+  td.col-nome .nm a:hover { text-decoration: underline; text-underline-offset: 3px; }
+  td.col-nome .sub {
+    font-family: var(--sans); font-size: 12.5px; color: var(--ink-mute);
+    line-height: 1.4;
+  }
+  td.col-nome .sub .role {
+    color: var(--navy); font-weight: 600;
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em;
+    text-transform: uppercase; border: 1px solid var(--navy);
+    padding: 1px 5px; margin-right: 4px;
+  }
+
+  td.col-bairro {
+    font-family: var(--sans); font-size: 13.5px;
+    white-space: nowrap; color: var(--ink-soft);
+  }
+  td.col-bairro .age {
+    display: block; font-family: var(--mono); font-size: 11px;
+    color: var(--ink-mute); margin-top: 4px; letter-spacing: 0.04em;
+  }
+
+  td.col-demandas {
+    text-align: center; font-family: var(--mono);
+    white-space: nowrap;
+  }
+  td.col-demandas .total {
+    font-family: var(--serif); font-size: 22px; color: var(--ink);
+    font-weight: 500;
+  }
+  td.col-demandas .abertas {
+    display: block; margin-top: 3px; font-size: 11px; color: var(--amber);
+    font-weight: 600; letter-spacing: 0.04em;
+  }
+  td.col-demandas .abertas.zero { color: var(--ink-mute); font-weight: 400; }
+
+  td.col-tags { white-space: normal; max-width: 220px; }
+  td.col-tags .pill {
+    display: inline-block; font-family: var(--sans); font-size: 11.5px;
+    font-weight: 600; padding: 3px 8px; margin: 2px 3px 2px 0;
+    border: 1px solid currentColor; background: transparent;
+    white-space: nowrap;
+  }
+  td.col-tags .pill.lider { color: var(--navy); background: var(--navy-soft); }
+  td.col-tags .pill.midia { color: var(--tan); background: #f1eadd; }
+  td.col-tags .pill.idoso { color: var(--olive); background: #eef0e3; }
+  td.col-tags .pill { color: var(--ink-soft); }
+
+  td.col-contato {
+    font-family: var(--mono); font-size: 12.5px;
+    color: var(--ink-soft); white-space: nowrap;
+    line-height: 1.6;
+  }
+  td.col-contato .ch {
+    display: block; color: var(--ink-mute);
+  }
+  td.col-contato .ch strong { color: var(--ink-soft); font-weight: 600; }
+
+  td.col-ultimo {
+    font-family: var(--mono); font-size: 13.5px;
+    color: var(--ink-soft); white-space: nowrap; text-align: right;
+    width: 140px;
+  }
+  td.col-ultimo .when {
+    display: block; margin-top: 4px;
+    font-family: var(--sans); font-size: 12px; color: var(--ink-mute);
+  }
+  td.col-ultimo.warn { color: var(--bordo); font-weight: 600; }
+
+  .ledger-foot {
+    padding: 14px 18px; display: flex; align-items: center; justify-content: space-between;
+    border-top: 2px solid var(--navy); background: var(--paper-2);
+    font-family: var(--sans); font-size: 12.5px; color: var(--ink-soft);
+  }
+  .ledger-foot .pages { display: flex; gap: 4px; }
+  .ledger-foot .pages a, .ledger-foot .pages button {
+    background: var(--paper); border: 1px solid var(--rule-strong);
+    padding: 4px 11px; font-family: var(--sans); font-size: 12px;
+    color: var(--ink); text-decoration: none; cursor: pointer;
+  }
+  .ledger-foot .pages .on { background: var(--navy); color: var(--paper); border-color: var(--navy); }
+  .ledger-foot .pages button:disabled { opacity: 0.4; }
+</style>
+</head>
+<body>
+
+<header class="appbar">
+  <div class="appbar-inner">
+    <a class="brand" href="home.html">
+      <span class="mark">M</span>
+      <span class="name">MPD</span>
+      <span class="tag">Pedro Trés · 11ª Legislatura</span>
+    </a>
+    <nav>
+      <a href="home.html">Início</a>
+      <a href="05-inbox.html">Entrada <span class="alert">7</span></a>
+      <a href="04-lista.html">Demandas</a>
+      <a href="pessoas.html" class="current">Pessoas</a>
+      <a href="entidades.html">Entidades</a>
+      <a href="encaminhamentos.html">Encaminhamentos</a>
+      <a href="pendencias.html">Pendências <span class="alert">3</span></a>
+    </nav>
+    <div class="me">
+      <div class="who">
+        <span class="av">MC</span>
+        <span>
+          <span class="name">Mariana Costa</span>
+          <span class="role">Gabinete · resp.</span>
+        </span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="page">
+
+  <header class="page-head">
+    <div class="breadcrumb">
+      <span class="here">PESSOAS</span>
+      <span class="sep">/</span>
+      <span>VISTA: TODAS</span>
+    </div>
+    <div class="row1">
+      <h1>Pessoas <span class="total">847 cadastradas</span></h1>
+      <div class="actions">
+        <button class="btn ghost">Exportar CSV</button>
+        <button class="btn ghost">Importar contatos</button>
+        <button class="btn primary">+ Nova pessoa</button>
+      </div>
+    </div>
+
+    <div class="stat-ruler">
+      <div class="cell">
+        <div class="k">Líderes</div>
+        <div class="v">23</div>
+        <div class="sub">tag "Líder local" · 12 vigentes</div>
+      </div>
+      <div class="cell">
+        <div class="k">Com demanda em aberto</div>
+        <div class="v">128</div>
+        <div class="sub">15% da base · base saudável</div>
+      </div>
+      <div class="cell">
+        <div class="k">Sem contato 90 dias</div>
+        <div class="v">214</div>
+        <div class="sub">candidatas a contato preventivo</div>
+      </div>
+      <div class="cell">
+        <div class="k">Novas no mês</div>
+        <div class="v ok">38</div>
+        <div class="sub">+ 22% sobre abril</div>
+      </div>
+    </div>
+  </header>
+
+  <div class="views">
+    <button class="v on">Todas <span class="ct">847</span></button>
+    <button class="v">Líderes <span class="ct">23</span></button>
+    <button class="v">Com demanda aberta <span class="ct">128</span></button>
+    <button class="v">Sem contato 90d <span class="ct">214</span></button>
+    <button class="v">Cadastradas pela equipe <span class="ct">209</span></button>
+    <button class="add">+ Salvar visão atual</button>
+  </div>
+
+  <div class="filter-row">
+    <span class="lbl">Bairro</span>
+    <button class="chip on">Tudo <span class="num">847</span></button>
+    <button class="chip">Centro <span class="num">142</span></button>
+    <button class="chip">Maruípe <span class="num">94</span></button>
+    <button class="chip">Jardim Camburi <span class="num">87</span></button>
+    <button class="chip">São Pedro <span class="num">76</span></button>
+    <button class="chip">Bento Ferreira <span class="num">58</span></button>
+    <button class="chip">Jucutuquara <span class="num">42</span></button>
+    <button class="chip">Praia do Canto <span class="num">31</span></button>
+    <button class="chip">Outros bairros <span class="num">317</span></button>
+  </div>
+
+  <div class="toolbar">
+    <div class="search">
+      <span class="pre">⌕</span>
+      <input type="text" placeholder="Buscar por nome, CPF, telefone, e-mail, endereço…">
+      <span class="k">Ctrl K</span>
+    </div>
+    <select>
+      <option>Tag: todas</option>
+      <option>Líder local</option>
+      <option>Mídia espontânea</option>
+      <option>Pauta recorrente</option>
+      <option>60+</option>
+    </select>
+    <select>
+      <option>Origem: todas</option>
+      <option>Manual</option>
+      <option>Inbox</option>
+      <option>Importação</option>
+    </select>
+    <span class="count">847 resultados</span>
+  </div>
+
+  <div class="ledger">
+    <table>
+      <thead>
+        <tr>
+          <th>Nome</th>
+          <th>Bairro</th>
+          <th style="text-align:center">Demandas</th>
+          <th>Tags</th>
+          <th>Contato</th>
+          <th style="text-align:right">Último contato</th>
+        </tr>
+      </thead>
+      <tbody>
+
+        <tr class="group-row">
+          <td colspan="6">▼ Líderes do bairro <span class="ct">3 mostrados</span><span class="meta">pessoas com tag "Líder local"</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-nome">
+            <div class="av lider">SO</div>
+            <div>
+              <div class="nm"><a href="pessoa.html">Sebastiana Oliveira</a></div>
+              <div class="sub"><span class="role">Presidente</span>Assoc. Moradores Centro</div>
+            </div>
+          </td>
+          <td class="col-bairro">Centro · Vitória<span class="age">62 anos · desde 04/2024</span></td>
+          <td class="col-demandas"><span class="total">8</span><span class="abertas">1 aberta</span></td>
+          <td class="col-tags"><span class="pill lider">Líder local</span> <span class="pill midia">Mídia</span> <span class="pill idoso">60+</span></td>
+          <td class="col-contato">(27) 9·9988-1234<span class="ch"><strong>WhatsApp</strong> · @sebamoradorescentro</span></td>
+          <td class="col-ultimo">14/05/26<span class="when">há 3 dias</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-nome">
+            <div class="av lider">JL</div>
+            <div>
+              <div class="nm"><a href="#">Joana Lopes Pereira</a></div>
+              <div class="sub"><span class="role">Coordenadora</span>Frente de Mães Bento Ferreira</div>
+            </div>
+          </td>
+          <td class="col-bairro">Bento Ferreira · Vitória<span class="age">41 anos · desde 09/2024</span></td>
+          <td class="col-demandas"><span class="total">5</span><span class="abertas">1 aberta</span></td>
+          <td class="col-tags"><span class="pill lider">Líder local</span> <span class="pill">Educação</span></td>
+          <td class="col-contato">(27) 9·9123-4567<span class="ch"><strong>WhatsApp</strong> · joana@gmail.com</span></td>
+          <td class="col-ultimo">11/05/26<span class="when">há 6 dias</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-nome">
+            <div class="av lider">PA</div>
+            <div>
+              <div class="nm"><a href="#">Padre Antônio Souza</a></div>
+              <div class="sub"><span class="role">Pároco</span>Paróquia São Pedro</div>
+            </div>
+          </td>
+          <td class="col-bairro">São Pedro · Vitória<span class="age">58 anos · desde 02/2024</span></td>
+          <td class="col-demandas"><span class="total">6</span><span class="abertas zero">—</span></td>
+          <td class="col-tags"><span class="pill lider">Líder local</span> <span class="pill">Pastoral</span> <span class="pill">Idosos</span></td>
+          <td class="col-contato">(27) 3324-9912<span class="ch">paroquia.sp@arquidiocese.es</span></td>
+          <td class="col-ultimo">28/04/26<span class="when">há 19 dias</span></td>
+        </tr>
+
+        <tr class="group-row">
+          <td colspan="6">▼ Demandantes ativos <span class="ct">9 mostrados</span><span class="meta">pessoas com demanda em andamento</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-nome">
+            <div class="av">CB</div>
+            <div>
+              <div class="nm"><a href="#">Cláudia Bonfim Tavares</a></div>
+              <div class="sub">Síndica · Cond. Sol Nascente</div>
+            </div>
+          </td>
+          <td class="col-bairro">Jardim Camburi<span class="age">52 anos · desde 11/2024</span></td>
+          <td class="col-demandas"><span class="total">3</span><span class="abertas">1 aberta</span></td>
+          <td class="col-tags"><span class="pill">Síndica</span> <span class="pill">Meio ambiente</span></td>
+          <td class="col-contato">(27) 9·9876-5432<span class="ch">claudia.bonfim@uol.com.br</span></td>
+          <td class="col-ultimo">07/05/26<span class="when">há 10 dias</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-nome">
+            <div class="av">HB</div>
+            <div>
+              <div class="nm"><a href="#">Helena Bittencourt</a></div>
+              <div class="sub">Moradora</div>
+            </div>
+          </td>
+          <td class="col-bairro">Maruípe<span class="age">68 anos · desde 03/2025</span></td>
+          <td class="col-demandas"><span class="total">2</span><span class="abertas">1 aberta</span></td>
+          <td class="col-tags"><span class="pill idoso">60+</span></td>
+          <td class="col-contato">(27) 9·9445-2233<span class="ch">apenas WhatsApp</span></td>
+          <td class="col-ultimo warn">14/05/26<span class="when">há 3 dias</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-nome">
+            <div class="av">MV</div>
+            <div>
+              <div class="nm"><a href="#">Marta Vieira</a></div>
+              <div class="sub">Presidente do Conselho Escolar EMEF Eunice</div>
+            </div>
+          </td>
+          <td class="col-bairro">Jucutuquara<span class="age">44 anos · desde 02/2025</span></td>
+          <td class="col-demandas"><span class="total">2</span><span class="abertas">1 vencida</span></td>
+          <td class="col-tags"><span class="pill">Conselheira</span> <span class="pill">Educação</span></td>
+          <td class="col-contato">(27) 9·9233-1144<span class="ch">marta.conselho@emefeunice.es</span></td>
+          <td class="col-ultimo warn">10/05/26<span class="when">há 7 dias</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-nome">
+            <div class="av">AO</div>
+            <div>
+              <div class="nm"><a href="#">Antônio Oliveira (Sr.)</a></div>
+              <div class="sub">Morador · filho de Sebastiana</div>
+            </div>
+          </td>
+          <td class="col-bairro">Centro · Vitória<span class="age">38 anos · desde 05/2025</span></td>
+          <td class="col-demandas"><span class="total">2</span><span class="abertas">1 aberta</span></td>
+          <td class="col-tags"><span class="pill">Vínculo familiar</span></td>
+          <td class="col-contato">(27) 9·9112-2334<span class="ch">apenas WhatsApp</span></td>
+          <td class="col-ultimo">03/05/26<span class="when">há 14 dias</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-nome">
+            <div class="av">IM</div>
+            <div>
+              <div class="nm"><a href="#">Ivete Magalhães</a></div>
+              <div class="sub">Moradora · comerciante</div>
+            </div>
+          </td>
+          <td class="col-bairro">Centro · Vitória<span class="age">55 anos · desde 05/2025</span></td>
+          <td class="col-demandas"><span class="total">1</span><span class="abertas">1 aberta</span></td>
+          <td class="col-tags"><span class="pill">Comerciante</span></td>
+          <td class="col-contato">(27) 3324-7788<span class="ch">loja@ivetemoda.com.br</span></td>
+          <td class="col-ultimo">03/05/26<span class="when">há 14 dias</span></td>
+        </tr>
+
+        <tr class="group-row">
+          <td colspan="6">▼ Recentemente cadastradas <span class="ct">3 mostradas</span><span class="meta">via inbox ou importação</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-nome">
+            <div class="av">LG</div>
+            <div>
+              <div class="nm"><a href="#">Lia Garcia</a></div>
+              <div class="sub">Coordenadora de Programas · SEMUS</div>
+            </div>
+          </td>
+          <td class="col-bairro">Praia do Canto<span class="age">via inbox · há 6h</span></td>
+          <td class="col-demandas"><span class="total">3</span><span class="abertas">0</span></td>
+          <td class="col-tags"><span class="pill">Contato SEMUS</span> <span class="pill">Saúde</span></td>
+          <td class="col-contato">(27) 9·9700-4455<span class="ch">lia.garcia@semus.vitoria.es.gov.br</span></td>
+          <td class="col-ultimo">17/05/26<span class="when">hoje</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-nome">
+            <div class="av">JL</div>
+            <div>
+              <div class="nm"><a href="#">José Luis da Silva</a></div>
+              <div class="sub">Liderança Rua Sete</div>
+            </div>
+          </td>
+          <td class="col-bairro">Centro · Vitória<span class="age">via Pedro · há 3 dias</span></td>
+          <td class="col-demandas"><span class="total">0</span><span class="abertas zero">—</span></td>
+          <td class="col-tags"><span class="pill" style="border-style:dashed;color:var(--ink-mute)">sem tags</span></td>
+          <td class="col-contato">(27) 9·9554-3322<span class="ch">apenas telefone</span></td>
+          <td class="col-ultimo">14/05/26<span class="when">há 3 dias</span></td>
+        </tr>
+
+      </tbody>
+    </table>
+
+    <div class="ledger-foot">
+      <div>Mostrando <strong style="color:var(--ink)">9</strong> de <strong style="color:var(--ink)">847</strong> pessoas · agrupadas</div>
+      <div class="pages">
+        <button disabled>← Anterior</button>
+        <a class="on" href="#">1</a>
+        <a href="#">2</a>
+        <a href="#">3</a>
+        <a href="#">…</a>
+        <a href="#">85</a>
+        <button>Próxima →</button>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+</body>
+</html>

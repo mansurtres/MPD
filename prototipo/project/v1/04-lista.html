@@ -1,0 +1,859 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>MPD · Estante (Direção Prontuário)</title>
+<meta name="viewport" content="width=1400">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  body { background: #ece8e0; font-family: 'IBM Plex Sans', sans-serif; }
+
+  /* === Direção Prontuário — Lista (Estante) ===
+     Mesma paleta da 01: papel off-white, tinta navy, réguas finas,
+     status como carimbo, número da demanda monoespaçado, datas alinhadas. */
+
+  :root {
+    --paper: #f8f5ee;
+    --paper-2: #efeadc;
+    --paper-3: #e6dfca;
+    --ink: #1a1814;
+    --ink-soft: #46423b;
+    --ink-mute: #6b6357;
+    --rule: #d6cdb8;
+    --rule-strong: #b8ad94;
+    --navy: #1f3a5f;
+    --navy-deep: #15293f;
+    --navy-soft: #e8edf3;
+    --bordo: #8a2a2a;
+    --bordo-soft: #f3e3e3;
+    --tan: #6b4a2a;
+    --olive: #5a6b3a;
+    --amber: #b4751c;
+    --teal: #2a6f6a;
+    --plum: #6a4a8a;
+  }
+
+  /* Container — papel sobre mesa clara */
+  .page {
+    max-width: 1360px;
+    margin: 0 auto 80px;
+    padding: 0 28px;
+  }
+
+  /* === Cabeçalho do documento === */
+  .page-head {
+    background: var(--paper);
+    border-top: 6px solid var(--navy);
+    padding: 26px 32px 22px;
+    box-shadow:
+      0 1px 0 rgba(0,0,0,0.04),
+      0 16px 40px -24px rgba(60,50,30,0.22);
+  }
+  .page-head .breadcrumb {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 14px;
+  }
+  .page-head .breadcrumb a { text-decoration: none; }
+  .page-head .breadcrumb .sep { color: var(--rule-strong); }
+  .page-head .breadcrumb .here { color: var(--navy); font-weight: 600; }
+
+  .page-head .title-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 24px;
+    align-items: end;
+  }
+  .page-head h1 {
+    font-family: 'Source Serif 4', serif;
+    font-weight: 500;
+    font-size: 38px;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    margin: 0;
+    color: var(--ink);
+  }
+  .page-head h1 .total {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 16px;
+    color: var(--ink-mute);
+    margin-left: 14px;
+    vertical-align: 4px;
+    letter-spacing: 0.02em;
+    font-weight: 400;
+  }
+  .page-head h1 .urg {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: var(--bordo);
+    margin-left: 12px;
+    vertical-align: 6px;
+    border-left: 1px solid var(--rule-strong);
+    padding-left: 14px;
+    font-weight: 500;
+  }
+
+  .page-head .actions { display: flex; gap: 8px; }
+  .btn {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 16px;
+    border: 1px solid var(--rule-strong);
+    background: var(--paper);
+    color: var(--ink);
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 8px;
+    transition: background .12s, border-color .12s;
+  }
+  .btn:hover { background: #fff; border-color: var(--ink); }
+  .btn.primary {
+    background: var(--navy);
+    border-color: var(--navy);
+    color: #fff;
+  }
+  .btn.primary:hover { background: var(--navy-deep); }
+  .btn.ghost { background: transparent; }
+
+  /* Tabs de visões salvas */
+  .views {
+    background: var(--paper);
+    border-left: 1px solid var(--rule);
+    border-right: 1px solid var(--rule);
+    display: flex; gap: 0;
+    padding-top: 14px;
+  }
+  .views .v {
+    background: transparent;
+    border: 0;
+    padding: 10px 18px 12px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 13px;
+    color: var(--ink-mute);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    display: inline-flex;
+    align-items: center; gap: 6px;
+  }
+  .views .v:hover { color: var(--ink); }
+  .views .v.on {
+    color: var(--ink);
+    font-weight: 600;
+    border-bottom-color: var(--navy);
+  }
+  .views .v.urg.on { border-bottom-color: var(--bordo); color: var(--bordo); }
+  .views .v .ct {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-mute);
+    background: var(--paper-2);
+    padding: 1px 6px;
+    letter-spacing: 0.02em;
+  }
+  .views .v.on .ct { background: var(--navy); color: #fff; }
+  .views .v.urg.on .ct { background: var(--bordo); color: #fff; }
+  .views .add {
+    margin-left: auto;
+    background: transparent;
+    border: 0;
+    padding: 10px 18px;
+    color: var(--ink-mute);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .views .add:hover { color: var(--ink); }
+
+  /* Linha de filtros (chips temáticos) */
+  .filter-row {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-top-width: 2px;
+    border-top-color: var(--ink);
+    padding: 14px 20px;
+    display: flex; gap: 6px; flex-wrap: wrap;
+    align-items: center;
+  }
+  .filter-row .lbl {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-right: 6px;
+  }
+  .chip {
+    background: transparent;
+    border: 1px solid var(--rule-strong);
+    color: var(--ink-soft);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 12.5px;
+    padding: 5px 11px;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .chip:hover { background: var(--paper-2); border-color: var(--ink); }
+  .chip.on {
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+    font-weight: 500;
+  }
+  .chip .num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    opacity: 0.65;
+    margin-left: 2px;
+  }
+  .chip.alert { color: var(--bordo); border-color: var(--bordo); }
+
+  /* Toolbar com busca */
+  .toolbar {
+    background: var(--paper-2);
+    border-left: 1px solid var(--rule);
+    border-right: 1px solid var(--rule);
+    padding: 12px 16px;
+    display: grid;
+    grid-template-columns: 1fr auto auto auto auto;
+    gap: 8px;
+    align-items: center;
+  }
+  .toolbar .search {
+    display: flex; align-items: center; gap: 10px;
+    border: 1px solid var(--rule-strong);
+    padding: 6px 12px;
+    background: var(--paper);
+  }
+  .toolbar .search input {
+    flex: 1;
+    border: 0; outline: 0;
+    background: transparent;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 13px;
+    color: var(--ink);
+    padding: 4px 0;
+    min-width: 200px;
+  }
+  .toolbar .search input::placeholder { color: var(--ink-mute); font-style: italic; }
+  .toolbar .search .pre {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: var(--ink-mute);
+  }
+  .toolbar .search .k {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    color: var(--ink-mute);
+    text-transform: uppercase;
+    border: 1px solid var(--rule-strong);
+    padding: 1px 5px;
+  }
+  .toolbar select {
+    background: var(--paper);
+    border: 1px solid var(--rule-strong);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 13px;
+    color: var(--ink);
+    padding: 7px 10px;
+  }
+  .toolbar .count {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-mute);
+    letter-spacing: 0.04em;
+    padding: 0 8px;
+  }
+
+  /* Tabela */
+  .ledger {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    overflow: hidden;
+    box-shadow: 0 2px 12px -8px rgba(60,50,30,0.18);
+  }
+  table { width: 100%; border-collapse: collapse; }
+
+  thead th {
+    text-align: left;
+    background: var(--navy);
+    color: var(--paper);
+    border-bottom: 0;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-weight: 600;
+    padding: 14px 18px;
+    white-space: nowrap;
+  }
+  thead th .arrow { color: rgba(255,255,255,0.5); margin-left: 4px; }
+
+  tbody tr.group-row {
+    background: var(--paper-2);
+    border-top: 2px solid var(--navy);
+    border-bottom: 1px solid var(--rule-strong);
+  }
+  tbody tr.group-row td {
+    padding: 12px 18px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink);
+    font-weight: 600;
+  }
+  tbody tr.group-row .ct {
+    color: var(--ink-mute);
+    font-weight: 500;
+    margin-left: 8px;
+  }
+  tbody tr.group-row .meta {
+    color: var(--ink-mute);
+    font-weight: 400;
+    margin-left: 14px;
+    text-transform: none;
+    letter-spacing: 0;
+    font-family: 'Source Serif 4', serif;
+    font-size: 13px;
+    font-style: italic;
+  }
+  tbody tr.group-row.urg { border-top-color: var(--bordo); }
+  tbody tr.group-row.urg td { color: var(--bordo); }
+  tbody tr.group-row.urg .ct { color: var(--bordo); opacity: 0.6; }
+
+  tbody tr:not(.group-row) {
+    border-bottom: 1px solid var(--rule);
+    transition: background .08s;
+  }
+  tbody tr:not(.group-row):hover { background: var(--paper-2); cursor: pointer; }
+  tbody td {
+    padding: 20px 18px;
+    vertical-align: top;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 14px;
+    color: var(--ink);
+  }
+
+  td.col-num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: var(--ink-soft);
+    white-space: nowrap;
+    padding-top: 22px;
+    width: 132px;
+  }
+  td.col-num .y { color: var(--ink-mute); }
+  td.col-num .seq { color: var(--navy); font-weight: 600; }
+
+  td.col-title { min-width: 280px; }
+  td.col-title .ttl {
+    font-family: 'Source Serif 4', serif;
+    font-size: 17px;
+    color: var(--ink);
+    line-height: 1.3;
+    font-weight: 500;
+    margin-bottom: 8px;
+    text-wrap: pretty;
+  }
+  td.col-title .partes {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 13px;
+    color: var(--ink-mute);
+    line-height: 1.4;
+  }
+  td.col-title .partes .who { color: var(--ink-soft); font-weight: 500; }
+  td.col-title .partes .sep { color: var(--rule-strong); }
+  td.col-title .ttl .restrita {
+    display: inline-block;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    background: var(--bordo);
+    color: var(--paper);
+    padding: 1px 5px;
+    letter-spacing: 0.08em;
+    vertical-align: middle;
+    margin-right: 6px;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+
+  /* Temas como pills sutis */
+  td.col-temas .pill {
+    display: inline-block;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 3px 8px;
+    margin: 2px 3px 2px 0;
+    border: 1px solid currentColor;
+    background: transparent;
+    white-space: nowrap;
+  }
+  td.col-temas .pill.mob { color: var(--teal); background: #ecf3f3; }
+  td.col-temas .pill.seg { color: var(--bordo); background: var(--bordo-soft); }
+  td.col-temas .pill.edu { color: var(--plum); background: #f1eaf3; }
+  td.col-temas .pill.sau { color: var(--olive); background: #eef0e3; }
+  td.col-temas .pill.cul { color: var(--tan); background: #f1eadd; }
+  td.col-temas .pill.amb { color: #2e6b3a; background: #e3edde; }
+  td.col-temas .pill.urb { color: var(--tan); background: #f1eadd; }
+
+  /* Status como mini-carimbo */
+  td.col-status { white-space: nowrap; }
+  td.col-status .stamp-s {
+    display: inline-block;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 4px 10px 5px;
+    border: 1.5px solid currentColor;
+  }
+  td.col-status .stamp-s.s-novo { color: var(--navy); }
+  td.col-status .stamp-s.s-and  { color: var(--amber); }
+  td.col-status .stamp-s.s-agt  { color: var(--tan); }
+  td.col-status .stamp-s.s-agp  { color: var(--bordo); }
+  td.col-status .stamp-s.s-cnc  { color: var(--olive); }
+  td.col-status .stamp-s.s-arq  { color: var(--ink-mute); }
+
+  /* Resultado: glifo de máquina de escrever */
+  td.col-resultado { white-space: nowrap; font-size: 13px; }
+  td.col-resultado .rs {
+    display: inline-block;
+    width: 16px; text-align: center;
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 700;
+    margin-right: 6px;
+  }
+  td.col-resultado .rs.atd { color: var(--olive); }
+  td.col-resultado .rs.prc { color: var(--olive); opacity: 0.7; }
+  td.col-resultado .rs.nat { color: var(--bordo); }
+  td.col-resultado .rs.inv { color: var(--tan); }
+  td.col-resultado .rs.pen { color: var(--ink-mute); }
+  td.col-resultado .lab { color: var(--ink-soft); }
+
+  td.col-resp {
+    white-space: nowrap;
+    font-size: 13.5px;
+  }
+  td.col-resp .av {
+    display: inline-grid;
+    place-items: center;
+    width: 26px; height: 26px;
+    background: var(--navy-soft);
+    color: var(--navy);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    border: 1px solid var(--navy);
+    margin-right: 10px;
+    vertical-align: -8px;
+    letter-spacing: 0.02em;
+  }
+
+  td.col-prazo {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13.5px;
+    color: var(--ink-soft);
+    white-space: nowrap;
+    text-align: right;
+    width: 130px;
+  }
+  td.col-prazo.warn { color: var(--bordo); font-weight: 600; }
+  td.col-prazo.late { color: var(--bordo); font-weight: 700; }
+  td.col-prazo .sub {
+    display: block;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--ink-mute);
+    margin-top: 4px;
+    letter-spacing: 0.02em;
+  }
+  td.col-prazo.warn .sub { color: var(--bordo); }
+  td.col-prazo.late .sub { color: var(--bordo); }
+  td.col-prazo .late-mark {
+    display: inline-block;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    background: var(--bordo);
+    color: var(--paper);
+    padding: 0 5px;
+    margin-right: 6px;
+    vertical-align: 1px;
+    letter-spacing: 0.06em;
+  }
+
+  /* Rodapé com paginação */
+  .ledger-foot {
+    padding: 14px 18px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-top: 2px solid var(--navy);
+    background: var(--paper-2);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+  }
+  .ledger-foot .pages { display: flex; gap: 4px; }
+  .ledger-foot .pages a, .ledger-foot .pages button {
+    background: var(--paper); border: 1px solid var(--rule-strong);
+    padding: 4px 11px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 12px;
+    color: var(--ink);
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .ledger-foot .pages .on { background: var(--navy); color: var(--paper); border-color: var(--navy); }
+  .ledger-foot .pages button:disabled { opacity: 0.4; }
+</style>
+</head>
+<body>
+
+<header class="appbar">
+  <div class="appbar-inner">
+    <a class="brand" href="home.html">
+      <span class="mark">M</span>
+      <span class="name">MPD</span>
+      <span class="tag">Pedro Trés · 11ª Legislatura</span>
+    </a>
+    <nav>
+      <a href="home.html">Início</a>
+      <a href="05-inbox.html">Entrada <span class="alert">7</span></a>
+      <a href="04-lista.html" class="current">Demandas</a>
+      <a href="pessoas.html">Pessoas</a>
+      <a href="entidades.html">Entidades</a>
+      <a href="encaminhamentos.html">Encaminhamentos</a>
+      <a href="pendencias.html">Pendências <span class="alert">3</span></a>
+    </nav>
+    <div class="me">
+      <div class="who">
+        <span class="av">MC</span>
+        <span>
+          <span class="name">Mariana Costa</span>
+          <span class="role">Gabinete · resp.</span>
+        </span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="page" style="margin-top:32px">
+
+  <!-- Cabeçalho do documento -->
+  <header class="page-head">
+    <div class="breadcrumb">
+      <span class="here">DEMANDAS</span>
+      <span class="sep">/</span>
+      <span>VISTA: TODAS</span>
+      <span class="sep">/</span>
+      <span>MAI 2026</span>
+    </div>
+    <div class="title-row">
+      <h1>Demandas <span class="total">147 em aberto</span> <span class="urg">12 vencidas</span></h1>
+      <div class="actions">
+        <button class="btn ghost">Exportar CSV</button>
+        <button class="btn ghost">Imprimir relatório</button>
+        <button class="btn primary">+ Nova demanda</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Tabs de visões salvas -->
+  <div class="views">
+    <button class="v on">Todas <span class="ct">147</span></button>
+    <button class="v">Minhas <span class="ct">23</span></button>
+    <button class="v">Minha coordenação <span class="ct">61</span></button>
+    <button class="v urg on">Vencidas <span class="ct">12</span></button>
+    <button class="v">Sem devolutiva +30d <span class="ct">8</span></button>
+    <button class="v">Encaminhamento aberto <span class="ct">19</span></button>
+    <button class="add">+ Salvar visão atual</button>
+  </div>
+
+  <!-- Filtros (chips temáticos) -->
+  <div class="filter-row">
+    <span class="lbl">Tema</span>
+    <button class="chip on">Tudo <span class="num">147</span></button>
+    <button class="chip">Mobilidade <span class="num">38</span></button>
+    <button class="chip">Saúde <span class="num">31</span></button>
+    <button class="chip">Educação <span class="num">22</span></button>
+    <button class="chip">Segurança <span class="num">18</span></button>
+    <button class="chip">Urbanismo <span class="num">14</span></button>
+    <button class="chip">Cultura <span class="num">9</span></button>
+    <button class="chip">Meio ambiente <span class="num">8</span></button>
+    <button class="chip alert">Sem tema <span class="num">7</span></button>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="search">
+      <span class="pre">⌕</span>
+      <input type="text" placeholder="Buscar por número, título, pessoa, bairro…">
+      <span class="k">Ctrl K</span>
+    </div>
+    <select>
+      <option>Status: todos</option>
+      <option>Novo</option>
+      <option>Em andamento</option>
+      <option>Aguardando terceiros</option>
+      <option>Aguardando pessoa</option>
+      <option>Concluída</option>
+    </select>
+    <select>
+      <option>Coordenação: todas</option>
+      <option>Gabinete</option>
+      <option>Jurídico</option>
+      <option>Comunicação</option>
+    </select>
+    <select>
+      <option>Responsável: todos</option>
+      <option>Mariana Costa</option>
+      <option>Lucas Almeida</option>
+      <option>Bia Ferreira</option>
+    </select>
+    <span class="count">147 resultados</span>
+  </div>
+
+  <!-- Tabela -->
+  <div class="ledger">
+    <table>
+      <thead>
+        <tr>
+          <th>Número</th>
+          <th>Demanda <span class="arrow">▾</span></th>
+          <th>Temas</th>
+          <th>Status</th>
+          <th>Resultado</th>
+          <th>Responsável</th>
+          <th style="text-align:right">Prazo / abertura</th>
+        </tr>
+      </thead>
+      <tbody>
+
+        <tr class="group-row urg">
+          <td colspan="7">▼ Vencidas <span class="ct">3 itens</span><span class="meta">ação imediata recomendada</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-num"><span class="y">MPD-2026-</span><span class="seq">00339</span></td>
+          <td class="col-title">
+            <div class="ttl">Linha de ônibus 502 — reforço no horário escolar</div>
+            <div class="partes"><span class="who">Conselho de Pais EMEF Eunice</span> <span class="sep">·</span> <span class="who">Marta Vieira</span> <span class="sep">·</span> + 2</div>
+          </td>
+          <td class="col-temas"><span class="pill mob">Mobilidade</span> <span class="pill edu">Educação</span></td>
+          <td class="col-status"><span class="stamp-s s-and">Em andamento</span></td>
+          <td class="col-resultado"><span class="rs pen">○</span><span class="lab">Pendente</span></td>
+          <td class="col-resp"><span class="av">LA</span>Lucas Almeida</td>
+          <td class="col-prazo late"><span class="late-mark">VENC</span>10/05/26<span class="sub">vencida há 7 dias</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-num"><span class="y">MPD-2026-</span><span class="seq">00328</span></td>
+          <td class="col-title">
+            <div class="ttl"><span class="restrita">Restrita</span>Atendimento médico — paciente em fila SUS há 14 meses</div>
+            <div class="partes"><span class="who">Família encaminhada por Pe. Antônio</span></div>
+          </td>
+          <td class="col-temas"><span class="pill sau">Saúde</span></td>
+          <td class="col-status"><span class="stamp-s s-agt">Aguard. terceiros</span></td>
+          <td class="col-resultado"><span class="rs pen">○</span><span class="lab">Pendente</span></td>
+          <td class="col-resp"><span class="av">MC</span>Mariana Costa</td>
+          <td class="col-prazo late"><span class="late-mark">VENC</span>13/05/26<span class="sub">vencida há 4 dias</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-num"><span class="y">MPD-2026-</span><span class="seq">00315</span></td>
+          <td class="col-title">
+            <div class="ttl">Vazamento de esgoto — Rua dos Coqueiros, 304</div>
+            <div class="partes"><span class="who">Helena Bittencourt</span></div>
+          </td>
+          <td class="col-temas"><span class="pill urb">Urbanismo</span> <span class="pill amb">Saneamento</span></td>
+          <td class="col-status"><span class="stamp-s s-agt">Aguard. terceiros</span></td>
+          <td class="col-resultado"><span class="rs pen">○</span><span class="lab">Pendente</span></td>
+          <td class="col-resp"><span class="av">BF</span>Bia Ferreira</td>
+          <td class="col-prazo late"><span class="late-mark">VENC</span>14/05/26<span class="sub">vencida há 3 dias</span></td>
+        </tr>
+
+        <tr class="group-row">
+          <td colspan="7">▼ Prazo próximo (14 dias) <span class="ct">5 itens</span><span class="meta">checar pendências antes do fim de semana</span></td>
+        </tr>
+
+        <tr style="background:#fbf7eb">
+          <td class="col-num"><span class="y">MPD-2026-</span><span class="seq">00342</span></td>
+          <td class="col-title">
+            <div class="ttl">Falta de iluminação na Rua Antônio Ataíde — trecho da Praça Costa Pereira</div>
+            <div class="partes"><span class="who">Sebastiana Oliveira</span> <span class="sep">·</span> <span class="who">Assoc. Moradores Centro</span> <span class="sep">·</span> + 2</div>
+          </td>
+          <td class="col-temas"><span class="pill mob">Mobilidade</span> <span class="pill seg">Segurança</span></td>
+          <td class="col-status"><span class="stamp-s s-and">Em andamento</span></td>
+          <td class="col-resultado"><span class="rs pen">○</span><span class="lab">Pendente</span></td>
+          <td class="col-resp"><span class="av">MC</span>Mariana Costa</td>
+          <td class="col-prazo warn">28/05/26<span class="sub">em 11 dias</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-num"><span class="y">MPD-2026-</span><span class="seq">00341</span></td>
+          <td class="col-title">
+            <div class="ttl">Vagas em creche pública — bairro Bento Ferreira</div>
+            <div class="partes"><span class="who">Joana Lopes</span> <span class="sep">·</span> + 4 mães</div>
+          </td>
+          <td class="col-temas"><span class="pill edu">Educação</span></td>
+          <td class="col-status"><span class="stamp-s s-agt">Aguard. terceiros</span></td>
+          <td class="col-resultado"><span class="rs pen">○</span><span class="lab">Pendente</span></td>
+          <td class="col-resp"><span class="av">BF</span>Bia Ferreira</td>
+          <td class="col-prazo">30/05/26<span class="sub">em 13 dias</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-num"><span class="y">MPD-2026-</span><span class="seq">00337</span></td>
+          <td class="col-title">
+            <div class="ttl">Sinalização da ciclofaixa Beira-Mar — apagada em vários pontos</div>
+            <div class="partes"><span class="who">Coletivo Bicicletada Vitória</span></div>
+          </td>
+          <td class="col-temas"><span class="pill mob">Mobilidade</span></td>
+          <td class="col-status"><span class="stamp-s s-and">Em andamento</span></td>
+          <td class="col-resultado"><span class="rs pen">○</span><span class="lab">Pendente</span></td>
+          <td class="col-resp"><span class="av">LA</span>Lucas Almeida</td>
+          <td class="col-prazo">29/05/26<span class="sub">em 12 dias</span></td>
+        </tr>
+
+        <tr class="group-row">
+          <td colspan="7">▼ Em curso, sem urgência <span class="ct">12 mostrados</span><span class="meta">89 no total</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-num"><span class="y">MPD-2026-</span><span class="seq">00336</span></td>
+          <td class="col-title">
+            <div class="ttl">Coleta seletiva em Jardim Camburi — irregularidade na frequência</div>
+            <div class="partes"><span class="who">Cláudia Bonfim</span> <span class="sep">·</span> <span class="who">Sind. Cond. Camburi</span></div>
+          </td>
+          <td class="col-temas"><span class="pill amb">Meio ambiente</span> <span class="pill urb">Urbanismo</span></td>
+          <td class="col-status"><span class="stamp-s s-and">Em andamento</span></td>
+          <td class="col-resultado"><span class="rs prc">◐</span><span class="lab">Parcial</span></td>
+          <td class="col-resp"><span class="av">BF</span>Bia Ferreira</td>
+          <td class="col-prazo">15/06/26<span class="sub">em 29 dias</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-num"><span class="y">MPD-2026-</span><span class="seq">00335</span></td>
+          <td class="col-title">
+            <div class="ttl">Apoio à festa junina da EMEF Aristóbulo Barbosa Leão</div>
+            <div class="partes"><span class="who">Conselho Escolar</span></div>
+          </td>
+          <td class="col-temas"><span class="pill cul">Cultura</span> <span class="pill edu">Educação</span></td>
+          <td class="col-status"><span class="stamp-s s-and">Em andamento</span></td>
+          <td class="col-resultado"><span class="rs pen">○</span><span class="lab">Pendente</span></td>
+          <td class="col-resp"><span class="av">PT</span>Pedro Trés</td>
+          <td class="col-prazo">12/06/26<span class="sub">em 26 dias</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-num"><span class="y">MPD-2026-</span><span class="seq">00334</span></td>
+          <td class="col-title">
+            <div class="ttl">Quadra esportiva do São Pedro — pedido de cobertura</div>
+            <div class="partes"><span class="who">Liga Comunitária São Pedro</span> <span class="sep">·</span> + 8</div>
+          </td>
+          <td class="col-temas"><span class="pill cul">Cultura</span> <span class="pill urb">Urbanismo</span></td>
+          <td class="col-status"><span class="stamp-s s-agt">Aguard. terceiros</span></td>
+          <td class="col-resultado"><span class="rs pen">○</span><span class="lab">Pendente</span></td>
+          <td class="col-resp"><span class="av">MC</span>Mariana Costa</td>
+          <td class="col-prazo">20/06/26<span class="sub">em 34 dias</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-num"><span class="y">MPD-2026-</span><span class="seq">00333</span></td>
+          <td class="col-title">
+            <div class="ttl">Acessibilidade na rampa da UBS de Maruípe</div>
+            <div class="partes"><span class="who">Associação de Pessoas com Deficiência ES</span></div>
+          </td>
+          <td class="col-temas"><span class="pill sau">Saúde</span> <span class="pill urb">Acessibilidade</span></td>
+          <td class="col-status"><span class="stamp-s s-and">Em andamento</span></td>
+          <td class="col-resultado"><span class="rs pen">○</span><span class="lab">Pendente</span></td>
+          <td class="col-resp"><span class="av">LA</span>Lucas Almeida</td>
+          <td class="col-prazo">25/06/26<span class="sub">em 39 dias</span></td>
+        </tr>
+
+        <tr class="group-row">
+          <td colspan="7">▼ Concluídas nos últimos 30 dias <span class="ct">14 itens</span><span class="meta">arquiváveis quando devolutiva confirmada</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-num"><span class="y">MPD-2026-</span><span class="seq">00329</span></td>
+          <td class="col-title">
+            <div class="ttl">Reforma do CMEI Maruípe — apoio à reabertura</div>
+            <div class="partes"><span class="who">Conselho de Pais CMEI Maruípe</span></div>
+          </td>
+          <td class="col-temas"><span class="pill edu">Educação</span></td>
+          <td class="col-status"><span class="stamp-s s-cnc">Concluída</span></td>
+          <td class="col-resultado"><span class="rs atd">✓</span><span class="lab">Atendido</span></td>
+          <td class="col-resp"><span class="av">PT</span>Pedro Trés</td>
+          <td class="col-prazo">12/05/26<span class="sub">concluída há 5d</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-num"><span class="y">MPD-2026-</span><span class="seq">00321</span></td>
+          <td class="col-title">
+            <div class="ttl">Reforço na ronda da PM — Av. Beira-Mar à noite</div>
+            <div class="partes"><span class="who">Comerciantes Reunidos do Centro</span></div>
+          </td>
+          <td class="col-temas"><span class="pill seg">Segurança</span></td>
+          <td class="col-status"><span class="stamp-s s-cnc">Concluída</span></td>
+          <td class="col-resultado"><span class="rs prc">◐</span><span class="lab">Parcial</span></td>
+          <td class="col-resp"><span class="av">MC</span>Mariana Costa</td>
+          <td class="col-prazo">07/05/26<span class="sub">concluída há 10d</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-num"><span class="y">MPD-2026-</span><span class="seq">00318</span></td>
+          <td class="col-title">
+            <div class="ttl">Praça Costa Pereira — pedido de novos bancos e lixeiras</div>
+            <div class="partes"><span class="who">Sebastiana Oliveira</span> <span class="sep">·</span> <span class="who">Assoc. Moradores Centro</span></div>
+          </td>
+          <td class="col-temas"><span class="pill urb">Urbanismo</span></td>
+          <td class="col-status"><span class="stamp-s s-cnc">Concluída</span></td>
+          <td class="col-resultado"><span class="rs inv">⊘</span><span class="lab">Inviável</span></td>
+          <td class="col-resp"><span class="av">MC</span>Mariana Costa</td>
+          <td class="col-prazo">02/05/26<span class="sub">concluída há 15d</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-num"><span class="y">MPD-2026-</span><span class="seq">00309</span></td>
+          <td class="col-title">
+            <div class="ttl">Substituição de lâmpadas — Rua das Acácias</div>
+            <div class="partes"><span class="who">Anônima</span></div>
+          </td>
+          <td class="col-temas"><span class="pill mob">Mobilidade</span></td>
+          <td class="col-status"><span class="stamp-s s-cnc">Concluída</span></td>
+          <td class="col-resultado"><span class="rs nat">✗</span><span class="lab">Não atendido</span></td>
+          <td class="col-resp"><span class="av">LA</span>Lucas Almeida</td>
+          <td class="col-prazo">28/04/26<span class="sub">concluída há 19d</span></td>
+        </tr>
+
+      </tbody>
+    </table>
+
+    <div class="ledger-foot">
+      <div>Mostrando <strong style="color:var(--ink)">15</strong> de <strong style="color:var(--ink)">147</strong> demandas · agrupadas por urgência</div>
+      <div class="pages">
+        <button disabled>← Anterior</button>
+        <a class="on" href="#">1</a>
+        <a href="#">2</a>
+        <a href="#">3</a>
+        <a href="#">…</a>
+        <a href="#">10</a>
+        <button>Próxima →</button>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+</body>
+</html>
