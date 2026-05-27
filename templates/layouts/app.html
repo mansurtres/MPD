@@ -9,11 +9,20 @@
       <span class="tag">{{ NOME_CURTO_DO_MANDATO|default:"Gabinete" }}</span>
     </a>
 
-    <form class="search-global" method="get" action="#" role="search">
-      <span class="icon">⌕</span>
-      <input type="search" placeholder="Buscar pessoa, demanda, MPD-AAAA-NNNNN…" aria-label="Busca global">
-      <span class="kbd">Ctrl K</span>
-    </form>
+    <div class="search-wrap">
+      <form class="search-global" role="search" autocomplete="off" onsubmit="return false;">
+        <span class="icon">⌕</span>
+        <input type="search" id="busca-global-input"
+               placeholder="Buscar pessoa, demanda, MPD-AAAA-NNNNN…"
+               aria-label="Busca global"
+               aria-autocomplete="list"
+               aria-controls="busca-global-dropdown"
+               aria-expanded="false"
+               autocomplete="off">
+        <span class="kbd">Ctrl K</span>
+      </form>
+      <div id="busca-global-dropdown" class="busca-dropdown hidden" role="listbox"></div>
+    </div>
 
     <div class="topbar-right">
       <nav>
@@ -215,6 +224,162 @@
     } catch (err) {
       errBox.textContent = 'Erro de rede.';
       errBox.style.display = 'block';
+    }
+  });
+})();
+</script>
+
+<script>
+// ─── Busca global do topbar ─────────────────────────────────────────────
+// Input ao digitar (debounce 200ms) consulta /buscar.json e renderiza
+// dropdown agrupado por categoria. Atalho: Ctrl+/ ou / quando fora de campo
+// editável foca o input. Setas ↑↓ navegam; Enter abre o item ativo; Esc fecha.
+(function() {
+  const input = document.getElementById('busca-global-input');
+  const dropdown = document.getElementById('busca-global-dropdown');
+  if (!input || !dropdown) return;
+
+  let timer = null;
+  let itemAtivo = -1;
+  let itensAtuais = [];
+  const endpoint = "{% url 'core:buscar_global' %}";
+
+  function escape(s) {
+    return String(s).replace(/[&<>"']/g, c => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;',
+    })[c]);
+  }
+  function destacar(texto, termo) {
+    if (!termo) return escape(texto);
+    const t = escape(texto);
+    const re = new RegExp('(' + termo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'ig');
+    return t.replace(re, '<mark>$1</mark>');
+  }
+
+  function fechar() {
+    dropdown.classList.add('hidden');
+    input.setAttribute('aria-expanded', 'false');
+    itemAtivo = -1;
+  }
+  function abrir() {
+    dropdown.classList.remove('hidden');
+    input.setAttribute('aria-expanded', 'true');
+  }
+
+  function render(resultados, termo) {
+    if (!resultados.length) {
+      if (termo.length < 2) {
+        dropdown.innerHTML = '<div class="dica">Digite pelo menos 2 caracteres. <kbd>↑</kbd><kbd>↓</kbd> para navegar, <kbd>Enter</kbd> para abrir, <kbd>Esc</kbd> para fechar.</div>';
+      } else {
+        dropdown.innerHTML = '<div class="vazio">Nenhum resultado para "' + escape(termo) + '".</div>';
+      }
+      itensAtuais = [];
+      abrir();
+      return;
+    }
+
+    // Agrupa por categoria preservando ordem da resposta
+    const grupos = {};
+    const ordem = [];
+    resultados.forEach(r => {
+      if (!grupos[r.categoria]) { grupos[r.categoria] = []; ordem.push(r.categoria); }
+      grupos[r.categoria].push(r);
+    });
+
+    let html = '';
+    itensAtuais = [];
+    ordem.forEach(cat => {
+      html += '<div class="grupo-h">' + escape(cat) + '<span class="ct">' + grupos[cat].length + '</span></div>';
+      grupos[cat].forEach(r => {
+        const idx = itensAtuais.length;
+        itensAtuais.push(r);
+        html += '<a class="item" data-idx="' + idx + '" href="' + escape(r.url) + '">'
+              +   '<div class="lbl">' + destacar(r.label, termo) + '</div>'
+              +   (r.sublabel ? '<div class="sub">' + destacar(r.sublabel, termo) + '</div>' : '')
+              + '</a>';
+      });
+    });
+    dropdown.innerHTML = html;
+    itemAtivo = -1;
+    abrir();
+
+    dropdown.querySelectorAll('.item').forEach(el => {
+      el.addEventListener('mouseenter', () => {
+        dropdown.querySelectorAll('.item').forEach(i => i.classList.remove('active'));
+        itemAtivo = parseInt(el.dataset.idx, 10);
+        el.classList.add('active');
+      });
+    });
+  }
+
+  function buscar(q) {
+    clearTimeout(timer);
+    if (q.length < 2) {
+      render([], q);
+      return;
+    }
+    timer = setTimeout(async () => {
+      try {
+        const resp = await fetch(endpoint + '?q=' + encodeURIComponent(q));
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const data = await resp.json();
+        render(data.resultados || [], data.termo || q);
+      } catch (err) {
+        dropdown.innerHTML = '<div class="erro">Erro ao buscar.</div>';
+        abrir();
+      }
+    }, 200);
+  }
+
+  input.addEventListener('input', () => buscar(input.value.trim()));
+  input.addEventListener('focus', () => {
+    if (input.value.trim().length >= 2) buscar(input.value.trim());
+    else render([], input.value.trim());
+  });
+
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { fechar(); input.blur(); return; }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (!itensAtuais.length) return;
+      itemAtivo = (itemAtivo + 1) % itensAtuais.length;
+      atualizarAtivo();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!itensAtuais.length) return;
+      itemAtivo = itemAtivo <= 0 ? itensAtuais.length - 1 : itemAtivo - 1;
+      atualizarAtivo();
+    } else if (e.key === 'Enter') {
+      if (itemAtivo >= 0 && itensAtuais[itemAtivo]) {
+        e.preventDefault();
+        window.location = itensAtuais[itemAtivo].url;
+      } else if (itensAtuais.length === 1) {
+        e.preventDefault();
+        window.location = itensAtuais[0].url;
+      }
+    }
+  });
+
+  function atualizarAtivo() {
+    const items = dropdown.querySelectorAll('.item');
+    items.forEach(i => i.classList.remove('active'));
+    const el = items[itemAtivo];
+    if (el) {
+      el.classList.add('active');
+      el.scrollIntoView({block: 'nearest'});
+    }
+  }
+
+  // Click fora fecha
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.search-wrap')) fechar();
+  });
+
+  // Atalho: "/" foca o input quando não está em campo editável
+  document.addEventListener('keydown', e => {
+    if (e.key === '/' && !['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)) {
+      e.preventDefault();
+      input.focus();
     }
   });
 })();

@@ -249,3 +249,102 @@ class AuditoriaListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
             (LogEntry.Action.ACCESS, "Acessou"),
         ]
         return ctx
+
+
+# --- Busca global do topbar ---
+
+
+@login_required
+def buscar_global_json(request):
+    """Endpoint de busca global usado pelo input do topbar.
+
+    Pesquisa em três categorias respeitando permissões e visibilidade:
+    - Pessoa (nome, sobrenome, nome_social) — exige `pessoas.view_pessoa`.
+    - Entidade (nome, nome_fantasia, cnpj) — exige `pessoas.view_entidade`.
+    - Demanda (numero, titulo, descricao) — exige `demandas.view_demanda`,
+      e respeita `Demanda.objects.visiveis_para(user)` (ADR 0049 — não
+      vaza restritas para coordenadores de outras coordenações).
+
+    Resposta:
+        {"resultados": [
+            {"categoria": "Pessoa", "label": "...", "sublabel": "...", "url": "..."},
+            ...
+        ]}
+
+    Limite de 5 por categoria, ordenado pela categoria mais provável de uso
+    (Demanda primeiro porque o number lookup `MPD-AAAA-NNNNN` é o caso mais
+    comum de busca direta).
+    """
+    from django.db.models import Q
+    from django.http import JsonResponse
+    from django.urls import reverse
+
+    q = request.GET.get("q", "").strip()
+    resultados = []
+
+    if not q or len(q) < 2:
+        return JsonResponse({"resultados": []})
+
+    # 1. Demandas — número primeiro (caso mais comum: MPD-2026-00042)
+    if request.user.has_perm("demandas.view_demanda"):
+        from demandas.models import Demanda
+
+        demandas_qs = (
+            Demanda.objects.visiveis_para(request.user)
+            .filter(Q(numero__icontains=q) | Q(titulo__icontains=q) | Q(descricao__icontains=q))
+            .select_related("responsavel")
+            .order_by("-criado_em")[:5]
+        )
+        for d in demandas_qs:
+            sublabel_parts = [d.get_status_display()]
+            if d.responsavel:
+                sublabel_parts.append(d.responsavel.nome_completo or d.responsavel.email)
+            resultados.append(
+                {
+                    "categoria": "Demanda",
+                    "label": f"{d.numero} — {d.titulo}",
+                    "sublabel": " · ".join(sublabel_parts),
+                    "url": reverse("demandas:demanda_detalhe", args=[d.pk]),
+                }
+            )
+
+    # 2. Pessoas
+    if request.user.has_perm("pessoas.view_pessoa"):
+        from pessoas.models import Pessoa
+
+        pessoas_qs = (
+            Pessoa.objects.filter(ativo=True)
+            .filter(Q(nome__icontains=q) | Q(sobrenome__icontains=q) | Q(nome_social__icontains=q))
+            .order_by("nome", "sobrenome")[:5]
+        )
+        for p in pessoas_qs:
+            sublabel = " · ".join(filter(None, [p.bairro, p.cidade])) or "Pessoa"
+            resultados.append(
+                {
+                    "categoria": "Pessoa",
+                    "label": p.nome_exibicao,
+                    "sublabel": sublabel,
+                    "url": reverse("pessoas:pessoa_detalhe", args=[p.slug_publico]),
+                }
+            )
+
+    # 3. Entidades
+    if request.user.has_perm("pessoas.view_entidade"):
+        from pessoas.models import Entidade
+
+        entidades_qs = (
+            Entidade.objects.filter(ativo=True)
+            .filter(Q(nome__icontains=q) | Q(nome_fantasia__icontains=q) | Q(cnpj__icontains=q))
+            .order_by("nome")[:5]
+        )
+        for e in entidades_qs:
+            resultados.append(
+                {
+                    "categoria": "Entidade",
+                    "label": e.nome,
+                    "sublabel": e.get_tipo_display(),
+                    "url": reverse("pessoas:entidade_detalhe", args=[e.slug_publico]),
+                }
+            )
+
+    return JsonResponse({"resultados": resultados, "termo": q})

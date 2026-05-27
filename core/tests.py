@@ -115,3 +115,120 @@ def test_eh_cg_plus_anonimo():
     assert not eh_admin(anon)
     assert not eh_cg_plus(anon)
     assert not eh_co_plus(anon)
+
+
+# --- Busca global do topbar ---
+
+
+def test_buscar_global_exige_login(client, db):
+    """Endpoint protegido por @login_required."""
+    resp = client.get(reverse("core:buscar_global"), {"q": "maria"})
+    # @login_required redireciona para login
+    assert resp.status_code == 302
+
+
+def test_buscar_global_termo_curto_retorna_vazio(client, db):
+    """Termos com menos de 2 caracteres não fazem busca (economiza queries)."""
+    from django.contrib.auth.models import Group
+
+    u = Usuario.objects.create_user(
+        email="u@t.com", password="senha12345"  # pragma: allowlist secret
+    )
+    g = Group.objects.filter(name="Administrador").first()
+    if g:
+        u.groups.add(g)
+    client.force_login(u)
+    resp = client.get(reverse("core:buscar_global"), {"q": "a"})
+    assert resp.status_code == 200
+    assert resp.json() == {"resultados": []}
+
+
+def test_buscar_global_acha_pessoa_demanda_entidade(client, db):
+    """Termo bate em pessoa (nome), demanda (titulo) e entidade (nome) —
+    cada categoria aparece no resultado com label, sublabel e url."""
+    from django.contrib.auth.models import Group
+
+    from demandas.models import Demanda
+    from pessoas.models import Entidade, Pessoa
+
+    admin = Usuario.objects.create_user(
+        email="adm@t.com",
+        password="senha12345",  # pragma: allowlist secret
+        is_superuser=True,
+        is_staff=True,
+    )
+    g = Group.objects.filter(name="Administrador").first()
+    if g:
+        admin.groups.add(g)
+
+    Pessoa.objects.create(
+        nome="Maria",
+        sobrenome="Silva",
+        bairro="Centro",
+        cidade="Vitória",
+        criado_por=admin,
+    )
+    Entidade.objects.create(
+        nome="Maria Mãe Associação",
+        tipo="associacao",
+        criado_por=admin,
+    )
+    Demanda.objects.create(
+        titulo="Reforma da praça da Maria",
+        descricao="X",
+        canal_entrada="presencial",
+        coordenacao_responsavel="gabinete",
+        criado_por=admin,
+        anonimo=True,
+    )
+
+    client.force_login(admin)
+    resp = client.get(reverse("core:buscar_global"), {"q": "maria"})
+    assert resp.status_code == 200
+    data = resp.json()
+    categorias = {r["categoria"] for r in data["resultados"]}
+    assert "Pessoa" in categorias
+    assert "Entidade" in categorias
+    assert "Demanda" in categorias
+    # Cada resultado tem url e label
+    for r in data["resultados"]:
+        assert r["url"].startswith("/")
+        assert r["label"]
+
+
+def test_buscar_global_respeita_visibilidade_de_restrita(client, db):
+    """Demanda restrita NÃO aparece para coordenador de outra coordenação
+    (ADR 0049 — visiveis_para)."""
+    from django.contrib.auth.models import Group
+
+    from demandas.models import Demanda
+
+    admin = Usuario.objects.create_user(
+        email="adm2@t.com",
+        password="senha12345",  # pragma: allowlist secret
+        is_superuser=True,
+        is_staff=True,
+    )
+    coord = Usuario.objects.create_user(
+        email="coord@t.com",
+        password="senha12345",  # pragma: allowlist secret
+        coordenacao="comunicacao",
+    )
+    g = Group.objects.filter(name="Coordenador").first()
+    if g:
+        coord.groups.add(g)
+
+    Demanda.objects.create(
+        titulo="SegredoMaximo Z",
+        descricao="X",
+        canal_entrada="presencial",
+        coordenacao_responsavel="juridico",
+        criado_por=admin,
+        anonimo=True,
+        restrito=True,
+    )
+    client.force_login(coord)
+    resp = client.get(reverse("core:buscar_global"), {"q": "SegredoMaximo"})
+    assert resp.status_code == 200
+    labels = [r["label"] for r in resp.json()["resultados"]]
+    assert not any("SegredoMaximo" in lbl for lbl in labels)
