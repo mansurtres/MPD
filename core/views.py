@@ -30,12 +30,29 @@ def inicio(request):
         Demanda.objects.visiveis_para(request.user).order_by("-atualizado_em", "-criado_em")[:5]
     )
 
+    # Nomes de pessoas reais para popular o placeholder rotativo do composer.
+    # Até 40 primeiros nomes embaralhados na request. Se a base ainda estiver
+    # vazia, o JS cai na lista fictícia interna.
+    import random as _random
+
+    from pessoas.models import Pessoa
+
+    nomes = list(
+        Pessoa.objects.filter(ativo=True)
+        .exclude(nome="")
+        .values_list("nome", flat=True)
+        .distinct()[:80]
+    )
+    _random.shuffle(nomes)
+    nomes_placeholder = nomes[:40]
+
     return render(
         request,
         "core/inicio_autenticado.html",
         {
             "demandas_minhas_count": demandas_minhas_count,
             "demandas_recentes": demandas_recentes,
+            "nomes_placeholder": nomes_placeholder,
         },
     )
 

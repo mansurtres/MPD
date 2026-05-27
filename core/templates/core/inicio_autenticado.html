@@ -170,52 +170,24 @@
     font-style: normal;
   }
 
-  /* Botão sem chrome — tipografia editorial.
-     Em idle (sem texto): invisível.
-     Em hover com texto: cor primária + underline animado. */
+  /* Botão Capturar — herda visual de .btn.primary (design system).
+     Visível apenas quando há texto no composer. Usa visibility (em vez
+     de display: none) para reservar o slot e manter a altura do
+     composer constante. */
   .home-v2 .comp-foot .send {
-    background: transparent;
-    border: 0;
-    padding: 0;
-    font-family: var(--font-mono);
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--primary);
-    cursor: pointer;
-    display: inline-flex; align-items: baseline; gap: 8px;
-    opacity: 0;
-    transform: translateY(2px);
-    transition: opacity .22s ease-out, transform .22s ease-out, color .12s;
-    pointer-events: none;
     flex-shrink: 0;
-    position: relative;
-  }
-  .home-v2 .comp-foot .send::after {
-    content: "";
-    position: absolute;
-    left: 0; right: 0; bottom: -3px;
-    height: 1px;
-    background: currentColor;
-    transform: scaleX(0);
-    transform-origin: right;
-    transition: transform .25s ease-out;
+    visibility: hidden;
+    pointer-events: none;
   }
   .home-v2 .composer.has-text .comp-foot .send {
-    opacity: 1;
-    transform: translateY(0);
+    visibility: visible;
     pointer-events: auto;
-  }
-  .home-v2 .comp-foot .send:hover { color: var(--navy-700); }
-  .home-v2 .comp-foot .send:hover::after {
-    transform: scaleX(1);
-    transform-origin: left;
   }
   .home-v2 .comp-foot .send .arr {
     font-family: var(--font-mono);
     font-weight: 400;
     letter-spacing: 0;
+    opacity: 0.85;
   }
 
   /* Atalhos personalizados */
@@ -508,10 +480,11 @@
         id="home-capture"
         name="conteudo"
         rows="3"
+        autofocus
       ></textarea>
       <div class="comp-foot">
         <span class="helper"><strong>Vai entrar no inbox</strong> — você decide depois se vira demanda, encaminhamento ou nota.</span>
-        <button type="submit" class="send">Capturar <span class="arr">→</span></button>
+        <button type="submit" class="send btn primary">Capturar <span class="arr">→</span></button>
       </div>
     </form>
 
@@ -733,6 +706,8 @@
 
 </div>
 
+{{ nomes_placeholder|json_script:"home-nomes-placeholder" }}
+
 <script>
   // Composer da home — minimalista estilo claude.ai/new.
   // (1) Placeholder rotativo: digita uma sugestão devagar, pausa, apaga, próxima.
@@ -756,18 +731,80 @@
     }
     ta.addEventListener('input', syncHasText);
 
-    // ─── Placeholder rotativo ───────────────────────────────────────
-    const sugestoes = [
-      "Sebastiana acabou de ligar pedindo ajuda com a matrícula da neta…",
-      "Conferir prazo do ofício enviado à SEMOB semana passada",
-      "Devolver ligação para o presidente da Associação do Centro",
-      "Moção de aplausos para o time do bairro que ganhou o estadual",
-      "Cole aqui a mensagem do WhatsApp que chegou agora",
-      "Lembrete: agendar visita ao CMEI da dona Lurdes",
-      "Pensar em indicação sobre iluminação na Rua Antônio Ataíde",
-      "Falar com chefe de gabinete sobre evento do fim de semana",
+    // ─── Placeholder rotativo · gerador randômico ──────────────────
+    // Monta frases sintetizadas combinando verbo + nome (real, do banco)
+    // + ação/pauta, intercalando com frases standalone que não dependem
+    // de nome. Cada ciclo (digita→apaga) sorteia uma combinação nova,
+    // então o usuário não vê a mesma frase duas vezes em sequência.
+
+    const nomesReais = JSON.parse(
+      document.getElementById('home-nomes-placeholder')?.textContent || '[]'
+    );
+    // Fallback (base vazia, primeiro acesso): nomes comuns no Brasil.
+    const NOMES_FALLBACK = [
+      "Maria", "João", "Antônio", "Sebastião", "Lurdes", "Francisco",
+      "Conceição", "Raimundo", "Edinalva", "Cleber", "Ivete", "Pedro",
+      "Aparecida", "Geraldo", "Terezinha", "Antônia", "Sebastiana"
     ];
-    let sugIdx = 0;
+    const NOMES = nomesReais.length ? nomesReais : NOMES_FALLBACK;
+
+    const VERBOS = [
+      "Ligar para", "Falar com", "Marcar reunião com",
+      "Devolver ligação para", "Cobrar resposta de", "Mandar mensagem para",
+      "Agendar visita a", "Fazer follow-up com", "Anotar pedido de",
+      "Buscar contato com", "Combinar com"
+    ];
+    const ACOES = [
+      "sobre a vaga de creche da neta",
+      "sobre o problema de iluminação na rua",
+      "sobre o pedido de prótese pelo SUS",
+      "sobre a moção de aplausos do time",
+      "sobre o ofício enviado à SEMOB",
+      "sobre a indicação de pavimentação",
+      "sobre a entrega das cadeiras de roda",
+      "sobre a reunião com o secretário",
+      "sobre o evento no fim de semana",
+      "sobre a obra da praça do bairro",
+      "sobre a coleta seletiva irregular",
+      "sobre a reforma do CMEI",
+      "sobre o transporte público da linha 502",
+      "sobre a denúncia da Associação de Moradores",
+      "sobre a pauta da próxima sessão",
+      "sobre a audiência pública de saúde",
+      "antes da reunião de quinta",
+      "antes do recesso parlamentar"
+    ];
+    const STANDALONE = [
+      "Cole aqui a mensagem do WhatsApp que chegou agora",
+      "Anote agora antes de esquecer",
+      "Capturar o que ouvi no comércio hoje cedo",
+      "Lembrete: agendar visita ao CMEI",
+      "Pensar em moção de aplausos para o time do bairro",
+      "Conferir prazo do ofício enviado semana passada",
+      "Pauta proativa: indicação sobre saúde pública",
+      "Cole o áudio do WhatsApp aqui",
+      "Registrar a ligação que acabou de chegar",
+      "Sugestão recebida na reunião desta manhã"
+    ];
+
+    function escolher(arr) {
+      return arr[Math.floor(Math.random() * arr.length)];
+    }
+    function proximaSugestao(anterior) {
+      // 55% composta (verbo + nome + ação), 45% standalone
+      let frase;
+      for (let tentativa = 0; tentativa < 6; tentativa++) {
+        if (Math.random() < 0.55) {
+          frase = `${escolher(VERBOS)} ${escolher(NOMES)} ${escolher(ACOES)}`;
+        } else {
+          frase = escolher(STANDALONE);
+        }
+        if (frase !== anterior) return frase;
+      }
+      return frase;
+    }
+
+    let frase = proximaSugestao(null);
     let charIdx = 0;
     let apagando = false;
     let timer = null;
@@ -775,25 +812,23 @@
 
     function tick() {
       if (pausado) return;
-      const alvo = sugestoes[sugIdx];
       if (!apagando) {
         // Digitando
         charIdx++;
-        ta.placeholder = alvo.slice(0, charIdx);
-        if (charIdx >= alvo.length) {
+        ta.placeholder = frase.slice(0, charIdx);
+        if (charIdx >= frase.length) {
           apagando = true;
           timer = setTimeout(tick, 1800);  // pausa antes de apagar
           return;
         }
-        // Velocidade natural: 40-70ms por char, leve random
         timer = setTimeout(tick, 40 + Math.random() * 30);
       } else {
         // Apagando
         charIdx--;
-        ta.placeholder = alvo.slice(0, charIdx);
+        ta.placeholder = frase.slice(0, charIdx);
         if (charIdx <= 0) {
           apagando = false;
-          sugIdx = (sugIdx + 1) % sugestoes.length;
+          frase = proximaSugestao(frase);
           timer = setTimeout(tick, 350);
           return;
         }
