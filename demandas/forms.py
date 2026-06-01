@@ -38,6 +38,10 @@ class DemandaForm(forms.ModelForm):
             "descricao": forms.Textarea(attrs={"rows": 4}),
             "prazo": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
             "temas": forms.CheckboxSelectMultiple,
+            # Origem é binária (responsiva/proativa) — RadioSelect alimenta o
+            # toggle segmentado `.seg` do template. Sem isso, o widget padrão
+            # vira <select> e o markup do form quebra.
+            "origem": forms.RadioSelect,
         }
 
     def __init__(self, *args, **kwargs):
