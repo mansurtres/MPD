@@ -105,6 +105,11 @@ urlpatterns = [
         name="anexo_upload",
     ),
     path(
+        "demandas/anexos/<uuid:pk>/baixar/",
+        views.AnexoDownloadView.as_view(),
+        name="anexo_baixar",
+    ),
+    path(
         "demandas/anexos/<uuid:pk>/remover/",
         views.AnexoDeleteView.as_view(),
         name="anexo_remover",

@@ -896,43 +896,39 @@ def test_criar_demanda_com_anexo_inicial(client, admin_user, pessoa):
     assert anexos.first().nome_original == "contrato.pdf"
 
 
-def test_criar_demanda_com_anexo_invalido_rejeita_tudo(client, admin_user, pessoa):
-    """Se algum anexo falha validação (mime fora da whitelist), a transação
-    rola atrás — nem a Demanda é criada."""
+def test_anexo_download_forca_attachment_e_nosniff(db, demanda, admin_user, client):
+    """Defesa anti-XSS (ADR 0056): anexos aceitam qualquer tipo, mas a entrega
+    via AnexoDownloadView força Content-Disposition: attachment +
+    X-Content-Type-Options: nosniff + CSP. Um .html malicioso vira download,
+    não código executando na origem do MPD."""
+    from django.contrib.contenttypes.models import ContentType
     from django.core.files.uploadedfile import SimpleUploadedFile
 
+    ct = ContentType.objects.get_for_model(Demanda)
+    html_malicioso = SimpleUploadedFile(
+        "ataque.html",
+        b"<script>alert('XSS')</script>",
+        content_type="text/html",
+    )
+    anexo = Anexo.objects.create(
+        content_type=ct,
+        object_id=demanda.pk,
+        arquivo=html_malicioso,
+        nome_original="ataque.html",
+        tamanho_bytes=html_malicioso.size,
+        mime_type="text/html",
+        enviado_por=admin_user,
+    )
+    anexo.full_clean()  # sem whitelist, agora passa
+
     client.force_login(admin_user)
-    exe = SimpleUploadedFile(
-        "malicioso.exe", b"MZ binary garbage", content_type="application/x-msdownload"
-    )
-    titulo = "Não pode salvar"
-    resp = client.post(
-        reverse("demandas:demanda_nova"),
-        {
-            "titulo": titulo,
-            "descricao": "Teste anexo inválido",
-            "origem": Demanda.ORIGEM_RESPONSIVA,
-            "canal_entrada": "presencial",
-            "coordenacao_responsavel": "gabinete",
-            "prioridade": "normal",
-            "dp-TOTAL_FORMS": "1",
-            "dp-INITIAL_FORMS": "0",
-            "dp-MIN_NUM_FORMS": "0",
-            "dp-MAX_NUM_FORMS": "1000",
-            "dp-0-pessoa": pessoa.pk,
-            "dp-0-papel": "solicitante",
-            "dp-0-observacao": "",
-            "de-TOTAL_FORMS": "0",
-            "de-INITIAL_FORMS": "0",
-            "de-MIN_NUM_FORMS": "0",
-            "de-MAX_NUM_FORMS": "1000",
-            "arquivos": exe,
-        },
-        follow=False,
-    )
-    # Form inválido renderiza 200 com erro no topo.
+    resp = client.get(reverse("demandas:anexo_baixar", args=[anexo.pk]))
     assert resp.status_code == 200
-    assert not Demanda.objects.filter(titulo=titulo).exists()
+    cd = resp["Content-Disposition"]
+    assert cd.startswith("attachment"), f"esperado attachment, veio: {cd}"
+    assert "ataque.html" in cd
+    assert resp["X-Content-Type-Options"] == "nosniff"
+    assert "default-src 'none'" in resp["Content-Security-Policy"]
 
 
 # --- Fase 4 — Visões Transversais (ADR 0046) ---

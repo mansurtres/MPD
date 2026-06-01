@@ -1438,6 +1438,18 @@ Verificação manual da Fase 3 (2026-05-16) revelou três problemas distintos:
 - Trabalho de docs: `fluxos-de-estado.md` §1 (diagrama, transições, regras codificadas) e `modelo-de-dados.md` (campos removidos da Demanda, novo tipo de Interacao) atualizados.
 - ADR 0041 e ADR 0042 não são afetadas. Esta ADR supersede parcialmente as regras do §1.3 de `fluxos-de-estado.md` (não a ADR original que definiu a separação status × resultado, que continua válida e é fortalecida).
 
+### Errata (2026-05-31) — vocabulário "ação" descartado
+
+A decisão original (item 5 e Consequências) propôs o rótulo **"Concluir ação"** para o CTA de demandas proativas. Em uso, isso se mostrou incorreto: proativa **continua sendo demanda** — o que muda é apenas a ausência de devolutiva, não a categoria do objeto. Chamar uma de "ação" e outra de "demanda" rompe a coerência conceitual e sugere falsamente que se trata de duas entidades distintas.
+
+Vocabulário corrigido:
+- **Botão CTA**: "Concluir demanda →" em ambos os casos.
+- **Drawer header**: "Concluir demanda" (sem variar por origem).
+- **Sub-rótulo (helper)** abaixo do CTA é o que diferencia: *"com devolutiva ao demandante"* (responsiva) vs *"origem proativa · sem devolutiva"* (proativa).
+- Nome interno `ConcluirAcaoForm` (se ainda existir) deve ser unificado em `ConcluirDemandaForm` quando essa parte do código for tocada — não vale tocar só por isso.
+
+O fluxo de validação no `Demanda.clean()` continua bifurcado por origem como esta ADR estabeleceu — a correção é só semântica de UX.
+
 ---
 
 ## ADR 0044 — Transições automáticas de status + redesign do detalhe da demanda
@@ -2026,6 +2038,63 @@ Sem produção ainda — data migration renumera as demandas existentes (decisã
 - [demandas/models.py](../demandas/models.py) — `Demanda.gerar_numero()`.
 - [demandas/migrations/0008_renumerar_demandas_formato_d_aamm_nnnnn.py](../demandas/migrations/0008_renumerar_demandas_formato_d_aamm_nnnnn.py) — data migration de renumeração.
 - ADR 0051 — padrão de retry com savepoint para colisão de campo único.
+
+---
+
+## ADR 0056 — Anexos sem whitelist de MIME; defesa anti-XSS na entrega
+
+**Data:** 2026-05-27 (Fase 7 em curso)
+
+### Contexto
+
+Desde a Fase 3 (`v0.4.0`), o model `Anexo` valida o `mime_type` contra uma whitelist fechada (PDF, imagens, Word, Excel, txt, CSV). A motivação original era **defesa contra XSS**: se o sistema aceitar `.html` ou `.svg` com `<script>`, e outro usuário do gabinete clicar pra abrir, o JS roda **na origem do MPD** — pode roubar a sessão, fazer requests autenticadas como ele.
+
+No uso real, a whitelist criou atrito repetido:
+
+- Áudio do WhatsApp (`.ogg`, `.m4a`) — comum no fluxo "demanda chegou por áudio" — rejeitado.
+- ZIPs de planilhas e documentos — rejeitado.
+- `.html` salvo de página oficial (decisão judicial, ofício escaneado em HTML) — rejeitado.
+- RTF, PowerPoint, `.eml` (e-mail exportado) — rejeitado.
+
+A whitelist é uma **defesa fraca** contra XSS no fundo, porque:
+
+- Pode ser contornada renomeando o arquivo (`malicioso.html` → `malicioso.pdf` com `Content-Type: application/pdf` no upload manual via curl).
+- Não cobre `.svg` (que estava fora) mas seria útil para diagramas.
+- Bloqueia tipos legítimos pra defender contra um vetor que tem mitigação melhor.
+
+### Decisão
+
+Remover a `MIME_WHITELIST` do `Anexo.clean()`. Anexo aceita **qualquer arquivo** até o limite de 25 MB. A defesa anti-XSS migra para **a camada de entrega**:
+
+1. **`AnexoDownloadView`** ([demandas/views.py](../demandas/views.py)) — nova view dedicada que serve o arquivo via `FileResponse(as_attachment=True)`. Headers de segurança no response:
+   - `Content-Disposition: attachment; filename="..."` — força o browser a **baixar**, não executar/exibir inline. `.html` malicioso vira download de arquivo, não código rodando na origem.
+   - `X-Content-Type-Options: nosniff` — impede o browser de "adivinhar" um content-type executável diferente do declarado (defesa contra MIME-sniffing attacks).
+   - `Content-Security-Policy: default-src 'none'` — defesa em profundidade. Caso o browser ignore os headers acima (versão muito antiga), o CSP bloqueia execução de scripts/iframes a partir do arquivo servido.
+
+2. **Permissão** na view de download replica a regra do detalhe:
+   - Anexo de Demanda → `pode_ser_visto_por(user)` (respeita ADR 0049 — visibilidade restrita).
+   - Anexo de Encaminhamento → herda da Demanda.
+   - Anexo de Pessoa/Entidade → exige `view_pessoa`/`view_entidade`.
+
+3. **Templates** que antes usavam `{{ anexo.arquivo.url }}` direto (acesso público ao `MEDIA_URL`) agora usam `{% url 'demandas:anexo_baixar' anexo.pk %}` (passa pela view com defesas).
+
+4. **Em produção (Fase 7 / deploy)**, o Nginx deve ser configurado para:
+   - Servir `/media/` **interno** (`internal;`) — só acessível por `X-Accel-Redirect` da view Django, não exposto direto.
+   - Aplicar os mesmos 3 headers de segurança no response.
+   - Anotação fica registrada em [docs/deploy.md](../docs/deploy.md) (a criar na Fase 7).
+
+### Consequências
+
+- Anexo aceita qualquer tipo: áudio do WhatsApp, ZIP, RAR, RTF, PPT, HTML, SVG, vídeo, etc.
+- PDFs e imagens perdem preview inline no browser — trade-off aceito para segurança consistente (toda entrega força download). Alternativa futura: liberar inline apenas para `application/pdf` e `image/*` se o trade-off incomodar muito, mas com revisão de risco.
+- 1 teste reescrito: `test_criar_demanda_com_anexo_invalido_rejeita_tudo` (verificava rejeição de `.exe`) vira `test_anexo_download_forca_attachment_e_nosniff` (cobre o caminho positivo: anexa `.html` malicioso, verifica que o download força attachment + nosniff + CSP).
+- `_processar_anexos_iniciais` em `DemandaCreateView` perdeu a checagem de whitelist — mantém apenas o limite de tamanho.
+- Migration **não é necessária** (a coluna `mime_type` continua existindo; só a validação no `clean()` foi removida).
+
+### Referências
+
+- Risco original: ADR 0029 (auditlog/LGPD) mencionava controle de acesso a anexos mas não definia política de MIME.
+- Defesa em profundidade: combinação de `Content-Disposition`, `X-Content-Type-Options: nosniff` e `Content-Security-Policy` é a recomendação corrente da OWASP para arquivos servidos a partir do mesmo domínio da aplicação.
 
 ---
 

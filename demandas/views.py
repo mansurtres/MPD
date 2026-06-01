@@ -57,6 +57,36 @@ def _pode_exportar(user):
     return eh_co_plus(user)
 
 
+def _anexar_se_houver(request, objeto_pai):
+    """Cria Anexo(s) vinculados a `objeto_pai` se o request trouxer arquivos
+    no campo `anexo` (múltiplos suportados via <input multiple>). Usado pelas
+    views de criar interação/encaminhamento para permitir upload na mesma
+    transação. Silencioso: lista vazia é OK (campo opcional). Se algum
+    arquivo exceder o limite, levanta ValueError — a transação inteira faz
+    rollback (nenhum anexo é salvo, nem o objeto pai)."""
+    arquivos = request.FILES.getlist("anexo")
+    if not arquivos:
+        return
+    ct = ContentType.objects.get_for_model(type(objeto_pai))
+    for arquivo in arquivos:
+        if arquivo.size > Anexo.TAMANHO_MAXIMO_BYTES:
+            messages.error(
+                request,
+                f"Arquivo '{arquivo.name}' excede o limite de "
+                f"{Anexo.TAMANHO_MAXIMO_BYTES // (1024*1024)} MB.",
+            )
+            raise ValueError("anexo excede limite")
+        Anexo.objects.create(
+            content_type=ct,
+            object_id=objeto_pai.pk,
+            arquivo=arquivo,
+            nome_original=arquivo.name,
+            tamanho_bytes=arquivo.size,
+            mime_type=getattr(arquivo, "content_type", "") or "application/octet-stream",
+            enviado_por=request.user,
+        )
+
+
 class DemandaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     permission_required = "demandas.view_demanda"
     model = Demanda
@@ -170,8 +200,8 @@ class DemandaDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView)
         d = self.object
         u = self.request.user
         ctx["interacoes"] = (
-            d.interacoes.select_related("autor", "encaminhamento")
-            .prefetch_related("encaminhamento__anexos__enviado_por")
+            d.interacoes.select_related("autor", "encaminhamento", "interacao_origem")
+            .prefetch_related("encaminhamento__anexos__enviado_por", "follow_ups")
             .order_by("data_ocorrencia", "criado_em")
         )
         ctx["partes_pessoas"] = d.demanda_pessoas.select_related("pessoa")
@@ -299,9 +329,8 @@ class DemandaCreateView(LoginRequiredMixin, PermissionRequiredMixin, _DemandaFor
                     f"{Anexo.TAMANHO_MAXIMO_BYTES // (1024 * 1024)} MB."
                 )
                 continue
-            mime = getattr(arquivo, "content_type", "") or ""
-            if mime and mime not in Anexo.MIME_WHITELIST:
-                erros.append(f"'{arquivo.name}': tipo {mime} não permitido.")
+            # ADR 0056: whitelist removida. Defesa anti-XSS na entrega
+            # (AnexoDownloadView força attachment + nosniff).
         if erros:
             for msg in erros:
                 form.add_error(None, msg)
@@ -515,24 +544,36 @@ class AdicionarInteracaoView(LoginRequiredMixin, PermissionRequiredMixin, View):
                 else:
                     messages.error(request, str(grupo))
             return redirect("demandas:demanda_detalhe", pk=pk)
-        with transaction.atomic():
-            interacao = form.save(commit=False)
-            interacao.demanda = demanda
-            interacao.autor = request.user
-            interacao.save()
-            if (
-                followup.cleaned_data.get("criar")
-                and interacao.status == Interacao.STATUS_REALIZADA
-            ):
-                Interacao.objects.create(
-                    demanda=demanda,
-                    autor=request.user,
-                    tipo=followup.cleaned_data["tipo"],
-                    conteudo=followup.cleaned_data["conteudo"],
-                    status=Interacao.STATUS_AGENDADA,
-                    data_ocorrencia=followup.cleaned_data["data_ocorrencia"],
-                    interacao_origem=interacao,
+        try:
+            with transaction.atomic():
+                interacao = form.save(commit=False)
+                interacao.demanda = demanda
+                interacao.autor = request.user
+                interacao.save()
+                # Detecta intenção de follow-up pelo preenchimento (não mais por
+                # checkbox separado, que era pegadinha de UX). Só cria a interação
+                # agendada se a principal é realizada e se os campos essenciais
+                # do follow-up estão preenchidos (data + conteúdo).
+                fu_data = followup.cleaned_data.get("data_ocorrencia")
+                fu_conteudo = (followup.cleaned_data.get("conteudo") or "").strip()
+                quer_followup = (
+                    bool(fu_data)
+                    and bool(fu_conteudo)
+                    and interacao.status == Interacao.STATUS_REALIZADA
                 )
+                if quer_followup:
+                    Interacao.objects.create(
+                        demanda=demanda,
+                        autor=request.user,
+                        tipo=followup.cleaned_data.get("tipo") or Interacao.TIPO_CONTATO_PESSOA,
+                        conteudo=fu_conteudo,
+                        status=Interacao.STATUS_AGENDADA,
+                        data_ocorrencia=fu_data,
+                        interacao_origem=interacao,
+                    )
+                _anexar_se_houver(request, interacao)
+        except ValueError:
+            return redirect("demandas:demanda_detalhe", pk=pk)
         messages.success(request, "Interação registrada.")
         return redirect("demandas:demanda_detalhe", pk=pk)
 
@@ -589,21 +630,25 @@ class AdicionarEncaminhamentoView(LoginRequiredMixin, PermissionRequiredMixin, V
             for erros in form.errors.values():
                 messages.error(request, "; ".join(erros))
             return redirect("demandas:demanda_detalhe", pk=pk)
-        with transaction.atomic():
-            enc = form.save(commit=False)
-            enc.demanda = demanda
-            enc.criado_por = request.user
-            enc.save()
-            Interacao.objects.create(
-                demanda=demanda,
-                autor=request.user,
-                tipo=Interacao.TIPO_ENCAMINHAMENTO,
-                conteudo=f"{enc.get_tipo_documento_display()} → {enc.destinatario_orgao}",
-                status=Interacao.STATUS_REALIZADA,
-                data_ocorrencia=timezone.now(),
-                automatica=False,
-                encaminhamento=enc,
-            )
+        try:
+            with transaction.atomic():
+                enc = form.save(commit=False)
+                enc.demanda = demanda
+                enc.criado_por = request.user
+                enc.save()
+                Interacao.objects.create(
+                    demanda=demanda,
+                    autor=request.user,
+                    tipo=Interacao.TIPO_ENCAMINHAMENTO,
+                    conteudo=f"{enc.get_tipo_documento_display()} → {enc.destinatario_orgao}",
+                    status=Interacao.STATUS_REALIZADA,
+                    data_ocorrencia=timezone.now(),
+                    automatica=False,
+                    encaminhamento=enc,
+                )
+                _anexar_se_houver(request, enc)
+        except ValueError:
+            return redirect("demandas:demanda_detalhe", pk=pk)
         messages.success(request, "Encaminhamento adicionado.")
         return redirect("demandas:demanda_detalhe", pk=pk)
 
@@ -857,6 +902,7 @@ _TIPO_PARA_MODEL = {
     "pessoa": ("pessoas", "pessoa"),
     "entidade": ("pessoas", "entidade"),
     "encaminhamento": ("demandas", "encaminhamento"),
+    "interacao": ("demandas", "interacao"),
 }
 
 
@@ -864,6 +910,21 @@ class AnexoUploadView(LoginRequiredMixin, PermissionRequiredMixin, View):
     """Upload polimórfico — recebe (tipo, object_id) e cria Anexo."""
 
     permission_required = "demandas.add_anexo"
+
+    def get(self, request, tipo, object_id):
+        # GET nessa URL não tem semântica útil — acontece quando o usuário
+        # recarrega a aba após o POST. Em vez de devolver 405, manda de volta
+        # pra página do objeto pai. Demanda e Encaminhamento são os casos
+        # primários (UI atual); outros tipos caem no referer ou na raiz.
+        if tipo == "demanda":
+            return redirect("demandas:demanda_detalhe", pk=object_id)
+        if tipo == "encaminhamento":
+            enc = get_object_or_404(Encaminhamento, pk=object_id)
+            return redirect("demandas:demanda_detalhe", pk=enc.demanda_id)
+        if tipo == "interacao":
+            interacao = get_object_or_404(Interacao, pk=object_id)
+            return redirect("demandas:demanda_detalhe", pk=interacao.demanda_id)
+        return redirect(request.META.get("HTTP_REFERER", "/"))
 
     def post(self, request, tipo, object_id):
         if tipo not in _TIPO_PARA_MODEL:
@@ -905,6 +966,62 @@ class AnexoUploadView(LoginRequiredMixin, PermissionRequiredMixin, View):
         anexo.save()
         messages.success(request, f"Anexo '{anexo.nome_original}' adicionado.")
         return redirect(request.META.get("HTTP_REFERER", "/"))
+
+
+class AnexoDownloadView(LoginRequiredMixin, View):
+    """Serve o arquivo de um Anexo com defesas anti-XSS (ADR 0056).
+
+    Defesas:
+    - `Content-Disposition: attachment` — força o browser a BAIXAR em vez
+      de tentar executar/exibir inline. Um .html malicioso vira download
+      de arquivo, não código rodando na origem do MPD.
+    - `X-Content-Type-Options: nosniff` — impede o browser de "adivinhar"
+      um content-type executável diferente do declarado.
+    - `Content-Security-Policy: default-src 'none'` — caso o browser
+      ignore os outros headers, ainda bloqueia execução de scripts/iframes
+      a partir do arquivo servido.
+
+    Permissão: precisa poder ver o objeto pai (Demanda respeita
+    visibilidade restrita; Encaminhamento herda da demanda; Pessoa/Entidade
+    exigem `view_pessoa`/`view_entidade`).
+    """
+
+    def get(self, request, pk):
+        from django.http import FileResponse
+
+        anexo = get_object_or_404(Anexo, pk=pk)
+        objeto_pai = anexo.objeto_pai
+        if objeto_pai is None:
+            raise Http404
+
+        if isinstance(objeto_pai, Demanda):
+            if not objeto_pai.pode_ser_visto_por(request.user):
+                raise Http404
+        elif isinstance(objeto_pai, Encaminhamento):
+            if not objeto_pai.demanda.pode_ser_visto_por(request.user):
+                raise Http404
+        elif isinstance(objeto_pai, Interacao):
+            if not objeto_pai.demanda.pode_ser_visto_por(request.user):
+                raise Http404
+        else:
+            # Pessoa, Entidade — basta a permissão de view do app
+            from pessoas.models import Entidade as _Ent
+            from pessoas.models import Pessoa as _Pes
+
+            if isinstance(objeto_pai, _Pes) and not request.user.has_perm("pessoas.view_pessoa"):
+                raise PermissionDenied
+            if isinstance(objeto_pai, _Ent) and not request.user.has_perm("pessoas.view_entidade"):
+                raise PermissionDenied
+
+        resp = FileResponse(
+            anexo.arquivo.open("rb"),
+            as_attachment=True,
+            filename=anexo.nome_original,
+        )
+        # Headers de segurança (defesa em profundidade).
+        resp["X-Content-Type-Options"] = "nosniff"
+        resp["Content-Security-Policy"] = "default-src 'none'"
+        return resp
 
 
 class AnexoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, View):

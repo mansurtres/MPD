@@ -159,7 +159,7 @@ Ideia que parece "óbvia" e não está no doc → primeiro vira ADR ou backlog.
 - Regra de fechamento bifurcada por origem em `Demanda.clean()`:
   - Responsiva: exige `Interacao(tipo=devolutiva, status=realizada)` vinculada **e** `resultado != pendente`.
   - Proativa: exige apenas `resultado != pendente`.
-- UX: link discreto "Marcar como respondida" virou **CTA sólido** no topo do detalhe ("Concluir demanda — devolutiva ao demandante" para responsivas; "Concluir ação" para proativas). Modal centralizado pé-da-página virou **drawer lateral** (não cobre conteúdo, fecha por backdrop/Esc).
+- UX: link discreto "Marcar como respondida" virou **CTA sólido** no topo do detalhe — **"Concluir demanda →"** em ambos os casos (proativa **continua sendo demanda**); o que diferencia é o sub-rótulo abaixo do botão: *"com devolutiva ao demandante"* (responsiva) vs *"origem proativa · sem devolutiva"* (proativa). Errata 2026-05-31 da ADR 0043 (rótulo original "Concluir ação" descartado por romper coerência conceitual). Modal centralizado pé-da-página virou **drawer lateral** (não cobre conteúdo, fecha por backdrop/Esc).
 - `ConcluirDemandaView` orquestra tudo em `transaction.atomic`: cria Interacao(devolutiva), atualiza resultado/observação, muda status para `concluida`, roda `full_clean()` — rollback se qualquer passo falhar.
 - Tipo `devolutiva` é exclusivo do fluxo de conclusão; não aparece no seletor genérico de "Adicionar interação" (evita devolutivas órfãs).
 - Migration `0005_devolutiva_como_interacao` com data migration: para cada `Demanda.status='respondido'` com `retorno_data` preenchido, cria Interacao a partir dos campos `retorno_*` (com canal como prefixo do conteúdo), depois `UPDATE status='respondido' → 'concluida'`, depois drop dos campos.

@@ -184,11 +184,11 @@ class InteracaoForm(forms.ModelForm):
 
 
 class FollowupForm(forms.Form):
-    """Campos extras quando o usuário marca 'criar follow-up' ao salvar uma
-    interação realizada. Cria nova Interacao com status agendada e
-    interacao_origem apontando para a interação que acabou de ser salva."""
+    """Campos opcionais para agendar um próximo passo junto com a interação
+    realizada. A view (`AdicionarInteracaoView`) detecta a intenção pelo
+    preenchimento — se `data_ocorrencia` e `conteudo` vierem, cria a
+    Interacao agendada com `interacao_origem` apontando para a recém-salva."""
 
-    criar = forms.BooleanField(required=False, label="Criar follow-up")
     tipo = forms.ChoiceField(required=False, choices=Interacao.TIPO_CHOICES)
     data_ocorrencia = forms.DateTimeField(
         required=False,
@@ -217,14 +217,10 @@ class FollowupForm(forms.Form):
 
     def clean(self):
         cleaned = super().clean()
-        if cleaned.get("criar"):
-            faltando = [
-                campo for campo in ("tipo", "data_ocorrencia", "conteudo") if not cleaned.get(campo)
-            ]
-            if faltando:
-                raise forms.ValidationError(
-                    f"Para criar follow-up, preencha: {', '.join(faltando)}."
-                )
+        data = cleaned.get("data_ocorrencia")
+        conteudo = (cleaned.get("conteudo") or "").strip()
+        if (data and not conteudo) or (conteudo and not data):
+            raise forms.ValidationError("Para agendar próximo passo, preencha data e conteúdo.")
         return cleaned
 
 
@@ -288,9 +284,6 @@ class AnexoForm(forms.ModelForm):
             raise forms.ValidationError(
                 f"Arquivo excede o limite de {Anexo.TAMANHO_MAXIMO_BYTES // (1024*1024)} MB."
             )
-        mime = getattr(f, "content_type", "") or ""
-        if mime and mime not in Anexo.MIME_WHITELIST:
-            raise forms.ValidationError(f"Tipo de arquivo não permitido: {mime}.")
         return f
 
 

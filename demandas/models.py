@@ -638,19 +638,12 @@ class Anexo(models.Model):
     """
 
     TAMANHO_MAXIMO_BYTES = 25 * 1024 * 1024  # 25 MB
-    MIME_WHITELIST = {
-        "application/pdf",
-        "image/jpeg",
-        "image/png",
-        "image/gif",
-        "image/webp",
-        "application/msword",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        "application/vnd.ms-excel",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "text/plain",
-        "text/csv",
-    }
+    # Whitelist de MIMEs removida (ADR 0056) — anexo aceita qualquer arquivo
+    # até TAMANHO_MAXIMO_BYTES. A defesa anti-XSS é feita na entrega via
+    # `AnexoDownloadView`: Content-Disposition: attachment força o browser a
+    # baixar (não executar/exibir inline), e X-Content-Type-Options: nosniff
+    # impede o browser de "adivinhar" um tipo executável. Em produção, o
+    # Nginx deve estar configurado com os mesmos headers para /media/.
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
@@ -688,8 +681,6 @@ class Anexo(models.Model):
                     "arquivo": f"Arquivo excede o limite de {self.TAMANHO_MAXIMO_BYTES // (1024*1024)} MB."
                 }
             )
-        if self.mime_type and self.mime_type not in self.MIME_WHITELIST:
-            raise ValidationError({"arquivo": f"Tipo de arquivo não permitido: {self.mime_type}."})
 
 
 class ItemInbox(models.Model):

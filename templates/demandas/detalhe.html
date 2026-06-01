@@ -60,6 +60,101 @@
   .main-meta .item .v { color: var(--ink-strong); font-weight: var(--fw-semibold); letter-spacing: 0.02em; }
   .main-meta .item .v.warn { color: var(--danger-600); font-weight: var(--fw-bold); }
   .main-meta .sep { color: var(--rule-strong); }
+  .main-meta .meta-anexar {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    cursor: pointer;
+    padding: 4px 10px;
+    border: 1px dashed var(--rule-strong);
+    transition: color .12s, border-color .12s, background .12s;
+  }
+  .main-meta .meta-anexar:hover {
+    color: var(--primary);
+    border-color: var(--primary);
+    border-style: solid;
+    background: var(--surface-1);
+  }
+
+  /* Campo de upload custom · escondemos o <input type=file> e exibimos
+     um botão mono editorial + nome do arquivo escolhido. Padrão coerente
+     com o .meta-anexar do topo. Vive dentro de .field-anexo nos forms
+     inline de interação e encaminhamento. */
+  .field-anexo .anexo-control {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .field-anexo input[type="file"] {
+    position: absolute;
+    width: 1px; height: 1px;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .field-anexo .anexo-btn {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    cursor: pointer;
+    padding: 6px 12px;
+    border: 1px dashed var(--rule-strong);
+    transition: color .12s, border-color .12s, background .12s;
+    user-select: none;
+  }
+  .field-anexo .anexo-btn:hover {
+    color: var(--primary);
+    border-color: var(--primary);
+    border-style: solid;
+    background: var(--surface-1);
+  }
+  .field-anexo .anexo-lista {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+  }
+  .field-anexo .anexo-lista li {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink-strong);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 0;
+    border-bottom: 1px dotted var(--rule);
+  }
+  .field-anexo .anexo-lista li:last-child { border-bottom: 0; }
+  .field-anexo .anexo-lista .size {
+    color: var(--ink-mute);
+    font-size: 10.5px;
+    margin-left: auto;
+  }
+  .field-anexo .anexo-lista .remove {
+    background: none; border: 0; cursor: pointer;
+    color: var(--ink-mute);
+    font-family: var(--font-mono);
+    font-size: 14px;
+    line-height: 1;
+    padding: 2px 6px;
+    transition: color .12s;
+  }
+  .field-anexo .anexo-lista .remove:hover { color: var(--danger-600); }
+  .field-anexo .anexo-vazio {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 12px;
+    color: var(--ink-mute);
+  }
 
   /* Alert banda edge-to-edge dentro do main · variante danger (devolutiva pendente)
      ou warning (arquivar sem concluir) */
@@ -200,12 +295,21 @@
   .tl .marg .by {
     display: block;
     margin-top: 10px;
-    padding-top: 8px;
-    border-top: 1px solid var(--rule);
     color: var(--ink-soft);
     font-family: var(--font-mono);
     font-size: 10px;
     letter-spacing: 0.04em;
+  }
+  /* Filete divisor curto · 50% da largura do .marg, alinhado à direita.
+     Mantém o "by" com largura natural; só a linha visual encurta. */
+  .tl .marg .by::before {
+    content: "";
+    display: block;
+    width: 50%;
+    height: 1px;
+    background: var(--rule);
+    margin-left: auto;
+    margin-bottom: 8px;
   }
   .tl .marg .by strong {
     display: block;
@@ -234,7 +338,7 @@
   .tl.interna .body .type    { color: var(--warning-700); }
   .tl.agendada .body .type   { color: var(--danger-500); font-style: italic; }
   .tl.mudanca .body .type    { color: var(--ink-mute); font-weight: var(--fw-medium); }
-  .tl.mudanca .body .type::before { background: var(--ink-300); width: 6px; height: 6px; }
+  .tl.mudanca .body .type::before { background: var(--ink-300); }
   .tl.registro .body .type   { color: var(--ink-mute); }
   .tl.devolutiva .body .type { color: var(--success-700); }
   .tl.arquivada .body .type  { color: var(--ink-soft); }
@@ -268,6 +372,31 @@
   .tl.agendada + .tl { border-top: 1px solid var(--rule); }
   .tl.agendada .marg .day { color: var(--danger-500); }
   .tl.agendada .body p.txt { font-style: italic; color: var(--ink-soft); }
+
+  /* Cadeia origem ↔ follow-up · mono pequeno, mute, sem botão.
+     Marcador discreto que registra a correlação cronológica entre
+     interações agendadas e a que as criou. Subordinação lógica:
+     .eyebrow = topo da filha ("continua de"); .agenda = rodapé da mãe
+     ("próximo passo"). */
+  .tl-link {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.02em;
+    color: var(--ink-mute);
+  }
+  .tl-link.eyebrow { margin: 0 0 8px; }
+  .tl-link.agenda { margin: 10px 0 0; }
+  .tl-link a {
+    color: inherit;
+    text-decoration: none;
+    border-bottom: 1px dotted var(--rule-strong);
+    padding-bottom: 1px;
+    transition: color .12s, border-color .12s;
+  }
+  .tl-link a:hover {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+  }
 
   /* Encaminhamento inline (cartão informativo dentro de uma entrada) */
   .encam-inline {
@@ -312,21 +441,54 @@
   .encam-inline .quote::before { content: "« "; color: var(--info-500); font-style: normal; font-weight: var(--fw-bold); }
   .encam-inline .quote::after { content: " »"; color: var(--info-500); font-style: normal; font-weight: var(--fw-bold); }
 
+  /* Zona operacional · edge-to-edge dentro do .main (margens negativas
+     compensam o padding do main). Background surface-1 separa visualmente
+     da timeline acima sem virar uma caixa solta. */
   .actions-row {
-    margin-top: 28px;
-    padding: 18px 0 0;
-    border-top: 2px solid var(--ink-200);
+    margin: 28px -36px 0;
+    padding: 18px 36px 22px;
+    background: var(--surface-1);
+    border-top: 1px solid var(--rule);
     display: flex; gap: 8px; flex-wrap: wrap;
   }
   .actions-row .right { margin-left: auto; display: flex; gap: 8px; }
+  @media (max-width: 1024px) {
+    .actions-row { margin: 24px -20px 0; padding: 16px 20px 20px; }
+  }
 
-  /* ASIDE — herda surface-1 do .doc-grid .aside */
+  /* Botões de ação dentro da zona operacional · inativos já chegam com
+     a aparência do .anexo-btn em hover (borda sólida navy + texto navy
+     sobre surface-2 claro). No hover transitam para navy sólido fill
+     (igual ao estado .on quando o painel está aberto). Mesma gramática
+     visual do .anexo-btn, porém invertida — convidam ação. */
+  .actions-row .acao-btn {
+    background: var(--surface-2);
+    color: var(--primary);
+    border: 1px solid var(--primary);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 8px 14px;
+    transition: color .12s, background .12s;
+  }
+  .actions-row .acao-btn:hover {
+    background: var(--primary);
+    color: var(--primary-fg);
+  }
+  .actions-row .acao-btn.on {
+    background: var(--primary);
+    color: var(--primary-fg);
+  }
+
+  /* ASIDE — herda surface-1 do .doc-grid .aside. Sem caixa wrapper:
+     os botões respiram direto sobre o papel tinted do aside. O CTA
+     "Concluir demanda" (navy sólido lg) já se destaca por si só. */
   .aside-actions {
-    background: var(--surface-3);
-    border: 1px solid var(--rule);
-    padding: 12px 14px;
-    margin-bottom: 18px;
-    display: flex; flex-direction: column; gap: 6px;
+    margin-bottom: 22px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--rule);
+    display: flex; flex-direction: column; gap: 8px;
   }
   .aside-actions .btn { justify-content: center; width: 100%; }
   .aside-actions .helper {
@@ -629,8 +791,11 @@
     background: var(--surface-1);
   }
 
-  /* Painel inline de adicionar interação/encaminhamento */
-  .add-painel { background: var(--surface-3); border: 1px solid var(--rule); padding: 16px; margin-top: 16px; }
+  /* Painel inline de adicionar interação/encaminhamento · papel sobre
+     a zona operacional (surface-1 da .actions-row). Surface-2 = mesmo
+     tom do documento principal, "documento dentro do documento". Inputs
+     ficam em surface-3 (branco) para destacar o ato de escrever. */
+  .add-painel { background: var(--surface-2); border: 1px solid var(--rule); padding: 16px; margin-top: 16px; }
   .add-painel.hidden { display: none; }
   .add-painel .helper { font-family: var(--font-serif); font-size: 13px; color: var(--ink-body); margin-bottom: 12px; font-style: italic; }
   .add-painel .field-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px; }
@@ -640,6 +805,60 @@
   .add-painel input, .add-painel select, .add-painel textarea { width: 100%; border: 1px solid var(--rule-strong); background: var(--surface-3); color: var(--ink); font-family: var(--font-mono); font-size: 12px; padding: 7px 10px; outline: 0; }
   .add-painel .actions { display: flex; gap: 8px; margin-top: 8px; }
   @media (max-width: 720px) { .add-painel .field-grid { grid-template-columns: 1fr; } }
+
+  /* Bloco "agendar próximo passo" — sutil, editorial.
+     Toggle em serif italic mute; conteúdo aberto ganha filete navy à esquerda. */
+  .proximo-passo {
+    margin-top: 4px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--rule);
+  }
+  .proximo-passo > summary {
+    cursor: pointer;
+    list-style: none;
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 13px;
+    color: var(--ink-mute);
+    padding: 4px 0;
+    user-select: none;
+    transition: color .12s;
+  }
+  .proximo-passo > summary::-webkit-details-marker { display: none; }
+  .proximo-passo > summary::before {
+    content: "+ ";
+    font-family: var(--font-mono);
+    font-style: normal;
+    color: var(--rule-strong);
+    margin-right: 4px;
+  }
+  .proximo-passo > summary:hover { color: var(--ink); }
+  .proximo-passo > summary:hover::before { color: var(--primary); }
+  .proximo-passo[open] > summary {
+    color: var(--ink-strong);
+    margin-bottom: 8px;
+  }
+  .proximo-passo[open] > summary::before { content: "− "; color: var(--primary); }
+
+  .proximo-passo .pp-body {
+    padding: 12px 14px 4px 16px;
+    border-left: 2px solid var(--primary);
+    background: var(--surface-1);
+  }
+  .proximo-passo .pp-help {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 13px;
+    color: var(--ink-mute);
+    margin: 0 0 12px;
+    line-height: 1.5;
+    max-width: 60ch;
+  }
+  .proximo-passo .pp-help strong {
+    color: var(--ink-soft);
+    font-weight: 600;
+    font-style: normal;
+  }
 </style>
 
 {# Breadcrumb fora do documento — sobre o papel cru, mesma posição da lista #}
@@ -671,6 +890,12 @@
         {% endif %}
         <span class="sep">·</span>
         <span class="item"><span class="k">Atualizada</span><span class="v">{{ demanda.atualizado_em|timesince }} atrás</span></span>
+        {% if perms.demandas.add_anexo and demanda.status != 'arquivado' %}
+        <label class="meta-anexar" title="Anexar arquivo à demanda">
+          + anexar
+          <form method="post" enctype="multipart/form-data" action="{% url 'demandas:anexo_upload' 'demanda' demanda.pk %}" id="form-upload-rapido" style="display:none">{% csrf_token %}<input type="file" name="arquivo" onchange="document.getElementById('form-upload-rapido').submit()"></form>
+        </label>
+        {% endif %}
       </div>
 
       {% if demanda.origem == 'responsiva' and demanda.status != 'concluida' and demanda.status != 'arquivado' %}
@@ -707,13 +932,18 @@
 
       <div class="entries">
         {% for i in interacoes %}
-        <article class="tl {% if i.tipo == 'devolutiva' %}devolutiva{% elif i.tipo == 'encaminhamento_externo' %}encam{% elif i.tipo == 'retorno_externo_recebido' %}retorno{% elif i.tipo == 'contato_interno' %}interna{% elif i.tipo == 'contato_com_pessoa' or i.tipo == 'reuniao' %}contato{% elif i.tipo == 'arquivamento' %}arquivada{% elif i.automatica %}mudanca{% else %}registro{% endif %}{% if i.status == 'agendada' %} agendada{% endif %}">
+        <article id="i-{{ i.id }}" class="tl {% if i.tipo == 'devolutiva' %}devolutiva{% elif i.tipo == 'encaminhamento_externo' %}encam{% elif i.tipo == 'retorno_externo_recebido' %}retorno{% elif i.tipo == 'contato_interno' %}interna{% elif i.tipo == 'contato_com_pessoa' or i.tipo == 'reuniao' %}contato{% elif i.tipo == 'arquivamento' %}arquivada{% elif i.automatica %}mudanca{% else %}registro{% endif %}{% if i.status == 'agendada' %} agendada{% endif %}">
           <div class="marg">
             <span class="day">{{ i.data_ocorrencia|date:"d/m" }}</span>
             <span class="time">{{ i.data_ocorrencia|date:"H:i" }}</span>
             <span class="by">{% if i.automatica %}AUTO<strong>sistema</strong>{% else %}{% if i.status == 'agendada' %}PARA{% else %}REG.{% endif %}<strong>{{ i.autor.nome_completo|default:i.autor.email|truncatechars:18 }}</strong>{% endif %}</span>
           </div>
           <div class="body">
+            {% if i.interacao_origem_id %}
+            <p class="tl-link continua eyebrow">
+              <a href="#i-{{ i.interacao_origem_id }}">↩ continua de {{ i.interacao_origem.data_ocorrencia|date:"d/m H:i" }}</a>
+            </p>
+            {% endif %}
             <div class="type">{{ i.get_tipo_display }}{% if i.status == 'agendada' %} · agendada{% elif i.status == 'cancelada' %} · cancelada{% endif %}</div>
             <p class="txt">{{ i.conteudo }}</p>
 
@@ -749,6 +979,12 @@
               <form method="post" action="{% url 'demandas:interacao_cancelar' i.pk %}" style="display:inline">{% csrf_token %}<button class="btn ghost" style="font-size:10px;padding:4px 8px">cancelar</button></form>
             </div>
             {% endif %}
+
+            {% for fu in i.follow_ups.all %}
+            <p class="tl-link agenda">
+              <a href="#i-{{ fu.id }}">→ próximo passo {% if fu.status == 'agendada' %}agendado{% elif fu.status == 'realizada' %}realizado{% elif fu.status == 'cancelada' %}cancelado{% endif %} para {{ fu.data_ocorrencia|date:"d/m H:i" }}</a>
+            </p>
+            {% endfor %}
           </div>
         </article>
         {% empty %}
@@ -767,12 +1003,6 @@
         {% if perms.demandas.add_encaminhamento %}
         <button type="button" data-acao="encaminhamento" class="acao-btn btn secondary">+ Novo encaminhamento</button>
         {% endif %}
-        {% if perms.demandas.add_anexo %}
-        <label class="btn ghost" style="cursor:pointer">
-          + Anexar arquivo
-          <form method="post" enctype="multipart/form-data" action="{% url 'demandas:anexo_upload' 'demanda' demanda.pk %}" id="form-upload-rapido" style="display:none">{% csrf_token %}<input type="file" name="arquivo" onchange="document.getElementById('form-upload-rapido').submit()"></form>
-        </label>
-        {% endif %}
         <div class="right">
           {% if pode_arquivar %}<button type="button" data-drawer="drawer-arquivar" class="drawer-trigger btn danger">Arquivar</button>{% endif %}
         </div>
@@ -781,7 +1011,7 @@
         {% if perms.demandas.add_interacao %}
         <div class="add-painel hidden" data-acao-form="interacao" style="grid-column:1/-1;width:100%">
           <p class="helper">Registrar um evento (contato, reunião, anotação). Para um caminho formal a órgão externo, use "Novo encaminhamento".</p>
-          <form method="post" action="{% url 'demandas:interacao_nova' demanda.pk %}">
+          <form method="post" enctype="multipart/form-data" action="{% url 'demandas:interacao_nova' demanda.pk %}" id="form-interacao-nova">
             {% csrf_token %}
             <div class="field-grid">
               <div><label>Tipo</label>{{ form_interacao.tipo }}</div>
@@ -789,10 +1019,26 @@
               <div><label>Data / hora</label>{{ form_interacao.data_ocorrencia }}</div>
             </div>
             <div class="field"><label>Conteúdo</label>{{ form_interacao.conteudo }}</div>
-            <details>
-              <summary style="cursor:pointer;font-family:var(--font-mono);font-size:11px;color:var(--ink-soft);letter-spacing:0.04em">+ Agendar follow-up</summary>
-              <div style="margin-top:10px;padding:10px;background:var(--surface-1);border:1px solid var(--rule)">
-                <label style="display:flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:11px;color:var(--ink-strong);text-transform:none;letter-spacing:0;font-weight:500;margin-bottom:8px">{{ form_followup.criar }} criar follow-up agendado</label>
+            {% if perms.demandas.add_anexo %}
+            <div class="field field-anexo">
+              <label>Anexar arquivos <span style="color:var(--ink-mute);font-weight:normal">(opcional · vários permitidos)</span></label>
+              <div class="anexo-control">
+                <label class="anexo-btn">
+                  + escolher arquivo(s)
+                  <input type="file" name="anexo" data-anexo-input multiple>
+                </label>
+                <span class="anexo-vazio" data-anexo-vazio>nenhum arquivo escolhido</span>
+                <ul class="anexo-lista" data-anexo-lista hidden></ul>
+              </div>
+            </div>
+            {% endif %}
+
+            <details id="proximo-passo-wrap" class="proximo-passo" hidden>
+              <summary>agendar próximo passo</summary>
+              <div class="pp-body">
+                <p class="pp-help">
+                  Use quando acabou de registrar algo concluído e quer ser <strong>lembrado de voltar ao caso em outra data</strong>. Preencha <strong>data e conteúdo</strong> abaixo — uma segunda interação agendada, ligada a esta, aparece em <strong>Pendências</strong> no dia.
+                </p>
                 <div class="field-grid cols-2">
                   <div><label>Tipo</label>{{ form_followup.tipo }}</div>
                   <div><label>Data</label>{{ form_followup.data_ocorrencia }}</div>
@@ -800,11 +1046,36 @@
                 <div class="field"><label>Conteúdo</label>{{ form_followup.conteudo }}</div>
               </div>
             </details>
+
             <div class="actions">
               <button type="submit" class="btn primary">Registrar</button>
               <button type="button" data-acao-cancelar class="btn ghost">Cancelar</button>
             </div>
           </form>
+          <script>
+          (function() {
+            // "Agendar próximo passo" só faz sentido em interação realizada.
+            // Esconde o bloco quando status != realizada e limpa data/conteúdo
+            // para não disparar a criação acidental do follow-up no backend.
+            const form = document.getElementById('form-interacao-nova');
+            const wrap = document.getElementById('proximo-passo-wrap');
+            if (!form || !wrap) return;
+            const status = form.querySelector('[name=status]');
+            const fuData = wrap.querySelector('input[name$=data_ocorrencia]');
+            const fuConteudo = wrap.querySelector('textarea[name$=conteudo]');
+            function sync() {
+              const realizada = status && status.value === 'realizada';
+              wrap.hidden = !realizada;
+              if (!realizada) {
+                if (fuData) fuData.value = '';
+                if (fuConteudo) fuConteudo.value = '';
+                wrap.open = false;
+              }
+            }
+            if (status) status.addEventListener('change', sync);
+            sync();
+          })();
+          </script>
         </div>
         {% endif %}
 
@@ -812,7 +1083,7 @@
         {% if perms.demandas.add_encaminhamento %}
         <div class="add-painel hidden" data-acao-form="encaminhamento" style="grid-column:1/-1;width:100%">
           <p class="helper">Abrir caminho formal a órgão externo. Entra na linha do tempo com ciclo próprio (envio → resposta).</p>
-          <form method="post" action="{% url 'demandas:encaminhamento_novo' demanda.pk %}">
+          <form method="post" enctype="multipart/form-data" action="{% url 'demandas:encaminhamento_novo' demanda.pk %}">
             {% csrf_token %}
             <div class="field-grid cols-2">
               <div><label>Órgão *</label>{{ form_encaminhamento.destinatario_orgao }}</div>
@@ -822,6 +1093,19 @@
               <div><label>Data de envio *</label>{{ form_encaminhamento.data_envio }}</div>
               <div><label>Prazo resposta</label>{{ form_encaminhamento.prazo_resposta }}</div>
             </div>
+            {% if perms.demandas.add_anexo %}
+            <div class="field field-anexo">
+              <label>Anexar arquivos <span style="color:var(--ink-mute);font-weight:normal">(opcional · vários permitidos)</span></label>
+              <div class="anexo-control">
+                <label class="anexo-btn">
+                  + escolher arquivo(s)
+                  <input type="file" name="anexo" data-anexo-input multiple>
+                </label>
+                <span class="anexo-vazio" data-anexo-vazio>nenhum arquivo escolhido</span>
+                <ul class="anexo-lista" data-anexo-lista hidden></ul>
+              </div>
+            </div>
+            {% endif %}
             <div class="actions">
               <button type="submit" class="btn primary">Adicionar encaminhamento</button>
               <button type="button" data-acao-cancelar class="btn ghost">Cancelar</button>
@@ -837,8 +1121,8 @@
       {% if pode_concluir or pode_reabrir or pode_editar %}
       <div class="aside-actions">
         {% if pode_concluir %}
-        <button type="button" data-drawer="drawer-concluir" class="drawer-trigger btn primary lg">{% if demanda.origem == 'responsiva' %}Concluir demanda →{% else %}Concluir ação →{% endif %}</button>
-        {% if demanda.origem == 'responsiva' %}<p class="helper">com devolutiva ao demandante</p>{% endif %}
+        <button type="button" data-drawer="drawer-concluir" class="drawer-trigger btn primary lg">Concluir demanda →</button>
+        <p class="helper">{% if demanda.origem == 'responsiva' %}com devolutiva ao demandante{% else %}origem proativa · sem devolutiva{% endif %}</p>
         {% endif %}
         {% if pode_reabrir and demanda.status == 'concluida' %}
         <form method="post" action="{% url 'demandas:demanda_reabrir' demanda.pk %}">{% csrf_token %}<button type="submit" class="btn secondary">Reabrir</button></form>
@@ -970,7 +1254,7 @@
         <div class="anexo">
           <span class="ext">{{ a.nome_original|slice:"-3:"|upper }}</span>
           <div class="nome">
-            <a href="{{ a.arquivo.url }}" target="_blank" rel="noopener" title="{{ a.nome_original }}">{{ a.nome_original }}</a>
+            <a href="{% url 'demandas:anexo_baixar' a.pk %}" rel="noopener" title="{{ a.nome_original }}">{{ a.nome_original }}</a>
             <small>{{ a.enviado_por.nome_completo|default:a.enviado_por.email|truncatechars:18 }} · {{ a.criado_em|date:"d/m" }}</small>
           </div>
           <form method="post" action="{% url 'demandas:anexo_remover' a.pk %}" onsubmit="return confirm('Remover este anexo?')" style="display:inline">
@@ -997,7 +1281,7 @@
   <div class="backdrop" data-close-drawer></div>
   <aside class="drawer-panel">
     <header>
-      <h3>{% if demanda.origem == 'responsiva' %}Concluir demanda{% else %}Concluir ação{% endif %}</h3>
+      <h3>Concluir demanda</h3>
       <button type="button" class="x" data-close-drawer>×</button>
     </header>
     {% if demanda.origem == 'responsiva' %}
@@ -1091,5 +1375,57 @@
 })();
 </script>
 
-<style>.acao-btn.on { background: var(--primary); color: var(--primary-fg); border-color: var(--primary); }</style>
+
+<script>
+// Campo de anexo custom · suporta múltiplos arquivos. <input multiple> não
+// deixa remover 1 item da seleção via DOM, então reconstruímos o FileList
+// com DataTransfer toda vez que o usuário pede para remover um arquivo.
+(function() {
+  function fmt(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+  document.querySelectorAll('.field-anexo').forEach(wrap => {
+    const input = wrap.querySelector('[data-anexo-input]');
+    const vazio = wrap.querySelector('[data-anexo-vazio]');
+    const lista = wrap.querySelector('[data-anexo-lista]');
+    function render() {
+      const files = Array.from(input.files || []);
+      lista.innerHTML = '';
+      if (!files.length) {
+        lista.hidden = true;
+        vazio.hidden = false;
+        return;
+      }
+      vazio.hidden = true;
+      lista.hidden = false;
+      files.forEach((f, idx) => {
+        const li = document.createElement('li');
+        const nome = document.createElement('span');
+        nome.className = 'nome';
+        nome.textContent = f.name;
+        const size = document.createElement('span');
+        size.className = 'size';
+        size.textContent = fmt(f.size);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'remove';
+        btn.title = 'Remover';
+        btn.textContent = '×';
+        btn.addEventListener('click', () => {
+          const dt = new DataTransfer();
+          files.forEach((other, j) => { if (j !== idx) dt.items.add(other); });
+          input.files = dt.files;
+          render();
+        });
+        li.append(nome, size, btn);
+        lista.appendChild(li);
+      });
+    }
+    input.addEventListener('change', render);
+    render();
+  });
+})();
+</script>
 {% endblock %}
