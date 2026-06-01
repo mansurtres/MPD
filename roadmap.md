@@ -586,7 +586,20 @@ Fase 6 concluída (v0.7.3 — incluindo fechamento via ADRs 0048–0053).
    - Forms deixam de expor `is_staff` editável; promoção a staff/superuser fica reservada ao Django Admin.
    - Remover `StaffRequiredMixin` de `accounts/views.py`.
 9. **Limpeza**:
-   - Drop de `papel`/`papel_outro` em `DemandaPessoa`/`DemandaEntidade` (ADR 0054 — DT-013).
+   - **Drop de `papel`/`papel_outro` em `DemandaPessoa`/`DemandaEntidade`** (ADR 0054 — DT-013). Roteiro de execução, em ordem:
+     1. Migration `demandas/migrations/00NN_drop_papel.py` — `RemoveField` em 4 colunas: `DemandaPessoa.papel`, `DemandaPessoa.papel_outro`, `DemandaEntidade.papel`, `DemandaEntidade.papel_outro`.
+     2. [demandas/models.py](demandas/models.py) — remover `PAPEL_*` constants, `PAPEL_CHOICES`, `papel`, `papel_outro`, propriedade `papel_display`, `clean()` que valida `papel_outro` quando `papel == "outro"`, ajustar `__str__` (atualmente `f"{nome} ({papel_display})"` → só `nome`).
+     3. [demandas/forms.py](demandas/forms.py) — `DemandaPessoaForm.fields` e `DemandaEntidadeForm.fields` perdem `papel`/`papel_outro`; remover widget custom; remover `clean()` que valida o par.
+     4. Templates:
+        - [templates/demandas/form.html](templates/demandas/form.html) — remover `{{ sub.papel }}{{ sub.papel_outro }}` do `.hidden-field` (que hoje está como hidden por antecipação).
+        - [templates/demandas/inbox/processar.html](templates/demandas/inbox/processar.html) — remover as colunas `Papel` + `Especifique` nas duas seções (pessoas, entidades).
+        - [templates/demandas/detalhe.html](templates/demandas/detalhe.html) — remover `{% if dp.papel %}<div class="papel">{{ dp.papel_display }}</div>{% endif %}` no aside (linhas 927 e 936); manter só o nome.
+     5. [static/js/autocomplete.js](static/js/autocomplete.js) — remover o IIFE final (`bindPapelToggle` + `MPDPapelToggle`) que controla a visibilidade do campo `papel_outro` quando o select de papel é "outro".
+     6. [demandas/tests.py](demandas/tests.py) — limpar `papel="solicitante"` de fixtures e calls (`DemandaPessoa.objects.create(..., papel="...")`); remover `test_demanda_pessoa_papel_outro_exige_descricao`, `test_demanda_pessoa_papel_outro_com_descricao_funciona`, `test_demanda_pessoa_papel_choice_padrao_usa_display` e quaisquer outros que referenciem `papel_display` / `papel`.
+     7. [demandas/management/commands/criar_dados_teste.py](demandas/management/commands/criar_dados_teste.py) — remover `papel=` dos `DemandaPessoa.objects.create` e similares.
+     8. [roadmap.md](roadmap.md) §7 (Glossário) — atualizar definição de "Parte" para não mais listar papéis fechados.
+     9. [docs/debito-tecnico.md](docs/debito-tecnico.md) — marcar DT-013 como resolvido (com hash do commit).
+     10. Rodar suíte completa (`uv run pytest -q`) + `ruff check .` + `black --check .` + `manage.py makemigrations --check` (deve estar sincronizado após o passo 1).
    - Atualizar dependências.
    - Remover código morto.
 10. **Higiene de testes (DT-014 a DT-017)**:
