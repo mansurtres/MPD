@@ -17,6 +17,16 @@
     pessoa: '/pessoas/buscar.json',
     entidade: '/entidades/buscar.json',
   };
+  const ENDPOINTS_CRIAR = {
+    pessoa: '/pessoas/criar.json',
+    entidade: '/entidades/criar.json',
+  };
+  const ROTULOS = { pessoa: 'pessoa', entidade: 'entidade' };
+
+  // Select que disparou o drawer de criação rápida — quando o drawer salva,
+  // injetamos o resultado de volta no select certo (cada autocomplete tem o
+  // próprio <select> oculto que recebe o id escolhido).
+  let selectAlvoDoDrawer = null;
 
   function montar(selectOriginal) {
     const tipo = selectOriginal.dataset.autocomplete;
@@ -74,9 +84,14 @@
     }
 
     function renderResultados(lista) {
+      const q = input.value.trim();
+      const drawerExiste = !!document.getElementById('drawer-criar-parte');
+      const ofereceCriar = drawerExiste && q.length >= 2;
+      const rotulo = ROTULOS[tipo] || tipo;
+
       if (!lista.length) {
         dropdown.innerHTML =
-          '<div class="px-3 py-2 text-sm text-slate-500">Nenhum resultado. Verifique se está cadastrado.</div>';
+          '<div class="px-3 py-2 text-sm text-slate-500">Nenhum resultado.</div>';
       } else {
         dropdown.innerHTML = lista
           .map(
@@ -88,26 +103,41 @@
               </div>`,
           )
           .join('');
-        dropdown.querySelectorAll('.autocomplete-item').forEach((item) => {
-          item.addEventListener('click', () => {
-            const id = item.dataset.id;
-            const label = item.dataset.label;
-            // Garante que o select tenha a option correspondente para passar
-            // pela validação do ModelChoiceField (que itera options).
-            let optExistente = selectOriginal.querySelector(`option[value="${id}"]`);
-            if (!optExistente) {
-              optExistente = document.createElement('option');
-              optExistente.value = id;
-              optExistente.text = label;
-              selectOriginal.appendChild(optExistente);
-            }
-            selectOriginal.value = id;
-            input.value = label;
-            dropdown.classList.add('hidden');
-            selectOriginal.dispatchEvent(new Event('change', { bubbles: true }));
-          });
+      }
+
+      if (ofereceCriar) {
+        const div = document.createElement('div');
+        div.className = 'autocomplete-item-criar';
+        div.dataset.criar = q;
+        div.innerHTML =
+          '+ cadastrar ' + escape(rotulo) + ' <span class="nome">"' + escape(q) + '"</span>';
+        dropdown.appendChild(div);
+        div.addEventListener('click', () => {
+          dropdown.classList.add('hidden');
+          abrirDrawerCriar(tipo, q, selectOriginal, input);
         });
       }
+
+      dropdown.querySelectorAll('.autocomplete-item').forEach((item) => {
+        item.addEventListener('click', () => {
+          const id = item.dataset.id;
+          const label = item.dataset.label;
+          // Garante que o select tenha a option correspondente para passar
+          // pela validação do ModelChoiceField (que itera options).
+          let optExistente = selectOriginal.querySelector(`option[value="${id}"]`);
+          if (!optExistente) {
+            optExistente = document.createElement('option');
+            optExistente.value = id;
+            optExistente.text = label;
+            selectOriginal.appendChild(optExistente);
+          }
+          selectOriginal.value = id;
+          input.value = label;
+          dropdown.classList.add('hidden');
+          selectOriginal.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+      });
+
       dropdown.classList.remove('hidden');
     }
 
@@ -136,7 +166,103 @@
       });
   }
 
-  document.addEventListener('DOMContentLoaded', () => init());
+  // Drawer de criação rápida · acionado pelo botão "+ cadastrar ..." do
+  // dropdown. Reaproveita o template `_drawer_criar_parte.html` (incluído
+  // em form.html). Submit faz POST AJAX e injeta o resultado no select que
+  // disparou a abertura.
+  let inputAlvoDoDrawer = null;
+
+  function abrirDrawerCriar(tipo, nomePrefill, selectOriginal, inputBusca) {
+    const drawer = document.getElementById('drawer-criar-parte');
+    if (!drawer) return;
+    selectAlvoDoDrawer = selectOriginal;
+    inputAlvoDoDrawer = inputBusca;
+
+    const form = drawer.querySelector('[data-cp-form]');
+    form.dataset.cpTipo = tipo;
+    form.querySelector('input[name=nome]').value = nomePrefill;
+    form.querySelector('input[name=telefone]').value = '';
+    form.querySelector('input[name=email]').value = '';
+    form.querySelector('select[name=tipo]').value = 'associacao';
+    drawer.querySelector('[data-cp-tipo-label]').textContent = ROTULOS[tipo] || tipo;
+    drawer.querySelector('[data-cp-helper-pessoa]').hidden = tipo !== 'pessoa';
+    drawer.querySelector('[data-cp-helper-entidade]').hidden = tipo !== 'entidade';
+    drawer.querySelector('[data-cp-pessoa]').hidden = tipo !== 'pessoa';
+    drawer.querySelector('[data-cp-entidade]').hidden = tipo !== 'entidade';
+    drawer.querySelector('[data-cp-err]').hidden = true;
+    drawer.classList.remove('hidden');
+    drawer.setAttribute('aria-hidden', 'false');
+    // Foco no campo nome (já preenchido — o usuário pode ajustar ou pular)
+    setTimeout(() => form.querySelector('input[name=nome]').focus(), 50);
+  }
+
+  function fecharDrawerCriar() {
+    const drawer = document.getElementById('drawer-criar-parte');
+    if (!drawer) return;
+    drawer.classList.add('hidden');
+    drawer.setAttribute('aria-hidden', 'true');
+    selectAlvoDoDrawer = null;
+    inputAlvoDoDrawer = null;
+  }
+
+  async function submeterDrawerCriar(e) {
+    e.preventDefault();
+    const drawer = document.getElementById('drawer-criar-parte');
+    const form = drawer.querySelector('[data-cp-form]');
+    const tipo = form.dataset.cpTipo;
+    const endpoint = ENDPOINTS_CRIAR[tipo];
+    if (!endpoint || !selectAlvoDoDrawer) return;
+
+    const errBox = drawer.querySelector('[data-cp-err]');
+    errBox.hidden = true;
+
+    const fd = new FormData(form);
+    try {
+      const resp = await fetch(endpoint, {
+        method: 'POST',
+        body: fd,
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        errBox.textContent = data.erro || 'Erro ao criar.';
+        errBox.hidden = false;
+        return;
+      }
+      // Injeta no select e seleciona
+      let opt = selectAlvoDoDrawer.querySelector(`option[value="${data.id}"]`);
+      if (!opt) {
+        opt = document.createElement('option');
+        opt.value = data.id;
+        opt.text = data.label;
+        selectAlvoDoDrawer.appendChild(opt);
+      }
+      selectAlvoDoDrawer.value = data.id;
+      if (inputAlvoDoDrawer) inputAlvoDoDrawer.value = data.label;
+      selectAlvoDoDrawer.dispatchEvent(new Event('change', { bubbles: true }));
+      fecharDrawerCriar();
+    } catch (err) {
+      errBox.textContent = 'Erro de rede ao criar. Tente novamente.';
+      errBox.hidden = false;
+    }
+  }
+
+  function ativarDrawerCriar() {
+    const drawer = document.getElementById('drawer-criar-parte');
+    if (!drawer) return;
+    drawer.querySelectorAll('[data-cp-close]').forEach((b) =>
+      b.addEventListener('click', fecharDrawerCriar),
+    );
+    drawer.querySelector('[data-cp-form]').addEventListener('submit', submeterDrawerCriar);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !drawer.classList.contains('hidden')) fecharDrawerCriar();
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    init();
+    ativarDrawerCriar();
+  });
   window.MPDAutocomplete = { init };
 })();
 

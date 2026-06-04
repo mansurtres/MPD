@@ -1,0 +1,176 @@
+{# Drawer compacto para criar Pessoa/Entidade a partir do autocomplete.
+   Disparado pelo JS quando o usuário clica "+ Cadastrar" no dropdown. #}
+<div id="drawer-criar-parte" class="drawer-cp hidden" aria-hidden="true">
+  <div class="drawer-cp-backdrop" data-cp-close></div>
+  <aside class="drawer-cp-panel" role="dialog" aria-labelledby="cp-titulo">
+    <header>
+      <h3 id="cp-titulo">Cadastrar <span data-cp-tipo-label>pessoa</span></h3>
+      <button type="button" class="x" data-cp-close title="Fechar">×</button>
+    </header>
+
+    <p class="helper" data-cp-helper-pessoa>
+      Cadastro mínimo — você poderá completar os outros campos (endereço, tags, mais canais) depois, na ficha da pessoa.
+    </p>
+    <p class="helper" data-cp-helper-entidade hidden>
+      Cadastro mínimo da entidade — você poderá completar CNPJ, endereço, descrição etc. depois na ficha da entidade.
+    </p>
+
+    <form data-cp-form data-cp-tipo="pessoa">
+      {% csrf_token %}
+      <div class="field">
+        <label>Nome completo *</label>
+        <input type="text" name="nome" required autocomplete="off">
+      </div>
+
+      {# Pessoa: pelo menos um canal #}
+      <div data-cp-pessoa>
+        <p class="cp-hint">Pelo menos um dos dois é obrigatório.</p>
+        <div class="field">
+          <label>Telefone</label>
+          <input type="tel" name="telefone" placeholder="(27) 99999-0000" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>E-mail</label>
+          <input type="email" name="email" placeholder="nome@email.com" autocomplete="off">
+        </div>
+      </div>
+
+      {# Entidade: tipo #}
+      <div data-cp-entidade hidden>
+        <div class="field">
+          <label>Tipo *</label>
+          <select name="tipo">
+            <option value="associacao">Associação</option>
+            <option value="ong">ONG</option>
+            <option value="instituicao_publica">Instituição pública</option>
+            <option value="orgao_governo">Órgão de governo</option>
+            <option value="empresa">Empresa</option>
+            <option value="sindicato">Sindicato</option>
+            <option value="igreja">Igreja</option>
+            <option value="escola">Escola</option>
+            <option value="conselho">Conselho</option>
+            <option value="cooperativa">Cooperativa</option>
+            <option value="movimento_social">Movimento social</option>
+            <option value="partido">Partido</option>
+            <option value="familia">Família</option>
+            <option value="grupo_informal">Grupo informal</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="cp-err" data-cp-err hidden></div>
+
+      <div class="actions">
+        <button type="button" class="btn ghost" data-cp-close>Cancelar</button>
+        <button type="submit" class="btn primary">Salvar e usar</button>
+      </div>
+    </form>
+  </aside>
+</div>
+
+<style>
+  .drawer-cp {
+    position: fixed; inset: 0; z-index: 1000;
+    display: grid; grid-template-columns: 1fr min(420px, 92vw);
+  }
+  .drawer-cp.hidden { display: none; }
+  .drawer-cp-backdrop {
+    background: rgba(15, 23, 42, 0.32);
+    backdrop-filter: blur(2px);
+  }
+  .drawer-cp-panel {
+    background: var(--surface-2);
+    border-left: 6px solid var(--primary);
+    box-shadow: -8px 0 24px rgba(0,0,0,0.12);
+    padding: 24px 28px;
+    overflow-y: auto;
+    display: flex; flex-direction: column; gap: 12px;
+    font-family: var(--font-mono);
+  }
+  .drawer-cp-panel header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 4px;
+  }
+  .drawer-cp-panel h3 {
+    font-family: var(--font-display); font-weight: 600;
+    font-size: 22px; letter-spacing: -0.015em;
+    color: var(--ink); margin: 0;
+  }
+  .drawer-cp-panel .x {
+    background: none; border: 0; cursor: pointer;
+    font-family: var(--font-mono); font-size: 22px;
+    color: var(--ink-mute); padding: 0 4px;
+    transition: color .12s;
+  }
+  .drawer-cp-panel .x:hover { color: var(--danger-600); }
+  .drawer-cp-panel .helper {
+    font-family: var(--font-serif); font-style: italic;
+    font-size: 13px; color: var(--ink-mute);
+    line-height: 1.5; margin: 0 0 8px;
+  }
+  .drawer-cp-panel .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+  .drawer-cp-panel label {
+    font-family: var(--font-mono); font-size: 10px;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--ink-mute); font-weight: 700;
+  }
+  .drawer-cp-panel input,
+  .drawer-cp-panel select {
+    background: var(--surface-3);
+    border: 1px solid var(--rule-strong);
+    font-family: var(--font-mono); font-size: 13px;
+    padding: 8px 10px; color: var(--ink);
+    outline: 0;
+    transition: border-color .12s;
+  }
+  .drawer-cp-panel input:focus,
+  .drawer-cp-panel select:focus { border-color: var(--primary); }
+  .drawer-cp-panel .cp-hint {
+    font-family: var(--font-serif); font-style: italic;
+    font-size: 11.5px; color: var(--ink-mute);
+    margin: 4px 0 8px;
+  }
+  .drawer-cp-panel .cp-err {
+    background: var(--danger-50);
+    border-left: 3px solid var(--danger-500);
+    padding: 8px 12px;
+    font-family: var(--font-mono); font-size: 12px;
+    color: var(--danger-700);
+    margin: 4px 0;
+  }
+  .drawer-cp-panel .actions {
+    display: flex; gap: 8px; justify-content: flex-end;
+    margin-top: 12px; padding-top: 14px;
+    border-top: 1px solid var(--rule);
+  }
+  .drawer-cp-panel .btn {
+    background: var(--surface-3); color: var(--ink-strong);
+    border: 1px solid var(--rule-strong);
+    font-family: var(--font-mono); font-size: 11px;
+    font-weight: 600; letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 8px 14px; cursor: pointer;
+    transition: background .12s, color .12s, border-color .12s;
+  }
+  .drawer-cp-panel .btn.primary {
+    background: var(--primary); color: var(--primary-fg);
+    border-color: var(--primary);
+  }
+  .drawer-cp-panel .btn.primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
+  .drawer-cp-panel .btn.ghost { background: transparent; border-color: transparent; color: var(--ink-mute); }
+  .drawer-cp-panel .btn.ghost:hover { color: var(--ink); }
+
+  /* Item "+ Cadastrar" no dropdown do autocomplete. Distintivo do resto. */
+  .autocomplete-item-criar {
+    font-family: var(--font-mono); font-size: 11px;
+    letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--primary); font-weight: 700;
+    padding: 10px 14px; cursor: pointer;
+    border-top: 1px dashed var(--rule-strong);
+    background: var(--surface-2);
+    display: flex; align-items: center; gap: 6px;
+    transition: background .12s;
+  }
+  .autocomplete-item-criar:hover { background: var(--surface-1); }
+  .autocomplete-item-criar .nome { color: var(--ink-strong); font-weight: 600; text-transform: none; letter-spacing: 0; font-family: var(--font-serif); font-style: italic; font-size: 13px; }
+</style>

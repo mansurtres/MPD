@@ -23,7 +23,7 @@ from .forms import (
     TelefoneFormSet,
     VinculoForm,
 )
-from .models import Entidade, Pessoa, Tag, Vinculo
+from .models import EmailPessoa, Entidade, Pessoa, Tag, Telefone, Vinculo
 from .viacep import consultar as consultar_cep
 
 # --- Pessoas ---
@@ -735,4 +735,96 @@ class EntidadeBuscarJSONView(LoginRequiredMixin, PermissionRequiredMixin, View):
                     for e in qs
                 ]
             }
+        )
+
+
+class PessoaCriarAjaxView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    """Cria Pessoa rapidamente a partir de form de demanda. Usado pelo
+    autocomplete quando o usuário digita um nome que não existe e clica
+    "+ Cadastrar". Recebe nome completo + um canal (telefone OU email).
+
+    Quebra do nome: primeiro token vira `nome`, resto vira `sobrenome`
+    (mais comum o usuário digitar "Maria Silva" do que separar). Se vier
+    só um token, sobrenome fica vazio.
+
+    A regra `tem_meio_de_contato()` do model continua respeitada — sem
+    canal preenchido, retorna 400. Cadastro mínimo, completar depois.
+    Resposta: {id, slug_publico, label, secundario} — mesmo shape do
+    `PessoaBuscarJSONView` pra o JS injetar direto no autocomplete.
+    """
+
+    permission_required = "pessoas.add_pessoa"
+
+    def post(self, request):
+        nome_completo = (request.POST.get("nome") or "").strip()
+        telefone = (request.POST.get("telefone") or "").strip()
+        email = (request.POST.get("email") or "").strip()
+        if not nome_completo:
+            return JsonResponse({"erro": "Nome é obrigatório."}, status=400)
+        if not telefone and not email:
+            return JsonResponse(
+                {"erro": "Informe ao menos um canal: telefone ou e-mail."},
+                status=400,
+            )
+        partes = nome_completo.split(maxsplit=1)
+        nome = partes[0]
+        sobrenome = partes[1] if len(partes) > 1 else ""
+        from django.db import transaction
+
+        try:
+            with transaction.atomic():
+                pessoa = Pessoa(nome=nome, sobrenome=sobrenome)
+                pessoa.save()
+                if telefone:
+                    Telefone.objects.create(
+                        pessoa=pessoa, numero=telefone, tipo=Telefone.TIPO_CELULAR
+                    )
+                if email:
+                    EmailPessoa.objects.create(pessoa=pessoa, endereco=email)
+                pessoa.full_clean()
+        except Exception as e:
+            return JsonResponse({"erro": str(e)}, status=400)
+        return JsonResponse(
+            {
+                "id": pessoa.pk,
+                "slug_publico": pessoa.slug_publico,
+                "label": pessoa.nome_exibicao,
+                "secundario": " · ".join(filter(None, [pessoa.bairro, pessoa.cidade])),
+            },
+            status=201,
+        )
+
+
+class EntidadeCriarAjaxView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    """Cria Entidade rapidamente. Mesma lógica do PessoaCriarAjaxView, mas
+    Entidade não exige canal mínimo — basta nome + tipo. Tipo default
+    `associacao` se não vier (caso mais comum em encontro fortuito).
+    """
+
+    permission_required = "pessoas.add_entidade"
+
+    def post(self, request):
+        nome = (request.POST.get("nome") or "").strip()
+        tipo = (request.POST.get("tipo") or "associacao").strip()
+        if not nome:
+            return JsonResponse({"erro": "Nome é obrigatório."}, status=400)
+        if tipo not in dict(Entidade.TIPO_CHOICES):
+            return JsonResponse(
+                {"erro": f"Tipo inválido: '{tipo}'."},
+                status=400,
+            )
+        try:
+            entidade = Entidade(nome=nome, tipo=tipo)
+            entidade.full_clean()
+            entidade.save()
+        except Exception as e:
+            return JsonResponse({"erro": str(e)}, status=400)
+        return JsonResponse(
+            {
+                "id": entidade.pk,
+                "slug_publico": entidade.slug_publico,
+                "label": entidade.nome,
+                "secundario": entidade.get_tipo_display(),
+            },
+            status=201,
         )

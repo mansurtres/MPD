@@ -9,10 +9,16 @@ urlpatterns = [
     path("pessoas/", views.PessoaListView.as_view(), name="pessoa_lista"),
     path("pessoas/export.csv", views.PessoaCSVExportView.as_view(), name="pessoa_export_csv"),
     path("pessoas/buscar.json", views.PessoaBuscarJSONView.as_view(), name="pessoa_buscar_json"),
+    path("pessoas/criar.json", views.PessoaCriarAjaxView.as_view(), name="pessoa_criar_ajax"),
     path(
         "entidades/buscar.json",
         views.EntidadeBuscarJSONView.as_view(),
         name="entidade_buscar_json",
+    ),
+    path(
+        "entidades/criar.json",
+        views.EntidadeCriarAjaxView.as_view(),
+        name="entidade_criar_ajax",
     ),
     path("pessoas/nova/", views.PessoaCreateView.as_view(), name="pessoa_nova"),
     path("pessoas/<str:slug>/", views.PessoaDetailView.as_view(), name="pessoa_detalhe"),
