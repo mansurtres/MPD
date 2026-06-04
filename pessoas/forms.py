@@ -1,4 +1,10 @@
-"""Forms para Pessoa, Entidade, Vínculo, Tag, Telefone, Email e RedeSocial."""
+"""Forms para Pessoa, Entidade, Vínculo, Tag e canais de contato.
+
+Canais (telefones, emails, redes sociais, sites) são plurais e compartilhados
+entre Pessoa e Entidade (ADR 0057). Cada model de canal tem dois formsets
+gerados via inlineformset_factory — um por dono — porque o factory exige
+um `parent_model` fixo. Os dois formsets reaproveitam o mesmo Form base.
+"""
 
 from django import forms
 from django.db.models import Q
@@ -6,7 +12,7 @@ from django.forms import inlineformset_factory
 
 from core.forms import aplicar_tailwind
 
-from .models import EmailPessoa, Entidade, Pessoa, RedeSocial, Tag, Telefone, Vinculo
+from .models import EmailContato, Entidade, Pessoa, RedeSocial, Site, Tag, Telefone, Vinculo
 
 
 class PessoaForm(forms.ModelForm):
@@ -37,13 +43,14 @@ class PessoaForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Mostra tags ativas + arquivadas que esta pessoa já tem (preserva
-        # vínculos pré-arquivamento para não somem ao salvar).
         cond = Q(ativo=True)
         if self.instance and self.instance.pk:
             cond |= Q(pk__in=self.instance.tags.values_list("pk", flat=True))
         self.fields["tags"].queryset = Tag.objects.filter(cond).distinct()
         aplicar_tailwind(self)
+
+
+# --- Forms base dos canais (compartilhados entre Pessoa e Entidade) ---
 
 
 class TelefoneForm(forms.ModelForm):
@@ -60,20 +67,9 @@ class TelefoneForm(forms.ModelForm):
         aplicar_tailwind(self)
 
 
-TelefoneFormSet = inlineformset_factory(
-    Pessoa,
-    Telefone,
-    form=TelefoneForm,
-    extra=1,
-    can_delete=True,
-    min_num=0,
-    validate_min=False,
-)
-
-
-class EmailPessoaForm(forms.ModelForm):
+class EmailContatoForm(forms.ModelForm):
     class Meta:
-        model = EmailPessoa
+        model = EmailContato
         fields = ["endereco", "rotulo"]
         widgets = {
             "endereco": forms.EmailInput(attrs={"placeholder": "exemplo@dominio.com"}),
@@ -83,17 +79,6 @@ class EmailPessoaForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         aplicar_tailwind(self)
-
-
-EmailPessoaFormSet = inlineformset_factory(
-    Pessoa,
-    EmailPessoa,
-    form=EmailPessoaForm,
-    extra=1,
-    can_delete=True,
-    min_num=0,
-    validate_min=False,
-)
 
 
 class RedeSocialForm(forms.ModelForm):
@@ -112,10 +97,99 @@ class RedeSocialForm(forms.ModelForm):
         aplicar_tailwind(self)
 
 
+class SiteForm(forms.ModelForm):
+    class Meta:
+        model = Site
+        fields = ["url", "rotulo"]
+        widgets = {
+            "url": forms.URLInput(attrs={"placeholder": "https://"}),
+            "rotulo": forms.TextInput(attrs={"placeholder": 'Opcional. Ex: "institucional"'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        aplicar_tailwind(self)
+
+
+# --- FormSets por dono ---
+# Pessoa
+TelefoneFormSet = inlineformset_factory(
+    Pessoa,
+    Telefone,
+    form=TelefoneForm,
+    fk_name="pessoa",
+    extra=1,
+    can_delete=True,
+    min_num=0,
+    validate_min=False,
+)
+EmailPessoaFormSet = inlineformset_factory(
+    Pessoa,
+    EmailContato,
+    form=EmailContatoForm,
+    fk_name="pessoa",
+    extra=1,
+    can_delete=True,
+    min_num=0,
+    validate_min=False,
+)
 RedeSocialFormSet = inlineformset_factory(
     Pessoa,
     RedeSocial,
     form=RedeSocialForm,
+    fk_name="pessoa",
+    extra=1,
+    can_delete=True,
+    min_num=0,
+    validate_min=False,
+)
+SitePessoaFormSet = inlineformset_factory(
+    Pessoa,
+    Site,
+    form=SiteForm,
+    fk_name="pessoa",
+    extra=1,
+    can_delete=True,
+    min_num=0,
+    validate_min=False,
+)
+
+# Entidade
+TelefoneEntidadeFormSet = inlineformset_factory(
+    Entidade,
+    Telefone,
+    form=TelefoneForm,
+    fk_name="entidade",
+    extra=1,
+    can_delete=True,
+    min_num=0,
+    validate_min=False,
+)
+EmailEntidadeFormSet = inlineformset_factory(
+    Entidade,
+    EmailContato,
+    form=EmailContatoForm,
+    fk_name="entidade",
+    extra=1,
+    can_delete=True,
+    min_num=0,
+    validate_min=False,
+)
+RedeSocialEntidadeFormSet = inlineformset_factory(
+    Entidade,
+    RedeSocial,
+    form=RedeSocialForm,
+    fk_name="entidade",
+    extra=1,
+    can_delete=True,
+    min_num=0,
+    validate_min=False,
+)
+SiteEntidadeFormSet = inlineformset_factory(
+    Entidade,
+    Site,
+    form=SiteForm,
+    fk_name="entidade",
     extra=1,
     can_delete=True,
     min_num=0,
@@ -131,9 +205,6 @@ class EntidadeForm(forms.ModelForm):
             "nome_fantasia",
             "tipo",
             "cnpj",
-            "email",
-            "telefone",
-            "site",
             "cep",
             "logradouro",
             "numero",
@@ -151,6 +222,10 @@ class EntidadeForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        cond = Q(ativo=True)
+        if self.instance and self.instance.pk:
+            cond |= Q(pk__in=self.instance.tags.values_list("pk", flat=True))
+        self.fields["tags"].queryset = Tag.objects.filter(cond).distinct()
         aplicar_tailwind(self)
 
 

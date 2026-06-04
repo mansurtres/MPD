@@ -182,10 +182,12 @@
   .form-page .formset-row.tel .row-grid { grid-template-columns: 2fr 1fr 1fr 2fr auto; }
   .form-page .formset-row.email .row-grid { grid-template-columns: 3fr 2fr auto; }
   .form-page .formset-row.rede .row-grid { grid-template-columns: 1.5fr 2.5fr 1.5fr auto; }
+  .form-page .formset-row.site .row-grid { grid-template-columns: 3fr 2fr auto; }
   @media (max-width: 720px) {
     .form-page .formset-row.tel .row-grid,
     .form-page .formset-row.email .row-grid,
-    .form-page .formset-row.rede .row-grid { grid-template-columns: 1fr; }
+    .form-page .formset-row.rede .row-grid,
+    .form-page .formset-row.site .row-grid { grid-template-columns: 1fr; }
   }
   .form-page .formset-row .check-inline {
     font-family: var(--font-mono); font-size: 11px;
@@ -414,7 +416,7 @@
       {# §02 Contatos · 3 formsets dinâmicos #}
       <section class="section">
         <div class="section-mark"><span class="num">02</span> Contatos <span class="req">pelo menos 1 canal *</span></div>
-        <p class="helper">Telefone, e-mail ou rede social — qualquer um vale. Use <strong>+ adicionar</strong> em cada bloco para múltiplos.</p>
+        <p class="helper">Telefone, e-mail, rede social ou site — qualquer um vale. Use <strong>+ adicionar</strong> em cada bloco para múltiplos.</p>
 
         {# Telefones #}
         {% with fs=formsets_contato.telefones %}
@@ -599,6 +601,61 @@
                 <div class="field" style="margin:0">
                   <label class="mini">Rótulo</label>
                   <input type="text" name="redes_sociais-__INDEX__-rotulo" placeholder='Obrigatório se "Outro"'>
+                </div>
+                <div><button type="button" class="remove-row">remover</button></div>
+              </div>
+            </div>
+          </template>
+        </div>
+        {% endwith %}
+
+        {# Sites · ADR 0057 #}
+        {% with fs=formsets_contato.sites %}
+        <input type="hidden" name="sites-TOTAL_FORMS" value="{{ fs.total_form_count }}">
+        <input type="hidden" name="sites-INITIAL_FORMS" value="{{ fs.initial_form_count }}">
+        <input type="hidden" name="sites-MIN_NUM_FORMS" value="{{ fs.min_num }}">
+        <input type="hidden" name="sites-MAX_NUM_FORMS" value="{{ fs.max_num }}">
+
+        <div class="formset" data-formset="sites" style="margin-top:18px">
+          <div class="formset-head">
+            <h3>Sites</h3>
+            <button type="button" class="add-row">+ Adicionar site</button>
+          </div>
+          <div class="rows-list">
+            {% for sform in fs %}
+            <div class="formset-row site">
+              {% for hidden in sform.hidden_fields %}{{ hidden }}{% endfor %}
+              <div class="row-grid">
+                <div class="field" style="margin:0">
+                  <label class="mini">URL</label>
+                  {{ sform.url }}
+                  {% for e in sform.url.errors %}<p class="err">{{ e }}</p>{% endfor %}
+                </div>
+                <div class="field" style="margin:0">
+                  <label class="mini">Rótulo</label>
+                  {{ sform.rotulo }}
+                </div>
+                <div>
+                  {% if sform.instance.pk %}
+                  <label class="check-inline" style="color:var(--danger-600)">{{ sform.DELETE }} remover</label>
+                  {% else %}
+                  <button type="button" class="remove-row">remover</button>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          <template class="row-template" data-prefix="sites">
+            <div class="formset-row site">
+              <div class="row-grid">
+                <div class="field" style="margin:0">
+                  <label class="mini">URL</label>
+                  <input type="url" name="sites-__INDEX__-url" placeholder="https://">
+                </div>
+                <div class="field" style="margin:0">
+                  <label class="mini">Rótulo</label>
+                  <input type="text" name="sites-__INDEX__-rotulo" placeholder='Opcional. Ex: "institucional"'>
                 </div>
                 <div><button type="button" class="remove-row">remover</button></div>
               </div>

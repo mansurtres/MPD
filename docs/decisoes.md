@@ -2098,4 +2098,84 @@ Remover a `MIME_WHITELIST` do `Anexo.clean()`. Anexo aceita **qualquer arquivo**
 
 ---
 
+## ADR 0057 — Canais de contato compartilhados por Pessoa e Entidade
+
+**Status:** aceita · 2026-06-01 · supersede [ADR 0035](#adr-0035) (Telefone como entidade própria) e [ADR 0037](#adr-0037) (EmailPessoa/RedeSocial plurais) **na parte do dono do canal** — os canais continuam plurais e auditados, só passam a aceitar Entidade como dono além de Pessoa.
+
+### Contexto
+
+A entidade hoje carrega 3 campos simples — `email`, `telefone`, `site` (1 cada) — herdados do schema original quando a Entidade era pensada como "pessoa jurídica monolítica". Pessoa, por outro lado, já tem múltiplos canais como modelos próprios (Telefone, EmailPessoa, RedeSocial) com formsets dinâmicos no form e UniqueConstraint por dono.
+
+Casos reais que tornam essa assimetria insustentável:
+- Uma **associação** tem o telefone do presidente, da secretaria e do WhatsApp coletivo.
+- Uma **escola** tem o e-mail da direção e da coordenação pedagógica.
+- Uma **igreja** tem site institucional, site de doação, página de eventos.
+- Uma **família** pode ter o WhatsApp da matriarca + Instagram coletivo.
+
+Forçar o assessor a escolher "o" telefone/email/site da entidade é perda de informação. Pior: leva o usuário a duplicar entidades pra registrar contatos diferentes.
+
+### Decisão
+
+**Generalizar Telefone, EmailContato (renomeado de EmailPessoa) e RedeSocial para aceitarem Pessoa OU Entidade como dono. Criar um novo modelo Site, plural pelos dois lados.**
+
+1. **Rename**: `EmailPessoa` → `EmailContato` — nome reflete que serve aos dois donos. `Telefone` e `RedeSocial` já tinham nomes neutros, sem rename.
+2. **FK dual** (XOR exclusivo) nos 3 models existentes + Site novo:
+   - `pessoa = ForeignKey(Pessoa, null=True, blank=True, ...)`
+   - `entidade = ForeignKey(Entidade, null=True, blank=True, ...)`
+   - `clean()` valida que **exatamente um** dos dois está preenchido (XOR).
+3. **UniqueConstraints duplicadas** (uma por dono): `(pessoa, numero)` *e* `(entidade, numero)`, com `condition=Q(pessoa__isnull=False)` e similar para evitar conflito com nulos.
+4. **Novo model `Site`** com campos `url` (URLField), `rotulo` (CharField opcional), `pessoa` (FK nullable), `entidade` (FK nullable), mesma regra XOR.
+5. **Campos `Entidade.email`, `Entidade.telefone`, `Entidade.site` removidos** — data migration copia o conteúdo pros novos models antes do drop.
+6. **`Pessoa.tem_meio_de_contato()`** ganha `or self.sites.exists()` (Site agora também conta como canal).
+7. **`Pessoa.anonimizar()`** limpa também os Sites da pessoa.
+8. **Auditlog** estendido (ADR 0029 atualizada): registrar `EmailContato` (renomeado) e o novo `Site`. `Telefone` e `RedeSocial` continuam registrados.
+
+### Alternativas consideradas e descartadas
+
+- **Modelos paralelos novos** (`TelefoneEntidade`, `EmailEntidade`, `RedeSocialEntidade`, `SiteEntidade`): 4 classes quase idênticas. Manutenção dupla pra sempre. Recusada.
+- **GenericForeignKey** (content_type + object_id): mais flexível, mas perde cascade automático, complica querysets e Admin. Não justificado pra um caso de 2 donos conhecidos.
+- **Classe abstrata `CanalDeContato`** com herança em models concretos: ainda gera múltiplas tabelas. Sem ganho em relação a paralelos.
+- **Manter Entidade com `email`/`telefone`/`site` simples**: trava a entidade em "1 canal de cada". Recusada — o caso real do mandato exige múltiplos.
+
+### Justificativa
+
+- **Uma fonte de verdade por tipo de canal.** Um telefone é um telefone, venha de uma pessoa física ou de uma associação. Mesma validação Anatel, mesma máscara, mesmo tratamento de WhatsApp.
+- **DRY**: forms, validações, signals, máscaras e templates de canais ficam no singular. Adicionar um novo tipo de "parte" futuramente (ex: outro mandato, gabinete vizinho) requer só uma migration com mais um FK opcional.
+- **Migration barata aqui**: o branch é pré-produção, sem dados em risco. Data migration de 3 campos simples pra 3 records é trivial.
+- **XOR explícito > GenericFK**: o `clean()` deixa a regra visível no código. Admin, querysets e shell continuam usando FK normal, com filtros simples (`pessoa__isnull=False`).
+
+### Consequências
+
+- Migration `pessoas/0004_canais_compartilhados.py`:
+  - `RenameModel("EmailPessoa", "EmailContato")`.
+  - `AlterField` em Telefone/EmailContato/RedeSocial: `pessoa` vira nullable.
+  - `AddField` em Telefone/EmailContato/RedeSocial: `entidade` (FK nullable Entidade).
+  - `RemoveConstraint` + `AddConstraint` das UniqueConstraints (agora separadas por dono).
+  - `CreateModel("Site", ...)` com 2 FKs nullable.
+  - **Data migration** (RunPython): para cada Entidade com `email` preenchido, cria `EmailContato(entidade=ent, endereco=email)`. Idem para `telefone` → `Telefone(entidade=ent, numero=tel, tipo=celular)`. Idem para `site` → `Site(entidade=ent, url=site)`.
+  - `RemoveField` em Entidade: `email`, `telefone`, `site`.
+- `pessoas/forms.py`: `EmailPessoaForm`/`FormSet` → `EmailContatoForm`/`FormSet`. Criar `SiteForm`/`FormSet`. Adicionar `_EntidadeFormMixin` espelhando o de Pessoa (4 formsets: telefones, emails, redes_sociais, sites).
+- `pessoas/views.py`: `EntidadeCreateView`/`UpdateView` herdam do novo mixin. `PessoaCreateView`/`UpdateView` ganham Site no FORMSETS.
+- `pessoas/admin.py`: inline de `EmailContato` substitui `EmailPessoa`; adicionar inline de `Site`. Admin de Entidade ganha os 4 inlines.
+- `pessoas/signals.py`: `pre_save` de `EmailContato` (era EmailPessoa). Adicionar normalização pra Site (`url` strip).
+- `pessoas/apps.py`: `auditlog.register(EmailContato)` (rename) + `auditlog.register(Site)` (novo).
+- `pessoas/tests.py`: renomear imports e usos; novos testes cobrindo o XOR.
+- `pessoas/management/commands/criar_dados_teste.py`: renomear; adicionar uns Sites pra entidades exemplo.
+- Templates:
+  - `templates/pessoas/form.html`: §02 ganha bloco "Sites" como 4º formset.
+  - `templates/pessoas/entidades/form.html`: §02 Contato substitui campos simples pelos 4 formsets (mesma estrutura de Pessoa).
+  - `templates/pessoas/detalhe.html`: bloco de Sites na seção de Contatos.
+  - `templates/pessoas/entidades/detalhe.html`: substitui exibição dos 3 campos simples pelos 4 plurais.
+- Drawer `_drawer_criar_parte.html`: bloco Pessoa já tem 3 canais + endereço; adicionar Site. Bloco Entidade ganha 4 canais (idêntico ao de Pessoa).
+- ADR 0035 e ADR 0037 ficam parcialmente supersededas (seguem válidas pra Pessoa; agora Entidade compartilha o mesmo modelo).
+- DT-010 (UniqueConstraint por pessoa) ganha versão entidade — ambos preservados.
+
+### Referências
+
+- ADR 0035: Telefone como entidade plural (Pessoa).
+- ADR 0037: EmailPessoa e RedeSocial plurais (Pessoa).
+- ADR 0029: auditlog/LGPD — registro de canais.
+
+---
+
 *Decisões adicionadas em ordem cronológica conforme surgem. Cada decisão registrada uma vez; alterações futuras criam nova ADR (não editam a anterior).*

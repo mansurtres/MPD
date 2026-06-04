@@ -3,7 +3,7 @@
 Gera um UUID único por request/response e seta no `correlation_id` ContextVar
 do auditlog. Todas as entradas de LogEntry geradas dentro desta request
 compartilham o mesmo CID — útil quando uma ação (ex: deletar Pessoa) cascateia
-em vários models registrados (Telefone, EmailPessoa, RedeSocial, Vinculo).
+em vários models registrados (Telefone, EmailContato, RedeSocial, Site, Vinculo).
 """
 
 import uuid

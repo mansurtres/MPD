@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import EmailPessoa, Entidade, Pessoa, RedeSocial, Tag, Telefone, Vinculo
+from .models import EmailContato, Entidade, Pessoa, RedeSocial, Site, Tag, Telefone, Vinculo
 
 
 class VinculoInline(admin.TabularInline):
@@ -9,22 +9,60 @@ class VinculoInline(admin.TabularInline):
     autocomplete_fields = ["entidade"]
 
 
-class TelefoneInline(admin.TabularInline):
+class TelefonePessoaInline(admin.TabularInline):
     model = Telefone
+    fk_name = "pessoa"
     extra = 0
     fields = ("numero", "tipo", "eh_whatsapp", "rotulo")
 
 
-class EmailInline(admin.TabularInline):
-    model = EmailPessoa
+class EmailPessoaInline(admin.TabularInline):
+    model = EmailContato
+    fk_name = "pessoa"
     extra = 0
     fields = ("endereco", "rotulo")
 
 
-class RedeSocialInline(admin.TabularInline):
+class RedeSocialPessoaInline(admin.TabularInline):
     model = RedeSocial
+    fk_name = "pessoa"
     extra = 0
     fields = ("plataforma", "valor", "rotulo")
+
+
+class SitePessoaInline(admin.TabularInline):
+    model = Site
+    fk_name = "pessoa"
+    extra = 0
+    fields = ("url", "rotulo")
+
+
+class TelefoneEntidadeInline(admin.TabularInline):
+    model = Telefone
+    fk_name = "entidade"
+    extra = 0
+    fields = ("numero", "tipo", "eh_whatsapp", "rotulo")
+
+
+class EmailEntidadeInline(admin.TabularInline):
+    model = EmailContato
+    fk_name = "entidade"
+    extra = 0
+    fields = ("endereco", "rotulo")
+
+
+class RedeSocialEntidadeInline(admin.TabularInline):
+    model = RedeSocial
+    fk_name = "entidade"
+    extra = 0
+    fields = ("plataforma", "valor", "rotulo")
+
+
+class SiteEntidadeInline(admin.TabularInline):
+    model = Site
+    fk_name = "entidade"
+    extra = 0
+    fields = ("url", "rotulo")
 
 
 @admin.register(Pessoa)
@@ -49,7 +87,13 @@ class PessoaAdmin(admin.ModelAdmin):
     )
     readonly_fields = ("criado_em", "atualizado_em", "criado_por")
     filter_horizontal = ("tags",)
-    inlines = [TelefoneInline, EmailInline, RedeSocialInline, VinculoInline]
+    inlines = [
+        TelefonePessoaInline,
+        EmailPessoaInline,
+        RedeSocialPessoaInline,
+        SitePessoaInline,
+        VinculoInline,
+    ]
     fieldsets = (
         (
             "Identificação",
@@ -105,12 +149,17 @@ class PessoaAdmin(admin.ModelAdmin):
 class EntidadeAdmin(admin.ModelAdmin):
     list_display = ("nome", "tipo", "cnpj", "cidade", "ativo")
     list_filter = ("ativo", "tipo", "estado", "cidade")
-    search_fields = ("nome", "nome_fantasia", "cnpj", "email", "telefone")
+    search_fields = ("nome", "nome_fantasia", "cnpj", "emails__endereco", "telefones__numero")
     readonly_fields = ("criado_em", "atualizado_em", "criado_por")
     filter_horizontal = ("tags",)
+    inlines = [
+        TelefoneEntidadeInline,
+        EmailEntidadeInline,
+        RedeSocialEntidadeInline,
+        SiteEntidadeInline,
+    ]
     fieldsets = (
         ("Identificação", {"fields": ("nome", "nome_fantasia", "tipo", "cnpj")}),
-        ("Contato", {"fields": ("email", "telefone", "site")}),
         (
             "Endereço",
             {
@@ -157,25 +206,33 @@ class VinculoAdmin(admin.ModelAdmin):
 
 @admin.register(Telefone)
 class TelefoneAdmin(admin.ModelAdmin):
-    list_display = ("numero_formatado", "tipo", "eh_whatsapp", "pessoa", "rotulo")
+    list_display = ("numero_formatado", "tipo", "eh_whatsapp", "dono", "rotulo")
     list_filter = ("tipo", "eh_whatsapp")
-    search_fields = ("numero", "pessoa__nome", "pessoa__sobrenome")
-    autocomplete_fields = ("pessoa",)
+    search_fields = ("numero", "pessoa__nome", "pessoa__sobrenome", "entidade__nome")
+    autocomplete_fields = ("pessoa", "entidade")
     readonly_fields = ("criado_em",)
 
 
-@admin.register(EmailPessoa)
-class EmailPessoaAdmin(admin.ModelAdmin):
-    list_display = ("endereco", "pessoa", "rotulo")
-    search_fields = ("endereco", "pessoa__nome", "pessoa__sobrenome")
-    autocomplete_fields = ("pessoa",)
+@admin.register(EmailContato)
+class EmailContatoAdmin(admin.ModelAdmin):
+    list_display = ("endereco", "dono", "rotulo")
+    search_fields = ("endereco", "pessoa__nome", "pessoa__sobrenome", "entidade__nome")
+    autocomplete_fields = ("pessoa", "entidade")
     readonly_fields = ("criado_em",)
 
 
 @admin.register(RedeSocial)
 class RedeSocialAdmin(admin.ModelAdmin):
-    list_display = ("plataforma", "valor", "pessoa", "rotulo")
+    list_display = ("plataforma", "valor", "dono", "rotulo")
     list_filter = ("plataforma",)
-    search_fields = ("valor", "rotulo", "pessoa__nome", "pessoa__sobrenome")
-    autocomplete_fields = ("pessoa",)
+    search_fields = ("valor", "rotulo", "pessoa__nome", "pessoa__sobrenome", "entidade__nome")
+    autocomplete_fields = ("pessoa", "entidade")
+    readonly_fields = ("criado_em",)
+
+
+@admin.register(Site)
+class SiteAdmin(admin.ModelAdmin):
+    list_display = ("url", "dono", "rotulo")
+    search_fields = ("url", "rotulo", "pessoa__nome", "pessoa__sobrenome", "entidade__nome")
+    autocomplete_fields = ("pessoa", "entidade")
     readonly_fields = ("criado_em",)

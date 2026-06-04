@@ -131,6 +131,63 @@
   .form-page .field .status.err { color: var(--danger-600); }
   .form-page .field .status.mute { color: var(--ink-mute); font-style: italic; font-family: var(--font-serif); font-size: 11.5px; }
 
+  /* Formsets de canais (mesma estrutura do form de pessoa, ADR 0057) */
+  .form-page .formset { display: flex; flex-direction: column; gap: 10px; }
+  .form-page .formset-row {
+    background: var(--surface-3);
+    border: 1px solid var(--rule);
+    padding: 14px 16px;
+  }
+  .form-page .formset-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 4px;
+  }
+  .form-page .formset-head h3 {
+    font-family: var(--font-mono); font-size: 11px;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--ink-strong); font-weight: 700;
+    margin: 0;
+  }
+  .form-page .formset .add-row {
+    background: var(--surface-2);
+    border: 1px dashed var(--rule-strong);
+    color: var(--primary);
+    font-family: var(--font-mono); font-size: 10.5px;
+    font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+    padding: 6px 12px; cursor: pointer;
+    transition: background .12s, border-color .12s;
+  }
+  .form-page .formset .add-row:hover {
+    background: var(--surface-1);
+    border-color: var(--primary); border-style: solid;
+  }
+  .form-page .formset .remove-row {
+    background: none; border: 0; cursor: pointer;
+    color: var(--ink-mute);
+    font-family: var(--font-mono); font-size: 10.5px;
+    letter-spacing: 0.04em; text-transform: uppercase;
+    transition: color .12s;
+  }
+  .form-page .formset .remove-row:hover { color: var(--danger-600); }
+  .form-page .formset-row .mini { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.08em; }
+  .form-page .formset-row .row-grid { display: grid; gap: 10px; align-items: end; }
+  .form-page .formset-row.tel .row-grid { grid-template-columns: 2fr 1fr 1fr 2fr auto; }
+  .form-page .formset-row.email .row-grid { grid-template-columns: 3fr 2fr auto; }
+  .form-page .formset-row.rede .row-grid { grid-template-columns: 1.5fr 2.5fr 1.5fr auto; }
+  .form-page .formset-row.site .row-grid { grid-template-columns: 3fr 2fr auto; }
+  @media (max-width: 720px) {
+    .form-page .formset-row.tel .row-grid,
+    .form-page .formset-row.email .row-grid,
+    .form-page .formset-row.rede .row-grid,
+    .form-page .formset-row.site .row-grid { grid-template-columns: 1fr; }
+  }
+  .form-page .formset-row .check-inline {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--ink-soft); display: inline-flex; align-items: center; gap: 6px;
+    padding-bottom: 8px;
+  }
+  .form-page .formset-row .check-inline input { accent-color: var(--primary); }
+
   /* Tags · chips */
   .form-page .chips { display: flex; flex-wrap: wrap; gap: 5px; }
   .form-page .chips .chip {
@@ -300,28 +357,145 @@
         </div>
       </section>
 
-      {# §02 Contato #}
+      {# §02 Contatos · 4 formsets plurais (ADR 0057) #}
       <section class="section">
-        <div class="section-mark"><span class="num">02</span> Contato <span class="req">opcional</span></div>
+        <div class="section-mark"><span class="num">02</span> Contatos <span class="req">opcional · múltiplos permitidos</span></div>
+        <p class="helper">Use <strong>+ Adicionar</strong> em cada bloco para registrar múltiplos canais (telefones do presidente e da secretaria, e-mails de diferentes setores, redes sociais, sites institucional/projeto/doação).</p>
 
-        <div class="field-row">
-          <div class="field">
-            <label>E-mail</label>
-            {{ form.email }}
-            {% for e in form.email.errors %}<p class="err">{{ e }}</p>{% endfor %}
+        {# Telefones #}
+        {% with fs=formsets_contato.telefones %}
+        <input type="hidden" name="telefones-TOTAL_FORMS" value="{{ fs.total_form_count }}">
+        <input type="hidden" name="telefones-INITIAL_FORMS" value="{{ fs.initial_form_count }}">
+        <input type="hidden" name="telefones-MIN_NUM_FORMS" value="{{ fs.min_num }}">
+        <input type="hidden" name="telefones-MAX_NUM_FORMS" value="{{ fs.max_num }}">
+        <div class="formset" data-formset="telefones" style="margin-bottom:18px">
+          <div class="formset-head"><h3>Telefones</h3><button type="button" class="add-row">+ Adicionar telefone</button></div>
+          <p class="helper" style="margin: 0 0 4px">Celular: 11 dígitos com DDD (começa com 9). Fixo: 10 dígitos.</p>
+          <div class="rows-list">
+            {% for tform in fs %}
+            <div class="formset-row tel">
+              {% for hidden in tform.hidden_fields %}{{ hidden }}{% endfor %}
+              <div class="row-grid">
+                <div class="field" style="margin:0"><label class="mini">Número</label>{{ tform.numero }}{% for e in tform.numero.errors %}<p class="err">{{ e }}</p>{% endfor %}</div>
+                <div class="field" style="margin:0"><label class="mini">Tipo</label>{{ tform.tipo }}</div>
+                <label class="check-inline">{{ tform.eh_whatsapp }} WhatsApp</label>
+                <div class="field" style="margin:0"><label class="mini">Rótulo</label>{{ tform.rotulo }}</div>
+                <div>{% if tform.instance.pk %}<label class="check-inline" style="color:var(--danger-600)">{{ tform.DELETE }} remover</label>{% else %}<button type="button" class="remove-row">remover</button>{% endif %}</div>
+              </div>
+            </div>
+            {% endfor %}
           </div>
-          <div class="field">
-            <label>Telefone</label>
-            {{ form.telefone }}
-            {% for e in form.telefone.errors %}<p class="err">{{ e }}</p>{% endfor %}
-          </div>
+          <template class="row-template" data-prefix="telefones">
+            <div class="formset-row tel">
+              <div class="row-grid">
+                <div class="field" style="margin:0"><label class="mini">Número</label><input type="text" name="telefones-__INDEX__-numero" placeholder="(XX) XXXXX-XXXX"></div>
+                <div class="field" style="margin:0"><label class="mini">Tipo</label><select name="telefones-__INDEX__-tipo"><option value="celular" selected>Celular</option><option value="fixo">Fixo</option></select></div>
+                <label class="check-inline"><input type="checkbox" name="telefones-__INDEX__-eh_whatsapp"> WhatsApp</label>
+                <div class="field" style="margin:0"><label class="mini">Rótulo</label><input type="text" name="telefones-__INDEX__-rotulo" placeholder="Opcional"></div>
+                <div><button type="button" class="remove-row">remover</button></div>
+              </div>
+            </div>
+          </template>
         </div>
+        {% endwith %}
 
-        <div class="field">
-          <label>Site</label>
-          {{ form.site }}
-          {% for e in form.site.errors %}<p class="err">{{ e }}</p>{% endfor %}
+        {# E-mails #}
+        {% with fs=formsets_contato.emails %}
+        <input type="hidden" name="emails-TOTAL_FORMS" value="{{ fs.total_form_count }}">
+        <input type="hidden" name="emails-INITIAL_FORMS" value="{{ fs.initial_form_count }}">
+        <input type="hidden" name="emails-MIN_NUM_FORMS" value="{{ fs.min_num }}">
+        <input type="hidden" name="emails-MAX_NUM_FORMS" value="{{ fs.max_num }}">
+        <div class="formset" data-formset="emails" style="margin-bottom:18px">
+          <div class="formset-head"><h3>E-mails</h3><button type="button" class="add-row">+ Adicionar e-mail</button></div>
+          <div class="rows-list">
+            {% for eform in fs %}
+            <div class="formset-row email">
+              {% for hidden in eform.hidden_fields %}{{ hidden }}{% endfor %}
+              <div class="row-grid">
+                <div class="field" style="margin:0"><label class="mini">Endereço</label>{{ eform.endereco }}{% for e in eform.endereco.errors %}<p class="err">{{ e }}</p>{% endfor %}</div>
+                <div class="field" style="margin:0"><label class="mini">Rótulo</label>{{ eform.rotulo }}</div>
+                <div>{% if eform.instance.pk %}<label class="check-inline" style="color:var(--danger-600)">{{ eform.DELETE }} remover</label>{% else %}<button type="button" class="remove-row">remover</button>{% endif %}</div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          <template class="row-template" data-prefix="emails">
+            <div class="formset-row email">
+              <div class="row-grid">
+                <div class="field" style="margin:0"><label class="mini">Endereço</label><input type="email" name="emails-__INDEX__-endereco" placeholder="exemplo@dominio.com"></div>
+                <div class="field" style="margin:0"><label class="mini">Rótulo</label><input type="text" name="emails-__INDEX__-rotulo" placeholder='Ex: "direção"'></div>
+                <div><button type="button" class="remove-row">remover</button></div>
+              </div>
+            </div>
+          </template>
         </div>
+        {% endwith %}
+
+        {# Redes sociais #}
+        {% with fs=formsets_contato.redes_sociais %}
+        <input type="hidden" name="redes_sociais-TOTAL_FORMS" value="{{ fs.total_form_count }}">
+        <input type="hidden" name="redes_sociais-INITIAL_FORMS" value="{{ fs.initial_form_count }}">
+        <input type="hidden" name="redes_sociais-MIN_NUM_FORMS" value="{{ fs.min_num }}">
+        <input type="hidden" name="redes_sociais-MAX_NUM_FORMS" value="{{ fs.max_num }}">
+        <div class="formset" data-formset="redes_sociais" style="margin-bottom:18px">
+          <div class="formset-head"><h3>Redes sociais</h3><button type="button" class="add-row">+ Adicionar rede</button></div>
+          <div class="rows-list">
+            {% for rform in fs %}
+            <div class="formset-row rede">
+              {% for hidden in rform.hidden_fields %}{{ hidden }}{% endfor %}
+              <div class="row-grid">
+                <div class="field" style="margin:0"><label class="mini">Plataforma</label>{{ rform.plataforma }}</div>
+                <div class="field" style="margin:0"><label class="mini">Usuário ou URL</label>{{ rform.valor }}{% for e in rform.valor.errors %}<p class="err">{{ e }}</p>{% endfor %}</div>
+                <div class="field" style="margin:0"><label class="mini">Rótulo</label>{{ rform.rotulo }}{% for e in rform.rotulo.errors %}<p class="err">{{ e }}</p>{% endfor %}</div>
+                <div>{% if rform.instance.pk %}<label class="check-inline" style="color:var(--danger-600)">{{ rform.DELETE }} remover</label>{% else %}<button type="button" class="remove-row">remover</button>{% endif %}</div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          <template class="row-template" data-prefix="redes_sociais">
+            <div class="formset-row rede">
+              <div class="row-grid">
+                <div class="field" style="margin:0"><label class="mini">Plataforma</label><select name="redes_sociais-__INDEX__-plataforma"><option value="instagram" selected>Instagram</option><option value="facebook">Facebook</option><option value="linkedin">LinkedIn</option><option value="x_twitter">X (Twitter)</option><option value="outro">Outro</option></select></div>
+                <div class="field" style="margin:0"><label class="mini">Usuário ou URL</label><input type="text" name="redes_sociais-__INDEX__-valor" placeholder="@usuario ou URL"></div>
+                <div class="field" style="margin:0"><label class="mini">Rótulo</label><input type="text" name="redes_sociais-__INDEX__-rotulo" placeholder='Obrigatório se "Outro"'></div>
+                <div><button type="button" class="remove-row">remover</button></div>
+              </div>
+            </div>
+          </template>
+        </div>
+        {% endwith %}
+
+        {# Sites #}
+        {% with fs=formsets_contato.sites %}
+        <input type="hidden" name="sites-TOTAL_FORMS" value="{{ fs.total_form_count }}">
+        <input type="hidden" name="sites-INITIAL_FORMS" value="{{ fs.initial_form_count }}">
+        <input type="hidden" name="sites-MIN_NUM_FORMS" value="{{ fs.min_num }}">
+        <input type="hidden" name="sites-MAX_NUM_FORMS" value="{{ fs.max_num }}">
+        <div class="formset" data-formset="sites">
+          <div class="formset-head"><h3>Sites</h3><button type="button" class="add-row">+ Adicionar site</button></div>
+          <div class="rows-list">
+            {% for sform in fs %}
+            <div class="formset-row site">
+              {% for hidden in sform.hidden_fields %}{{ hidden }}{% endfor %}
+              <div class="row-grid">
+                <div class="field" style="margin:0"><label class="mini">URL</label>{{ sform.url }}{% for e in sform.url.errors %}<p class="err">{{ e }}</p>{% endfor %}</div>
+                <div class="field" style="margin:0"><label class="mini">Rótulo</label>{{ sform.rotulo }}</div>
+                <div>{% if sform.instance.pk %}<label class="check-inline" style="color:var(--danger-600)">{{ sform.DELETE }} remover</label>{% else %}<button type="button" class="remove-row">remover</button>{% endif %}</div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          <template class="row-template" data-prefix="sites">
+            <div class="formset-row site">
+              <div class="row-grid">
+                <div class="field" style="margin:0"><label class="mini">URL</label><input type="url" name="sites-__INDEX__-url" placeholder="https://"></div>
+                <div class="field" style="margin:0"><label class="mini">Rótulo</label><input type="text" name="sites-__INDEX__-rotulo" placeholder='Ex: "institucional", "projeto X"'></div>
+                <div><button type="button" class="remove-row">remover</button></div>
+              </div>
+            </div>
+          </template>
+        </div>
+        {% endwith %}
       </section>
 
       {# §03 Endereço #}
@@ -446,6 +620,50 @@
 (function() {
   const form = document.getElementById("entidade-form");
   if (!form) return;
+
+  // Máscara telefone (compartilhada com form de pessoa)
+  function mascaraTelefone(v) {
+    const d = (v || "").replace(/\D/g, "").slice(0, 11);
+    if (!d) return "";
+    if (d.length <= 2) return "(" + d;
+    if (d.length <= 6) return "(" + d.slice(0, 2) + ") " + d.slice(2);
+    if (d.length <= 10) return "(" + d.slice(0, 2) + ") " + d.slice(2, 6) + "-" + d.slice(6);
+    return "(" + d.slice(0, 2) + ") " + d.slice(2, 7) + "-" + d.slice(7);
+  }
+  form.querySelectorAll("input[name$='-numero']").forEach(el => {
+    if (el.value) el.value = mascaraTelefone(el.value);
+  });
+  form.addEventListener("input", ev => {
+    const t = ev.target;
+    if (t && t.matches && t.matches("input[name$='-numero']")) {
+      const m = mascaraTelefone(t.value);
+      if (m !== t.value) t.value = m;
+    }
+  });
+
+  // Formsets dinâmicos
+  form.querySelectorAll("[data-formset]").forEach(bloco => {
+    const prefix = bloco.dataset.formset;
+    const totalForms = form.querySelector(`input[name="${prefix}-TOTAL_FORMS"]`);
+    const lista = bloco.querySelector(".rows-list");
+    const tpl = bloco.querySelector(".row-template");
+    const addBtn = bloco.querySelector(".add-row");
+    if (!totalForms || !lista || !tpl) return;
+    addBtn?.addEventListener("click", () => {
+      const idx = parseInt(totalForms.value, 10);
+      const html = tpl.innerHTML.replaceAll("__INDEX__", String(idx));
+      const wrapper = document.createElement("div");
+      wrapper.innerHTML = html.trim();
+      lista.appendChild(wrapper.firstElementChild);
+      totalForms.value = idx + 1;
+    });
+    lista.addEventListener("click", ev => {
+      const btn = ev.target.closest(".remove-row");
+      if (!btn) return;
+      const row = btn.closest(".formset-row");
+      if (row) row.remove();
+    });
+  });
 
   // Lookup CEP
   const cepInput = form.querySelector("input[name=cep]");

@@ -15,11 +15,16 @@ from core.utils import somente_digitos
 
 from .deduplicacao import buscar_similares
 from .forms import (
+    EmailEntidadeFormSet,
     EmailPessoaFormSet,
     EntidadeForm,
     PessoaForm,
+    RedeSocialEntidadeFormSet,
     RedeSocialFormSet,
+    SiteEntidadeFormSet,
+    SitePessoaFormSet,
     TagForm,
+    TelefoneEntidadeFormSet,
     TelefoneFormSet,
     VinculoForm,
 )
@@ -127,8 +132,8 @@ class PessoaDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
 
 
 class _PessoaFormMixin:
-    """Lógica comum a Create e Update: processa 3 formsets (telefones, emails,
-    redes sociais) e exige pelo menos um canal preenchido."""
+    """Lógica comum a Create e Update: processa 4 formsets de canais (telefones,
+    emails, redes sociais, sites) e exige pelo menos um canal preenchido."""
 
     template_name = "pessoas/form.html"
 
@@ -136,6 +141,7 @@ class _PessoaFormMixin:
         ("telefones", TelefoneFormSet),
         ("emails", EmailPessoaFormSet),
         ("redes_sociais", RedeSocialFormSet),
+        ("sites", SitePessoaFormSet),
     ]
 
     def _build_formsets(self, post_data=None):
@@ -179,7 +185,8 @@ class _PessoaFormMixin:
         if tem_canal:
             return self._sucesso()
         form.add_error(
-            None, "Preencha pelo menos um canal de contato: telefone, e-mail ou rede social."
+            None,
+            "Preencha pelo menos um canal de contato: telefone, e-mail, rede social ou site.",
         )
         return self.form_invalid_with_formsets(form, formsets)
 
@@ -319,7 +326,7 @@ class EntidadeListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     paginate_by = 25
 
     def get_queryset(self):
-        qs = Entidade.objects.all().prefetch_related("tags")
+        qs = Entidade.objects.all().prefetch_related("tags", "emails", "telefones")
         if self.request.GET.get("inativos") != "1":
             qs = qs.filter(ativo=True)
         busca = self.request.GET.get("q", "").strip()
@@ -328,7 +335,8 @@ class EntidadeListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
                 Q(nome__icontains=busca)
                 | Q(nome_fantasia__icontains=busca)
                 | Q(cnpj__icontains=busca)
-                | Q(email__icontains=busca)
+                | Q(emails__endereco__icontains=busca)
+                | Q(telefones__numero__icontains=busca)
             )
         tipo = self.request.GET.get("tipo", "").strip()
         if tipo:
@@ -347,6 +355,9 @@ class EntidadeListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
                     Demanda.STATUS_AGUARDANDO_PESSOA,
                 ]
             ).distinct()
+        # Busca cruza emails/telefones (joins M:N) — distinct para não duplicar.
+        if busca:
+            qs = qs.distinct()
         return qs
 
     def get_context_data(self, **kwargs):
@@ -393,15 +404,59 @@ class EntidadeDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView
         return ctx
 
 
-class EntidadeCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
-    permission_required = "pessoas.add_entidade"
-    model = Entidade
-    form_class = EntidadeForm
+class _EntidadeFormMixin:
+    """Lógica comum a Create/Update de Entidade: 4 formsets de canais
+    (telefones, emails, redes sociais, sites). Diferente de Pessoa, Entidade
+    não exige canal mínimo (uma família ou grupo informal pode existir só
+    pelo nome). ADR 0057."""
+
     template_name = "pessoas/entidades/form.html"
 
-    def form_valid(self, form):
-        form.instance.criado_por = self.request.user
+    FORMSETS = [
+        ("telefones", TelefoneEntidadeFormSet),
+        ("emails", EmailEntidadeFormSet),
+        ("redes_sociais", RedeSocialEntidadeFormSet),
+        ("sites", SiteEntidadeFormSet),
+    ]
+
+    def _build_formsets(self, post_data=None):
+        instance = self.object if hasattr(self, "object") else None
+        return {
+            chave: cls(post_data, instance=instance, prefix=chave) for chave, cls in self.FORMSETS
+        }
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        if "formsets_contato" not in ctx:
+            ctx["formsets_contato"] = self._build_formsets()
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        eh_update = bool(self.kwargs.get("slug"))
+        self.object = self.get_object() if eh_update else None
+        for chave, _ in self.FORMSETS:
+            if f"{chave}-TOTAL_FORMS" not in request.POST:
+                messages.warning(
+                    request, "A página estava desatualizada. Recarregue e preencha novamente."
+                )
+                return redirect(request.path)
+        form = self.get_form()
+        formsets = self._build_formsets(request.POST)
+        if not (form.is_valid() and all(fs.is_valid() for fs in formsets.values())):
+            return self._form_invalid(form, formsets)
+        with transaction.atomic():
+            self._salvar(form, formsets)
+        return self._sucesso()
+
+    def _salvar(self, form, formsets):
+        if not getattr(form.instance, "criado_por_id", None):
+            form.instance.criado_por = self.request.user
         self.object = form.save()
+        for fs in formsets.values():
+            fs.instance = self.object
+            fs.save()
+
+    def _sucesso(self):
         if self.request.headers.get("X-Requested-With") == "XMLHttpRequest":
             e = self.object
             return JsonResponse(
@@ -413,17 +468,34 @@ class EntidadeCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView
                 },
                 status=201,
             )
-        messages.success(self.request, f"Entidade cadastrada: {self.object.nome}.")
-        return redirect(self.get_success_url())
+        return redirect("pessoas:entidade_detalhe", slug=self.object.slug_publico)
 
-    def form_invalid(self, form):
+    def _form_invalid(self, form, formsets):
         if self.request.headers.get("X-Requested-With") == "XMLHttpRequest":
-            erros = {campo: list(lst) for campo, lst in form.errors.items()}
+            erros = {}
+            for campo, lst in form.errors.items():
+                erros[campo] = list(lst)
+            for chave, fs in formsets.items():
+                for i, fr in enumerate(fs.forms):
+                    if fr.errors:
+                        erros[f"{chave}-{i}"] = {k: list(v) for k, v in fr.errors.items()}
+                if fs.non_form_errors():
+                    erros[f"{chave}-__all__"] = list(fs.non_form_errors())
             return JsonResponse({"erros": erros}, status=400)
-        return super().form_invalid(form)
+        return self.render_to_response(self.get_context_data(form=form, formsets_contato=formsets))
 
-    def get_success_url(self):
-        return reverse("pessoas:entidade_detalhe", kwargs={"slug": self.object.slug_publico})
+
+class EntidadeCreateView(
+    LoginRequiredMixin, PermissionRequiredMixin, _EntidadeFormMixin, CreateView
+):
+    permission_required = "pessoas.add_entidade"
+    model = Entidade
+    form_class = EntidadeForm
+
+    def _sucesso(self):
+        if self.request.headers.get("X-Requested-With") != "XMLHttpRequest":
+            messages.success(self.request, f"Entidade cadastrada: {self.object.nome}.")
+        return super()._sucesso()
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -431,21 +503,19 @@ class EntidadeCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView
         return ctx
 
 
-class EntidadeUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class EntidadeUpdateView(
+    LoginRequiredMixin, PermissionRequiredMixin, _EntidadeFormMixin, UpdateView
+):
     permission_required = "pessoas.change_entidade"
     model = Entidade
     form_class = EntidadeForm
-    template_name = "pessoas/entidades/form.html"
     slug_field = "slug_publico"
     slug_url_kwarg = "slug"
 
-    def form_valid(self, form):
-        response = super().form_valid(form)
-        messages.success(self.request, "Entidade atualizada.")
-        return response
-
-    def get_success_url(self):
-        return reverse("pessoas:entidade_detalhe", kwargs={"slug": self.object.slug_publico})
+    def _sucesso(self):
+        if self.request.headers.get("X-Requested-With") != "XMLHttpRequest":
+            messages.success(self.request, "Entidade atualizada.")
+        return super()._sucesso()
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)

@@ -83,7 +83,19 @@
       </ul>
       {% endif %}
 
-      {% if not pessoa.telefones.all and not pessoa.emails.all and not pessoa.redes_sociais.all %}
+      {% if pessoa.sites.all %}
+      <h3 class="text-sm font-medium text-slate-700 mb-2 mt-4">Sites</h3>
+      <ul class="space-y-1 text-sm">
+        {% for s in pessoa.sites.all %}
+        <li class="flex items-center gap-2 flex-wrap">
+          <a class="underline text-slate-900" href="{{ s.url }}" target="_blank" rel="noopener">{{ s.url }}</a>
+          {% if s.rotulo %}<span class="text-slate-500 text-xs">— {{ s.rotulo }}</span>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+
+      {% if not pessoa.telefones.all and not pessoa.emails.all and not pessoa.redes_sociais.all and not pessoa.sites.all %}
       <p class="text-sm text-slate-500">Nenhum canal de contato cadastrado.</p>
       {% endif %}
     </section>

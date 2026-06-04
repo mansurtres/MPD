@@ -197,12 +197,23 @@
     }
 
     drawer.querySelector('[data-cp-tipo-label]').textContent = ROTULOS[tipo] || tipo;
-    drawer.querySelector('[data-cp-pessoa]').hidden = tipo !== 'pessoa';
-    drawer.querySelector('[data-cp-entidade]').hidden = tipo !== 'entidade';
+    const blocoPessoa = drawer.querySelector('[data-cp-pessoa]');
+    const blocoEntidade = drawer.querySelector('[data-cp-entidade]');
+    blocoPessoa.hidden = tipo !== 'pessoa';
+    blocoEntidade.hidden = tipo !== 'entidade';
     drawer.querySelector('[data-cp-err]').hidden = true;
+    drawer.querySelector('[data-cp-dup]').hidden = true;
 
-    // Garante que só a §01 fica aberta de início, e que reabre quando reabre o drawer.
-    drawer.querySelectorAll('.cp-sec').forEach((s, i) => { s.open = (i === 0 || (tipo === 'pessoa' && i === 1)); });
+    // Habilita inputs do bloco visível, desabilita do oculto — evita que
+    // submit envie campos do tipo errado (names podem colidir entre blocos).
+    const ativar = (bloco) => bloco.querySelectorAll('input, select, textarea').forEach(i => i.disabled = false);
+    const desativar = (bloco) => bloco.querySelectorAll('input, select, textarea').forEach(i => i.disabled = true);
+    if (tipo === 'pessoa') { ativar(blocoPessoa); desativar(blocoEntidade); }
+    else { ativar(blocoEntidade); desativar(blocoPessoa); }
+
+    // §01 e §02 abertas por padrão; §03+ colapsadas.
+    const sections = (tipo === 'pessoa' ? blocoPessoa : blocoEntidade).querySelectorAll('.cp-sec');
+    sections.forEach((s, i) => { s.open = i < 2; });
 
     // Popula tags via fetch (lazy: só uma vez por sessão de página).
     if (tipo === 'pessoa' && !drawer.dataset.tagsCarregadas) {
@@ -298,16 +309,54 @@
   }
 
   function montarFormDataEntidade(form) {
-    // EntidadeCreateView (sem mixin de formsets) só pede campos diretos.
+    // EntidadeCreateView agora roda no _EntidadeFormMixin (ADR 0057):
+    // mesmos formsets de canal que Pessoa, só muda o dono. Aqui mapeio
+    // os names `ent_*` do drawer pros names que o backend espera.
     const fd = new FormData();
     const csrf = form.querySelector('input[name=csrfmiddlewaretoken]').value;
     fd.append('csrfmiddlewaretoken', csrf);
+
+    // §01 Identificação
     fd.append('nome', form.querySelector('[name=ent_nome]').value || '');
     fd.append('tipo', form.querySelector('[name=ent_tipo]').value);
     fd.append('nome_fantasia', form.querySelector('[name=ent_nome_fantasia]').value || '');
     fd.append('cnpj', form.querySelector('[name=ent_cnpj]').value || '');
+
+    // §02 Contatos · 4 formsets, 1 row cada
+    const mapearFormset = (prefix) => {
+      ['TOTAL_FORMS','INITIAL_FORMS','MIN_NUM_FORMS','MAX_NUM_FORMS'].forEach(k => {
+        const el = form.querySelector(`input[name="ent_${prefix}-${k}"]`);
+        if (el) fd.append(`${prefix}-${k}`, el.value);
+      });
+    };
+    mapearFormset('telefones');
+    mapearFormset('emails');
+    mapearFormset('redes_sociais');
+    mapearFormset('sites');
+
+    fd.append('telefones-0-numero', form.querySelector('[name="ent_telefones-0-numero"]').value || '');
+    fd.append('telefones-0-tipo', form.querySelector('[name="ent_telefones-0-tipo"]').value);
+    if (form.querySelector('[name="ent_telefones-0-eh_whatsapp"]').checked) {
+      fd.append('telefones-0-eh_whatsapp', 'on');
+    }
+    fd.append('telefones-0-rotulo', '');
+
+    fd.append('emails-0-endereco', form.querySelector('[name="ent_emails-0-endereco"]').value || '');
+    fd.append('emails-0-rotulo', '');
+
+    fd.append('redes_sociais-0-plataforma', form.querySelector('[name="ent_redes_sociais-0-plataforma"]').value || '');
+    fd.append('redes_sociais-0-valor', form.querySelector('[name="ent_redes_sociais-0-valor"]').value || '');
+    fd.append('redes_sociais-0-rotulo', '');
+
+    fd.append('sites-0-url', form.querySelector('[name="ent_sites-0-url"]').value || '');
+    fd.append('sites-0-rotulo', form.querySelector('[name="ent_sites-0-rotulo"]').value || '');
+
+    // §03 Endereço
     fd.append('cep', form.querySelector('[name=ent_cep]').value || '');
+
+    // §04 Observações
     fd.append('observacoes', form.querySelector('[name=ent_observacoes]').value || '');
+
     return fd;
   }
 

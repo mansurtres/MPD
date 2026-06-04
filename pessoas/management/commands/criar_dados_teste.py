@@ -12,7 +12,7 @@ from django.utils import timezone
 from accounts.models import Usuario
 from demandas.models import Demanda, DemandaPessoa, Encaminhamento, Tema
 from pessoas.models import (
-    EmailPessoa,
+    EmailContato,
     Entidade,
     Pessoa,
     RedeSocial,
@@ -64,7 +64,7 @@ class Command(BaseCommand):
         if criada_maria:
             self.stdout.write(self.style.SUCCESS("Pessoa criada: Maria Exemplo"))
         if not maria.emails.exists():
-            EmailPessoa.objects.create(pessoa=maria, endereco="maria.exemplo@example.com")
+            EmailContato.objects.create(pessoa=maria, endereco="maria.exemplo@example.com")
         if not maria.telefones.exists():
             Telefone.objects.create(
                 pessoa=maria,
@@ -104,10 +104,10 @@ class Command(BaseCommand):
         if criado_joao:
             self.stdout.write(self.style.SUCCESS("Pessoa criada: João Silva"))
         if not joao.emails.exists():
-            EmailPessoa.objects.create(
+            EmailContato.objects.create(
                 pessoa=joao, endereco="joao.silva@example.com", rotulo="pessoal"
             )
-            EmailPessoa.objects.create(pessoa=joao, endereco="joao@empresa.com", rotulo="trabalho")
+            EmailContato.objects.create(pessoa=joao, endereco="joao@empresa.com", rotulo="trabalho")
         if not joao.telefones.exists():
             Telefone.objects.create(
                 pessoa=joao, numero="2733334444", tipo=Telefone.TIPO_FIXO, rotulo="recado"

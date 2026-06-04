@@ -7,7 +7,7 @@ from django.urls import reverse
 from core.utils import validate_cpf
 from pessoas.deduplicacao import buscar_similares
 from pessoas.models import (
-    EmailPessoa,
+    EmailContato,
     Entidade,
     Pessoa,
     RedeSocial,
@@ -73,7 +73,7 @@ def pessoa_basica(db, usuario_admin):
         estado="ES",
         criado_por=usuario_admin,
     )
-    EmailPessoa.objects.create(pessoa=p, endereco="maria@example.com")
+    EmailContato.objects.create(pessoa=p, endereco="maria@example.com")
     return p
 
 
@@ -134,7 +134,7 @@ def test_pessoa_anonimizada_apaga_canais(db, usuario_admin):
         criado_por=usuario_admin,
     )
     Telefone.objects.create(pessoa=p, numero="27999990000", tipo="celular")
-    EmailPessoa.objects.create(pessoa=p, endereco="x@y.com")
+    EmailContato.objects.create(pessoa=p, endereco="x@y.com")
     RedeSocial.objects.create(pessoa=p, plataforma="instagram", valor="maria")
     p.anonimizar()
     assert str(p) == "[Pessoa Removida]"
@@ -153,7 +153,7 @@ def test_pessoa_tem_meio_de_contato_so_email(db, usuario_admin):
         criado_por=usuario_admin,
     )
     assert not p.tem_meio_de_contato()
-    EmailPessoa.objects.create(pessoa=p, endereco="sem@tel.com")
+    EmailContato.objects.create(pessoa=p, endereco="sem@tel.com")
     assert p.tem_meio_de_contato()
 
 
@@ -357,9 +357,10 @@ def test_assessor_acessa_lista_pessoas(client, usuario_assessor):
 
 
 def _management_forms_vazios():
-    """Retorna dict com os management forms de telefones/emails/redes vazios."""
+    """Retorna dict com os management forms dos 4 formsets de canal vazios.
+    Sites adicionado pela ADR 0057."""
     out = {}
-    for prefix in ("telefones", "emails", "redes_sociais"):
+    for prefix in ("telefones", "emails", "redes_sociais", "sites"):
         out[f"{prefix}-TOTAL_FORMS"] = "0"
         out[f"{prefix}-INITIAL_FORMS"] = "0"
         out[f"{prefix}-MIN_NUM_FORMS"] = "0"
@@ -511,11 +512,11 @@ def test_telefone_numero_formatado_fixo(db, pessoa_basica):
     assert t.numero_formatado == "(27) 3333-4444"
 
 
-# --- EmailPessoa ---
+# --- EmailContato ---
 
 
 def test_email_normaliza_lowercase_no_save(db, pessoa_basica):
-    e = EmailPessoa.objects.create(pessoa=pessoa_basica, endereco="  Outro@Example.COM  ")
+    e = EmailContato.objects.create(pessoa=pessoa_basica, endereco="  Outro@Example.COM  ")
     assert e.endereco == "outro@example.com"
 
 
@@ -523,7 +524,7 @@ def test_email_unico_por_pessoa(db, pessoa_basica):
     from django.db import IntegrityError
 
     with pytest.raises(IntegrityError):
-        EmailPessoa.objects.create(pessoa=pessoa_basica, endereco="MARIA@example.com")
+        EmailContato.objects.create(pessoa=pessoa_basica, endereco="MARIA@example.com")
 
 
 def test_telefone_unico_por_pessoa(db, pessoa_basica):
@@ -783,7 +784,7 @@ def test_export_csv_pessoas_nao_tem_n_mais_1(client, usuario_admin):
             criado_por=usuario_admin,
         )
         Telefone.objects.create(pessoa=p, numero="27999999999", tipo="celular")
-        EmailPessoa.objects.create(pessoa=p, endereco=f"p{i}@t.com")
+        EmailContato.objects.create(pessoa=p, endereco=f"p{i}@t.com")
     client.force_login(usuario_admin)
     with CaptureQueriesContext(connection) as captured:
         resp = client.get(reverse("pessoas:pessoa_export_csv"))

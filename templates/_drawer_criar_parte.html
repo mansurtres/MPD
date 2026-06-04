@@ -42,12 +42,11 @@
           </div>
         </details>
 
-        {# §02 Contatos · 1 canal obrigatório #}
+        {# §02 Contatos · 1 canal obrigatório (telefone, email, rede social ou site) #}
         <details class="cp-sec" open>
           <summary><span class="num">02</span> Contatos <span class="req">pelo menos 1 *</span></summary>
-          <p class="cp-hint">Telefone, e-mail ou rede social — qualquer um vale.</p>
+          <p class="cp-hint">Telefone, e-mail, rede social ou site — qualquer um vale.</p>
 
-          {# Formset telefones · 1 row fixa #}
           <input type="hidden" name="telefones-TOTAL_FORMS" value="1">
           <input type="hidden" name="telefones-INITIAL_FORMS" value="0">
           <input type="hidden" name="telefones-MIN_NUM_FORMS" value="0">
@@ -64,14 +63,12 @@
             <div class="cp-field cp-check"><label class="inline"><input type="checkbox" name="telefones-0-eh_whatsapp"> <span>WhatsApp</span></label></div>
           </div>
 
-          {# Formset emails #}
           <input type="hidden" name="emails-TOTAL_FORMS" value="1">
           <input type="hidden" name="emails-INITIAL_FORMS" value="0">
           <input type="hidden" name="emails-MIN_NUM_FORMS" value="0">
           <input type="hidden" name="emails-MAX_NUM_FORMS" value="1000">
           <div class="cp-field"><label>E-mail</label><input type="email" name="emails-0-endereco" placeholder="nome@email.com" autocomplete="off"></div>
 
-          {# Formset redes_sociais #}
           <input type="hidden" name="redes_sociais-TOTAL_FORMS" value="1">
           <input type="hidden" name="redes_sociais-INITIAL_FORMS" value="0">
           <input type="hidden" name="redes_sociais-MIN_NUM_FORMS" value="0">
@@ -89,6 +86,15 @@
               </select>
             </div>
             <div class="cp-field"><label>@usuário ou URL</label><input type="text" name="redes_sociais-0-valor" autocomplete="off"></div>
+          </div>
+
+          <input type="hidden" name="sites-TOTAL_FORMS" value="1">
+          <input type="hidden" name="sites-INITIAL_FORMS" value="0">
+          <input type="hidden" name="sites-MIN_NUM_FORMS" value="0">
+          <input type="hidden" name="sites-MAX_NUM_FORMS" value="1000">
+          <div class="cp-grid-2">
+            <div class="cp-field"><label>Site</label><input type="url" name="sites-0-url" placeholder="https://" autocomplete="off"></div>
+            <div class="cp-field"><label>Rótulo</label><input type="text" name="sites-0-rotulo" placeholder='Ex: "institucional"' autocomplete="off"></div>
           </div>
         </details>
 
@@ -123,7 +129,11 @@
         </details>
       </div>
 
-      {# ╔══ ENTIDADE ════════════════════════════════════════════════ ╗ #}
+      {# ╔══ ENTIDADE ════════════════════════════════════════════════ ╗
+         Bloco entidade usa os MESMOS names de pessoa nos formsets de canal —
+         o JS desabilita inputs do bloco oculto pra evitar conflito ao
+         submeter. Campos próprios de entidade ganham prefixo `ent_` pra
+         distinguir do bloco pessoa que tem `nome`/`sobrenome`/`cpf`. #}
       <div data-cp-entidade hidden>
         <details class="cp-sec" open>
           <summary><span class="num">01</span> Identificação</summary>
@@ -132,20 +142,20 @@
             <div class="cp-field">
               <label>Tipo *</label>
               <select name="ent_tipo">
-                <option value="associacao">Associação</option>
-                <option value="ong">ONG</option>
-                <option value="instituicao_publica">Instituição pública</option>
-                <option value="orgao_governo">Órgão de governo</option>
-                <option value="empresa">Empresa</option>
+                <option value="associacao_de_moradores">Associação de moradores</option>
                 <option value="sindicato">Sindicato</option>
-                <option value="igreja">Igreja</option>
+                <option value="partido">Partido</option>
                 <option value="escola">Escola</option>
                 <option value="conselho">Conselho</option>
-                <option value="cooperativa">Cooperativa</option>
-                <option value="movimento_social">Movimento social</option>
-                <option value="partido">Partido</option>
+                <option value="igreja">Igreja</option>
+                <option value="ong">ONG</option>
+                <option value="empresa">Empresa</option>
+                <option value="orgao_publico">Órgão público</option>
+                <option value="coletivo">Coletivo</option>
                 <option value="familia">Família</option>
                 <option value="grupo_informal">Grupo informal</option>
+                <option value="condominio">Condomínio</option>
+                <option value="outros">Outros</option>
               </select>
             </div>
             <div class="cp-field"><label>Nome fantasia</label><input type="text" name="ent_nome_fantasia" autocomplete="off"></div>
@@ -153,14 +163,69 @@
           <div class="cp-field"><label>CNPJ <span class="hint">opcional</span></label><input type="text" name="ent_cnpj" autocomplete="off"></div>
         </details>
 
-        <details class="cp-sec">
-          <summary><span class="num">02</span> Endereço <span class="hint">opcional</span></summary>
-          <div class="cp-field"><label>CEP</label><input type="text" name="ent_cep" data-cp-mask="cep" autocomplete="off"></div>
+        <details class="cp-sec" open>
+          <summary><span class="num">02</span> Contatos <span class="hint">opcional · múltiplos</span></summary>
+          <p class="cp-hint">Entidade pode ter vários telefones, e-mails, redes sociais e sites.</p>
+
+          <input type="hidden" name="ent_telefones-TOTAL_FORMS" value="1" disabled>
+          <input type="hidden" name="ent_telefones-INITIAL_FORMS" value="0" disabled>
+          <input type="hidden" name="ent_telefones-MIN_NUM_FORMS" value="0" disabled>
+          <input type="hidden" name="ent_telefones-MAX_NUM_FORMS" value="1000" disabled>
+          <div class="cp-grid-3">
+            <div class="cp-field"><label>Telefone</label><input type="tel" name="ent_telefones-0-numero" data-cp-mask="tel" placeholder="(27) 99999-0000" autocomplete="off" disabled></div>
+            <div class="cp-field">
+              <label>Tipo</label>
+              <select name="ent_telefones-0-tipo" disabled>
+                <option value="celular" selected>Celular</option>
+                <option value="fixo">Fixo</option>
+              </select>
+            </div>
+            <div class="cp-field cp-check"><label class="inline"><input type="checkbox" name="ent_telefones-0-eh_whatsapp" disabled> <span>WhatsApp</span></label></div>
+          </div>
+
+          <input type="hidden" name="ent_emails-TOTAL_FORMS" value="1" disabled>
+          <input type="hidden" name="ent_emails-INITIAL_FORMS" value="0" disabled>
+          <input type="hidden" name="ent_emails-MIN_NUM_FORMS" value="0" disabled>
+          <input type="hidden" name="ent_emails-MAX_NUM_FORMS" value="1000" disabled>
+          <div class="cp-field"><label>E-mail</label><input type="email" name="ent_emails-0-endereco" placeholder="contato@entidade.org" autocomplete="off" disabled></div>
+
+          <input type="hidden" name="ent_redes_sociais-TOTAL_FORMS" value="1" disabled>
+          <input type="hidden" name="ent_redes_sociais-INITIAL_FORMS" value="0" disabled>
+          <input type="hidden" name="ent_redes_sociais-MIN_NUM_FORMS" value="0" disabled>
+          <input type="hidden" name="ent_redes_sociais-MAX_NUM_FORMS" value="1000" disabled>
+          <div class="cp-grid-2">
+            <div class="cp-field">
+              <label>Rede social</label>
+              <select name="ent_redes_sociais-0-plataforma" disabled>
+                <option value="">—</option>
+                <option value="instagram">Instagram</option>
+                <option value="facebook">Facebook</option>
+                <option value="linkedin">LinkedIn</option>
+                <option value="x_twitter">X (Twitter)</option>
+                <option value="outro">Outro</option>
+              </select>
+            </div>
+            <div class="cp-field"><label>@usuário ou URL</label><input type="text" name="ent_redes_sociais-0-valor" autocomplete="off" disabled></div>
+          </div>
+
+          <input type="hidden" name="ent_sites-TOTAL_FORMS" value="1" disabled>
+          <input type="hidden" name="ent_sites-INITIAL_FORMS" value="0" disabled>
+          <input type="hidden" name="ent_sites-MIN_NUM_FORMS" value="0" disabled>
+          <input type="hidden" name="ent_sites-MAX_NUM_FORMS" value="1000" disabled>
+          <div class="cp-grid-2">
+            <div class="cp-field"><label>Site</label><input type="url" name="ent_sites-0-url" placeholder="https://" autocomplete="off" disabled></div>
+            <div class="cp-field"><label>Rótulo</label><input type="text" name="ent_sites-0-rotulo" placeholder='Ex: "institucional"' autocomplete="off" disabled></div>
+          </div>
         </details>
 
         <details class="cp-sec">
-          <summary><span class="num">03</span> Observações <span class="hint">opcional</span></summary>
-          <div class="cp-field"><label>Notas livres</label><textarea name="ent_observacoes" rows="3" autocomplete="off"></textarea></div>
+          <summary><span class="num">03</span> Endereço <span class="hint">opcional</span></summary>
+          <div class="cp-field"><label>CEP</label><input type="text" name="ent_cep" data-cp-mask="cep" autocomplete="off" disabled><span class="cp-status" data-cp-cep-status-ent></span></div>
+        </details>
+
+        <details class="cp-sec">
+          <summary><span class="num">04</span> Observações <span class="hint">opcional</span></summary>
+          <div class="cp-field"><label>Notas livres</label><textarea name="ent_observacoes" rows="3" autocomplete="off" disabled></textarea></div>
         </details>
       </div>
 

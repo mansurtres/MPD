@@ -37,14 +37,33 @@
       </dl>
     </section>
 
-    {% if entidade.email or entidade.telefone or entidade.site %}
+    {% if entidade.telefones.all or entidade.emails.all or entidade.redes_sociais.all or entidade.sites.all %}
     <section class="bg-white border border-slate-200 rounded-xl p-6">
-      <h2 class="text-base font-semibold text-slate-900 mb-4">Contato</h2>
-      <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
-        {% if entidade.email %}<div><dt class="text-slate-500">E-mail</dt><dd class="text-slate-900">{{ entidade.email }}</dd></div>{% endif %}
-        {% if entidade.telefone %}<div><dt class="text-slate-500">Telefone</dt><dd class="text-slate-900">{{ entidade.telefone }}</dd></div>{% endif %}
-        {% if entidade.site %}<div><dt class="text-slate-500">Site</dt><dd class="text-slate-900"><a class="underline" href="{{ entidade.site }}" target="_blank" rel="noopener">{{ entidade.site }}</a></dd></div>{% endif %}
-      </dl>
+      <h2 class="text-base font-semibold text-slate-900 mb-4">Contatos</h2>
+      {% if entidade.telefones.all %}
+      <p class="text-xs font-medium text-slate-500 uppercase tracking-widest mb-1">Telefones</p>
+      <ul class="text-sm text-slate-900 mb-3 space-y-1">
+        {% for t in entidade.telefones.all %}<li>{{ t.numero_formatado }} {% if t.eh_whatsapp %}<span class="text-emerald-700">· WhatsApp</span>{% endif %}{% if t.rotulo %} <span class="text-slate-500">— {{ t.rotulo }}</span>{% endif %}</li>{% endfor %}
+      </ul>
+      {% endif %}
+      {% if entidade.emails.all %}
+      <p class="text-xs font-medium text-slate-500 uppercase tracking-widest mb-1">E-mails</p>
+      <ul class="text-sm text-slate-900 mb-3 space-y-1">
+        {% for e in entidade.emails.all %}<li>{{ e.endereco }}{% if e.rotulo %} <span class="text-slate-500">— {{ e.rotulo }}</span>{% endif %}</li>{% endfor %}
+      </ul>
+      {% endif %}
+      {% if entidade.redes_sociais.all %}
+      <p class="text-xs font-medium text-slate-500 uppercase tracking-widest mb-1">Redes sociais</p>
+      <ul class="text-sm text-slate-900 mb-3 space-y-1">
+        {% for r in entidade.redes_sociais.all %}<li>{{ r.get_plataforma_display }}: {{ r.valor }}{% if r.rotulo %} <span class="text-slate-500">— {{ r.rotulo }}</span>{% endif %}</li>{% endfor %}
+      </ul>
+      {% endif %}
+      {% if entidade.sites.all %}
+      <p class="text-xs font-medium text-slate-500 uppercase tracking-widest mb-1">Sites</p>
+      <ul class="text-sm text-slate-900 space-y-1">
+        {% for s in entidade.sites.all %}<li><a class="underline" href="{{ s.url }}" target="_blank" rel="noopener">{{ s.url }}</a>{% if s.rotulo %} <span class="text-slate-500">— {{ s.rotulo }}</span>{% endif %}</li>{% endfor %}
+      </ul>
+      {% endif %}
     </section>
     {% endif %}
 
