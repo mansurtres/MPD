@@ -1,0 +1,1492 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>MPD · Demandas</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  /* ============================================================
+     SHELL · topbar + busca global + FAB + modal Ctrl+K
+     Componente compartilhado entre todas as telas internas (§7.1)
+     ============================================================ */
+  body { background: var(--surface-0); padding-bottom: 80px; }
+
+  .topbar {
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--rule);
+    position: sticky; top: 0;
+    z-index: var(--z-sticky);
+    box-shadow: 0 1px 0 rgba(0,0,0,0.02);
+  }
+  .topbar-inner {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 0 28px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 24px;
+    align-items: center;
+    min-height: 56px;
+  }
+
+  .brand {
+    display: flex; align-items: center; gap: 10px;
+    text-decoration: none; color: var(--ink-strong);
+  }
+  .brand .mark {
+    width: 28px; height: 28px;
+    background: var(--primary); color: var(--primary-fg);
+    display: grid; place-items: center;
+    font-family: var(--font-mono); font-weight: var(--fw-bold);
+    font-size: 12px; letter-spacing: 0.04em;
+    border-radius: var(--radius-sm);
+  }
+  .brand .name {
+    font-family: var(--font-mono);
+    font-weight: var(--fw-semibold);
+    font-size: 14px;
+    letter-spacing: 0.04em;
+  }
+  .brand .tag {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    color: var(--ink-mute);
+    text-transform: uppercase;
+    margin-left: 6px;
+    padding-left: 10px;
+    border-left: 1px solid var(--rule-strong);
+  }
+
+  /* Busca global — centro da topbar */
+  .search-global {
+    max-width: 480px; width: 100%;
+    margin: 0 auto;
+    display: flex; align-items: center; gap: 10px;
+    background: var(--surface-3);
+    border: 1px solid var(--rule-strong);
+    border-radius: var(--radius-md);
+    padding: 7px 12px;
+    transition: border-color .12s, box-shadow .12s;
+  }
+  .search-global:focus-within { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(31,58,95,0.08); }
+  .search-global .icon { color: var(--ink-mute); font-family: var(--font-mono); font-size: 14px; }
+  .search-global input {
+    flex: 1; border: 0; outline: 0; background: transparent;
+    font-family: var(--font-mono); font-size: 13px;
+    color: var(--ink);
+  }
+  .search-global input::placeholder { color: var(--ink-mute); font-style: italic; }
+  .search-global .kbd {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-mute);
+    background: var(--surface-1);
+    border: 1px solid var(--rule);
+    padding: 2px 6px;
+    border-radius: 3px;
+    letter-spacing: 0.04em;
+  }
+
+  /* Nav + user (direita) */
+  .topbar-right {
+    display: flex; align-items: center; gap: 4px;
+  }
+  .topbar-right nav { display: flex; align-items: center; }
+  .topbar-right nav a {
+    text-decoration: none;
+    color: var(--ink-soft);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    display: inline-flex; align-items: center; gap: 6px;
+    position: relative;
+    transition: color .12s, background .12s;
+    letter-spacing: 0.04em;
+  }
+  .topbar-right nav a:hover { color: var(--ink); background: var(--surface-1); }
+  .topbar-right nav a.current { color: var(--primary); font-weight: var(--fw-semibold); }
+  .topbar-right nav a.current::after {
+    content: "";
+    position: absolute; bottom: -1px; left: 12px; right: 12px;
+    height: 2px; background: var(--primary);
+  }
+  .topbar-right nav a .badge-count {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    background: var(--ink-200);
+    color: var(--ink-800);
+    padding: 1px 6px;
+    border-radius: var(--radius-full);
+    font-weight: var(--fw-semibold);
+    letter-spacing: 0;
+  }
+  .topbar-right nav a .badge-count.alert {
+    background: var(--danger-500);
+    color: #fff;
+  }
+  .topbar-right .divider {
+    width: 1px; height: 22px;
+    background: var(--rule);
+    margin: 0 8px;
+  }
+  .topbar-right .me {
+    display: flex; align-items: center; gap: 10px;
+    padding: 4px 10px;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    transition: background .12s;
+  }
+  .topbar-right .me:hover { background: var(--surface-1); }
+  .topbar-right .me .av {
+    width: 28px; height: 28px;
+    background: var(--navy-100);
+    color: var(--navy-700);
+    border-radius: var(--radius-full);
+    display: grid; place-items: center;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: var(--fw-bold);
+    letter-spacing: 0.02em;
+  }
+  .topbar-right .me .who {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink);
+    font-weight: var(--fw-semibold);
+    line-height: 1.1;
+    letter-spacing: 0.02em;
+  }
+  .topbar-right .me .role {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-mute);
+    margin-top: 1px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  /* FAB — botão de captura rápida (sempre visível) */
+  .fab {
+    position: fixed;
+    bottom: 24px; right: 24px;
+    width: 56px; height: 56px;
+    background: var(--primary);
+    color: var(--primary-fg);
+    border-radius: var(--radius-full);
+    display: grid; place-items: center;
+    box-shadow: var(--shadow-lg);
+    z-index: var(--z-fab);
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 24px; font-weight: var(--fw-bold);
+    transition: background .12s, transform .12s, box-shadow .12s;
+  }
+  .fab:hover { background: var(--primary-hover); transform: translateY(-1px); box-shadow: var(--shadow-xl); }
+  .fab .label {
+    position: absolute;
+    right: 100%; margin-right: 12px;
+    background: var(--ink-900); color: var(--surface-2);
+    font-family: var(--font-sans); font-size: 12px;
+    padding: 5px 10px;
+    border-radius: var(--radius-sm);
+    white-space: nowrap;
+    opacity: 0; pointer-events: none;
+    transition: opacity .12s;
+  }
+  .fab .label kbd {
+    background: var(--ink-700);
+    border: 1px solid var(--ink-600);
+    color: var(--surface-2);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    margin-left: 6px;
+  }
+  .fab:hover .label { opacity: 1; }
+
+  /* ============================================================
+     CONTEÚDO DA PÁGINA
+     ============================================================ */
+  .page {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 32px 28px 60px;
+  }
+
+  /* Header da tela */
+  .page-head {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 24px;
+    align-items: end;
+    margin-bottom: 24px;
+  }
+  .page-head .breadcrumb {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-bottom: 8px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .page-head .breadcrumb .sep { color: var(--rule-strong); }
+  .page-head h1 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: var(--text-4xl);
+    line-height: var(--lh-tight);
+    letter-spacing: -0.025em;
+    color: var(--ink);
+    margin: 0;
+  }
+  .page-head h1 .count {
+    font-family: var(--font-mono);
+    font-size: var(--text-base);
+    font-weight: var(--fw-normal);
+    color: var(--ink-mute);
+    margin-left: 12px;
+    letter-spacing: 0.02em;
+    vertical-align: 4px;
+  }
+  .page-head h1 .count strong { color: var(--ink-strong); font-weight: var(--fw-semibold); }
+  .page-head .head-actions { display: flex; gap: 8px; align-items: center; }
+
+  /* Botões */
+  .btn {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: var(--fw-semibold);
+    padding: var(--btn-py) var(--btn-px);
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 8px;
+    transition: background .12s, border-color .12s, color .12s;
+    line-height: 1.2;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .btn.primary { background: var(--primary); color: var(--primary-fg); border-color: var(--primary); }
+  .btn.primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
+  .btn.secondary { background: var(--surface-2); color: var(--ink); border-color: var(--rule-strong); }
+  .btn.secondary:hover { background: var(--surface-3); border-color: var(--ink); }
+  .btn.ghost { background: transparent; color: var(--ink-soft); border-color: transparent; }
+  .btn.ghost:hover { background: var(--surface-2); color: var(--ink); }
+  .btn .arr { font-family: var(--font-mono); opacity: 0.65; font-size: 12px; }
+  .btn.icon-only { padding: 9px; width: 36px; justify-content: center; }
+
+  /* Quick filter chips (sticky abaixo do header) */
+  .quick-filters {
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    padding: 14px 18px 14px 18px;
+    padding-right: 130px;
+    display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+    position: sticky; top: 56px; z-index: 10;
+  }
+  .quick-filters .filter-btn {
+    position: absolute;
+    right: 18px; top: 50%;
+    transform: translateY(-50%);
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--surface-3);
+    border: 1px solid var(--rule-strong);
+    padding: 5px 11px;
+    border-radius: var(--radius-md);
+    color: var(--ink-soft);
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    font-weight: var(--fw-semibold);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .quick-filters .lbl {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-right: 6px;
+    font-weight: var(--fw-semibold);
+  }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--surface-3);
+    border: 1px solid var(--rule-strong);
+    color: var(--ink-soft);
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    font-weight: var(--fw-semibold);
+    padding: 5px 11px;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    transition: background .12s, border-color .12s, color .12s;
+  }
+  .chip:hover { background: var(--surface-1); border-color: var(--ink); color: var(--ink); }
+  .chip.on {
+    background: var(--ink-800); color: var(--surface-2);
+    border-color: var(--ink-800); font-weight: var(--fw-semibold);
+  }
+  .chip .count {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    opacity: 0.7;
+    letter-spacing: 0.02em;
+  }
+  .chip.alert { color: var(--danger-600); border-color: var(--danger-100); background: var(--danger-50); }
+  .chip.alert.on { background: var(--danger-500); color: #fff; border-color: var(--danger-500); }
+
+  .quick-filters .filter-btn {
+    margin-left: auto;
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--surface-3);
+    border: 1px solid var(--rule-strong);
+    padding: 5px 11px;
+    border-radius: var(--radius-md);
+    color: var(--ink-soft);
+    font-family: var(--font-sans);
+    font-size: 12.5px;
+    font-weight: var(--fw-medium);
+    cursor: pointer;
+  }
+  .quick-filters .filter-btn:hover { color: var(--ink); border-color: var(--ink); }
+  .quick-filters .filter-btn .count {
+    background: var(--primary); color: var(--primary-fg);
+    font-family: var(--font-mono); font-size: 10px;
+    padding: 1px 6px;
+    border-radius: var(--radius-full);
+    margin-left: 2px;
+  }
+
+  /* Chips de filtros ativos */
+  .active-filters {
+    padding: 10px 18px;
+    background: var(--surface-1);
+    border-left: 1px solid var(--rule);
+    border-right: 1px solid var(--rule);
+    display: flex; align-items: center; gap: 6px;
+    flex-wrap: wrap;
+    font-family: var(--font-sans);
+    font-size: 12.5px;
+  }
+  .active-filters .lbl {
+    color: var(--ink-mute);
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-right: 4px;
+  }
+  .active-filters .fc {
+    background: var(--info-50);
+    border: 1px solid var(--info-100);
+    color: var(--info-700);
+    padding: 3px 9px;
+    border-radius: var(--radius-md);
+    display: inline-flex; align-items: center; gap: 6px;
+    font-weight: var(--fw-medium);
+  }
+  .active-filters .fc .x {
+    color: var(--info-500);
+    font-family: var(--font-mono);
+    cursor: pointer;
+    line-height: 1;
+  }
+  .active-filters .fc .x:hover { color: var(--danger-500); }
+  .active-filters .clear {
+    margin-left: auto;
+    color: var(--ink-mute);
+    font-family: var(--font-sans);
+    font-size: 12px;
+    background: none; border: 0;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .active-filters .clear:hover { color: var(--danger-600); }
+
+  /* Tabela — filete navy 6px no topo */
+  .ledger {
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    border-top: 6px solid var(--primary);
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+  }
+  table { width: 100%; border-collapse: collapse; }
+
+  thead th {
+    text-align: left;
+    background: var(--surface-2);
+    color: var(--ink-mute);
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: var(--fw-semibold);
+    padding: 12px 18px;
+    white-space: nowrap;
+    border-bottom: 2px solid var(--rule-strong);
+  }
+  thead th .sort {
+    font-family: var(--font-mono);
+    color: var(--ink-mute);
+    margin-left: 4px;
+    opacity: 0.5;
+  }
+  thead th.sorted .sort { color: var(--primary); opacity: 1; }
+  thead th .ckbox-cell, td .ckbox-cell {
+    display: inline-block;
+  }
+
+  tbody tr {
+    border-bottom: 1px solid var(--rule);
+    transition: background .08s;
+    cursor: pointer;
+  }
+  tbody tr:last-child { border-bottom: 0; }
+  tbody tr:hover { background: var(--surface-1); }
+  tbody tr.selected { background: var(--info-50); }
+
+  tbody td {
+    padding: var(--row-py) 18px;
+    vertical-align: middle;
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    color: var(--ink-body);
+  }
+
+  td.col-check { width: 32px; padding-right: 0; }
+  td.col-check input[type=checkbox] {
+    width: 14px; height: 14px;
+    accent-color: var(--primary);
+    cursor: pointer;
+  }
+
+  td.col-num {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    white-space: nowrap;
+    width: 144px;
+    font-variant-numeric: tabular-nums;
+  }
+  td.col-num .y { color: var(--ink-mute); }
+  td.col-num .seq { color: var(--primary); font-weight: var(--fw-semibold); }
+  td.col-num .icons {
+    display: inline-flex; align-items: center; gap: 4px;
+    margin-left: 8px;
+    color: var(--ink-mute);
+    font-size: 12px;
+  }
+  td.col-num .icons .ic {
+    width: 14px; text-align: center;
+    font-family: var(--font-mono);
+    line-height: 1;
+  }
+  td.col-num .icons .ic.lock { color: var(--danger-600); }
+  td.col-num .icons .ic.encam { color: var(--warning-600); }
+  td.col-num .icons .ic.anex { color: var(--ink-mute); }
+
+  td.col-title { min-width: 280px; }
+  td.col-title .ttl {
+    font-family: var(--font-serif);
+    font-size: var(--text-lg);
+    color: var(--ink);
+    line-height: 1.3;
+    font-weight: var(--fw-medium);
+    margin: 0 0 6px;
+    text-wrap: pretty;
+  }
+  td.col-title .partes {
+    font-family: var(--font-sans);
+    font-size: 12.5px;
+    color: var(--ink-mute);
+    line-height: 1.4;
+  }
+  td.col-title .partes .who { color: var(--ink-body); font-weight: var(--fw-medium); }
+  td.col-title .partes .sep { color: var(--rule-strong); margin: 0 4px; }
+
+  /* Badges (mesma definição do design-system) */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 9px 4px;
+    border-radius: 0;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: var(--fw-bold);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border: 1.5px solid transparent;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+  .badge .dot { width: 6px; height: 6px; background: currentColor; border-radius: var(--radius-full); flex: none; }
+  .badge .glyph { font-family: var(--font-mono); font-weight: var(--fw-bold); width: 12px; text-align: center; font-size: 11px; }
+
+  .badge.st-novo   { background: var(--st-novo-bg);   color: var(--st-novo-fg);   border-color: rgba(31,58,95,0.35); }
+  .badge.st-andam  { background: var(--st-andam-bg);  color: var(--st-andam-fg);  border-color: rgba(107,74,26,0.35); }
+  .badge.st-agresp { background: var(--st-agresp-bg); color: var(--st-agresp-fg); border-color: rgba(122,74,20,0.35); }
+  .badge.st-agterc { background: var(--st-agterc-bg); color: var(--st-agterc-fg); border-color: rgba(94,62,16,0.35); }
+  .badge.st-conc   { background: var(--st-conc-bg);   color: var(--st-conc-fg);   border-color: rgba(52,64,34,0.35); }
+  .badge.st-arq    { background: var(--st-arq-bg);    color: var(--st-arq-fg);    border-color: rgba(83,76,65,0.45); }
+
+  .badge.rs-pend  { background: var(--rs-pend-bg);  color: var(--rs-pend-fg);  border-color: rgba(0,0,0,0.18); }
+  .badge.rs-atend { background: var(--rs-atend-bg); color: var(--rs-atend-fg); border-color: rgba(52,64,34,0.35); }
+  .badge.rs-parc  { background: var(--rs-parc-bg);  color: var(--rs-parc-fg);  border-color: rgba(107,74,26,0.35); }
+  .badge.rs-nao   { background: var(--rs-nao-bg);   color: var(--rs-nao-fg);   border-color: rgba(125,31,31,0.35); }
+  .badge.rs-inv   { background: var(--rs-inv-bg);   color: #fff;               border-color: var(--ink-700); }
+  .badge.rs-nsa   { background: var(--rs-nsa-bg);   color: var(--rs-nsa-fg);   border-color: rgba(0,0,0,0.18); }
+
+  td.col-status, td.col-result { white-space: nowrap; }
+
+  td.col-resp {
+    white-space: nowrap;
+    font-family: var(--font-sans);
+    font-size: 13px;
+    color: var(--ink-body);
+  }
+  td.col-resp .av {
+    display: inline-grid; place-items: center;
+    width: 24px; height: 24px;
+    background: var(--navy-100); color: var(--navy-700);
+    border-radius: var(--radius-full);
+    font-family: var(--font-sans);
+    font-size: 10px; font-weight: var(--fw-bold);
+    margin-right: 8px; vertical-align: -7px;
+    letter-spacing: 0.02em;
+  }
+
+  td.col-tema { white-space: nowrap; }
+  td.col-tema .tema {
+    display: inline-flex; align-items: center;
+    padding: 3px 9px;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-sans);
+    font-size: 11.5px;
+    font-weight: var(--fw-medium);
+    color: var(--ink-strong);
+    border: 1px solid currentColor;
+    line-height: 1.2;
+  }
+  td.col-tema .tema.mob { color: #2a5d8a; background: #d6e6f1; }
+  td.col-tema .tema.sau { color: #5a6b3a; background: #e8efd9; }
+  td.col-tema .tema.edu { color: #6a4f8a; background: #ebe2f1; }
+  td.col-tema .tema.seg { color: #7d1f1f; background: #f3dadf; }
+  td.col-tema .tema.urb { color: #8a5a3a; background: #f5e2d2; }
+  td.col-tema .tema.cul { color: #7a5a14; background: #f0e3bd; }
+  td.col-tema .tema.amb { color: #485630; background: #d8e3c8; }
+  td.col-tema .more { color: var(--ink-mute); font-family: var(--font-mono); font-size: 11px; margin-left: 4px; }
+
+  td.col-when {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    white-space: nowrap;
+    text-align: right;
+    width: 130px;
+    font-variant-numeric: tabular-nums;
+  }
+  td.col-when .ago {
+    display: block;
+    margin-top: 3px;
+    font-family: var(--font-sans);
+    font-size: 11px;
+    color: var(--ink-mute);
+  }
+  td.col-when.warn { color: var(--warning-600); font-weight: var(--fw-semibold); }
+  td.col-when.warn .ago { color: var(--warning-600); }
+  td.col-when.late { color: var(--danger-600); font-weight: var(--fw-bold); }
+  td.col-when.late .ago { color: var(--danger-600); }
+
+  /* Linha "selecionados" — barra de ações em massa quando há check */
+  .bulk-bar {
+    background: var(--ink-800);
+    color: var(--surface-2);
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+    padding: 12px 18px;
+    margin-top: -1px;
+    display: flex; align-items: center; gap: 16px;
+    box-shadow: var(--shadow-md);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .bulk-bar .info { font-weight: var(--fw-semibold); }
+  .bulk-bar .actions { display: flex; gap: 6px; margin-left: auto; }
+  .bulk-bar .bulk-btn {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.2);
+    color: var(--surface-2);
+    padding: 5px 12px;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-weight: var(--fw-semibold);
+    cursor: pointer;
+  }
+  .bulk-bar .bulk-btn:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.4); }
+  .bulk-bar .bulk-btn.primary {
+    background: var(--surface-2); color: var(--ink); border-color: var(--surface-2);
+    font-weight: var(--fw-semibold);
+  }
+
+  /* Rodapé com paginação */
+  .ledger-foot {
+    padding: 16px 20px;
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--surface-1);
+    border-top: 1px solid var(--rule);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink-soft);
+    letter-spacing: 0.02em;
+  }
+  .ledger-foot .info { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-mute); letter-spacing: 0.02em; }
+  .ledger-foot .info strong { color: var(--ink); font-family: var(--font-sans); font-weight: var(--fw-semibold); }
+  .ledger-foot .controls { display: flex; gap: 14px; align-items: center; }
+  .ledger-foot select {
+    background: var(--surface-3);
+    border: 1px solid var(--rule-strong);
+    border-radius: var(--radius-sm);
+    padding: 4px 8px;
+    font-family: var(--font-sans);
+    font-size: 12.5px;
+    color: var(--ink);
+  }
+  .ledger-foot .pages { display: flex; gap: 4px; }
+  .ledger-foot .pages a, .ledger-foot .pages button {
+    background: var(--surface-3);
+    border: 1px solid var(--rule);
+    padding: 4px 11px;
+    font-family: var(--font-sans);
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    text-decoration: none;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+  }
+  .ledger-foot .pages a:hover { color: var(--ink); border-color: var(--ink); }
+  .ledger-foot .pages .on { background: var(--primary); color: var(--primary-fg); border-color: var(--primary); font-weight: var(--fw-semibold); }
+  .ledger-foot .pages button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ============================================================
+     ESTADOS · separação visual entre seções da página
+     ============================================================ */
+  .state-divider {
+    display: flex; align-items: center; gap: 14px;
+    margin: 80px 0 28px;
+  }
+  .state-divider .lbl {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--primary);
+    font-weight: var(--fw-bold);
+    padding: 4px 12px;
+    border: 1.5px solid var(--primary);
+    border-radius: var(--radius-sm);
+  }
+  .state-divider .line { flex: 1; height: 1px; background: var(--rule-strong); }
+  .state-divider .note {
+    font-family: var(--font-serif);
+    font-size: 14px;
+    font-style: italic;
+    color: var(--ink-mute);
+  }
+
+  /* Estado vazio */
+  .empty-state {
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    border-top: 0;
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+    padding: 80px 32px;
+    text-align: center;
+  }
+  .empty-state .icon-area {
+    width: 64px; height: 64px;
+    background: var(--surface-1);
+    border: 1.5px dashed var(--rule-strong);
+    border-radius: var(--radius-md);
+    display: grid; place-items: center;
+    margin: 0 auto 24px;
+    font-family: var(--font-mono);
+    font-size: 24px;
+    color: var(--ink-mute);
+  }
+  .empty-state h3 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: var(--text-2xl);
+    color: var(--ink);
+    margin: 0 0 8px;
+    letter-spacing: -0.015em;
+  }
+  .empty-state .desc {
+    font-family: var(--font-serif);
+    font-size: var(--text-base);
+    color: var(--ink-body);
+    line-height: var(--lh-relaxed);
+    margin: 0 auto 24px;
+    max-width: 48ch;
+  }
+  .empty-state .actions { display: flex; gap: 10px; justify-content: center; }
+
+  /* Estado loading (skeleton) */
+  .skel { background: linear-gradient(90deg, var(--ink-100) 0%, var(--ink-50) 50%, var(--ink-100) 100%); background-size: 200% 100%; animation: skelpulse 1.4s ease-in-out infinite; border-radius: var(--radius-sm); }
+  @keyframes skelpulse { 0%,100% { background-position: 200% 0; } 50% { background-position: -200% 0; } }
+
+  .skel-row td { padding: var(--row-py) 18px; }
+  .skel-row .skel { height: 14px; }
+  .skel-row .skel.w-num { width: 110px; height: 12px; }
+  .skel-row .skel.w-ttl { width: 88%; height: 18px; margin-bottom: 6px; }
+  .skel-row .skel.w-sub { width: 56%; height: 12px; }
+  .skel-row .skel.w-badge { width: 110px; height: 22px; border-radius: var(--radius-sm); }
+  .skel-row .skel.w-tema { width: 90px; height: 22px; border-radius: var(--radius-sm); }
+  .skel-row .skel.w-resp { width: 130px; }
+  .skel-row .skel.w-when { width: 80px; height: 12px; margin-left: auto; }
+  .skel-row .skel.w-when-sub { width: 60px; height: 10px; margin: 4px 0 0 auto; }
+
+  /* Estado erro */
+  .error-state {
+    background: var(--danger-50);
+    border: 1px solid var(--danger-100);
+    border-left: 3px solid var(--danger-500);
+    border-radius: var(--radius-md);
+    padding: 18px 22px;
+    display: grid;
+    grid-template-columns: 32px 1fr auto;
+    gap: 16px;
+    align-items: start;
+    margin-bottom: 12px;
+  }
+  .error-state .ic {
+    width: 32px; height: 32px;
+    background: var(--danger-500); color: #fff;
+    border-radius: var(--radius-full);
+    display: grid; place-items: center;
+    font-family: var(--font-serif);
+    font-size: 20px; font-weight: var(--fw-bold);
+    line-height: 1;
+  }
+  .error-state .lbl {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--danger-600);
+    font-weight: var(--fw-bold);
+    margin-bottom: 4px;
+  }
+  .error-state h3 {
+    font-family: var(--font-display);
+    font-size: var(--text-xl);
+    font-weight: 600;
+    color: var(--ink-strong);
+    margin: 0 0 4px;
+    letter-spacing: -0.015em;
+  }
+  .error-state p {
+    font-family: var(--font-serif);
+    font-size: 14px;
+    color: var(--ink-body);
+    line-height: var(--lh-relaxed);
+    margin: 0;
+    max-width: 70ch;
+  }
+  .error-state .actions { display: flex; gap: 6px; flex-direction: column; }
+
+  /* Toast (canto inferior direito) — exibido como exemplo */
+  .toast-tray {
+    position: fixed;
+    bottom: 24px; left: 24px;
+    z-index: var(--z-toast);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .toast {
+    background: var(--surface-3);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--success-500);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    padding: 12px 16px;
+    min-width: 320px; max-width: 420px;
+    display: grid; grid-template-columns: 20px 1fr 16px; gap: 12px;
+    align-items: start;
+    animation: toastIn .3s ease-out;
+  }
+  @keyframes toastIn { from { transform: translateY(12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .toast.error { border-left-color: var(--danger-500); }
+  .toast.info { border-left-color: var(--info-500); }
+  .toast .ic {
+    width: 20px; height: 20px;
+    background: var(--success-500); color: #fff;
+    border-radius: var(--radius-full);
+    display: grid; place-items: center;
+    font-family: var(--font-mono); font-size: 11px;
+    font-weight: var(--fw-bold);
+  }
+  .toast.error .ic { background: var(--danger-500); }
+  .toast.info .ic { background: var(--info-500); }
+  .toast .body h4 {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: var(--fw-bold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-strong);
+    margin: 0 0 4px;
+  }
+  .toast .body p {
+    font-family: var(--font-serif);
+    font-size: 13px;
+    color: var(--ink-body);
+    line-height: 1.4;
+    margin: 0;
+  }
+  .toast .body p .demanda {
+    font-family: var(--font-mono);
+    color: var(--primary);
+    font-weight: var(--fw-semibold);
+  }
+  .toast .x {
+    color: var(--ink-mute);
+    font-family: var(--font-mono);
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    padding: 2px;
+  }
+
+  /* ====== Ctrl+K modal ====== */
+  .ctrlk-mock {
+    margin: 28px 0 0;
+    padding: 22px 24px;
+    background: rgba(13,12,10,0.6);
+    border-radius: var(--radius-md);
+    display: flex; justify-content: center;
+    backdrop-filter: blur(2px);
+  }
+  .ctrlk-modal {
+    background: var(--surface-3);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xl);
+    width: 100%; max-width: 540px;
+    overflow: hidden;
+  }
+  .ctrlk-modal .head {
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--rule);
+    display: flex; align-items: center; justify-content: space-between;
+    font-family: var(--font-sans);
+    font-size: 13px;
+    color: var(--ink-strong);
+    font-weight: var(--fw-semibold);
+  }
+  .ctrlk-modal .head .hint {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--ink-mute);
+    letter-spacing: 0.04em;
+    font-weight: var(--fw-normal);
+  }
+  .ctrlk-modal .body {
+    padding: 18px 20px;
+  }
+  .ctrlk-modal textarea {
+    width: 100%;
+    border: 1px solid var(--rule-strong);
+    border-radius: var(--radius-md);
+    padding: 12px 14px;
+    font-family: var(--font-serif);
+    font-size: 16px;
+    line-height: 1.55;
+    color: var(--ink);
+    background: var(--surface-3);
+    resize: vertical;
+    min-height: 110px;
+    outline: 0;
+  }
+  .ctrlk-modal textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(31,58,95,0.08); }
+  .ctrlk-modal .foot {
+    border-top: 1px solid var(--rule);
+    padding: 12px 18px;
+    background: var(--surface-1);
+    display: flex; align-items: center; justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--ink-mute);
+    letter-spacing: 0.04em;
+  }
+  .ctrlk-modal .foot kbd {
+    background: var(--surface-3); border: 1px solid var(--rule-strong);
+    padding: 1px 5px; border-radius: 3px;
+    color: var(--ink-soft);
+    font-family: var(--font-mono);
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     SHELL · topbar global
+     ============================================================ -->
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="design-system.html">
+      <span class="mark">M</span>
+      <span class="name">MPD</span>
+      <span class="tag">Gabinete Demo</span>
+    </a>
+
+    <div class="search-global">
+      <span class="icon">⌕</span>
+      <input type="text" placeholder="Buscar pessoa, demanda, MPD-AAAA-NNNNN…">
+      <span class="kbd">⌘ K</span>
+    </div>
+
+    <div class="topbar-right">
+      <nav>
+        <a href="home.html">Início</a>
+        <a href="inbox.html">Inbox <span class="badge-count">12</span></a>
+        <a href="pendencias.html">Pendências <span class="badge-count alert">3</span></a>
+        <a href="#" class="current">Demandas</a>
+        <a href="#">Pessoas</a>
+        <a href="analise.html">Análise</a>
+      </nav>
+      <div class="divider"></div>
+      <div class="me">
+        <div class="av">MC</div>
+        <div>
+          <div class="who">Maria Coelho</div>
+          <span class="role">Coordenadora</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- FAB -->
+<div class="fab" title="Capturar no inbox">
+  <span>+</span>
+  <span class="label">Capturar no inbox <kbd>⌘ K</kbd></span>
+</div>
+
+<main class="page">
+
+  <!-- ============================================================
+       ESTADO 1 · PADRÃO (com dados)
+       ============================================================ -->
+  <div class="page-head">
+    <div>
+      <div class="breadcrumb">
+        <span>GABINETE DEMO</span>
+        <span class="sep">/</span>
+        <span style="color:var(--primary);font-weight:var(--fw-semibold)">DEMANDAS</span>
+      </div>
+      <h1>Demandas <span class="count"><strong>142</strong> no total, <strong>38</strong> abertas</span></h1>
+    </div>
+    <div class="head-actions">
+      <button class="btn secondary">Exportar CSV <span class="arr">↓</span></button>
+      <button class="btn primary"><span class="arr">+</span>Nova demanda</button>
+    </div>
+  </div>
+
+  <!-- Quick filters -->
+  <div class="quick-filters">
+    <span class="lbl">Visões</span>
+    <button class="chip on">Todas <span class="count">142</span></button>
+    <button class="chip">Minhas <span class="count">23</span></button>
+    <button class="chip">Da minha coordenação <span class="count">61</span></button>
+    <button class="chip alert on">Vencidas <span class="count">3</span></button>
+    <button class="chip">Sem devolutiva +30d <span class="count">8</span></button>
+    <button class="chip">Com encam. aberto <span class="count">19</span></button>
+    <button class="chip">Sem resultado <span class="count">42</span></button>
+    <button class="filter-btn">Filtros <span class="count">2</span></button>
+  </div>
+
+  <!-- Filtros ativos -->
+  <div class="active-filters">
+    <span class="lbl">Filtros ativos</span>
+    <span class="fc">Tema: Mobilidade urbana <span class="x">×</span></span>
+    <span class="fc">Status ≠ Arquivada <span class="x">×</span></span>
+    <button class="clear">Limpar tudo</button>
+  </div>
+
+  <!-- Tabela -->
+  <div class="ledger">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:32px"><input type="checkbox"></th>
+          <th>Nº <span class="sort">↕</span></th>
+          <th>Título <span class="sort">↕</span></th>
+          <th>Status <span class="sort">↕</span></th>
+          <th>Resultado</th>
+          <th>Responsável</th>
+          <th>Tema</th>
+          <th class="sorted" style="text-align:right">Atualizada <span class="sort">↓</span></th>
+        </tr>
+      </thead>
+      <tbody>
+
+        <tr>
+          <td class="col-check"><input type="checkbox"></td>
+          <td class="col-num">
+            <span class="y">MPD-2026-</span><span class="seq">00342</span>
+            <span class="icons"><span class="ic anex" title="Tem anexo">📎</span><span class="ic encam" title="Encam. aberto">📨</span></span>
+          </td>
+          <td class="col-title">
+            <p class="ttl">Iluminação na Rua Antônio Ataíde — trecho da Praça Costa Pereira</p>
+            <div class="partes"><span class="who">Sebastiana Oliveira</span> <span class="sep">·</span> <span class="who">Assoc. Moradores Centro</span> <span class="sep">·</span> + 2</div>
+          </td>
+          <td class="col-status"><span class="badge st-andam"><span class="dot"></span>Em andamento</span></td>
+          <td class="col-result"><span class="badge rs-pend"><span class="glyph">○</span>Pendente</span></td>
+          <td class="col-resp"><span class="av">MC</span>Maria Coelho</td>
+          <td class="col-tema"><span class="tema mob">Mobilidade</span><span class="more">+1</span></td>
+          <td class="col-when">28/05/26<span class="ago">há 2 horas</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-check"><input type="checkbox" checked></td>
+          <td class="col-num">
+            <span class="y">MPD-2026-</span><span class="seq">00339</span>
+          </td>
+          <td class="col-title">
+            <p class="ttl">Linha de ônibus 502 — reforço no horário escolar</p>
+            <div class="partes"><span class="who">Conselho de Pais EMEF Eunice</span> <span class="sep">·</span> <span class="who">Marta Vieira</span></div>
+          </td>
+          <td class="col-status"><span class="badge st-agresp"><span class="dot"></span>Aguardando resposta</span></td>
+          <td class="col-result"><span class="badge rs-pend"><span class="glyph">○</span>Pendente</span></td>
+          <td class="col-resp"><span class="av">LA</span>Lucas Almeida</td>
+          <td class="col-tema"><span class="tema mob">Mobilidade</span></td>
+          <td class="col-when late">10/05/26<span class="ago">vencida há 7 dias</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-check"><input type="checkbox"></td>
+          <td class="col-num">
+            <span class="y">MPD-2026-</span><span class="seq">00328</span>
+            <span class="icons"><span class="ic lock" title="Restrita">🔒</span></span>
+          </td>
+          <td class="col-title">
+            <p class="ttl">Atendimento médico — paciente em fila SUS há 14 meses</p>
+            <div class="partes"><span class="who">Família encaminhada por Pe. Antônio</span></div>
+          </td>
+          <td class="col-status"><span class="badge st-agterc"><span class="dot"></span>Aguardando terceiro</span></td>
+          <td class="col-result"><span class="badge rs-pend"><span class="glyph">○</span>Pendente</span></td>
+          <td class="col-resp"><span class="av">MC</span>Maria Coelho</td>
+          <td class="col-tema"><span class="tema sau">Saúde</span></td>
+          <td class="col-when late">13/05/26<span class="ago">vencida há 4 dias</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-check"><input type="checkbox"></td>
+          <td class="col-num">
+            <span class="y">MPD-2026-</span><span class="seq">00337</span>
+            <span class="icons"><span class="ic anex">📎</span></span>
+          </td>
+          <td class="col-title">
+            <p class="ttl">Sinalização da ciclofaixa Beira-Mar — apagada em vários pontos</p>
+            <div class="partes"><span class="who">Coletivo Bicicletada</span></div>
+          </td>
+          <td class="col-status"><span class="badge st-andam"><span class="dot"></span>Em andamento</span></td>
+          <td class="col-result"><span class="badge rs-pend"><span class="glyph">○</span>Pendente</span></td>
+          <td class="col-resp"><span class="av">LA</span>Lucas Almeida</td>
+          <td class="col-tema"><span class="tema mob">Mobilidade</span></td>
+          <td class="col-when warn">29/05/26<span class="ago">em 12 dias</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-check"><input type="checkbox"></td>
+          <td class="col-num">
+            <span class="y">MPD-2026-</span><span class="seq">00336</span>
+            <span class="icons"><span class="ic encam">📨</span></span>
+          </td>
+          <td class="col-title">
+            <p class="ttl">Coleta seletiva em Jardim Camburi — irregularidade na frequência</p>
+            <div class="partes"><span class="who">Cláudia Bonfim</span> <span class="sep">·</span> <span class="who">Sind. Cond. Camburi</span></div>
+          </td>
+          <td class="col-status"><span class="badge st-andam"><span class="dot"></span>Em andamento</span></td>
+          <td class="col-result"><span class="badge rs-parc"><span class="glyph">◐</span>Parcial</span></td>
+          <td class="col-resp"><span class="av">BF</span>Bia Ferreira</td>
+          <td class="col-tema"><span class="tema amb">Meio amb.</span></td>
+          <td class="col-when">15/06/26<span class="ago">em 29 dias</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-check"><input type="checkbox"></td>
+          <td class="col-num">
+            <span class="y">MPD-2026-</span><span class="seq">00334</span>
+          </td>
+          <td class="col-title">
+            <p class="ttl">Quadra esportiva São Pedro — pedido de cobertura</p>
+            <div class="partes"><span class="who">Liga Comunitária São Pedro</span> <span class="sep">·</span> + 8</div>
+          </td>
+          <td class="col-status"><span class="badge st-agterc"><span class="dot"></span>Aguardando terceiro</span></td>
+          <td class="col-result"><span class="badge rs-pend"><span class="glyph">○</span>Pendente</span></td>
+          <td class="col-resp"><span class="av">MC</span>Maria Coelho</td>
+          <td class="col-tema"><span class="tema cul">Cultura</span><span class="more">+1</span></td>
+          <td class="col-when">20/06/26<span class="ago">em 34 dias</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-check"><input type="checkbox"></td>
+          <td class="col-num">
+            <span class="y">MPD-2026-</span><span class="seq">00329</span>
+          </td>
+          <td class="col-title">
+            <p class="ttl">Reforma do CMEI Maruípe — apoio à reabertura</p>
+            <div class="partes"><span class="who">Conselho de Pais CMEI Maruípe</span></div>
+          </td>
+          <td class="col-status"><span class="badge st-conc"><span class="dot"></span>Concluída</span></td>
+          <td class="col-result"><span class="badge rs-atend"><span class="glyph">✓</span>Atendido</span></td>
+          <td class="col-resp"><span class="av">PT</span>Pedro Trindade</td>
+          <td class="col-tema"><span class="tema edu">Educação</span></td>
+          <td class="col-when">12/05/26<span class="ago">há 5 dias</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-check"><input type="checkbox"></td>
+          <td class="col-num">
+            <span class="y">MPD-2026-</span><span class="seq">00318</span>
+          </td>
+          <td class="col-title">
+            <p class="ttl">Praça Costa Pereira — pedido de novos bancos e lixeiras</p>
+            <div class="partes"><span class="who">Sebastiana Oliveira</span> <span class="sep">·</span> <span class="who">Assoc. Moradores Centro</span></div>
+          </td>
+          <td class="col-status"><span class="badge st-conc"><span class="dot"></span>Concluída</span></td>
+          <td class="col-result"><span class="badge rs-inv"><span class="glyph">⊘</span>Inviável</span></td>
+          <td class="col-resp"><span class="av">MC</span>Maria Coelho</td>
+          <td class="col-tema"><span class="tema urb">Urbanismo</span></td>
+          <td class="col-when">02/05/26<span class="ago">há 15 dias</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-check"><input type="checkbox"></td>
+          <td class="col-num">
+            <span class="y">MPD-2026-</span><span class="seq">00309</span>
+          </td>
+          <td class="col-title">
+            <p class="ttl">Substituição de lâmpadas — Rua das Acácias</p>
+            <div class="partes" style="font-style:italic;color:var(--ink-mute)">Demanda anônima</div>
+          </td>
+          <td class="col-status"><span class="badge st-conc"><span class="dot"></span>Concluída</span></td>
+          <td class="col-result"><span class="badge rs-nao"><span class="glyph">✗</span>Não atendido</span></td>
+          <td class="col-resp"><span class="av">LA</span>Lucas Almeida</td>
+          <td class="col-tema"><span class="tema mob">Mobilidade</span></td>
+          <td class="col-when">28/04/26<span class="ago">há 19 dias</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-check"><input type="checkbox"></td>
+          <td class="col-num">
+            <span class="y">MPD-2026-</span><span class="seq">00301</span>
+          </td>
+          <td class="col-title">
+            <p class="ttl">Manifestação pública sobre o uso do nome da Câmara em material privado</p>
+            <div class="partes" style="font-style:italic;color:var(--ink-mute)">Ação proativa do mandato</div>
+          </td>
+          <td class="col-status"><span class="badge st-conc"><span class="dot"></span>Concluída</span></td>
+          <td class="col-result"><span class="badge rs-nsa"><span class="glyph">—</span>Não se aplica</span></td>
+          <td class="col-resp"><span class="av">PT</span>Pedro Trindade</td>
+          <td class="col-tema"><span class="tema cul">Cultura</span></td>
+          <td class="col-when">22/04/26<span class="ago">há 25 dias</span></td>
+        </tr>
+
+      </tbody>
+    </table>
+
+    <div class="ledger-foot">
+      <div class="info">Mostrando <strong>1–10</strong> de <strong>142</strong> demandas</div>
+      <div class="controls">
+        <span>Por página:</span>
+        <select>
+          <option>25</option>
+          <option>50</option>
+          <option>100</option>
+        </select>
+        <div class="pages">
+          <button disabled>← Anterior</button>
+          <a class="on" href="#">1</a>
+          <a href="#">2</a>
+          <a href="#">3</a>
+          <a href="#">…</a>
+          <a href="#">15</a>
+          <button>Próxima →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Barra de ações em massa (selecionados) -->
+  <div class="bulk-bar">
+    <span class="info">1 demanda selecionada</span>
+    <span style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.04em;opacity:0.7">MPD-2026-00339</span>
+    <div class="actions">
+      <button class="bulk-btn">Atribuir responsável</button>
+      <button class="bulk-btn">Mudar status</button>
+      <button class="bulk-btn">Exportar selecionadas</button>
+      <button class="bulk-btn primary">Arquivar (1)</button>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       ESTADO 2 · VAZIO
+       ============================================================ -->
+  <div class="state-divider">
+    <span class="lbl">Estado 2 · Vazio</span>
+    <span class="line"></span>
+    <span class="note">primeiro uso ou filtros sem resultado</span>
+  </div>
+
+  <div class="page-head">
+    <div>
+      <div class="breadcrumb">
+        <span>GABINETE DEMO</span>
+        <span class="sep">/</span>
+        <span style="color:var(--primary);font-weight:var(--fw-semibold)">DEMANDAS</span>
+      </div>
+      <h1>Demandas <span class="count"><strong>0</strong> resultados</span></h1>
+    </div>
+    <div class="head-actions">
+      <button class="btn secondary" disabled>Exportar CSV</button>
+      <button class="btn primary"><span class="arr">+</span>Nova demanda</button>
+    </div>
+  </div>
+
+  <div class="quick-filters">
+    <span class="lbl">Visões</span>
+    <button class="chip">Todas <span class="count">142</span></button>
+    <button class="chip">Minhas <span class="count">23</span></button>
+    <button class="chip on">Sem devolutiva +30d <span class="count">0</span></button>
+    <button class="chip alert">Vencidas <span class="count">3</span></button>
+    <button class="filter-btn">Filtros</button>
+  </div>
+
+  <div class="active-filters">
+    <span class="lbl">Filtros ativos</span>
+    <span class="fc">Visão: Sem devolutiva +30d <span class="x">×</span></span>
+    <button class="clear">Limpar tudo</button>
+  </div>
+
+  <div class="empty-state">
+    <div class="icon-area">∅</div>
+    <h3>Nenhuma demanda corresponde a esses filtros.</h3>
+    <p class="desc">Esta é uma boa notícia — significa que nenhuma demanda da sua coordenação ficou sem devolutiva por mais de 30 dias. Limpe o filtro para ver outras visões, ou abra uma nova demanda se houver algo novo a registrar.</p>
+    <div class="actions">
+      <button class="btn secondary">Limpar filtros</button>
+      <button class="btn primary"><span class="arr">+</span>Nova demanda</button>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       ESTADO 3 · LOADING (skeleton)
+       ============================================================ -->
+  <div class="state-divider">
+    <span class="lbl">Estado 3 · Loading</span>
+    <span class="line"></span>
+    <span class="note">enquanto a tabela busca os dados</span>
+  </div>
+
+  <div class="page-head">
+    <div>
+      <div class="breadcrumb">
+        <span>GABINETE DEMO</span>
+        <span class="sep">/</span>
+        <span style="color:var(--primary);font-weight:var(--fw-semibold)">DEMANDAS</span>
+      </div>
+      <h1>Demandas <span class="count" style="color:var(--ink-mute);font-style:italic">carregando…</span></h1>
+    </div>
+    <div class="head-actions">
+      <button class="btn secondary" disabled>Exportar CSV</button>
+      <button class="btn primary" disabled>+ Nova demanda</button>
+    </div>
+  </div>
+
+  <div class="quick-filters">
+    <span class="lbl">Visões</span>
+    <div class="skel" style="width:90px;height:28px;border-radius:var(--radius-md)"></div>
+    <div class="skel" style="width:80px;height:28px;border-radius:var(--radius-md)"></div>
+    <div class="skel" style="width:140px;height:28px;border-radius:var(--radius-md)"></div>
+    <div class="skel" style="width:100px;height:28px;border-radius:var(--radius-md)"></div>
+  </div>
+
+  <div class="ledger">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:32px"></th>
+          <th>Nº</th>
+          <th>Título</th>
+          <th>Status</th>
+          <th>Resultado</th>
+          <th>Responsável</th>
+          <th>Tema</th>
+          <th style="text-align:right">Atualizada</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="skel-row">
+          <td><div class="skel" style="width:14px;height:14px"></div></td>
+          <td><div class="skel w-num"></div></td>
+          <td><div class="skel w-ttl"></div><div class="skel w-sub"></div></td>
+          <td><div class="skel w-badge"></div></td>
+          <td><div class="skel w-badge"></div></td>
+          <td><div class="skel w-resp"></div></td>
+          <td><div class="skel w-tema"></div></td>
+          <td><div class="skel w-when"></div><div class="skel w-when-sub"></div></td>
+        </tr>
+        <tr class="skel-row">
+          <td><div class="skel" style="width:14px;height:14px"></div></td>
+          <td><div class="skel w-num"></div></td>
+          <td><div class="skel w-ttl" style="width:75%"></div><div class="skel w-sub" style="width:42%"></div></td>
+          <td><div class="skel w-badge" style="width:130px"></div></td>
+          <td><div class="skel w-badge" style="width:90px"></div></td>
+          <td><div class="skel w-resp" style="width:110px"></div></td>
+          <td><div class="skel w-tema" style="width:75px"></div></td>
+          <td><div class="skel w-when"></div><div class="skel w-when-sub"></div></td>
+        </tr>
+        <tr class="skel-row">
+          <td><div class="skel" style="width:14px;height:14px"></div></td>
+          <td><div class="skel w-num"></div></td>
+          <td><div class="skel w-ttl" style="width:92%"></div><div class="skel w-sub" style="width:60%"></div></td>
+          <td><div class="skel w-badge"></div></td>
+          <td><div class="skel w-badge"></div></td>
+          <td><div class="skel w-resp"></div></td>
+          <td><div class="skel w-tema"></div></td>
+          <td><div class="skel w-when"></div><div class="skel w-when-sub"></div></td>
+        </tr>
+        <tr class="skel-row">
+          <td><div class="skel" style="width:14px;height:14px"></div></td>
+          <td><div class="skel w-num"></div></td>
+          <td><div class="skel w-ttl" style="width:68%"></div><div class="skel w-sub" style="width:48%"></div></td>
+          <td><div class="skel w-badge" style="width:100px"></div></td>
+          <td><div class="skel w-badge" style="width:115px"></div></td>
+          <td><div class="skel w-resp"></div></td>
+          <td><div class="skel w-tema" style="width:80px"></div></td>
+          <td><div class="skel w-when"></div><div class="skel w-when-sub"></div></td>
+        </tr>
+        <tr class="skel-row">
+          <td><div class="skel" style="width:14px;height:14px"></div></td>
+          <td><div class="skel w-num"></div></td>
+          <td><div class="skel w-ttl" style="width:80%"></div><div class="skel w-sub" style="width:55%"></div></td>
+          <td><div class="skel w-badge"></div></td>
+          <td><div class="skel w-badge"></div></td>
+          <td><div class="skel w-resp" style="width:120px"></div></td>
+          <td><div class="skel w-tema"></div></td>
+          <td><div class="skel w-when"></div><div class="skel w-when-sub"></div></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ============================================================
+       ESTADO 4 · ERRO
+       ============================================================ -->
+  <div class="state-divider">
+    <span class="lbl">Estado 4 · Erro</span>
+    <span class="line"></span>
+    <span class="note">falha de servidor, conexão perdida, sessão expirada</span>
+  </div>
+
+  <div class="error-state">
+    <div class="ic">!</div>
+    <div>
+      <div class="lbl">Erro ao carregar demandas</div>
+      <h3>Não conseguimos buscar a lista de demandas agora.</h3>
+      <p>Pode ser uma queda momentânea de conexão ou uma manutenção em curso. Suas alterações em rascunho continuam salvas localmente. Tente novamente em alguns segundos — se persistir, fale com o suporte.</p>
+    </div>
+    <div class="actions">
+      <button class="btn primary">Tentar novamente</button>
+      <button class="btn ghost">Avisar suporte</button>
+    </div>
+  </div>
+
+  <div class="error-state" style="border-left-color:var(--warning-500);background:var(--warning-50);border-color:var(--warning-100)">
+    <div class="ic" style="background:var(--warning-500)">⚠</div>
+    <div>
+      <div class="lbl" style="color:var(--warning-600)">Sessão expirando</div>
+      <h3>Sua sessão expira em <span style="font-family:var(--font-mono);color:var(--warning-700)">2 min 14 s</span>.</h3>
+      <p>Você ficou inativa por um tempo. Confirme que ainda está aí para continuar trabalhando — qualquer alteração não salva fica em risco caso a sessão caia.</p>
+    </div>
+    <div class="actions">
+      <button class="btn primary">Continuar conectada</button>
+      <button class="btn ghost">Sair agora</button>
+    </div>
+  </div>
+
+  <!-- Toasts (sample) -->
+  <div class="state-divider">
+    <span class="lbl">Estado 5 · Sucesso (toast)</span>
+    <span class="line"></span>
+    <span class="note">confirmação visual de ação concluída</span>
+  </div>
+
+  <p style="font-family:var(--font-serif);font-size:14px;color:var(--ink-mute);font-style:italic;line-height:1.5;max-width:60ch">Os toasts aparecem no canto inferior esquerdo (ver elemento abaixo, mock posicionado). Some sozinho em 4s; clicável para descartar.</p>
+
+  <!-- Mock do modal Ctrl+K para validação -->
+  <div class="state-divider">
+    <span class="lbl">Modal · Captura rápida (⌘K)</span>
+    <span class="line"></span>
+    <span class="note">aparece sobre qualquer tela ao apertar ⌘K ou clicar no FAB</span>
+  </div>
+
+  <div class="ctrlk-mock">
+    <div class="ctrlk-modal">
+      <div class="head">
+        Capturar no inbox
+        <span class="hint">processado depois pela equipe</span>
+      </div>
+      <div class="body">
+        <textarea placeholder="Anote o que apareceu agora. Pode ser uma demanda, lembrete, ideia. A triagem vem depois."></textarea>
+      </div>
+      <div class="foot">
+        <span><kbd>⏎</kbd> envia · <kbd>⇧⏎</kbd> quebra linha</span>
+        <span><kbd>Esc</kbd> fecha</span>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- Toast tray (sempre acessível, posição fixa) -->
+<div class="toast-tray">
+  <div class="toast">
+    <div class="ic">✓</div>
+    <div class="body">
+      <h4>Demanda criada</h4>
+      <p><span class="demanda">MPD-2026-00343</span> · "Vagas remanescentes do edital de pediatria" — atribuída a Maria Coelho.</p>
+    </div>
+    <span class="x">×</span>
+  </div>
+  <div class="toast info">
+    <div class="ic">i</div>
+    <div class="body">
+      <h4>3 itens capturados no inbox</h4>
+      <p>Triagem disponível no Inbox quando você quiser.</p>
+    </div>
+    <span class="x">×</span>
+  </div>
+</div>
+
+</body>
+</html>

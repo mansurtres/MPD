@@ -1,0 +1,1012 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>MPD · Análise</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  body { background: var(--surface-0); padding-bottom: 60px; }
+
+  /* SHELL */
+  .topbar { background: var(--surface-2); border-bottom: 1px solid var(--rule); position: sticky; top: 0; z-index: var(--z-sticky); }
+  .topbar-inner { max-width: 1440px; margin: 0 auto; padding: 0 28px; display: grid; grid-template-columns: auto 1fr auto; gap: 24px; align-items: center; min-height: 56px; }
+  .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink-strong); }
+  .brand .mark { width: 28px; height: 28px; background: var(--primary); color: var(--primary-fg); display: grid; place-items: center; font-family: var(--font-mono); font-weight: 700; font-size: 12px; letter-spacing: 0.04em; }
+  .brand .name { font-family: var(--font-mono); font-weight: 600; font-size: 14px; letter-spacing: 0.04em; }
+  .brand .tag { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; color: var(--ink-mute); text-transform: uppercase; margin-left: 6px; padding-left: 10px; border-left: 1px solid var(--rule-strong); }
+  .topbar-right { display: flex; align-items: center; gap: 4px; }
+  .topbar-right nav a { text-decoration: none; color: var(--ink-soft); font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em; padding: 8px 12px; position: relative; }
+  .topbar-right nav a.current { color: var(--primary); font-weight: 600; }
+  .topbar-right nav a.current::after { content: ""; position: absolute; bottom: -1px; left: 12px; right: 12px; height: 2px; background: var(--primary); }
+  .topbar-right .me { display: flex; align-items: center; gap: 10px; padding: 4px 10px; }
+  .topbar-right .me .av { width: 28px; height: 28px; background: var(--navy-100); color: var(--navy-700); border-radius: var(--radius-full); display: grid; place-items: center; font-family: var(--font-mono); font-size: 11px; font-weight: 700; }
+  .topbar-right .me .who { font-family: var(--font-mono); font-size: 12px; color: var(--ink); font-weight: 600; }
+  .topbar-right .me .role { display: block; font-family: var(--font-mono); font-size: 10px; color: var(--ink-mute); margin-top: 1px; letter-spacing: 0.04em; text-transform: uppercase; }
+
+  /* Page chrome · titlebar + filter rail */
+  .page-bar {
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--rule);
+    border-top: 6px solid var(--primary);
+    padding: 16px 28px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 18px;
+    align-items: center;
+    position: sticky; top: 56px; z-index: 9;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.02);
+  }
+  .page-bar .title {
+    display: flex; align-items: baseline; gap: 14px;
+  }
+  .page-bar h1 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 26px;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    margin: 0;
+  }
+  .page-bar .crumb {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    font-weight: 700;
+    padding-left: 12px;
+    border-left: 1px solid var(--rule-strong);
+  }
+  .page-bar .updated {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--ink-mute);
+    letter-spacing: 0.02em;
+    text-align: center;
+  }
+  .page-bar .updated::before {
+    content: "";
+    display: inline-block;
+    width: 7px; height: 7px;
+    background: var(--success-500);
+    border-radius: var(--radius-full);
+    margin-right: 8px;
+    vertical-align: 1px;
+  }
+  .page-bar .actions { display: flex; gap: 6px; align-items: center; }
+  .btn-out {
+    background: transparent;
+    border: 1px solid var(--rule-strong);
+    color: var(--ink-soft);
+    font-family: var(--font-mono); font-size: 10.5px;
+    font-weight: 600; padding: 6px 12px;
+    letter-spacing: 0.04em; text-transform: uppercase;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn-out:hover { color: var(--ink); border-color: var(--ink); }
+  .btn-out.primary { background: var(--primary); color: var(--primary-fg); border-color: var(--primary); }
+  .btn-out.primary:hover { background: var(--primary-hover); }
+
+  /* Filter rail */
+  .filter-rail {
+    background: var(--surface-1);
+    border-bottom: 1px solid var(--rule);
+    padding: 10px 28px;
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    position: sticky; top: 117px; z-index: 8;
+  }
+  .filter-rail .grp {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding-right: 10px;
+    border-right: 1px solid var(--rule);
+  }
+  .filter-rail .grp:last-of-type { border-right: 0; }
+  .filter-rail .lbl {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    font-weight: 700;
+    margin-right: 2px;
+  }
+  .filter-rail .seg { display: inline-flex; border: 1px solid var(--rule-strong); }
+  .filter-rail .seg button {
+    background: var(--surface-2); border: 0; border-right: 1px solid var(--rule-strong);
+    color: var(--ink-soft);
+    font-family: var(--font-mono); font-size: 10.5px; font-weight: 600;
+    padding: 5px 11px; cursor: pointer;
+    letter-spacing: 0.04em; text-transform: uppercase;
+  }
+  .filter-rail .seg button:last-child { border-right: 0; }
+  .filter-rail .seg button.on { background: var(--primary); color: var(--primary-fg); }
+  .filter-rail .pick {
+    background: var(--surface-2); border: 1px solid var(--rule-strong);
+    color: var(--ink-soft);
+    font-family: var(--font-mono); font-size: 10.5px; font-weight: 600;
+    padding: 5px 12px; cursor: pointer;
+    letter-spacing: 0.04em; text-transform: uppercase;
+    display: inline-flex; align-items: center; gap: 8px;
+    line-height: 1.3;
+  }
+  .filter-rail .pick:hover { color: var(--ink); border-color: var(--ink-soft); }
+  .filter-rail .pick.has { color: var(--primary); border-color: var(--primary); background: var(--info-50); }
+  .filter-rail .pick .ct {
+    background: var(--primary); color: var(--primary-fg);
+    padding: 0 5px; font-weight: 700; font-size: 9.5px;
+    letter-spacing: 0.04em;
+  }
+  .filter-rail .pick .ar { color: var(--ink-mute); font-weight: 400; opacity: 0.6; }
+  .filter-rail .clear {
+    background: transparent; border: 0;
+    color: var(--ink-mute); cursor: pointer;
+    font-family: var(--font-mono); font-size: 10px;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 5px 10px;
+  }
+  .filter-rail .clear:hover { color: var(--danger-600); }
+  .filter-rail .saved-view {
+    margin-left: auto;
+    background: var(--surface-2); border: 1px solid var(--rule-strong);
+    padding: 5px 12px;
+    font-family: var(--font-mono); font-size: 10.5px; font-weight: 600;
+    color: var(--ink); letter-spacing: 0.04em;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .filter-rail .saved-view .ic { color: var(--primary); }
+
+  /* Active filter pills row (chips showing current selection) */
+  .active-filters {
+    background: var(--info-50);
+    border-bottom: 1px solid var(--info-200);
+    padding: 8px 28px;
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    font-family: var(--font-mono); font-size: 10.5px;
+    color: var(--info-700); letter-spacing: 0.04em;
+  }
+  .active-filters .lbl {
+    text-transform: uppercase; font-weight: 700;
+    letter-spacing: 0.12em; color: var(--info-600);
+  }
+  .active-filters .pill {
+    background: var(--surface-2); border: 1px solid var(--info-300);
+    padding: 2px 6px 2px 9px;
+    display: inline-flex; align-items: center; gap: 6px;
+    color: var(--ink-strong); font-weight: 600;
+  }
+  .active-filters .pill .x {
+    background: transparent; border: 0;
+    color: var(--info-600); cursor: pointer;
+    font-family: var(--font-mono); padding: 0 4px;
+    font-size: 12px;
+  }
+  .active-filters .pill .x:hover { color: var(--danger-600); }
+  .active-filters .right {
+    margin-left: auto; color: var(--info-700); font-weight: 700;
+  }
+
+  /* Main canvas */
+  .canvas {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 20px 28px 40px;
+  }
+
+  /* Hero metrics — densos, com delta inline */
+  .metrics-strip {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    margin-bottom: 16px;
+  }
+  .metric {
+    padding: 14px 18px;
+    border-right: 1px solid var(--rule);
+    cursor: pointer;
+    transition: background .12s;
+  }
+  .metric:last-child { border-right: 0; }
+  .metric:hover { background: var(--surface-3); }
+  .metric .k {
+    font-family: var(--font-mono);
+    font-size: 9.5px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--ink-mute);
+    font-weight: 700; margin-bottom: 6px;
+    display: flex; align-items: baseline; justify-content: space-between;
+  }
+  .metric .k .arr { color: var(--rule-strong); }
+  .metric:hover .k .arr { color: var(--primary); }
+  .metric .v {
+    font-family: var(--font-display);
+    font-size: 30px; line-height: 1;
+    font-weight: 600; letter-spacing: -0.025em;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .metric .v .unit {
+    font-size: 14px; vertical-align: 8px;
+    color: var(--ink-mute); font-weight: 400;
+    margin-left: 2px; letter-spacing: 0;
+  }
+  .metric .delta {
+    margin-top: 6px;
+    font-family: var(--font-mono); font-size: 11px;
+    letter-spacing: 0.02em;
+    display: flex; align-items: baseline; gap: 8px;
+  }
+  .metric .delta .change { font-weight: 700; }
+  .metric .delta .change.up { color: var(--success-700); }
+  .metric .delta .change.down { color: var(--danger-600); }
+  .metric .delta .change.flat { color: var(--ink-mute); }
+  .metric .delta .vs { color: var(--ink-mute); }
+
+  /* Grid de quadros */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .panel {
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    padding: 16px 18px 18px;
+    overflow: hidden;
+  }
+  .panel.col-8 { grid-column: span 8; }
+  .panel.col-6 { grid-column: span 6; }
+  .panel.col-4 { grid-column: span 4; }
+  .panel.col-12 { grid-column: span 12; }
+
+  .panel-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 14px;
+    gap: 12px;
+  }
+  .panel-head h3 {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--primary);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin: 0;
+  }
+  .panel-head .ct {
+    font-family: var(--font-mono); font-size: 10.5px;
+    color: var(--ink-mute); letter-spacing: 0.02em;
+  }
+  .panel-head .menu {
+    display: flex; gap: 6px; align-items: center;
+  }
+  .panel-head .menu .toggle {
+    display: inline-flex; border: 1px solid var(--rule-strong);
+  }
+  .panel-head .menu .toggle button {
+    background: var(--surface-3); border: 0; border-right: 1px solid var(--rule-strong);
+    color: var(--ink-soft);
+    font-family: var(--font-mono); font-size: 9.5px; font-weight: 700;
+    padding: 3px 8px; cursor: pointer;
+    letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  .panel-head .menu .toggle button:last-child { border-right: 0; }
+  .panel-head .menu .toggle button.on { background: var(--ink-800); color: var(--surface-2); }
+  .panel-head .menu .opt {
+    background: transparent; border: 0;
+    color: var(--ink-mute); cursor: pointer;
+    font-family: var(--font-mono); font-size: 13px;
+    padding: 1px 6px; line-height: 1;
+  }
+
+  /* Volume mensal — bar chart denso */
+  .bars-v {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 6px;
+    height: 180px;
+    align-items: end;
+    border-bottom: 2px solid var(--ink-200);
+  }
+  .bars-v .col {
+    display: flex; flex-direction: column; justify-content: end;
+    height: 100%; position: relative;
+  }
+  .bars-v .col .v-num {
+    position: absolute; top: -18px; left: 0; right: 0;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 9.5px; color: var(--ink-mute); font-weight: 600;
+  }
+  .bars-v .col.cur .v-num { color: var(--primary); font-weight: 700; }
+  .bars-v .col .bar { background: var(--ink-200); }
+  .bars-v .col.cur .bar { background: var(--primary); }
+  .bars-v .col.cur.partial .bar { background: transparent; border: 1px dashed var(--primary); }
+  .bars-v .col.cur.partial .v-num sup { color: var(--ink-mute); }
+  .bars-x {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 6px;
+    margin-top: 6px;
+  }
+  .bars-x .l {
+    text-align: center;
+    font-family: var(--font-mono); font-size: 9.5px;
+    color: var(--ink-mute); letter-spacing: 0.04em;
+  }
+  .bars-x .l.yr {
+    color: var(--ink-strong); font-weight: 700;
+    letter-spacing: 0.06em;
+  }
+
+  /* Lista de barras horizontais (tema / canal / bairro) */
+  .hbars { display: flex; flex-direction: column; gap: 6px; }
+  .hbar {
+    display: grid;
+    grid-template-columns: 130px 1fr 32px 44px;
+    gap: 10px; align-items: center;
+    padding: 4px 0;
+    border-bottom: 1px dotted var(--rule);
+  }
+  .hbar:last-child { border-bottom: 0; }
+  .hbar:hover { background: var(--surface-3); cursor: pointer; }
+  .hbar .nm {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--ink-strong); font-weight: 600;
+    letter-spacing: 0.02em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .hbar .track {
+    background: var(--surface-1); height: 10px;
+    border: 1px solid var(--rule);
+    overflow: hidden;
+  }
+  .hbar .track .fill { height: 100%; display: block; }
+  .hbar .pct {
+    text-align: right;
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--ink-mute);
+    font-variant-numeric: tabular-nums;
+  }
+  .hbar .v {
+    text-align: right;
+    font-family: var(--font-mono); font-size: 12px;
+    font-weight: 700; color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Heatmap tema × bairro */
+  .heat {
+    display: grid;
+    grid-template-columns: 130px repeat(7, 1fr);
+    gap: 2px;
+    font-family: var(--font-mono); font-size: 10px;
+  }
+  .heat .h {
+    padding: 4px 6px;
+    color: var(--ink-mute);
+    letter-spacing: 0.06em; text-transform: uppercase;
+    font-weight: 700; font-size: 9.5px;
+    text-align: center;
+    border-bottom: 1px solid var(--rule);
+  }
+  .heat .h.row {
+    text-align: left;
+    color: var(--ink-strong);
+    border-bottom: 0;
+    padding: 4px 6px;
+    font-weight: 600;
+  }
+  .heat .c {
+    text-align: center;
+    padding: 9px 0;
+    color: var(--ink);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    transition: outline .08s;
+  }
+  .heat .c:hover { outline: 1.5px solid var(--ink); outline-offset: -1.5px; }
+  .heat .c.l1 { background: #f4ede0; color: var(--ink-mute); }
+  .heat .c.l2 { background: #e8dac1; color: var(--ink-mute); }
+  .heat .c.l3 { background: #d3bf94; }
+  .heat .c.l4 { background: #b39661; color: #fff; }
+  .heat .c.l5 { background: #7a5e2e; color: #fff; }
+  .heat .c.zero { color: var(--ink-200); }
+  .heat-legend {
+    margin-top: 10px;
+    display: flex; align-items: center; gap: 8px;
+    font-family: var(--font-mono); font-size: 9.5px;
+    color: var(--ink-mute); letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .heat-legend .scale { display: flex; gap: 2px; }
+  .heat-legend .scale span { width: 18px; height: 10px; display: inline-block; }
+
+  /* Tabela densa (top pessoas) */
+  table.dense { width: 100%; border-collapse: collapse; }
+  table.dense thead th {
+    text-align: left; background: var(--surface-1);
+    padding: 5px 8px;
+    font-family: var(--font-mono); font-size: 9px;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-mute); font-weight: 700;
+    border-bottom: 2px solid var(--rule-strong);
+  }
+  table.dense thead th.r { text-align: right; }
+  table.dense tbody td {
+    padding: 7px 8px;
+    border-bottom: 1px solid var(--rule);
+    font-family: var(--font-mono); font-size: 11.5px;
+    color: var(--ink-body);
+  }
+  table.dense tbody tr:last-child td { border-bottom: 0; }
+  table.dense tbody tr:hover { background: var(--surface-3); cursor: pointer; }
+  table.dense .nm {
+    font-family: var(--font-serif); font-size: 13.5px;
+    color: var(--ink); font-weight: 500;
+  }
+  table.dense .v { text-align: right; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+  table.dense .meta { color: var(--ink-mute); font-size: 10.5px; }
+  table.dense .badge-mini {
+    display: inline-block;
+    font-family: var(--font-mono); font-size: 9px;
+    padding: 1px 5px; letter-spacing: 0.06em;
+    border: 1px solid; font-weight: 700;
+  }
+  table.dense .badge-mini.ok { color: var(--success-700); border-color: var(--success-500); background: var(--success-50); }
+  table.dense .badge-mini.warn { color: var(--warning-700); border-color: var(--warning-500); background: var(--warning-50); }
+  table.dense .badge-mini.bad { color: var(--danger-700); border-color: var(--danger-500); background: var(--danger-50); }
+
+  /* Doughnut compacto */
+  .donut {
+    display: grid;
+    grid-template-columns: 110px 1fr;
+    gap: 18px;
+    align-items: center;
+  }
+  .donut svg { width: 110px; height: 110px; }
+  .donut .legend {
+    display: flex; flex-direction: column; gap: 3px;
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--ink-soft);
+  }
+  .donut .legend .row {
+    display: grid; grid-template-columns: 10px 1fr auto auto;
+    gap: 8px; align-items: baseline; padding: 2px 0;
+    border-bottom: 1px dotted var(--rule);
+  }
+  .donut .legend .row:last-child { border-bottom: 0; }
+  .donut .legend .sw { width: 10px; height: 10px; }
+  .donut .legend .nm { color: var(--ink-strong); font-weight: 600; }
+  .donut .legend .v { font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .donut .legend .pct { color: var(--ink-mute); font-variant-numeric: tabular-nums; }
+
+  /* Drilldown panel · lista de demandas filtradas */
+  .drilldown {
+    background: var(--surface-2); border: 1px solid var(--rule);
+  }
+  .drilldown .dh {
+    padding: 12px 18px;
+    background: var(--surface-1);
+    border-bottom: 1px solid var(--rule);
+    display: flex; align-items: center; gap: 14px;
+  }
+  .drilldown .dh h3 {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--primary); letter-spacing: 0.14em;
+    text-transform: uppercase; font-weight: 700;
+    margin: 0;
+  }
+  .drilldown .dh .ct {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--ink-mute); letter-spacing: 0.02em;
+  }
+  .drilldown .dh .ct strong { color: var(--ink-strong); font-weight: 700; }
+  .drilldown .dh .actions { margin-left: auto; display: flex; gap: 6px; }
+  .drilldown table { width: 100%; border-collapse: collapse; }
+  .drilldown thead th {
+    text-align: left;
+    background: var(--surface-2);
+    padding: 8px 14px;
+    font-family: var(--font-mono); font-size: 9.5px;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-mute); font-weight: 700;
+    border-bottom: 2px solid var(--rule-strong);
+  }
+  .drilldown thead th.r { text-align: right; }
+  .drilldown tbody td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--rule);
+    font-family: var(--font-mono); font-size: 11.5px;
+    color: var(--ink-body);
+    vertical-align: middle;
+  }
+  .drilldown tbody tr:hover { background: var(--surface-3); cursor: pointer; }
+  .drilldown .num { color: var(--primary); font-weight: 700; letter-spacing: 0.02em; }
+  .drilldown .num .y { color: var(--ink-mute); font-weight: 400; }
+  .drilldown .ttl { font-family: var(--font-serif); font-size: 14px; color: var(--ink); font-weight: 500; }
+  .drilldown .badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 6px 3px;
+    font-family: var(--font-mono); font-size: 9.5px;
+    font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+    border: 1.5px solid;
+  }
+  .drilldown .badge .dot { width: 5px; height: 5px; background: currentColor; border-radius: 50%; }
+  .drilldown .badge.andam { background: var(--st-andam-bg); color: var(--st-andam-fg); border-color: rgba(107,74,26,0.35); }
+  .drilldown .badge.agresp { background: var(--st-agresp-bg); color: var(--st-agresp-fg); border-color: rgba(122,74,20,0.35); }
+  .drilldown .badge.conc { background: var(--st-conc-bg); color: var(--st-conc-fg); border-color: rgba(52,64,34,0.35); }
+
+  /* Small note bottom — last-update + count */
+  .foot-note {
+    margin-top: 16px;
+    font-family: var(--font-mono); font-size: 10.5px;
+    color: var(--ink-mute); letter-spacing: 0.04em;
+    text-align: right;
+  }
+</style>
+</head>
+<body>
+
+<!-- SHELL -->
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="design-system.html"><span class="mark">M</span><span class="name">MPD</span><span class="tag">Gabinete Demo</span></a>
+    <div></div>
+    <div class="topbar-right">
+      <nav>
+        <a href="home.html">Início</a>
+        <a href="inbox.html">Inbox <span class="badge-count">12</span></a>
+        <a href="pendencias.html">Pendências <span class="badge-count alert">3</span></a>
+        <a href="lista-demandas.html">Demandas</a>
+        <a href="#">Pessoas</a>
+        <a href="#" class="current">Análise</a>
+      </nav>
+      <div class="me">
+        <div class="av">MC</div>
+        <div><div class="who">Maria Coelho</div><span class="role">Coordenadora</span></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- PAGE TITLE BAR -->
+<div class="page-bar">
+  <div class="title">
+    <h1>Análise</h1>
+    <span class="crumb">Painel · dados operacionais</span>
+  </div>
+  <div class="updated">Dados atualizados há 12 min</div>
+  <div class="actions">
+    <button class="btn-out">↓ CSV</button>
+    <button class="btn-out">⎙ Imprimir</button>
+    <button class="btn-out primary">★ Salvar visão</button>
+  </div>
+</div>
+
+<!-- FILTER RAIL -->
+<div class="filter-rail">
+  <div class="grp">
+    <span class="lbl">Período</span>
+    <div class="seg">
+      <button>30d</button>
+      <button>90d</button>
+      <button class="on">Quadrim.</button>
+      <button>12 meses</button>
+      <button>Mandato</button>
+      <button>Custom</button>
+    </div>
+  </div>
+  <div class="grp">
+    <span class="lbl">Compare</span>
+    <div class="seg">
+      <button class="on">Período anterior</button>
+      <button>Ano anterior</button>
+      <button>Nenhum</button>
+    </div>
+  </div>
+  <div class="grp">
+    <span class="lbl">Filtros</span>
+    <button class="pick has">Coordenação <span class="ct">2</span></button>
+    <button class="pick has">Tema <span class="ct">3</span></button>
+    <button class="pick">Responsável <span class="ar">▾</span></button>
+    <button class="pick">Bairro <span class="ar">▾</span></button>
+    <button class="pick">Status <span class="ar">▾</span></button>
+    <button class="pick">Origem <span class="ar">▾</span></button>
+  </div>
+  <div class="grp">
+    <button class="clear">× Limpar (5)</button>
+  </div>
+  <div class="saved-view">
+    <span class="ic">★</span> Visão atual: <strong>Mobilidade · 1Q26</strong> <span class="ar">▾</span>
+  </div>
+</div>
+
+<!-- Active filters chips -->
+<div class="active-filters">
+  <span class="lbl">Aplicado</span>
+  <span class="pill">Coord = Gabinete <button class="x">×</button></span>
+  <span class="pill">Coord = Jurídico <button class="x">×</button></span>
+  <span class="pill">Tema = Mobilidade <button class="x">×</button></span>
+  <span class="pill">Tema = Iluminação pública <button class="x">×</button></span>
+  <span class="pill">Tema = Coleta &amp; saneam. <button class="x">×</button></span>
+  <span class="right">242 demandas (de 342) no filtro atual</span>
+</div>
+
+<main class="canvas">
+
+  <!-- HERO METRICS · 5 KPIs com delta -->
+  <div class="metrics-strip">
+    <div class="metric">
+      <div class="k">Demandas no filtro <span class="arr">↗</span></div>
+      <div class="v">242</div>
+      <div class="delta"><span class="change up">+22%</span><span class="vs">vs 1Q/2025 (198)</span></div>
+    </div>
+    <div class="metric">
+      <div class="k">Em curso <span class="arr">↗</span></div>
+      <div class="v">98</div>
+      <div class="delta"><span class="change up">+8%</span><span class="vs">vs anterior</span></div>
+    </div>
+    <div class="metric">
+      <div class="k">Vencidas <span class="arr">↗</span></div>
+      <div class="v" style="color:var(--danger-600)">14</div>
+      <div class="delta"><span class="change down">+5</span><span class="vs">vs anterior</span></div>
+    </div>
+    <div class="metric">
+      <div class="k">Tempo médio (d) <span class="arr">↗</span></div>
+      <div class="v">17<span class="unit">d</span></div>
+      <div class="delta"><span class="change down">+2d</span><span class="vs">vs anterior</span></div>
+    </div>
+    <div class="metric">
+      <div class="k">Taxa devolutiva <span class="arr">↗</span></div>
+      <div class="v" style="color:var(--success-700)">89<span class="unit">%</span></div>
+      <div class="delta"><span class="change up">+4 p.p.</span><span class="vs">vs anterior</span></div>
+    </div>
+  </div>
+
+  <!-- LINHA 1 · Volume mensal (8) + Composição por canal (4) -->
+  <div class="grid">
+
+    <div class="panel col-8">
+      <div class="panel-head">
+        <h3>Volume mensal</h3>
+        <span class="ct">12 meses + maio parcial · 242 no filtro</span>
+        <div class="menu">
+          <div class="toggle">
+            <button class="on">Barras</button>
+            <button>Linha</button>
+          </div>
+          <button class="opt" title="opções">⋯</button>
+        </div>
+      </div>
+      <div class="bars-v">
+        <div class="col"><span class="v-num">38</span><div class="bar" style="height:38%"></div></div>
+        <div class="col"><span class="v-num">44</span><div class="bar" style="height:44%"></div></div>
+        <div class="col"><span class="v-num">48</span><div class="bar" style="height:48%"></div></div>
+        <div class="col"><span class="v-num">52</span><div class="bar" style="height:52%"></div></div>
+        <div class="col"><span class="v-num">56</span><div class="bar" style="height:56%"></div></div>
+        <div class="col"><span class="v-num">48</span><div class="bar" style="height:48%"></div></div>
+        <div class="col"><span class="v-num">58</span><div class="bar" style="height:58%"></div></div>
+        <div class="col cur"><span class="v-num">52</span><div class="bar" style="height:52%"></div></div>
+        <div class="col cur"><span class="v-num">71</span><div class="bar" style="height:71%"></div></div>
+        <div class="col cur"><span class="v-num">58</span><div class="bar" style="height:58%"></div></div>
+        <div class="col cur"><span class="v-num">61</span><div class="bar" style="height:61%"></div></div>
+        <div class="col cur partial"><span class="v-num">42<sup>*</sup></span><div class="bar" style="height:42%"></div></div>
+      </div>
+      <div class="bars-x">
+        <span class="l">mai</span><span class="l">jun</span><span class="l">jul</span><span class="l">ago</span><span class="l">set</span><span class="l">out</span><span class="l">nov</span>
+        <span class="l yr">jan/26</span><span class="l">fev</span><span class="l">mar</span><span class="l">abr</span><span class="l">mai*</span>
+      </div>
+    </div>
+
+    <div class="panel col-4">
+      <div class="panel-head">
+        <h3>Por canal de entrada</h3>
+        <span class="ct">242</span>
+        <div class="menu">
+          <div class="toggle"><button class="on">Donut</button><button>Tabela</button></div>
+        </div>
+      </div>
+      <div class="donut">
+        <svg viewBox="0 0 42 42">
+          <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="var(--surface-1)" stroke-width="6"/>
+          <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#2a5d8a" stroke-width="6"
+            stroke-dasharray="48 52" stroke-dashoffset="25"/>
+          <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#5a6b3a" stroke-width="6"
+            stroke-dasharray="20 80" stroke-dashoffset="77"/>
+          <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#8a3a1a" stroke-width="6"
+            stroke-dasharray="14 86" stroke-dashoffset="57"/>
+          <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#6a4f8a" stroke-width="6"
+            stroke-dasharray="10 90" stroke-dashoffset="43"/>
+          <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#5b5246" stroke-width="6"
+            stroke-dasharray="8 92" stroke-dashoffset="33"/>
+        </svg>
+        <div class="legend">
+          <div class="row"><span class="sw" style="background:#2a5d8a"></span><span class="nm">WhatsApp</span><span class="v">116</span><span class="pct">48%</span></div>
+          <div class="row"><span class="sw" style="background:#5a6b3a"></span><span class="nm">Presencial</span><span class="v">48</span><span class="pct">20%</span></div>
+          <div class="row"><span class="sw" style="background:#8a3a1a"></span><span class="nm">Telefone</span><span class="v">34</span><span class="pct">14%</span></div>
+          <div class="row"><span class="sw" style="background:#6a4f8a"></span><span class="nm">DM Instagram</span><span class="v">24</span><span class="pct">10%</span></div>
+          <div class="row"><span class="sw" style="background:#5b5246"></span><span class="nm">E-mail/outros</span><span class="v">20</span><span class="pct">8%</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LINHA 2 · Por tema (6) + Por bairro (6) -->
+  <div class="grid">
+
+    <div class="panel col-6">
+      <div class="panel-head">
+        <h3>Por tema</h3>
+        <span class="ct">9 temas no filtro</span>
+        <div class="menu">
+          <div class="toggle"><button class="on">Top</button><button>Todos</button></div>
+          <button class="opt">⋯</button>
+        </div>
+      </div>
+      <div class="hbars">
+        <div class="hbar"><span class="nm">Mobilidade urbana</span><span class="track"><span class="fill" style="width:84%;background:var(--tag-sky-fg)"></span></span><span class="pct">28%</span><span class="v">68</span></div>
+        <div class="hbar"><span class="nm">Saúde</span><span class="track"><span class="fill" style="width:66%;background:var(--tag-sage-fg)"></span></span><span class="pct">22%</span><span class="v">54</span></div>
+        <div class="hbar"><span class="nm">Coleta &amp; saneam.</span><span class="track"><span class="fill" style="width:51%;background:var(--tag-spice-fg)"></span></span><span class="pct">17%</span><span class="v">42</span></div>
+        <div class="hbar"><span class="nm">Educação</span><span class="track"><span class="fill" style="width:46%;background:var(--tag-iris-fg)"></span></span><span class="pct">16%</span><span class="v">38</span></div>
+        <div class="hbar"><span class="nm">Segurança</span><span class="track"><span class="fill" style="width:38%;background:var(--tag-gold-fg)"></span></span><span class="pct">13%</span><span class="v">31</span></div>
+        <div class="hbar"><span class="nm">Iluminação</span><span class="track"><span class="fill" style="width:34%;background:var(--tag-clay-fg)"></span></span><span class="pct">12%</span><span class="v">28</span></div>
+        <div class="hbar"><span class="nm">Urbanismo</span><span class="track"><span class="fill" style="width:24%;background:var(--tag-mist-fg)"></span></span><span class="pct">9%</span><span class="v">21</span></div>
+      </div>
+    </div>
+
+    <div class="panel col-6">
+      <div class="panel-head">
+        <h3>Por bairro</h3>
+        <span class="ct">28 bairros · top 8</span>
+        <div class="menu">
+          <div class="toggle"><button class="on">Top 8</button><button>Mapa</button></div>
+          <button class="opt">⋯</button>
+        </div>
+      </div>
+      <div class="hbars">
+        <div class="hbar"><span class="nm">Centro</span><span class="track"><span class="fill" style="width:96%;background:var(--primary)"></span></span><span class="pct">20%</span><span class="v">48</span></div>
+        <div class="hbar"><span class="nm">Jardim Camburi</span><span class="track"><span class="fill" style="width:84%;background:var(--primary)"></span></span><span class="pct">17%</span><span class="v">42</span></div>
+        <div class="hbar"><span class="nm">São Pedro</span><span class="track"><span class="fill" style="width:76%;background:var(--primary)"></span></span><span class="pct">16%</span><span class="v">38</span></div>
+        <div class="hbar"><span class="nm">Maruípe</span><span class="track"><span class="fill" style="width:62%;background:var(--primary)"></span></span><span class="pct">13%</span><span class="v">31</span></div>
+        <div class="hbar"><span class="nm">Jucutuquara</span><span class="track"><span class="fill" style="width:52%;background:var(--primary)"></span></span><span class="pct">11%</span><span class="v">26</span></div>
+        <div class="hbar"><span class="nm">Bento Ferreira</span><span class="track"><span class="fill" style="width:44%;background:var(--primary)"></span></span><span class="pct">9%</span><span class="v">22</span></div>
+        <div class="hbar"><span class="nm">Praia do Suá</span><span class="track"><span class="fill" style="width:36%;background:var(--primary)"></span></span><span class="pct">7%</span><span class="v">18</span></div>
+        <div class="hbar"><span class="nm">Goiabeiras</span><span class="track"><span class="fill" style="width:34%;background:var(--primary)"></span></span><span class="pct">7%</span><span class="v">17</span></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- LINHA 3 · Heatmap tema × bairro (12) -->
+  <div class="grid">
+    <div class="panel col-12">
+      <div class="panel-head">
+        <h3>Cruzamento · tema × bairro (top 7 × top 7)</h3>
+        <span class="ct">clique numa célula para filtrar</span>
+        <div class="menu">
+          <button class="btn-out" style="padding:3px 8px;font-size:9.5px">Transpor</button>
+          <button class="opt">⋯</button>
+        </div>
+      </div>
+      <div class="heat">
+        <span class="h"></span>
+        <span class="h">Centro</span><span class="h">J. Camburi</span><span class="h">S. Pedro</span><span class="h">Maruípe</span><span class="h">Jucutuq.</span><span class="h">B. Ferreira</span><span class="h">Praia Suá</span>
+
+        <span class="h row">Mobilidade</span>
+        <span class="c l3">12</span><span class="c l5">22</span><span class="c l2">8</span><span class="c l3">11</span><span class="c l2">7</span><span class="c l1">3</span><span class="c l2">5</span>
+
+        <span class="h row">Saúde</span>
+        <span class="c l2">8</span><span class="c l2">6</span><span class="c l5">18</span><span class="c l4">14</span><span class="c l1">2</span><span class="c l1">3</span><span class="c l1">3</span>
+
+        <span class="h row">Coleta &amp; saneam.</span>
+        <span class="c l3">11</span><span class="c l4">14</span><span class="c l1">4</span><span class="c l1">2</span><span class="c l1">2</span><span class="c l2">5</span><span class="c l1">4</span>
+
+        <span class="h row">Educação</span>
+        <span class="c l1">3</span><span class="c l1">2</span><span class="c l3">10</span><span class="c l2">7</span><span class="c l3">9</span><span class="c l2">5</span><span class="c l1">2</span>
+
+        <span class="h row">Segurança</span>
+        <span class="c l3">9</span><span class="c l2">4</span><span class="c l1">3</span><span class="c l2">5</span><span class="c l2">5</span><span class="c l1">3</span><span class="c l1">2</span>
+
+        <span class="h row">Iluminação</span>
+        <span class="c l5">17</span><span class="c l2">5</span><span class="c l1">2</span><span class="c l1">2</span><span class="c l1">1</span><span class="c l1">1</span><span class="c l1">0</span>
+
+        <span class="h row">Urbanismo</span>
+        <span class="c l2">5</span><span class="c l1">3</span><span class="c l1">2</span><span class="c l1">3</span><span class="c l1">2</span><span class="c l1">3</span><span class="c l1">3</span>
+      </div>
+      <div class="heat-legend">
+        <span>Volume</span>
+        <span class="scale">
+          <span style="background:#f4ede0"></span><span style="background:#e8dac1"></span><span style="background:#d3bf94"></span><span style="background:#b39661"></span><span style="background:#7a5e2e"></span>
+        </span>
+        <span>0 → 22 demandas</span>
+        <span style="margin-left:auto">Leitura quente: <strong style="color:var(--ink-strong)">Iluminação/Centro (17)</strong> · <strong style="color:var(--ink-strong)">Mobilidade/J.Camburi (22)</strong> · <strong style="color:var(--ink-strong)">Saúde/São Pedro (18)</strong></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- LINHA 4 · Top pessoas (6) + Por responsável (6) -->
+  <div class="grid">
+
+    <div class="panel col-6">
+      <div class="panel-head">
+        <h3>Top pessoas — mais demandas</h3>
+        <span class="ct">10 / 847</span>
+        <div class="menu">
+          <div class="toggle"><button class="on">Pessoas</button><button>Entidades</button></div>
+          <button class="opt">⋯</button>
+        </div>
+      </div>
+      <table class="dense">
+        <thead><tr><th>Pessoa</th><th>Bairro</th><th class="r">Q1</th><th class="r">12m</th><th class="r">Total</th></tr></thead>
+        <tbody>
+          <tr><td class="nm">Sebastiana Oliveira</td><td class="meta">Centro</td><td class="v">4</td><td class="v">8</td><td class="v">14</td></tr>
+          <tr><td class="nm">Pe. Antônio Souza</td><td class="meta">São Pedro</td><td class="v">3</td><td class="v">7</td><td class="v">12</td></tr>
+          <tr><td class="nm">Marta Vieira</td><td class="meta">Jucutuquara</td><td class="v">3</td><td class="v">5</td><td class="v">9</td></tr>
+          <tr><td class="nm">Joana Lopes</td><td class="meta">B. Ferreira</td><td class="v">3</td><td class="v">5</td><td class="v">8</td></tr>
+          <tr><td class="nm">Cláudia Bonfim</td><td class="meta">J. Camburi</td><td class="v">2</td><td class="v">3</td><td class="v">7</td></tr>
+          <tr><td class="nm">Ivete Magalhães</td><td class="meta">Centro</td><td class="v">2</td><td class="v">3</td><td class="v">5</td></tr>
+          <tr><td class="nm">Rita Soares</td><td class="meta">Maruípe</td><td class="v">2</td><td class="v">4</td><td class="v">5</td></tr>
+          <tr><td class="nm">Antônio Oliveira</td><td class="meta">São Pedro</td><td class="v">2</td><td class="v">3</td><td class="v">4</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="panel col-6">
+      <div class="panel-head">
+        <h3>Por responsável — carga e SLA</h3>
+        <span class="ct">4 ativos</span>
+        <div class="menu">
+          <button class="opt">⋯</button>
+        </div>
+      </div>
+      <table class="dense">
+        <thead><tr><th>Resp.</th><th class="r">Em aberto</th><th class="r">No filtro</th><th class="r">T. médio</th><th class="r">% no SLA</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td class="nm">Maria Coelho</td><td class="v">23</td><td class="v">87</td><td class="v">14d</td><td class="v">92%</td><td><span class="badge-mini ok">Saudável</span></td></tr>
+          <tr><td class="nm">Bia Ferreira</td><td class="v">31</td><td class="v">73</td><td class="v">21d</td><td class="v">74%</td><td><span class="badge-mini bad">Sobrecarga</span></td></tr>
+          <tr><td class="nm">Lucas Almeida</td><td class="v">18</td><td class="v">61</td><td class="v">16d</td><td class="v">88%</td><td><span class="badge-mini ok">Saudável</span></td></tr>
+          <tr><td class="nm">Pedro Trindade</td><td class="v">12</td><td class="v">34</td><td class="v">12d</td><td class="v">94%</td><td><span class="badge-mini warn">Híbrido</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- LINHA 5 · Encaminhamentos por órgão -->
+  <div class="grid">
+    <div class="panel col-12">
+      <div class="panel-head">
+        <h3>Encaminhamentos por órgão externo</h3>
+        <span class="ct">97 ofícios · tempo médio agregado 11d</span>
+        <div class="menu">
+          <div class="toggle"><button class="on">Tabela</button><button>Sankey</button></div>
+          <button class="opt">⋯</button>
+        </div>
+      </div>
+      <table class="dense">
+        <thead><tr><th>Órgão</th><th class="r">Ofícios</th><th class="r">Em aberto</th><th class="r">T. médio resp.</th><th class="r">Vencidos</th><th class="r">% resp. úteis</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td class="nm">SEMOB <span class="meta">/ Mobilidade</span></td><td class="v">21</td><td class="v">3</td><td class="v">9d</td><td class="v">0</td><td class="v">86%</td><td><span class="badge-mini ok">Boa</span></td></tr>
+          <tr><td class="nm">SEMUS <span class="meta">/ Saúde</span></td><td class="v">18</td><td class="v">4</td><td class="v">7d</td><td class="v">1</td><td class="v">78%</td><td><span class="badge-mini ok">Boa</span></td></tr>
+          <tr><td class="nm">SEDU <span class="meta">/ Educação</span></td><td class="v">14</td><td class="v">5</td><td class="v">19d</td><td class="v">3</td><td class="v">67%</td><td><span class="badge-mini bad">Atenção</span></td></tr>
+          <tr><td class="nm">EDP-ES <span class="meta">/ Energia</span></td><td class="v">11</td><td class="v">2</td><td class="v">8d</td><td class="v">0</td><td class="v">73%</td><td><span class="badge-mini ok">Boa</span></td></tr>
+          <tr><td class="nm">SEMSE <span class="meta">/ Serv. Urb.</span></td><td class="v">9</td><td class="v">3</td><td class="v">12d</td><td class="v">1</td><td class="v">88%</td><td><span class="badge-mini ok">Boa</span></td></tr>
+          <tr><td class="nm">CESAN <span class="meta">/ Saneamento</span></td><td class="v">8</td><td class="v">4</td><td class="v">24d</td><td class="v">2</td><td class="v">50%</td><td><span class="badge-mini bad">Atenção</span></td></tr>
+          <tr><td class="nm">PMV · Gabinete</td><td class="v">7</td><td class="v">1</td><td class="v">10d</td><td class="v">0</td><td class="v">71%</td><td><span class="badge-mini warn">Neutro</span></td></tr>
+          <tr><td class="nm" style="color:var(--ink-mute);font-style:italic">+9 órgãos com volume &lt;5</td><td class="v">9</td><td class="v">2</td><td class="v">—</td><td class="v">0</td><td class="v">—</td><td><span class="badge-mini warn">—</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- DRILLDOWN · lista de demandas que compõem o filtro -->
+  <div class="drilldown">
+    <div class="dh">
+      <h3>Demandas no filtro atual</h3>
+      <span class="ct"><strong>242 resultados</strong> · ordenadas por atualização recente</span>
+      <div class="actions">
+        <button class="btn-out">↓ CSV (242)</button>
+        <button class="btn-out">Abrir na Lista →</button>
+      </div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:120px">Nº</th>
+          <th>Título</th>
+          <th style="width:130px">Bairro</th>
+          <th style="width:120px">Tema</th>
+          <th style="width:90px">Resp.</th>
+          <th style="width:130px">Status</th>
+          <th class="r" style="width:90px">Atualizada</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="num"><span class="y">MPD-2026-</span>00342</td>
+          <td class="ttl">Iluminação na Rua Antônio Ataíde — Praça Costa Pereira</td>
+          <td>Centro</td>
+          <td>Iluminação</td>
+          <td>MC</td>
+          <td><span class="badge andam"><span class="dot"></span>Em andamento</span></td>
+          <td class="r">há 2h</td>
+        </tr>
+        <tr>
+          <td class="num"><span class="y">MPD-2026-</span>00339</td>
+          <td class="ttl">Linha 502 — reforço no horário escolar</td>
+          <td>Maruípe</td>
+          <td>Mobilidade</td>
+          <td>LA</td>
+          <td><span class="badge agresp"><span class="dot"></span>Aguard. resp.</span></td>
+          <td class="r" style="color:var(--danger-600);font-weight:600">vencida 7d</td>
+        </tr>
+        <tr>
+          <td class="num"><span class="y">MPD-2026-</span>00336</td>
+          <td class="ttl">Coleta seletiva em Jardim Camburi — irregularidade</td>
+          <td>J. Camburi</td>
+          <td>Coleta</td>
+          <td>BF</td>
+          <td><span class="badge andam"><span class="dot"></span>Em andamento</span></td>
+          <td class="r">há 5h</td>
+        </tr>
+        <tr>
+          <td class="num"><span class="y">MPD-2026-</span>00334</td>
+          <td class="ttl">Quadra esportiva São Pedro — cobertura</td>
+          <td>São Pedro</td>
+          <td>Urbanismo</td>
+          <td>BF</td>
+          <td><span class="badge agresp"><span class="dot"></span>Aguard. resp.</span></td>
+          <td class="r">há 1d</td>
+        </tr>
+        <tr>
+          <td class="num"><span class="y">MPD-2026-</span>00329</td>
+          <td class="ttl">Reforma do CMEI Maruípe — apoio à reabertura</td>
+          <td>Maruípe</td>
+          <td>Educação</td>
+          <td>LA</td>
+          <td><span class="badge conc"><span class="dot"></span>Concluída</span></td>
+          <td class="r">ontem 15h</td>
+        </tr>
+        <tr>
+          <td class="num"><span class="y">MPD-2026-</span>00328</td>
+          <td class="ttl">Fila pediátrica SUS sem resposta — UPA São Pedro</td>
+          <td>São Pedro</td>
+          <td>Saúde</td>
+          <td>MC</td>
+          <td><span class="badge agresp"><span class="dot"></span>Aguard. resp.</span></td>
+          <td class="r" style="color:var(--danger-600);font-weight:600">vencida 3d</td>
+        </tr>
+        <tr>
+          <td class="num"><span class="y">MPD-2026-</span>00321</td>
+          <td class="ttl">Comerciantes Beira-Mar — pedido de pauta com a SEDUR</td>
+          <td>Praia do Suá</td>
+          <td>Urbanismo</td>
+          <td>MC</td>
+          <td><span class="badge andam"><span class="dot"></span>Em andamento</span></td>
+          <td class="r">há 3d</td>
+        </tr>
+        <tr>
+          <td class="num"><span class="y">MPD-2026-</span>00318</td>
+          <td class="ttl">Buracos na Rua dos Andradas — União Bemfica</td>
+          <td>Centro</td>
+          <td>Mobilidade</td>
+          <td>LA</td>
+          <td><span class="badge andam"><span class="dot"></span>Em andamento</span></td>
+          <td class="r">há 4d</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="foot-note">Mostrando 8 de 242 resultados · ordenado por atualização ↓ · ver todos na <a href="lista-demandas.html" style="color:var(--primary)">lista completa</a></p>
+
+</main>
+
+</body>
+</html>

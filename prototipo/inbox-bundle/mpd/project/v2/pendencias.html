@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>MPD · Pendências</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  body { background: var(--surface-0); padding-bottom: 80px; }
+  .topbar { background: var(--surface-2); border-bottom: 1px solid var(--rule); position: sticky; top: 0; z-index: var(--z-sticky); }
+  .topbar-inner { max-width: 1440px; margin: 0 auto; padding: 0 28px; display: grid; grid-template-columns: auto 1fr auto; gap: 24px; align-items: center; min-height: 56px; }
+  .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink-strong); }
+  .brand .mark { width: 28px; height: 28px; background: var(--primary); color: var(--primary-fg); display: grid; place-items: center; font-family: var(--font-mono); font-weight: 700; font-size: 12px; letter-spacing: 0.04em; }
+  .brand .name { font-family: var(--font-mono); font-weight: 600; font-size: 14px; letter-spacing: 0.04em; }
+  .brand .tag { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; color: var(--ink-mute); text-transform: uppercase; margin-left: 6px; padding-left: 10px; border-left: 1px solid var(--rule-strong); }
+  .topbar-right { display: flex; align-items: center; gap: 4px; }
+  .topbar-right nav a { text-decoration: none; color: var(--ink-soft); font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em; padding: 8px 12px; position: relative; display: inline-flex; align-items: center; gap: 6px; }
+  .topbar-right nav a.current { color: var(--primary); font-weight: 600; }
+  .topbar-right nav a.current::after { content: ""; position: absolute; bottom: -1px; left: 12px; right: 12px; height: 2px; background: var(--primary); }
+  .topbar-right nav a .badge-count { font-family: var(--font-mono); font-size: 10px; background: var(--ink-200); color: var(--ink-800); padding: 1px 6px; font-weight: 600; }
+  .topbar-right nav a .badge-count.alert { background: var(--danger-500); color: #fff; }
+  .topbar-right .me { display: flex; align-items: center; gap: 10px; padding: 4px 10px; }
+  .topbar-right .me .av { width: 28px; height: 28px; background: var(--navy-100); color: var(--navy-700); border-radius: var(--radius-full); display: grid; place-items: center; font-family: var(--font-mono); font-size: 11px; font-weight: 700; }
+  .topbar-right .me .who { font-family: var(--font-mono); font-size: 12px; color: var(--ink); font-weight: 600; letter-spacing: 0.02em; }
+  .topbar-right .me .role { display: block; font-family: var(--font-mono); font-size: 10px; color: var(--ink-mute); margin-top: 1px; letter-spacing: 0.04em; text-transform: uppercase; }
+
+  .page { max-width: 1280px; margin: 0 auto; padding: 32px 28px 60px; }
+
+  /* Page header */
+  .head {
+    border-top: 6px solid var(--primary);
+    background: var(--surface-2);
+    padding: 22px 28px 20px;
+    margin-bottom: 24px;
+    display: grid; grid-template-columns: 1fr auto; gap: 18px; align-items: end;
+  }
+  .head h1 {
+    font-family: var(--font-display); font-weight: 600;
+    font-size: 34px; line-height: 1.1; letter-spacing: -0.025em;
+    color: var(--ink); margin: 0;
+  }
+  .head h1 .count { font-family: var(--font-mono); font-size: 14px; color: var(--ink-mute); font-weight: 400; margin-left: 12px; vertical-align: 4px; }
+  .head h1 .count strong { color: var(--danger-600); font-weight: 700; }
+  .head .sub {
+    font-family: var(--font-serif); font-style: italic;
+    font-size: 14.5px; color: var(--ink-mute);
+    margin: 6px 0 0; max-width: 56ch; line-height: 1.5;
+  }
+
+  /* Seção temporal */
+  .horizon { margin-bottom: 28px; }
+  .horizon .h {
+    display: flex; align-items: baseline; gap: 14px;
+    padding: 10px 14px;
+    margin-bottom: 0;
+    border-left: 4px solid var(--rule);
+    background: var(--surface-2);
+    border-top: 1px solid var(--rule);
+    border-right: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+  }
+  .horizon.urg .h { border-left-color: var(--danger-500); background: var(--danger-50); }
+  .horizon.hoje .h { border-left-color: var(--warning-500); }
+  .horizon.semana .h { border-left-color: var(--primary); }
+  .horizon .h h2 {
+    font-family: var(--font-mono);
+    font-size: 11.5px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ink); margin: 0; font-weight: 700;
+  }
+  .horizon.urg .h h2 { color: var(--danger-700); }
+  .horizon .h .ct {
+    font-family: var(--font-mono);
+    font-size: 11px; color: var(--ink-mute);
+    letter-spacing: 0.04em;
+  }
+  .horizon.urg .h .ct { color: var(--danger-600); font-weight: 600; }
+
+  .horizon .items {
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    border-top: 0;
+    border-left: 4px solid transparent;
+    margin-left: 0;
+  }
+  .horizon.urg .items { border-left-color: var(--danger-500); }
+  .horizon.hoje .items { border-left-color: var(--warning-500); }
+  .horizon.semana .items { border-left-color: var(--primary); }
+
+  /* Item de pendência */
+  .it {
+    display: grid;
+    grid-template-columns: 90px 1fr auto auto;
+    gap: 18px;
+    padding: 14px 22px;
+    border-bottom: 1px solid var(--rule);
+    align-items: center;
+  }
+  .it:last-child { border-bottom: 0; }
+  .it:hover { background: var(--surface-3); }
+  .it .type {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--ink-mute);
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .it .type::before { content: ""; width: 7px; height: 7px; background: currentColor; }
+  .it.dev .type { color: var(--success-700); }
+  .it.reu .type { color: var(--primary); }
+  .it.lig .type { color: var(--info-600); }
+  .it.encam .type { color: var(--danger-600); }
+
+  .it .body .ttl {
+    font-family: var(--font-serif);
+    font-size: 15px; color: var(--ink); margin: 0 0 4px;
+    font-weight: 500; line-height: 1.3;
+  }
+  .it .body .meta {
+    font-family: var(--font-mono);
+    font-size: 11px; color: var(--ink-mute);
+    letter-spacing: 0.02em;
+  }
+  .it .body .meta .demanda { color: var(--primary); font-weight: 600; }
+  .it .body .meta .sep { color: var(--rule-strong); margin: 0 6px; }
+
+  .it .age {
+    font-family: var(--font-mono);
+    font-size: 11px; color: var(--ink-mute);
+    text-align: right;
+    letter-spacing: 0.02em;
+  }
+  .it .age .d {
+    display: block; color: var(--ink); font-weight: 700;
+    font-size: 12.5px;
+  }
+  .it.late .age .d { color: var(--danger-600); }
+  .it.late .age .extra { color: var(--danger-600); font-weight: 600; }
+
+  .it .actions { display: flex; gap: 6px; }
+  .it .btn-sm {
+    background: var(--surface-3);
+    border: 1px solid var(--rule-strong);
+    color: var(--ink-soft);
+    font-family: var(--font-mono); font-size: 10.5px;
+    font-weight: 600; padding: 5px 10px;
+    letter-spacing: 0.04em; text-transform: uppercase;
+    cursor: pointer;
+  }
+  .it .btn-sm.primary { background: var(--primary); color: var(--primary-fg); border-color: var(--primary); }
+  .it .btn-sm.danger { color: var(--danger-600); border-color: var(--danger-100); }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="design-system.html"><span class="mark">M</span><span class="name">MPD</span><span class="tag">Gabinete Demo</span></a>
+    <div></div>
+    <div class="topbar-right">
+      <nav>
+        <a href="home.html">Início</a>
+        <a href="inbox.html">Inbox <span class="badge-count">12</span></a>
+        <a href="#" class="current">Pendências <span class="badge-count alert">3</span></a>
+        <a href="lista-demandas.html">Demandas</a>
+        <a href="#">Pessoas</a>
+        <a href="analise.html">Análise</a>
+      </nav>
+      <div class="me">
+        <div class="av">MC</div>
+        <div><div class="who">Maria Coelho</div><span class="role">Coordenadora</span></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="page">
+
+  <header class="head">
+    <div>
+      <h1>Minhas pendências <span class="count"><strong>3 vencidas</strong> · 8 no total</span></h1>
+      <p class="sub">Devolutivas, reuniões, ofícios e prazos com hora marcada — organizados por horizonte temporal. Para captura rápida de notas sem agenda, use o <a href="inbox.html" style="color:var(--primary);font-style:normal;font-weight:600">Inbox</a>.</p>
+    </div>
+  </header>
+
+  <!-- Vencidas -->
+  <div class="horizon urg">
+    <div class="h"><h2>Vencidas</h2><span class="ct">3 itens · escalonamento recomendado</span></div>
+    <div class="items">
+      <div class="it dev late">
+        <div class="type">Devolutiva</div>
+        <div class="body">
+          <p class="ttl">Retornar ao Conselho de Pais EMEF Eunice sobre linha 502</p>
+          <div class="meta">
+            <span class="demanda">MPD-2026-00339</span>
+            <span class="sep">·</span>
+            <span>Lucas Almeida</span>
+          </div>
+        </div>
+        <div class="age"><span class="d">10/05/26</span><span class="extra">vencida há 7 dias</span></div>
+        <div class="actions">
+          <button class="btn-sm primary">Marcar realizada</button>
+          <button class="btn-sm">Adiar</button>
+        </div>
+      </div>
+      <div class="it encam late">
+        <div class="type">Ofício</div>
+        <div class="body">
+          <p class="ttl">Ofício 0118/2026 → SEDU sobre fila SUS sem resposta</p>
+          <div class="meta">
+            <span class="demanda">MPD-2026-00328</span>
+            <span class="sep">·</span>
+            <span>Maria Coelho</span>
+          </div>
+        </div>
+        <div class="age"><span class="d">14/05/26</span><span class="extra">vencido há 3 dias</span></div>
+        <div class="actions">
+          <button class="btn-sm primary">Of. cobrança</button>
+          <button class="btn-sm">Encerrar</button>
+        </div>
+      </div>
+      <div class="it dev late">
+        <div class="type">Devolutiva</div>
+        <div class="body">
+          <p class="ttl">Devolutiva pendente · Comerciantes Beira-Mar</p>
+          <div class="meta">
+            <span class="demanda">MPD-2026-00321</span>
+            <span class="sep">·</span>
+            <span>Maria Coelho</span>
+          </div>
+        </div>
+        <div class="age"><span class="d">12/05/26</span><span class="extra">vencida há 5 dias</span></div>
+        <div class="actions">
+          <button class="btn-sm primary">Marcar realizada</button>
+          <button class="btn-sm">Adiar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hoje -->
+  <div class="horizon hoje">
+    <div class="h"><h2>Hoje · 17/05</h2><span class="ct">2 itens</span></div>
+    <div class="items">
+      <div class="it dev">
+        <div class="type">Devolutiva</div>
+        <div class="body">
+          <p class="ttl">Devolutiva Sebastiana · iluminação Antônio Ataíde</p>
+          <div class="meta">
+            <span class="demanda">MPD-2026-00342</span>
+            <span class="sep">·</span>
+            <span>14:30 · WhatsApp</span>
+          </div>
+        </div>
+        <div class="age"><span class="d">14:30</span><span class="extra">em 22 min</span></div>
+        <div class="actions">
+          <button class="btn-sm primary">Registrar</button>
+          <button class="btn-sm">Adiar</button>
+        </div>
+      </div>
+      <div class="it reu">
+        <div class="type">Reunião</div>
+        <div class="body">
+          <p class="ttl">Pauta mensal · Assoc. Moradores Centro</p>
+          <div class="meta">
+            <span>16:00 · sede AM Centro</span>
+            <span class="sep">·</span>
+            <span>com Pedro e Bia</span>
+          </div>
+        </div>
+        <div class="age"><span class="d">16:00</span><span class="extra">em 1h 52min</span></div>
+        <div class="actions">
+          <button class="btn-sm primary">Abrir entidade</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Esta semana -->
+  <div class="horizon semana">
+    <div class="h"><h2>Esta semana</h2><span class="ct">3 itens · 18–24/05</span></div>
+    <div class="items">
+      <div class="it encam">
+        <div class="type">Prazo</div>
+        <div class="body">
+          <p class="ttl">Of. 0138/2026 → SEDU · prazo de resposta amanhã</p>
+          <div class="meta">
+            <span class="demanda">MPD-2026-00341</span>
+            <span class="sep">·</span>
+            <span>Bia Ferreira</span>
+          </div>
+        </div>
+        <div class="age"><span class="d">18/05</span><span class="extra">amanhã 11:00</span></div>
+        <div class="actions">
+          <button class="btn-sm">Abrir ofício</button>
+        </div>
+      </div>
+      <div class="it reu">
+        <div class="type">Visita</div>
+        <div class="body">
+          <p class="ttl">Vistoria com Sr. Antônio · Rua Antônio Ataíde</p>
+          <div class="meta">
+            <span class="demanda">MPD-2026-00342</span>
+            <span class="sep">·</span>
+            <span>19/05 10:00 · com Pedro</span>
+          </div>
+        </div>
+        <div class="age"><span class="d">19/05</span><span class="extra">em 2 dias</span></div>
+        <div class="actions">
+          <button class="btn-sm">Abrir caso</button>
+        </div>
+      </div>
+      <div class="it lig">
+        <div class="type">Reunião</div>
+        <div class="body">
+          <p class="ttl">Lia Garcia · SEMUS sobre edital de pediatria</p>
+          <div class="meta">
+            <span class="demanda">MPD-2026-00343</span>
+            <span class="sep">·</span>
+            <span>22/05 14:00 · SEMUS</span>
+          </div>
+        </div>
+        <div class="age"><span class="d">22/05</span><span class="extra">em 5 dias</span></div>
+        <div class="actions">
+          <button class="btn-sm">Abrir caso</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+</body>
+</html>

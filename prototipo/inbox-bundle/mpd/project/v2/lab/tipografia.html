@@ -1,0 +1,689 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>MPD · Lab tipografia · qual display?</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="../tokens.css">
+
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&family=Geist+Mono:wght@400;500;600;700&family=Funnel+Display:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400&family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700&family=DM+Serif+Display&display=swap" rel="stylesheet">
+
+<style>
+  body { background: var(--surface-0); padding-bottom: 80px; }
+
+  /* Header */
+  .lab-bar {
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--rule);
+    padding: 14px 32px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; position: sticky; top: 0; z-index: 50;
+  }
+  .lab-bar .brand {
+    display: flex; align-items: center; gap: 12px;
+    font-family: var(--font-sans); font-weight: 600;
+  }
+  .lab-bar .brand .mark {
+    width: 28px; height: 28px;
+    background: var(--primary); color: var(--primary-fg);
+    display: grid; place-items: center;
+    font-family: 'Geist Mono', monospace; font-weight: 700; font-size: 12px;
+  }
+  .lab-bar .tag {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px; letter-spacing: 0.08em;
+    text-transform: uppercase; padding: 3px 8px;
+    background: var(--warning-50); color: var(--warning-700);
+    border: 1px solid var(--warning-500);
+  }
+  .lab-bar nav a {
+    font-family: 'Geist Mono', monospace; font-size: 11px;
+    color: var(--ink-mute); letter-spacing: 0.06em;
+    text-transform: uppercase; text-decoration: none;
+    padding: 5px 10px; border: 1px solid var(--rule-strong);
+  }
+
+  /* Intro / progress tracker */
+  .intro {
+    max-width: 1440px; margin: 0 auto;
+    padding: 48px 32px 0;
+  }
+  .intro .kicker {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--warning-700);
+    font-weight: 700; margin-bottom: 18px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .intro .kicker::after {
+    content: ""; flex: 1; height: 1px;
+    background: var(--rule-strong); max-width: 160px;
+  }
+  .intro h1 {
+    font-family: 'Source Serif 4', serif; font-weight: 400;
+    font-size: var(--text-5xl); line-height: 1.1;
+    letter-spacing: -0.02em; color: var(--ink);
+    margin: 0 0 16px; max-width: 26ch;
+  }
+  .intro h1 em { font-style: italic; color: var(--primary); }
+  .intro .lede {
+    font-family: 'Source Serif 4', serif; font-size: 17px;
+    line-height: 1.65; color: var(--ink-body);
+    max-width: 66ch; margin: 0 0 32px;
+  }
+  .intro .lede strong { color: var(--ink); font-weight: 600; }
+
+  /* Progress tracker — o que está decidido até agora */
+  .progress {
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    padding: 20px 24px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 18px;
+    margin-bottom: 48px;
+  }
+  .progress .col {
+    border-left: 3px solid var(--rule);
+    padding-left: 14px;
+  }
+  .progress .col.locked { border-left-color: var(--success-500); }
+  .progress .col.open { border-left-color: var(--warning-500); }
+  .progress .col .lbl {
+    font-family: 'Geist Mono', monospace;
+    font-size: 9.5px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--ink-mute);
+    font-weight: 700; margin-bottom: 4px;
+  }
+  .progress .col.locked .lbl { color: var(--success-700); }
+  .progress .col.open .lbl { color: var(--warning-700); }
+  .progress .col .role {
+    font-family: var(--font-sans);
+    font-size: 13px; font-weight: 600;
+    color: var(--ink); margin-bottom: 6px;
+  }
+  .progress .col .fam {
+    font-family: 'Source Serif 4', serif;
+    font-size: 14.5px; font-style: italic;
+    color: var(--ink-body); line-height: 1.4;
+  }
+  .progress .col .fam strong { color: var(--ink); font-style: normal; font-weight: 600; }
+  .progress .col .status {
+    margin-top: 6px;
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px; letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .progress .col.locked .status { color: var(--success-700); }
+  .progress .col.open .status { color: var(--warning-700); }
+
+  /* Grid de display options */
+  .grid {
+    max-width: 1640px; margin: 0 auto;
+    padding: 0 32px 60px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 28px;
+  }
+  @media (min-width: 1800px) {
+    .grid { grid-template-columns: repeat(4, 1fr); }
+  }
+  .variant {
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    overflow: hidden;
+  }
+  .variant .v-head {
+    padding: 22px 24px 18px;
+    border-bottom: 1px solid var(--rule);
+    background: linear-gradient(180deg, var(--surface-3), var(--surface-2));
+  }
+  .variant .v-head .marker {
+    display: inline-block;
+    font-family: 'Geist Mono', monospace;
+    font-size: 10.5px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--primary);
+    font-weight: 700; margin-bottom: 10px;
+    padding: 2px 8px;
+    border: 1.5px solid var(--primary);
+  }
+  .variant .v-head .name {
+    font-family: 'Source Serif 4', serif;
+    font-weight: 500; font-size: 24px;
+    line-height: 1.15; letter-spacing: -0.01em;
+    color: var(--ink); margin: 0 0 4px;
+  }
+  .variant .v-head .foundry {
+    font-family: 'Source Serif 4', serif; font-style: italic;
+    font-size: 14px; color: var(--ink-mute);
+    margin: 0 0 12px;
+  }
+  .variant .v-head .why {
+    font-family: 'Source Serif 4', serif;
+    font-size: 14px; line-height: 1.55;
+    color: var(--ink-body); margin: 8px 0 0;
+  }
+  .variant .v-head .why strong { color: var(--ink); font-weight: 600; }
+  .variant .v-head .why .pro,
+  .variant .v-head .why .con {
+    display: inline-block;
+    font-family: 'Geist Mono', monospace;
+    font-size: 9.5px; letter-spacing: 0.1em;
+    text-transform: uppercase; font-weight: 700;
+    padding: 1px 6px; margin-right: 4px;
+  }
+  .variant .v-head .why .pro {
+    color: var(--success-700);
+    background: var(--success-50);
+    border: 1px solid var(--success-500);
+  }
+  .variant .v-head .why .con {
+    color: var(--danger-600);
+    background: var(--danger-50);
+    border: 1px solid var(--danger-500);
+  }
+
+  /* Demo styles — todos compartilham as MESMAS regras de body/UI/mono */
+  .demo { padding: 0; }
+  .demo section {
+    padding: 18px 24px;
+    border-top: 1px solid var(--rule);
+  }
+  .demo section:first-child { border-top: 0; }
+  .demo .lbl {
+    font-family: 'Geist Mono', monospace;
+    font-size: 9.5px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--ink-mute);
+    font-weight: 700; margin-bottom: 10px;
+  }
+
+  /* SHARED em todas as variantes — confirma a parte decidida */
+  .demo .meta-tela {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px; letter-spacing: 0.04em;
+    text-transform: uppercase; color: var(--ink-mute);
+    font-variant-numeric: tabular-nums;
+  }
+  .demo .meta-tela .demanda {
+    color: var(--primary); font-weight: 700;
+  }
+  .demo .relato {
+    font-family: 'Source Serif 4', serif;
+    font-size: 16px; line-height: 1.65;
+    color: var(--ink-body); margin: 0;
+    font-variation-settings: 'opsz' 18;
+  }
+  .demo .relato strong { color: var(--ink); font-weight: 600; }
+  .demo .ui-label {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10.5px; font-weight: 600;
+    color: var(--ink-mute); letter-spacing: 0.06em;
+    text-transform: uppercase; margin-bottom: 6px;
+  }
+  .demo .ui-input {
+    width: 100%; background: var(--surface-3);
+    border: 1px solid var(--rule-strong);
+    padding: 8px 11px;
+    font-family: 'Geist Mono', monospace;
+    font-size: 13px; color: var(--ink);
+    font-weight: 500; outline: 0;
+  }
+  .demo .ui-btn-row { display: flex; gap: 8px; margin-top: 12px; }
+  .demo .ui-btn {
+    padding: 8px 14px;
+    font-family: 'Geist Mono', monospace;
+    font-size: 12px; font-weight: 600;
+    letter-spacing: 0.04em; text-transform: uppercase;
+    background: var(--primary); color: var(--primary-fg);
+    border: 1px solid var(--primary); cursor: pointer;
+  }
+  .demo .ui-btn.sec {
+    background: var(--surface-3); color: var(--ink);
+    border-color: var(--rule-strong);
+  }
+  .demo .stamp {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 8px 4px;
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    border: 1.5px solid currentColor; line-height: 1.2;
+  }
+  .demo .stamp .dot {
+    width: 6px; height: 6px; background: currentColor;
+    border-radius: 50%; flex: none;
+  }
+  .demo .stamp.s-andam  { color: var(--st-andam-fg);  background: var(--st-andam-bg); }
+  .demo .stamp.s-conc   { color: var(--st-conc-fg);   background: var(--st-conc-bg); }
+  .demo .stamp.s-agresp { color: var(--st-agresp-fg); background: var(--st-agresp-bg); }
+  .demo .stamp-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .demo .tl-row {
+    display: grid; grid-template-columns: 60px 1fr; gap: 14px;
+    padding: 10px 0; border-top: 1px solid var(--rule);
+  }
+  .demo .tl-row:first-child { border-top: 0; padding-top: 0; }
+  .demo .tl-when {
+    text-align: right;
+    font-family: 'Geist Mono', monospace;
+    font-size: 10.5px; color: var(--ink-mute);
+    font-variant-numeric: tabular-nums; line-height: 1.5;
+  }
+  .demo .tl-when .d {
+    display: block; font-weight: 700;
+    color: var(--primary); font-size: 12px;
+  }
+  .demo .tl-type {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px; font-weight: 600;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--ink-mute); margin-bottom: 4px;
+  }
+  .demo .tl-body {
+    font-family: 'Source Serif 4', serif;
+    font-size: 13.5px; line-height: 1.55;
+    color: var(--ink-body); margin: 0;
+  }
+  .demo .id-row {
+    font-family: 'Geist Mono', monospace;
+    font-size: 13.5px; font-variant-numeric: tabular-nums;
+    font-weight: 500;
+  }
+  .demo .id-row .y { color: var(--ink-mute); }
+  .demo .id-row .seq { color: var(--primary); font-weight: 700; }
+  .demo table.mini {
+    width: 100%; border-collapse: collapse;
+  }
+  .demo table.mini thead th {
+    text-align: left; background: var(--surface-2);
+    padding: 8px 10px;
+    font-family: 'Geist Mono', monospace;
+    font-size: 9.5px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--ink-mute);
+    font-weight: 700;
+    border-bottom: 2px solid var(--rule-strong);
+  }
+  .demo table.mini tbody td {
+    padding: 10px;
+    border-bottom: 1px solid var(--rule);
+    color: var(--ink-body);
+    font-size: 12.5px;
+    vertical-align: middle;
+  }
+  .demo table.mini tbody td:first-child {
+    font-family: 'Geist Mono', monospace;
+    font-size: 12px; color: var(--primary);
+    font-weight: 700; white-space: nowrap;
+  }
+  .demo table.mini tbody td:nth-child(2) {
+    font-family: 'Source Serif 4', serif;
+    font-size: 13px; color: var(--ink);
+    font-weight: 500; line-height: 1.3;
+  }
+
+  /* ONLY DIFFERENCE between variants — the h1 display font */
+  .vFunnel .titulo-tela {
+    font-family: 'Funnel Display', sans-serif;
+    font-weight: 600; font-size: 34px;
+    line-height: 1.05; letter-spacing: -0.025em;
+    color: var(--ink); margin: 0 0 8px;
+  }
+  .vFunnel table.mini tbody td:nth-child(2) {
+    font-family: 'Funnel Display', sans-serif;
+    font-weight: 500; font-size: 14px;
+    letter-spacing: -0.015em;
+  }
+
+  .vInstrument .titulo-tela {
+    font-family: 'Instrument Serif', serif;
+    font-weight: 400; font-size: 38px;
+    line-height: 1.05; letter-spacing: -0.015em;
+    color: var(--ink); margin: 0 0 8px;
+  }
+  .vInstrument table.mini tbody td:nth-child(2) {
+    font-family: 'Instrument Serif', serif;
+    font-size: 16px; font-weight: 400;
+    line-height: 1.2;
+  }
+
+  .vFraunces .titulo-tela {
+    font-family: 'Fraunces', serif;
+    font-weight: 500; font-size: 34px;
+    line-height: 1.08; letter-spacing: -0.015em;
+    color: var(--ink); margin: 0 0 8px;
+    font-variation-settings: 'opsz' 144, 'SOFT' 30, 'WONK' 1;
+  }
+  .vFraunces table.mini tbody td:nth-child(2) {
+    font-family: 'Fraunces', serif;
+    font-weight: 500; font-size: 14px;
+    line-height: 1.25;
+    font-variation-settings: 'opsz' 24;
+  }
+
+  .vBricolage .titulo-tela {
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-weight: 500; font-size: 32px;
+    line-height: 1.05; letter-spacing: -0.025em;
+    color: var(--ink); margin: 0 0 8px;
+    font-variation-settings: 'opsz' 72;
+  }
+  .vBricolage table.mini tbody td:nth-child(2) {
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-weight: 500; font-size: 14px;
+    letter-spacing: -0.01em;
+  }
+
+  /* Rodapé */
+  .footer-card {
+    max-width: 1640px; margin: 0 auto;
+    padding: 0 32px 80px;
+  }
+  .footer-card .box {
+    background: var(--info-50);
+    border: 1px solid var(--info-100);
+    border-left: 3px solid var(--info-500);
+    padding: 24px 28px;
+  }
+  .footer-card .box h3 {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--info-500);
+    font-weight: 700; margin: 0 0 12px;
+  }
+  .footer-card .box p {
+    font-family: 'Source Serif 4', serif;
+    font-size: 15px; line-height: 1.65;
+    color: var(--info-700); margin: 0 0 8px;
+    max-width: 80ch;
+  }
+  .footer-card .box code {
+    font-family: 'Geist Mono', monospace; font-size: 13px;
+    background: var(--surface-3); padding: 1px 5px;
+    border: 1px solid var(--rule-strong); color: var(--ink);
+  }
+</style>
+</head>
+<body>
+
+<div class="lab-bar">
+  <div class="brand">
+    <span class="mark">M</span>
+    MPD · Laboratório
+    <span class="tag">✓ Decidida · Funnel Display aprovada (mai/2026)</span>
+  </div>
+  <nav style="display:flex;gap:6px">
+    <a href="../design-system.html">← Voltar ao design system</a>
+    <a href="../lista-demandas.html">Demandas</a>
+  </nav>
+</div>
+
+<section class="intro">
+  <div class="kicker">⚗ Iteração — 3 papéis travados, 1 ainda em aberto</div>
+  <h1>O que falta é só decidir o <em>display</em>.</h1>
+  <p class="lede">
+    Você aprovou Geist Mono para IDs e datas e topou testá-la também no UI inteiro (label, input, botão, breadcrumb). Confirmou serif no corpo e descartou Manrope. Source Serif 4 fica como serif do corpo. <strong>Falta escolher a fonte do título — o h1 que abre a tela e o cabeçalho da coluna na lista</strong>. Abaixo, quatro opções <em>gratuitas</em> com personalidades distintas, aplicadas ao mesmo contexto.
+  </p>
+</section>
+
+<section class="intro" style="padding-top:0">
+  <div class="progress">
+    <div class="col locked">
+      <div class="lbl">✓ Decidido</div>
+      <div class="role">IDs · datas</div>
+      <div class="fam"><strong>Geist Mono</strong> — Vercel · OFL gratuita</div>
+      <div class="status">Aprovado</div>
+    </div>
+    <div class="col locked">
+      <div class="lbl">✓ Decidido</div>
+      <div class="role">UI · label, input, botão</div>
+      <div class="fam"><strong>Geist Mono</strong> — em teste, mesmo papel da mono</div>
+      <div class="status">Em validação visual</div>
+    </div>
+    <div class="col locked">
+      <div class="lbl">✓ Decidido</div>
+      <div class="role">Corpo · relato</div>
+      <div class="fam"><strong>Source Serif 4</strong> — Adobe Originals · OFL gratuita</div>
+      <div class="status">Aprovado · serif</div>
+    </div>
+    <div class="col open">
+      <div class="lbl">⊘ Em aberto</div>
+      <div class="role">Display · h1 + título coluna</div>
+      <div class="fam"><strong>Escolher uma das 4 abaixo</strong></div>
+      <div class="status">↓ comparar</div>
+    </div>
+  </div>
+</section>
+
+<div class="grid">
+
+  <!-- 1 · Funnel Display -->
+  <article class="variant vFunnel">
+    <header class="v-head">
+      <span class="marker">1 · Funnel Display</span>
+      <h2 class="name">Funnel Display</h2>
+      <p class="foundry">Pangram Pangram · Open Font License · 100% gratuita</p>
+      <p class="why">
+        <span class="pro">PRÓ</span>Geometric humanist com personalidade contemporânea sem ser barulhenta. Cara de produto sul-global atual. Pesos do 400 ao 700 cobrem display + uso secundário.
+        <br><span class="con">CONTRA</span>Sem serif no h1 — pode ler menos "documento" e mais "produto". Compatibilidade com Source Serif (corpo) cria contraste forte sans/serif.
+      </p>
+    </header>
+    <div class="demo">
+      <section>
+        <div class="lbl">Cabeçalho de demanda</div>
+        <h1 class="titulo-tela">Falta de iluminação na Rua Antônio Ataíde</h1>
+        <div class="meta-tela"><span class="demanda">MPD-2026-00342</span> · responsiva · há 2 horas</div>
+        <div class="stamp-row" style="margin-top:12px">
+          <span class="stamp s-andam"><span class="dot"></span>Em andamento</span>
+          <span class="stamp s-conc"><span class="dot"></span>Concluída</span>
+        </div>
+      </section>
+      <section>
+        <div class="lbl">Relato</div>
+        <p class="relato">Sebastiana Oliveira encaminhou via WhatsApp que <strong>nove postes</strong> de iluminação pública estão sem funcionar há mais de três semanas. Moradores relatam furtos à noite e dificuldade para idosos retornarem do centro comercial.</p>
+      </section>
+      <section>
+        <div class="lbl">UI · em Geist Mono</div>
+        <div class="ui-label">Título da demanda</div>
+        <input class="ui-input" value="Iluminação Rua Antônio Ataíde">
+        <div class="ui-btn-row">
+          <button class="ui-btn">Salvar demanda</button>
+          <button class="ui-btn sec">Cancelar</button>
+        </div>
+      </section>
+      <section>
+        <div class="lbl">Timeline</div>
+        <div class="tl-row">
+          <div class="tl-when"><span class="d">14 MAI</span>11:08</div>
+          <div><div class="tl-type">Retorno SEMOB</div><p class="tl-body">Vistoria confirmou postes inoperantes; previsão até 12/06.</p></div>
+        </div>
+      </section>
+      <section>
+        <div class="lbl">Tabela e IDs</div>
+        <div class="id-row" style="margin-bottom:10px"><span class="y">MPD-2026-</span><span class="seq">00342</span></div>
+        <table class="mini">
+          <thead><tr><th>Nº</th><th>Título</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td>MPD-2026-00342</td><td>Iluminação Antônio Ataíde</td><td><span class="stamp s-andam"><span class="dot"></span>Em and.</span></td></tr>
+            <tr><td>MPD-2026-00339</td><td>Linha 502 reforço escolar</td><td><span class="stamp s-agresp"><span class="dot"></span>Ag. resp.</span></td></tr>
+          </tbody>
+        </table>
+      </section>
+    </div>
+  </article>
+
+  <!-- 2 · Instrument Serif -->
+  <article class="variant vInstrument">
+    <header class="v-head">
+      <span class="marker">2 · Instrument Serif</span>
+      <h2 class="name">Instrument Serif</h2>
+      <p class="foundry">Instrument design studio · OFL gratuita</p>
+      <p class="why">
+        <span class="pro">PRÓ</span>Serif display com personalidade editorial — hairlines elegantes, italic <em>belíssimo</em>. Conversa lindamente com Source Serif 4 (família próxima). Dá ao MPD identidade de revista séria, não de cartório.
+        <br><span class="con">CONTRA</span>Apenas 1 peso (Regular + Italic). Em h2/h3 pode pedir reforço de outro peso — talvez precise compor com Source Serif em pesos intermediários.
+      </p>
+    </header>
+    <div class="demo">
+      <section>
+        <div class="lbl">Cabeçalho de demanda</div>
+        <h1 class="titulo-tela">Falta de iluminação na Rua Antônio Ataíde</h1>
+        <div class="meta-tela"><span class="demanda">MPD-2026-00342</span> · responsiva · há 2 horas</div>
+        <div class="stamp-row" style="margin-top:12px">
+          <span class="stamp s-andam"><span class="dot"></span>Em andamento</span>
+          <span class="stamp s-conc"><span class="dot"></span>Concluída</span>
+        </div>
+      </section>
+      <section>
+        <div class="lbl">Relato</div>
+        <p class="relato">Sebastiana Oliveira encaminhou via WhatsApp que <strong>nove postes</strong> de iluminação pública estão sem funcionar há mais de três semanas. Moradores relatam furtos à noite e dificuldade para idosos retornarem do centro comercial.</p>
+      </section>
+      <section>
+        <div class="lbl">UI · em Geist Mono</div>
+        <div class="ui-label">Título da demanda</div>
+        <input class="ui-input" value="Iluminação Rua Antônio Ataíde">
+        <div class="ui-btn-row">
+          <button class="ui-btn">Salvar demanda</button>
+          <button class="ui-btn sec">Cancelar</button>
+        </div>
+      </section>
+      <section>
+        <div class="lbl">Timeline</div>
+        <div class="tl-row">
+          <div class="tl-when"><span class="d">14 MAI</span>11:08</div>
+          <div><div class="tl-type">Retorno SEMOB</div><p class="tl-body">Vistoria confirmou postes inoperantes; previsão até 12/06.</p></div>
+        </div>
+      </section>
+      <section>
+        <div class="lbl">Tabela e IDs</div>
+        <div class="id-row" style="margin-bottom:10px"><span class="y">MPD-2026-</span><span class="seq">00342</span></div>
+        <table class="mini">
+          <thead><tr><th>Nº</th><th>Título</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td>MPD-2026-00342</td><td>Iluminação Antônio Ataíde</td><td><span class="stamp s-andam"><span class="dot"></span>Em and.</span></td></tr>
+            <tr><td>MPD-2026-00339</td><td>Linha 502 reforço escolar</td><td><span class="stamp s-agresp"><span class="dot"></span>Ag. resp.</span></td></tr>
+          </tbody>
+        </table>
+      </section>
+    </div>
+  </article>
+
+  <!-- 3 · Fraunces -->
+  <article class="variant vFraunces">
+    <header class="v-head">
+      <span class="marker">3 · Fraunces</span>
+      <h2 class="name">Fraunces</h2>
+      <p class="foundry">Undercase Type · variable · OFL gratuita</p>
+      <p class="why">
+        <span class="pro">PRÓ</span>Fonte <em>variable</em> com 4 eixos (peso, opsz, SOFT, WONK). Personalidade old-style mas com toque contemporâneo — dá pra "controlar a expressividade" via CSS. Em opsz alto fica gritante; baixa fica discreta. Versatilidade máxima.
+        <br><span class="con">CONTRA</span>Pode soar "design-y demais", como revista de tipografia. Em h1 lê forte; em h2 precisa calibrar para não competir com o relato.
+      </p>
+    </header>
+    <div class="demo">
+      <section>
+        <div class="lbl">Cabeçalho de demanda</div>
+        <h1 class="titulo-tela">Falta de iluminação na Rua Antônio Ataíde</h1>
+        <div class="meta-tela"><span class="demanda">MPD-2026-00342</span> · responsiva · há 2 horas</div>
+        <div class="stamp-row" style="margin-top:12px">
+          <span class="stamp s-andam"><span class="dot"></span>Em andamento</span>
+          <span class="stamp s-conc"><span class="dot"></span>Concluída</span>
+        </div>
+      </section>
+      <section>
+        <div class="lbl">Relato</div>
+        <p class="relato">Sebastiana Oliveira encaminhou via WhatsApp que <strong>nove postes</strong> de iluminação pública estão sem funcionar há mais de três semanas. Moradores relatam furtos à noite e dificuldade para idosos retornarem do centro comercial.</p>
+      </section>
+      <section>
+        <div class="lbl">UI · em Geist Mono</div>
+        <div class="ui-label">Título da demanda</div>
+        <input class="ui-input" value="Iluminação Rua Antônio Ataíde">
+        <div class="ui-btn-row">
+          <button class="ui-btn">Salvar demanda</button>
+          <button class="ui-btn sec">Cancelar</button>
+        </div>
+      </section>
+      <section>
+        <div class="lbl">Timeline</div>
+        <div class="tl-row">
+          <div class="tl-when"><span class="d">14 MAI</span>11:08</div>
+          <div><div class="tl-type">Retorno SEMOB</div><p class="tl-body">Vistoria confirmou postes inoperantes; previsão até 12/06.</p></div>
+        </div>
+      </section>
+      <section>
+        <div class="lbl">Tabela e IDs</div>
+        <div class="id-row" style="margin-bottom:10px"><span class="y">MPD-2026-</span><span class="seq">00342</span></div>
+        <table class="mini">
+          <thead><tr><th>Nº</th><th>Título</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td>MPD-2026-00342</td><td>Iluminação Antônio Ataíde</td><td><span class="stamp s-andam"><span class="dot"></span>Em and.</span></td></tr>
+            <tr><td>MPD-2026-00339</td><td>Linha 502 reforço escolar</td><td><span class="stamp s-agresp"><span class="dot"></span>Ag. resp.</span></td></tr>
+          </tbody>
+        </table>
+      </section>
+    </div>
+  </article>
+
+  <!-- 4 · Bricolage Grotesque -->
+  <article class="variant vBricolage">
+    <header class="v-head">
+      <span class="marker">4 · Bricolage Grotesque</span>
+      <h2 class="name">Bricolage Grotesque</h2>
+      <p class="foundry">Mathieu Triay · variable · OFL gratuita</p>
+      <p class="why">
+        <span class="pro">PRÓ</span>Sans display variable com 3 eixos (opsz, peso, wdth). Personalidade levemente brutalista controlada — tem caráter sem ser barulho. Combina com a paleta papel/navy do MPD por ser pouco saturada em "modernidade SaaS".
+        <br><span class="con">CONTRA</span>Sans no h1 + serif no corpo gera contraste similar ao do Funnel. Versão larger-opsz pode soar levemente "indie magazine".
+      </p>
+    </header>
+    <div class="demo">
+      <section>
+        <div class="lbl">Cabeçalho de demanda</div>
+        <h1 class="titulo-tela">Falta de iluminação na Rua Antônio Ataíde</h1>
+        <div class="meta-tela"><span class="demanda">MPD-2026-00342</span> · responsiva · há 2 horas</div>
+        <div class="stamp-row" style="margin-top:12px">
+          <span class="stamp s-andam"><span class="dot"></span>Em andamento</span>
+          <span class="stamp s-conc"><span class="dot"></span>Concluída</span>
+        </div>
+      </section>
+      <section>
+        <div class="lbl">Relato</div>
+        <p class="relato">Sebastiana Oliveira encaminhou via WhatsApp que <strong>nove postes</strong> de iluminação pública estão sem funcionar há mais de três semanas. Moradores relatam furtos à noite e dificuldade para idosos retornarem do centro comercial.</p>
+      </section>
+      <section>
+        <div class="lbl">UI · em Geist Mono</div>
+        <div class="ui-label">Título da demanda</div>
+        <input class="ui-input" value="Iluminação Rua Antônio Ataíde">
+        <div class="ui-btn-row">
+          <button class="ui-btn">Salvar demanda</button>
+          <button class="ui-btn sec">Cancelar</button>
+        </div>
+      </section>
+      <section>
+        <div class="lbl">Timeline</div>
+        <div class="tl-row">
+          <div class="tl-when"><span class="d">14 MAI</span>11:08</div>
+          <div><div class="tl-type">Retorno SEMOB</div><p class="tl-body">Vistoria confirmou postes inoperantes; previsão até 12/06.</p></div>
+        </div>
+      </section>
+      <section>
+        <div class="lbl">Tabela e IDs</div>
+        <div class="id-row" style="margin-bottom:10px"><span class="y">MPD-2026-</span><span class="seq">00342</span></div>
+        <table class="mini">
+          <thead><tr><th>Nº</th><th>Título</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td>MPD-2026-00342</td><td>Iluminação Antônio Ataíde</td><td><span class="stamp s-andam"><span class="dot"></span>Em and.</span></td></tr>
+            <tr><td>MPD-2026-00339</td><td>Linha 502 reforço escolar</td><td><span class="stamp s-agresp"><span class="dot"></span>Ag. resp.</span></td></tr>
+          </tbody>
+        </table>
+      </section>
+    </div>
+  </article>
+
+</div>
+
+<section class="footer-card">
+  <div class="box">
+    <h3>Atenção: o UI inteiro agora está em Geist Mono</h3>
+    <p>Observe o <strong>label do campo, o texto do input, o botão "Salvar demanda" e o tipo das interações na timeline</strong>. Não é mono só nos IDs — é mono em <em>todo</em> o chrome do produto. Se ficar incômodo (terminal-cosplay), volto para uma sans normal no UI e a mono só nos IDs. Se a ideia te seduzir, fica esse contraste forte: serif no relato (voz do cidadão) × mono no comando (voz do operador) × display no h1 (a pauta).</p>
+    <p>Quando decidir o display, diga "vai com Funnel" / "Instrument" / "Fraunces" / "Bricolage" — e se vai manter Geist Mono no UI ou voltar para sans neutra. Aí propago.</p>
+  </div>
+</section>
+
+</body>
+</html>

@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>MPD · Entidades</title>
+<meta name="viewport" content="width=1400">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  body { background: var(--bg); }
+  .page { max-width: 1360px; margin: 32px auto 80px; padding: 0 28px; }
+
+  .page-head {
+    background: var(--paper); border-top: 6px solid var(--navy);
+    padding: 26px 32px 22px;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.04), 0 16px 40px -24px rgba(60,50,30,0.22);
+  }
+  .page-head .breadcrumb {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--ink-mute); margin-bottom: 14px;
+    display: flex; gap: 10px;
+  }
+  .page-head .breadcrumb .here { color: var(--navy); font-weight: 600; }
+  .page-head .breadcrumb .sep { color: var(--rule-strong); }
+  .page-head .row1 {
+    display: grid; grid-template-columns: 1fr auto; gap: 24px; align-items: end; margin-bottom: 16px;
+  }
+  .page-head h1 {
+    font-family: var(--serif); font-weight: 500; font-size: 38px;
+    line-height: 1.1; letter-spacing: -0.01em; margin: 0; color: var(--ink);
+  }
+  .page-head h1 .total {
+    font-family: var(--mono); font-size: 16px; color: var(--ink-mute);
+    margin-left: 12px; vertical-align: 4px; font-weight: 400; letter-spacing: 0.02em;
+  }
+  .page-head .actions { display: flex; gap: 8px; }
+
+  .btn {
+    font-family: var(--sans); font-size: 13px; font-weight: 500;
+    padding: 8px 16px; border: 1px solid var(--rule-strong);
+    background: var(--paper); color: var(--ink); cursor: pointer;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn:hover { background: #fff; border-color: var(--ink); }
+  .btn.primary { background: var(--navy); border-color: var(--navy); color: #fff; }
+  .btn.primary:hover { background: var(--navy-deep); }
+  .btn.ghost { background: transparent; }
+
+  .stat-ruler {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    border-top: 1px solid var(--rule); padding-top: 14px;
+  }
+  .stat-ruler .cell { padding-right: 18px; border-right: 1px solid var(--rule); }
+  .stat-ruler .cell:last-child { border-right: 0; }
+  .stat-ruler .k {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--ink-mute); margin-bottom: 4px;
+  }
+  .stat-ruler .v {
+    font-family: var(--serif); font-size: 26px; font-weight: 500;
+    color: var(--ink); letter-spacing: -0.01em; line-height: 1;
+  }
+  .stat-ruler .sub { margin-top: 4px; font-family: var(--sans); font-size: 11px; color: var(--ink-mute); }
+
+  /* Filter por tipo — chips com ícone visual */
+  .views {
+    background: var(--paper); border-left: 1px solid var(--rule); border-right: 1px solid var(--rule);
+    display: flex; padding-top: 14px;
+  }
+  .views .v {
+    background: transparent; border: 0; padding: 10px 18px 12px;
+    font-family: var(--sans); font-size: 13px; color: var(--ink-mute);
+    cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .views .v.on { color: var(--ink); font-weight: 600; border-bottom-color: var(--navy); }
+  .views .v .ct {
+    font-family: var(--mono); font-size: 10px; color: var(--ink-mute);
+    background: var(--paper-2); padding: 1px 6px; letter-spacing: 0.02em;
+  }
+  .views .v.on .ct { background: var(--navy); color: #fff; }
+  .views .add {
+    margin-left: auto; background: transparent; border: 0; padding: 10px 18px;
+    color: var(--ink-mute); font-family: var(--mono); font-size: 11px;
+    letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer;
+  }
+
+  .filter-row {
+    background: var(--paper); border: 1px solid var(--rule); border-top: 2px solid var(--ink);
+    padding: 14px 20px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
+  }
+  .filter-row .lbl {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--ink-mute); margin-right: 6px;
+  }
+  .chip {
+    background: transparent; border: 1px solid var(--rule-strong);
+    color: var(--ink-soft); font-family: var(--sans); font-size: 12.5px;
+    padding: 5px 11px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .chip:hover { background: var(--paper-2); border-color: var(--ink); }
+  .chip.on { background: var(--ink); color: var(--paper); border-color: var(--ink); font-weight: 500; }
+  .chip .num { font-family: var(--mono); font-size: 10px; opacity: 0.65; margin-left: 2px; }
+
+  .toolbar {
+    background: var(--paper-2); border-left: 1px solid var(--rule); border-right: 1px solid var(--rule);
+    padding: 12px 16px; display: grid; grid-template-columns: 1fr auto auto auto;
+    gap: 8px; align-items: center;
+  }
+  .toolbar .search {
+    display: flex; align-items: center; gap: 10px;
+    border: 1px solid var(--rule-strong); padding: 6px 12px; background: var(--paper);
+  }
+  .toolbar .search input {
+    flex: 1; border: 0; outline: 0; background: transparent;
+    font-family: var(--sans); font-size: 13px; color: var(--ink); padding: 4px 0; min-width: 220px;
+  }
+  .toolbar .search .pre { font-family: var(--mono); color: var(--ink-mute); }
+  .toolbar .search .k {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em;
+    color: var(--ink-mute); text-transform: uppercase;
+    border: 1px solid var(--rule-strong); padding: 1px 5px;
+  }
+  .toolbar select {
+    background: var(--paper); border: 1px solid var(--rule-strong);
+    font-family: var(--sans); font-size: 13px; color: var(--ink); padding: 7px 10px;
+  }
+  .toolbar .count {
+    font-family: var(--mono); font-size: 11px; color: var(--ink-mute);
+    letter-spacing: 0.04em; padding: 0 8px;
+  }
+
+  .ledger {
+    background: var(--paper); border: 1px solid var(--rule);
+    overflow: hidden; box-shadow: 0 2px 12px -8px rgba(60,50,30,0.18);
+  }
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    text-align: left; background: var(--navy); color: var(--paper);
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em;
+    text-transform: uppercase; font-weight: 600; padding: 14px 18px; white-space: nowrap;
+  }
+  tbody tr.group-row {
+    background: var(--paper-2); border-top: 2px solid var(--navy); border-bottom: 1px solid var(--rule-strong);
+  }
+  tbody tr.group-row td {
+    padding: 12px 18px; font-family: var(--mono); font-size: 11.5px;
+    letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink); font-weight: 600;
+  }
+  tbody tr.group-row .ct { color: var(--ink-mute); font-weight: 500; margin-left: 8px; }
+  tbody tr.group-row .meta {
+    color: var(--ink-mute); font-weight: 400; margin-left: 14px;
+    text-transform: none; letter-spacing: 0; font-family: var(--serif);
+    font-size: 13px; font-style: italic;
+  }
+  tbody tr:not(.group-row) { border-bottom: 1px solid var(--rule); transition: background .08s; }
+  tbody tr:not(.group-row):hover { background: var(--paper-2); cursor: pointer; }
+  tbody td {
+    padding: 20px 18px; vertical-align: top;
+    font-family: var(--sans); font-size: 14px; color: var(--ink);
+  }
+
+  td.col-nome { min-width: 280px; display: flex; gap: 14px; align-items: center; }
+  td.col-nome .mark {
+    width: 46px; height: 46px; flex: none;
+    border: 1.5px solid var(--rule-strong);
+    background: var(--paper-2);
+    display: grid; place-items: center;
+    font-family: var(--sans); font-size: 13.5px; font-weight: 700;
+    letter-spacing: 0.04em; color: var(--ink-soft);
+  }
+  td.col-nome .mark.publ { background: var(--navy); color: var(--paper); border-color: var(--navy); }
+  td.col-nome .mark.assoc { background: var(--olive); color: var(--paper); border-color: var(--olive); }
+  td.col-nome .mark.esc { background: var(--tan); color: var(--paper); border-color: var(--tan); }
+  td.col-nome .mark.ig { background: var(--paper); color: var(--bordo); border-color: var(--bordo); }
+  td.col-nome .nm {
+    font-family: var(--serif); font-size: 17px; color: var(--ink);
+    font-weight: 500; line-height: 1.25; margin-bottom: 4px;
+  }
+  td.col-nome .nm a { color: var(--ink); text-decoration: none; }
+  td.col-nome .nm a:hover { text-decoration: underline; text-underline-offset: 3px; }
+  td.col-nome .sub {
+    font-family: var(--sans); font-size: 12.5px; color: var(--ink-mute);
+    line-height: 1.4;
+  }
+
+  td.col-tipo {
+    white-space: nowrap;
+    font-family: var(--sans); font-size: 12px; color: var(--ink-soft);
+  }
+  td.col-tipo .stamp-s {
+    display: inline-block; font-family: var(--sans);
+    font-size: 11px; font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase; padding: 4px 10px 5px;
+    border: 1.5px solid currentColor;
+  }
+  td.col-tipo .stamp-s.publ { color: var(--navy); }
+  td.col-tipo .stamp-s.assoc { color: var(--olive); }
+  td.col-tipo .stamp-s.esc { color: var(--tan); }
+  td.col-tipo .stamp-s.ig { color: var(--bordo); }
+  td.col-tipo .stamp-s.outro { color: var(--ink-mute); }
+
+  td.col-pessoas {
+    text-align: center; font-family: var(--mono);
+    white-space: nowrap; font-size: 12px;
+  }
+  td.col-pessoas .total {
+    font-family: var(--serif); font-size: 22px; color: var(--ink);
+    font-weight: 500;
+  }
+  td.col-pessoas .sub {
+    display: block; margin-top: 3px;
+    font-family: var(--sans); font-size: 10.5px; color: var(--ink-mute);
+  }
+
+  td.col-demandas {
+    text-align: center; font-family: var(--mono);
+    white-space: nowrap;
+  }
+  td.col-demandas .total {
+    font-family: var(--serif); font-size: 22px; color: var(--ink);
+    font-weight: 500;
+  }
+  td.col-demandas .abertas {
+    display: block; margin-top: 3px; font-size: 11px; color: var(--amber);
+    font-weight: 600; letter-spacing: 0.04em;
+  }
+  td.col-demandas .abertas.zero { color: var(--ink-mute); font-weight: 400; }
+
+  td.col-contato {
+    font-family: var(--mono); font-size: 12.5px;
+    color: var(--ink-soft); white-space: nowrap;
+    line-height: 1.6;
+  }
+  td.col-contato .ch {
+    display: block; color: var(--ink-mute);
+  }
+  td.col-contato .ch strong { color: var(--ink-soft); font-weight: 600; }
+
+  td.col-ultimo {
+    font-family: var(--mono); font-size: 13.5px;
+    color: var(--ink-soft); white-space: nowrap; text-align: right;
+    width: 140px;
+  }
+  td.col-ultimo .when {
+    display: block; margin-top: 4px;
+    font-family: var(--sans); font-size: 12px; color: var(--ink-mute);
+  }
+
+  .ledger-foot {
+    padding: 14px 18px; display: flex; align-items: center; justify-content: space-between;
+    border-top: 2px solid var(--navy); background: var(--paper-2);
+    font-family: var(--sans); font-size: 12.5px; color: var(--ink-soft);
+  }
+  .ledger-foot .pages { display: flex; gap: 4px; }
+  .ledger-foot .pages a, .ledger-foot .pages button {
+    background: var(--paper); border: 1px solid var(--rule-strong);
+    padding: 4px 11px; font-family: var(--sans); font-size: 12px;
+    color: var(--ink); text-decoration: none; cursor: pointer;
+  }
+  .ledger-foot .pages .on { background: var(--navy); color: var(--paper); border-color: var(--navy); }
+  .ledger-foot .pages button:disabled { opacity: 0.4; }
+</style>
+</head>
+<body>
+
+<header class="appbar">
+  <div class="appbar-inner">
+    <a class="brand" href="home.html">
+      <span class="mark">M</span>
+      <span class="name">MPD</span>
+      <span class="tag">Pedro Trés · 11ª Legislatura</span>
+    </a>
+    <nav>
+      <a href="home.html">Início</a>
+      <a href="05-inbox.html">Entrada <span class="alert">7</span></a>
+      <a href="04-lista.html">Demandas</a>
+      <a href="pessoas.html">Pessoas</a>
+      <a href="entidades.html" class="current">Entidades</a>
+      <a href="encaminhamentos.html">Encaminhamentos</a>
+      <a href="pendencias.html">Pendências <span class="alert">3</span></a>
+    </nav>
+    <div class="me">
+      <div class="who">
+        <span class="av">MC</span>
+        <span>
+          <span class="name">Mariana Costa</span>
+          <span class="role">Gabinete · resp.</span>
+        </span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="page">
+
+  <header class="page-head">
+    <div class="breadcrumb">
+      <span class="here">ENTIDADES</span>
+      <span class="sep">/</span>
+      <span>VISTA: TODAS</span>
+    </div>
+    <div class="row1">
+      <h1>Entidades <span class="total">186 cadastradas</span></h1>
+      <div class="actions">
+        <button class="btn ghost">Exportar CSV</button>
+        <button class="btn primary">+ Nova entidade</button>
+      </div>
+    </div>
+
+    <div class="stat-ruler">
+      <div class="cell">
+        <div class="k">Associações &amp; conselhos</div>
+        <div class="v">52</div>
+        <div class="sub">de moradores, escolares, profissionais</div>
+      </div>
+      <div class="cell">
+        <div class="k">Órgãos públicos</div>
+        <div class="v">38</div>
+        <div class="sub">municipais, estaduais e federais</div>
+      </div>
+      <div class="cell">
+        <div class="k">Escolas &amp; CMEIs</div>
+        <div class="v">31</div>
+        <div class="sub">públicas em Vitória</div>
+      </div>
+      <div class="cell">
+        <div class="k">Com demanda em aberto</div>
+        <div class="v">42</div>
+        <div class="sub">representadas ou parceiras</div>
+      </div>
+    </div>
+  </header>
+
+  <div class="views">
+    <button class="v on">Todas <span class="ct">186</span></button>
+    <button class="v">Associações <span class="ct">38</span></button>
+    <button class="v">Órgãos públicos <span class="ct">38</span></button>
+    <button class="v">Escolas <span class="ct">31</span></button>
+    <button class="v">Conselhos <span class="ct">14</span></button>
+    <button class="v">Sindicatos <span class="ct">12</span></button>
+    <button class="v">Igrejas &amp; pastorais <span class="ct">9</span></button>
+    <button class="add">+ Salvar visão atual</button>
+  </div>
+
+  <div class="filter-row">
+    <span class="lbl">Tipo</span>
+    <button class="chip on">Tudo <span class="num">186</span></button>
+    <button class="chip">Assoc. moradores <span class="num">17</span></button>
+    <button class="chip">Conselho <span class="num">14</span></button>
+    <button class="chip">Sec. municipal <span class="num">12</span></button>
+    <button class="chip">Sec. estadual <span class="num">8</span></button>
+    <button class="chip">Escola pública <span class="num">21</span></button>
+    <button class="chip">CMEI <span class="num">10</span></button>
+    <button class="chip">Sindicato <span class="num">12</span></button>
+    <button class="chip">Coletivo <span class="num">7</span></button>
+    <button class="chip">Outros <span class="num">85</span></button>
+  </div>
+
+  <div class="toolbar">
+    <div class="search">
+      <span class="pre">⌕</span>
+      <input type="text" placeholder="Buscar por nome, CNPJ, área de atuação…">
+      <span class="k">Ctrl K</span>
+    </div>
+    <select>
+      <option>Bairro/Região: todas</option>
+      <option>Centro</option>
+      <option>Maruípe</option>
+      <option>Jardim Camburi</option>
+    </select>
+    <select>
+      <option>Atividade: todas</option>
+      <option>Com demanda em aberto</option>
+      <option>Recém-cadastradas</option>
+      <option>Sem contato 90 dias</option>
+    </select>
+    <span class="count">186 resultados</span>
+  </div>
+
+  <div class="ledger">
+    <table>
+      <thead>
+        <tr>
+          <th>Nome</th>
+          <th>Tipo</th>
+          <th style="text-align:center">Pessoas vinculadas</th>
+          <th style="text-align:center">Demandas</th>
+          <th>Contato</th>
+          <th style="text-align:right">Último contato</th>
+        </tr>
+      </thead>
+      <tbody>
+
+        <tr class="group-row">
+          <td colspan="6">▼ Sociedade civil organizada <span class="ct">4 mostradas</span><span class="meta">associações, conselhos, coletivos</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-nome">
+            <div class="mark assoc">AM</div>
+            <div>
+              <div class="nm"><a href="#">Associação de Moradores do Centro</a></div>
+              <div class="sub">CNPJ 12.347.821/0001-32 · desde 1987</div>
+            </div>
+          </td>
+          <td class="col-tipo"><span class="stamp-s assoc">Assoc. moradores</span></td>
+          <td class="col-pessoas"><span class="total">14</span><span class="sub">2 lideranças</span></td>
+          <td class="col-demandas"><span class="total">12</span><span class="abertas">1 aberta</span></td>
+          <td class="col-contato">(27) 3324-7791<span class="ch"><strong>Sebastiana Oliveira</strong> · presidente</span></td>
+          <td class="col-ultimo">14/05/26<span class="when">há 3 dias</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-nome">
+            <div class="mark assoc">CB</div>
+            <div>
+              <div class="nm"><a href="#">Coletivo Bicicletada Vitória</a></div>
+              <div class="sub">CNPJ — · grupo informal · desde 2018</div>
+            </div>
+          </td>
+          <td class="col-tipo"><span class="stamp-s assoc">Coletivo</span></td>
+          <td class="col-pessoas"><span class="total">8</span><span class="sub">3 lideranças</span></td>
+          <td class="col-demandas"><span class="total">5</span><span class="abertas">1 aberta</span></td>
+          <td class="col-contato">@bicicletadavitoria<span class="ch">Henrique Pessoa · porta-voz</span></td>
+          <td class="col-ultimo">16/05/26<span class="when">ontem</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-nome">
+            <div class="mark assoc">CR</div>
+            <div>
+              <div class="nm"><a href="#">Comerciantes Reunidos do Centro</a></div>
+              <div class="sub">CNPJ 18.992.451/0001-08 · desde 2012</div>
+            </div>
+          </td>
+          <td class="col-tipo"><span class="stamp-s assoc">Assoc. comercial</span></td>
+          <td class="col-pessoas"><span class="total">22</span><span class="sub">5 contatos diretos</span></td>
+          <td class="col-demandas"><span class="total">6</span><span class="abertas zero">—</span></td>
+          <td class="col-contato">(27) 3324-1100<span class="ch">comerciantes@centro-vix.com.br</span></td>
+          <td class="col-ultimo">07/05/26<span class="when">há 10 dias</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-nome">
+            <div class="mark assoc">CS</div>
+            <div>
+              <div class="nm"><a href="#">Conselho Municipal de Saúde · Centro</a></div>
+              <div class="sub">Conselho participativo · desde 1998</div>
+            </div>
+          </td>
+          <td class="col-tipo"><span class="stamp-s assoc">Conselho</span></td>
+          <td class="col-pessoas"><span class="total">10</span><span class="sub">Sebastiana suplente</span></td>
+          <td class="col-demandas"><span class="total">3</span><span class="abertas zero">—</span></td>
+          <td class="col-contato">(27) 3137-2200<span class="ch">conselho.saude@semus.vitoria.es.gov.br</span></td>
+          <td class="col-ultimo">12/04/26<span class="when">há 35 dias</span></td>
+        </tr>
+
+        <tr class="group-row">
+          <td colspan="6">▼ Órgãos públicos <span class="ct">4 mostrados</span><span class="meta">parceiros frequentes em encaminhamentos</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-nome">
+            <div class="mark publ">SE</div>
+            <div>
+              <div class="nm"><a href="#">SEMOB — Secretaria Municipal de Mobilidade</a></div>
+              <div class="sub">Órgão municipal · Vitória</div>
+            </div>
+          </td>
+          <td class="col-tipo"><span class="stamp-s publ">Sec. municipal</span></td>
+          <td class="col-pessoas"><span class="total">9</span><span class="sub">2 diretores conhecidos</span></td>
+          <td class="col-demandas"><span class="total">21</span><span class="abertas">3 abertas</span></td>
+          <td class="col-contato">(27) 3382-6300<span class="ch">gabinete@semob.vitoria.es.gov.br</span></td>
+          <td class="col-ultimo">14/05/26<span class="when">há 3 dias</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-nome">
+            <div class="mark publ">SU</div>
+            <div>
+              <div class="nm"><a href="#">SEMUS — Secretaria Municipal de Saúde</a></div>
+              <div class="sub">Órgão municipal · Vitória</div>
+            </div>
+          </td>
+          <td class="col-tipo"><span class="stamp-s publ">Sec. municipal</span></td>
+          <td class="col-pessoas"><span class="total">12</span><span class="sub">Lia Garcia · contato direto</span></td>
+          <td class="col-demandas"><span class="total">18</span><span class="abertas">2 abertas</span></td>
+          <td class="col-contato">(27) 3132-5000<span class="ch">gabinete@semus.vitoria.es.gov.br</span></td>
+          <td class="col-ultimo">17/05/26<span class="when">hoje</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-nome">
+            <div class="mark publ">ED</div>
+            <div>
+              <div class="nm"><a href="#">SEDU — Secretaria Municipal de Educação</a></div>
+              <div class="sub">Órgão municipal · Vitória</div>
+            </div>
+          </td>
+          <td class="col-tipo"><span class="stamp-s publ">Sec. municipal</span></td>
+          <td class="col-pessoas"><span class="total">6</span><span class="sub">contato apertado</span></td>
+          <td class="col-demandas"><span class="total">14</span><span class="abertas">2 abertas</span></td>
+          <td class="col-contato">(27) 3132-9000<span class="ch">gabinete@sedu.vitoria.es.gov.br</span></td>
+          <td class="col-ultimo">04/05/26<span class="when">há 13 dias</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-nome">
+            <div class="mark publ">EP</div>
+            <div>
+              <div class="nm"><a href="#">EDP-ES — Distribuidora de Energia</a></div>
+              <div class="sub">Concessionária privada · ES</div>
+            </div>
+          </td>
+          <td class="col-tipo"><span class="stamp-s publ">Concessionária</span></td>
+          <td class="col-pessoas"><span class="total">3</span><span class="sub">canal vereador</span></td>
+          <td class="col-demandas"><span class="total">7</span><span class="abertas zero">—</span></td>
+          <td class="col-contato">0800 721 0707<span class="ch">canal-vereador@edp.com</span></td>
+          <td class="col-ultimo">28/04/26<span class="when">há 19 dias</span></td>
+        </tr>
+
+        <tr class="group-row">
+          <td colspan="6">▼ Educação <span class="ct">3 mostradas</span><span class="meta">escolas, CMEIs, conselhos escolares</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-nome">
+            <div class="mark esc">EM</div>
+            <div>
+              <div class="nm"><a href="#">EMEF Eunice Pereira Silvares</a></div>
+              <div class="sub">Escola municipal · 612 alunos</div>
+            </div>
+          </td>
+          <td class="col-tipo"><span class="stamp-s esc">Escola pública</span></td>
+          <td class="col-pessoas"><span class="total">7</span><span class="sub">Marta Vieira · conselheira</span></td>
+          <td class="col-demandas"><span class="total">2</span><span class="abertas">1 vencida</span></td>
+          <td class="col-contato">(27) 3380-5612<span class="ch">eunice@sedu.vitoria.es.gov.br</span></td>
+          <td class="col-ultimo">10/05/26<span class="when">há 7 dias</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-nome">
+            <div class="mark esc">CM</div>
+            <div>
+              <div class="nm"><a href="#">CMEI Maruípe</a></div>
+              <div class="sub">Centro de educação infantil · 180 vagas</div>
+            </div>
+          </td>
+          <td class="col-tipo"><span class="stamp-s esc">CMEI</span></td>
+          <td class="col-pessoas"><span class="total">5</span><span class="sub">conselho de pais ativo</span></td>
+          <td class="col-demandas"><span class="total">3</span><span class="abertas zero">—</span></td>
+          <td class="col-contato">(27) 3380-6720<span class="ch">cmei.maruipe@sedu.vitoria.es.gov.br</span></td>
+          <td class="col-ultimo">12/05/26<span class="when">há 5 dias</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-nome">
+            <div class="mark esc">EA</div>
+            <div>
+              <div class="nm"><a href="#">EMEF Aristóbulo Barbosa Leão</a></div>
+              <div class="sub">Escola municipal · 824 alunos</div>
+            </div>
+          </td>
+          <td class="col-tipo"><span class="stamp-s esc">Escola pública</span></td>
+          <td class="col-pessoas"><span class="total">9</span><span class="sub">festa junina anual</span></td>
+          <td class="col-demandas"><span class="total">4</span><span class="abertas">1 aberta</span></td>
+          <td class="col-contato">(27) 3380-1144<span class="ch">aristobulo@sedu.vitoria.es.gov.br</span></td>
+          <td class="col-ultimo">14/05/26<span class="when">há 3 dias</span></td>
+        </tr>
+
+      </tbody>
+    </table>
+
+    <div class="ledger-foot">
+      <div>Mostrando <strong style="color:var(--ink)">11</strong> de <strong style="color:var(--ink)">186</strong> entidades · agrupadas por tipo</div>
+      <div class="pages">
+        <button disabled>← Anterior</button>
+        <a class="on" href="#">1</a>
+        <a href="#">2</a>
+        <a href="#">3</a>
+        <a href="#">…</a>
+        <a href="#">19</a>
+        <button>Próxima →</button>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+</body>
+</html>
