@@ -79,6 +79,25 @@
     font-style: italic; font-family: var(--font-serif); font-size: 13px;
   }
 
+  /* Botões à direita do section-mark · padrão das CTAs de seção */
+  .form-page .section-mark .section-actions {
+    margin-left: auto; display: flex; gap: 6px;
+  }
+  .form-page .section-mark .acao-mini {
+    background: var(--surface-2);
+    color: var(--primary);
+    border: 1px solid var(--primary);
+    font-family: var(--font-mono); font-size: 10.5px;
+    font-weight: 700; letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 5px 11px; cursor: pointer;
+    transition: background .12s, color .12s;
+  }
+  .form-page .section-mark .acao-mini:hover {
+    background: var(--primary); color: var(--primary-fg);
+  }
+
+
   /* Field — label mono uppercase + input/textarea/select */
   .form-page .field { margin-bottom: 16px; }
   .form-page .field > label.lbl {
@@ -530,12 +549,6 @@
           </span>
         </label>
 
-        <label class="check">
-          {{ form.anonimo }}
-          <span class="body">
-            <strong>Demanda anônima.</strong> Não há pessoa identificada para vincular como parte — a próxima seção (Partes envolvidas) fica opcional.
-          </span>
-        </label>
       </section>
 
       {# ─── §02 Descrição ─── #}
@@ -552,7 +565,20 @@
 
       {# ─── §03 Partes envolvidas ─── #}
       <section class="section">
-        <div class="section-mark"><span class="num">03</span>Partes envolvidas<span class="req">opcional se demanda anônima</span></div>
+        <div class="section-mark">
+          <span class="num">03</span>Partes envolvidas
+          <div class="section-actions">
+            {% if perms.pessoas.add_pessoa %}<button type="button" class="acao-mini" data-cp-abrir="pessoa">+ Nova pessoa</button>{% endif %}
+            {% if perms.pessoas.add_entidade %}<button type="button" class="acao-mini" data-cp-abrir="entidade">+ Nova entidade</button>{% endif %}
+          </div>
+        </div>
+
+        <label class="check">
+          {{ form.anonimo }}
+          <span class="body">
+            <strong>Demanda anônima.</strong> Use quando o demandante não quis se identificar ou quando o pedido chegou sem identificação. A seção de Partes envolvidas fica opcional; se sabe quem é, prefira cadastrar com "+ Nova pessoa".
+          </span>
+        </label>
 
         {# Pessoas #}
         <div class="field">

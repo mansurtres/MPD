@@ -1,68 +1,179 @@
-{# Drawer compacto para criar Pessoa/Entidade a partir do autocomplete.
-   Disparado pelo JS quando o usuário clica "+ Cadastrar" no dropdown. #}
+{# Drawer expandido de criação rápida de Pessoa/Entidade.
+   Submete pro próprio endpoint /pessoas/nova/ ou /entidades/nova/
+   com X-Requested-With: XMLHttpRequest — o backend devolve JSON. #}
 <div id="drawer-criar-parte" class="drawer-cp hidden" aria-hidden="true">
   <div class="drawer-cp-backdrop" data-cp-close></div>
-  <aside class="drawer-cp-panel" role="dialog" aria-labelledby="cp-titulo">
+  <aside class="drawer-cp-panel" role="dialog" aria-labelledby="cp-titulo" aria-modal="true">
     <header>
       <h3 id="cp-titulo">Cadastrar <span data-cp-tipo-label>pessoa</span></h3>
       <button type="button" class="x" data-cp-close title="Fechar">×</button>
     </header>
-
-    <p class="helper" data-cp-helper-pessoa>
-      Cadastro mínimo — você poderá completar os outros campos (endereço, tags, mais canais) depois, na ficha da pessoa.
-    </p>
-    <p class="helper" data-cp-helper-entidade hidden>
-      Cadastro mínimo da entidade — você poderá completar CNPJ, endereço, descrição etc. depois na ficha da entidade.
+    <p class="cp-sub">
+      Cadastro coerente com o form completo. Só o essencial é obrigatório — abra as seções extras se quiser registrar mais.
     </p>
 
     <form data-cp-form data-cp-tipo="pessoa">
       {% csrf_token %}
-      <div class="field">
-        <label>Nome completo *</label>
-        <input type="text" name="nome" required autocomplete="off">
-      </div>
 
-      {# Pessoa: pelo menos um canal #}
+      {# ╔══ PESSOA ══════════════════════════════════════════════════ ╗ #}
       <div data-cp-pessoa>
-        <p class="cp-hint">Pelo menos um dos dois é obrigatório.</p>
-        <div class="field">
-          <label>Telefone</label>
-          <input type="tel" name="telefone" placeholder="(27) 99999-0000" autocomplete="off">
-        </div>
-        <div class="field">
-          <label>E-mail</label>
-          <input type="email" name="email" placeholder="nome@email.com" autocomplete="off">
-        </div>
+        {# §01 Identificação · sempre aberta #}
+        <details class="cp-sec" open>
+          <summary><span class="num">01</span> Identificação</summary>
+          <div class="cp-grid-2">
+            <div class="cp-field"><label>Nome *</label><input type="text" name="nome" required autocomplete="off"></div>
+            <div class="cp-field"><label>Sobrenome *</label><input type="text" name="sobrenome" required autocomplete="off"></div>
+          </div>
+          <div class="cp-field"><label>Nome social <span class="hint">opcional</span></label><input type="text" name="nome_social" autocomplete="off"></div>
+          <div class="cp-grid-3">
+            <div class="cp-field"><label>CPF <span class="hint">opcional</span></label><input type="text" name="cpf" data-cp-mask="cpf" autocomplete="off"></div>
+            <div class="cp-field"><label>Data nasc.</label><input type="date" name="data_nascimento" autocomplete="off"></div>
+            <div class="cp-field">
+              <label>Gênero</label>
+              <select name="genero">
+                <option value="">—</option>
+                <option value="mulher">Mulher</option>
+                <option value="homem">Homem</option>
+                <option value="nao_binario">Não-binário</option>
+                <option value="outro">Outro</option>
+                <option value="prefere_nao_dizer">Prefere não dizer</option>
+              </select>
+            </div>
+          </div>
+        </details>
+
+        {# §02 Contatos · 1 canal obrigatório #}
+        <details class="cp-sec" open>
+          <summary><span class="num">02</span> Contatos <span class="req">pelo menos 1 *</span></summary>
+          <p class="cp-hint">Telefone, e-mail ou rede social — qualquer um vale.</p>
+
+          {# Formset telefones · 1 row fixa #}
+          <input type="hidden" name="telefones-TOTAL_FORMS" value="1">
+          <input type="hidden" name="telefones-INITIAL_FORMS" value="0">
+          <input type="hidden" name="telefones-MIN_NUM_FORMS" value="0">
+          <input type="hidden" name="telefones-MAX_NUM_FORMS" value="1000">
+          <div class="cp-grid-3">
+            <div class="cp-field"><label>Telefone</label><input type="tel" name="telefones-0-numero" data-cp-mask="tel" placeholder="(27) 99999-0000" autocomplete="off"></div>
+            <div class="cp-field">
+              <label>Tipo</label>
+              <select name="telefones-0-tipo">
+                <option value="celular" selected>Celular</option>
+                <option value="fixo">Fixo</option>
+              </select>
+            </div>
+            <div class="cp-field cp-check"><label class="inline"><input type="checkbox" name="telefones-0-eh_whatsapp"> <span>WhatsApp</span></label></div>
+          </div>
+
+          {# Formset emails #}
+          <input type="hidden" name="emails-TOTAL_FORMS" value="1">
+          <input type="hidden" name="emails-INITIAL_FORMS" value="0">
+          <input type="hidden" name="emails-MIN_NUM_FORMS" value="0">
+          <input type="hidden" name="emails-MAX_NUM_FORMS" value="1000">
+          <div class="cp-field"><label>E-mail</label><input type="email" name="emails-0-endereco" placeholder="nome@email.com" autocomplete="off"></div>
+
+          {# Formset redes_sociais #}
+          <input type="hidden" name="redes_sociais-TOTAL_FORMS" value="1">
+          <input type="hidden" name="redes_sociais-INITIAL_FORMS" value="0">
+          <input type="hidden" name="redes_sociais-MIN_NUM_FORMS" value="0">
+          <input type="hidden" name="redes_sociais-MAX_NUM_FORMS" value="1000">
+          <div class="cp-grid-2">
+            <div class="cp-field">
+              <label>Rede social</label>
+              <select name="redes_sociais-0-plataforma">
+                <option value="">—</option>
+                <option value="instagram">Instagram</option>
+                <option value="facebook">Facebook</option>
+                <option value="linkedin">LinkedIn</option>
+                <option value="x_twitter">X (Twitter)</option>
+                <option value="outro">Outro</option>
+              </select>
+            </div>
+            <div class="cp-field"><label>@usuário ou URL</label><input type="text" name="redes_sociais-0-valor" autocomplete="off"></div>
+          </div>
+        </details>
+
+        {# §03 Endereço · colapsada por padrão #}
+        <details class="cp-sec">
+          <summary><span class="num">03</span> Endereço <span class="hint">opcional</span></summary>
+          <div class="cp-field"><label>CEP</label><input type="text" name="cep" data-cp-mask="cep" placeholder="00000-000" autocomplete="off"><span class="cp-status" data-cp-cep-status></span></div>
+          <input type="hidden" name="logradouro">
+          <input type="hidden" name="bairro">
+          <input type="hidden" name="cidade">
+          <input type="hidden" name="estado">
+        </details>
+
+        {# §04 Tags · colapsada por padrão #}
+        <details class="cp-sec">
+          <summary><span class="num">04</span> Tags <span class="hint">opcional</span></summary>
+          {% if perms.pessoas.view_tag %}
+          <div class="cp-field">
+            <label>Selecione uma ou mais</label>
+            <select name="tags" multiple size="4" data-cp-tags>
+              {# Populado via JS no abrir do drawer (fetch buscar.json) — placeholder estático opcional. #}
+            </select>
+            <p class="cp-hint">Segure Ctrl/Cmd para selecionar várias.</p>
+          </div>
+          {% endif %}
+        </details>
+
+        {# §05 Observações · colapsada por padrão #}
+        <details class="cp-sec">
+          <summary><span class="num">05</span> Observações <span class="hint">opcional</span></summary>
+          <div class="cp-field"><label>Notas livres</label><textarea name="observacoes" rows="3" autocomplete="off"></textarea></div>
+        </details>
       </div>
 
-      {# Entidade: tipo #}
+      {# ╔══ ENTIDADE ════════════════════════════════════════════════ ╗ #}
       <div data-cp-entidade hidden>
-        <div class="field">
-          <label>Tipo *</label>
-          <select name="tipo">
-            <option value="associacao">Associação</option>
-            <option value="ong">ONG</option>
-            <option value="instituicao_publica">Instituição pública</option>
-            <option value="orgao_governo">Órgão de governo</option>
-            <option value="empresa">Empresa</option>
-            <option value="sindicato">Sindicato</option>
-            <option value="igreja">Igreja</option>
-            <option value="escola">Escola</option>
-            <option value="conselho">Conselho</option>
-            <option value="cooperativa">Cooperativa</option>
-            <option value="movimento_social">Movimento social</option>
-            <option value="partido">Partido</option>
-            <option value="familia">Família</option>
-            <option value="grupo_informal">Grupo informal</option>
-          </select>
-        </div>
+        <details class="cp-sec" open>
+          <summary><span class="num">01</span> Identificação</summary>
+          <div class="cp-field"><label>Nome *</label><input type="text" name="ent_nome" autocomplete="off"></div>
+          <div class="cp-grid-2">
+            <div class="cp-field">
+              <label>Tipo *</label>
+              <select name="ent_tipo">
+                <option value="associacao">Associação</option>
+                <option value="ong">ONG</option>
+                <option value="instituicao_publica">Instituição pública</option>
+                <option value="orgao_governo">Órgão de governo</option>
+                <option value="empresa">Empresa</option>
+                <option value="sindicato">Sindicato</option>
+                <option value="igreja">Igreja</option>
+                <option value="escola">Escola</option>
+                <option value="conselho">Conselho</option>
+                <option value="cooperativa">Cooperativa</option>
+                <option value="movimento_social">Movimento social</option>
+                <option value="partido">Partido</option>
+                <option value="familia">Família</option>
+                <option value="grupo_informal">Grupo informal</option>
+              </select>
+            </div>
+            <div class="cp-field"><label>Nome fantasia</label><input type="text" name="ent_nome_fantasia" autocomplete="off"></div>
+          </div>
+          <div class="cp-field"><label>CNPJ <span class="hint">opcional</span></label><input type="text" name="ent_cnpj" autocomplete="off"></div>
+        </details>
+
+        <details class="cp-sec">
+          <summary><span class="num">02</span> Endereço <span class="hint">opcional</span></summary>
+          <div class="cp-field"><label>CEP</label><input type="text" name="ent_cep" data-cp-mask="cep" autocomplete="off"></div>
+        </details>
+
+        <details class="cp-sec">
+          <summary><span class="num">03</span> Observações <span class="hint">opcional</span></summary>
+          <div class="cp-field"><label>Notas livres</label><textarea name="ent_observacoes" rows="3" autocomplete="off"></textarea></div>
+        </details>
+      </div>
+
+      <div class="cp-dup" data-cp-dup hidden>
+        <span class="cp-dup-lbl">Pode ser uma destas?</span>
+        <ul data-cp-dup-lista></ul>
       </div>
 
       <div class="cp-err" data-cp-err hidden></div>
 
       <div class="actions">
         <button type="button" class="btn ghost" data-cp-close>Cancelar</button>
-        <button type="submit" class="btn primary">Salvar e usar</button>
+        <button type="submit" class="btn primary" data-cp-submit>Salvar e usar</button>
       </div>
     </form>
   </aside>
@@ -71,7 +182,7 @@
 <style>
   .drawer-cp {
     position: fixed; inset: 0; z-index: 1000;
-    display: grid; grid-template-columns: 1fr min(420px, 92vw);
+    display: grid; grid-template-columns: 1fr min(520px, 94vw);
   }
   .drawer-cp.hidden { display: none; }
   .drawer-cp-backdrop {
@@ -84,7 +195,7 @@
     box-shadow: -8px 0 24px rgba(0,0,0,0.12);
     padding: 24px 28px;
     overflow-y: auto;
-    display: flex; flex-direction: column; gap: 12px;
+    display: flex; flex-direction: column;
     font-family: var(--font-mono);
   }
   .drawer-cp-panel header {
@@ -103,18 +214,64 @@
     transition: color .12s;
   }
   .drawer-cp-panel .x:hover { color: var(--danger-600); }
-  .drawer-cp-panel .helper {
+  .drawer-cp-panel .cp-sub {
     font-family: var(--font-serif); font-style: italic;
     font-size: 13px; color: var(--ink-mute);
-    line-height: 1.5; margin: 0 0 8px;
+    line-height: 1.5; margin: 0 0 14px;
   }
-  .drawer-cp-panel .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
-  .drawer-cp-panel label {
+
+  /* Accordion · seções colapsáveis com setinha nativa estilizada */
+  .drawer-cp-panel .cp-sec {
+    border-top: 1px solid var(--rule);
+    padding: 12px 0;
+  }
+  .drawer-cp-panel .cp-sec:last-of-type { border-bottom: 1px solid var(--rule); margin-bottom: 12px; }
+  .drawer-cp-panel .cp-sec > summary {
+    cursor: pointer; list-style: none;
+    font-family: var(--font-mono); font-size: 11px;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--ink-strong); font-weight: 700;
+    padding: 4px 0; user-select: none;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .drawer-cp-panel .cp-sec > summary::-webkit-details-marker { display: none; }
+  .drawer-cp-panel .cp-sec > summary::before {
+    content: "▸"; color: var(--ink-mute);
+    transition: transform .15s;
+    display: inline-block; font-size: 10px;
+  }
+  .drawer-cp-panel .cp-sec[open] > summary::before { transform: rotate(90deg); color: var(--primary); }
+  .drawer-cp-panel .cp-sec .num { color: var(--ink-mute); }
+  .drawer-cp-panel .cp-sec .req {
+    margin-left: auto; color: var(--ink-mute);
+    font-weight: 500; letter-spacing: 0.04em; text-transform: none;
+    font-style: italic; font-family: var(--font-serif); font-size: 12px;
+  }
+  .drawer-cp-panel .cp-sec .hint {
+    margin-left: auto; color: var(--ink-mute);
+    font-weight: 500; letter-spacing: 0.04em; text-transform: none;
+    font-style: italic; font-family: var(--font-serif); font-size: 12px;
+  }
+
+  /* Conteúdo das seções */
+  .drawer-cp-panel .cp-sec > *:not(summary) { margin-top: 10px; }
+  .drawer-cp-panel .cp-field { display: flex; flex-direction: column; gap: 4px; }
+  .drawer-cp-panel .cp-field > label {
     font-family: var(--font-mono); font-size: 10px;
     letter-spacing: 0.08em; text-transform: uppercase;
     color: var(--ink-mute); font-weight: 700;
   }
-  .drawer-cp-panel input,
+  .drawer-cp-panel .cp-field > label .hint {
+    font-family: var(--font-serif); font-style: italic;
+    color: var(--ink-mute); font-weight: 400; font-size: 11px;
+    text-transform: none; letter-spacing: 0;
+    margin-left: 6px;
+  }
+  .drawer-cp-panel input[type=text],
+  .drawer-cp-panel input[type=email],
+  .drawer-cp-panel input[type=tel],
+  .drawer-cp-panel input[type=date],
+  .drawer-cp-panel textarea,
   .drawer-cp-panel select {
     background: var(--surface-3);
     border: 1px solid var(--rule-strong);
@@ -124,24 +281,86 @@
     transition: border-color .12s;
   }
   .drawer-cp-panel input:focus,
+  .drawer-cp-panel textarea:focus,
   .drawer-cp-panel select:focus { border-color: var(--primary); }
+  .drawer-cp-panel select[multiple] { padding: 6px; }
+  .drawer-cp-panel textarea { resize: vertical; min-height: 60px; }
+
+  .drawer-cp-panel .cp-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .drawer-cp-panel .cp-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .drawer-cp-panel .cp-check label.inline {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--ink-strong); padding-top: 24px;
+    cursor: pointer; text-transform: none; letter-spacing: 0;
+  }
   .drawer-cp-panel .cp-hint {
     font-family: var(--font-serif); font-style: italic;
     font-size: 11.5px; color: var(--ink-mute);
-    margin: 4px 0 8px;
+    margin: 0 0 6px;
   }
+  .drawer-cp-panel .cp-status {
+    font-family: var(--font-mono); font-size: 10.5px;
+    margin-top: 2px;
+  }
+  .drawer-cp-panel .cp-status.ok { color: var(--success-600); }
+  .drawer-cp-panel .cp-status.err { color: var(--danger-600); }
+  .drawer-cp-panel .cp-status.mute { color: var(--ink-mute); font-style: italic; font-family: var(--font-serif); }
+
+  .drawer-cp-panel .cp-dup {
+    background: var(--warning-50);
+    border-left: 3px solid var(--warning-500);
+    border: 1px solid var(--warning-200);
+    padding: 10px 14px; margin: 12px 0;
+  }
+  .drawer-cp-panel .cp-dup-lbl {
+    font-family: var(--font-mono); font-size: 10px;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--warning-700); font-weight: 700;
+    display: block; margin-bottom: 6px;
+  }
+  .drawer-cp-panel .cp-dup ul {
+    list-style: none; padding: 0; margin: 0;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .drawer-cp-panel .cp-dup li {
+    font-family: var(--font-mono); font-size: 12px;
+    color: var(--ink-strong);
+    display: flex; align-items: center; gap: 10px;
+    padding: 4px 0;
+    border-bottom: 1px dotted var(--rule);
+  }
+  .drawer-cp-panel .cp-dup li:last-child { border-bottom: 0; }
+  .drawer-cp-panel .cp-dup .dup-info { flex: 1; min-width: 0; }
+  .drawer-cp-panel .cp-dup .dup-nome { font-weight: 600; color: var(--ink); }
+  .drawer-cp-panel .cp-dup .dup-ctx { font-size: 11px; color: var(--ink-mute); }
+  .drawer-cp-panel .cp-dup .dup-usar {
+    background: var(--surface-3); color: var(--primary);
+    border: 1px solid var(--primary);
+    font-family: var(--font-mono); font-size: 10px;
+    font-weight: 700; letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 4px 10px; cursor: pointer;
+    transition: background .12s, color .12s;
+  }
+  .drawer-cp-panel .cp-dup .dup-usar:hover { background: var(--primary); color: var(--primary-fg); }
   .drawer-cp-panel .cp-err {
     background: var(--danger-50);
     border-left: 3px solid var(--danger-500);
-    padding: 8px 12px;
-    font-family: var(--font-mono); font-size: 12px;
-    color: var(--danger-700);
-    margin: 4px 0;
+    padding: 10px 14px;
+    font-family: var(--font-mono); font-size: 11.5px;
+    color: var(--danger-700); margin: 12px 0;
+    line-height: 1.5;
   }
+  .drawer-cp-panel .cp-err strong { color: var(--ink); font-weight: 600; }
+
   .drawer-cp-panel .actions {
     display: flex; gap: 8px; justify-content: flex-end;
-    margin-top: 12px; padding-top: 14px;
+    margin-top: 4px; padding-top: 16px;
     border-top: 1px solid var(--rule);
+    position: sticky; bottom: -24px;
+    background: var(--surface-2);
+    padding-bottom: 8px;
   }
   .drawer-cp-panel .btn {
     background: var(--surface-3); color: var(--ink-strong);
@@ -149,18 +368,19 @@
     font-family: var(--font-mono); font-size: 11px;
     font-weight: 600; letter-spacing: 0.04em;
     text-transform: uppercase;
-    padding: 8px 14px; cursor: pointer;
-    transition: background .12s, color .12s, border-color .12s;
+    padding: 9px 16px; cursor: pointer;
+    transition: background .12s, color .12s, border-color .12s, opacity .12s;
   }
+  .drawer-cp-panel .btn:disabled { opacity: 0.55; cursor: wait; }
   .drawer-cp-panel .btn.primary {
     background: var(--primary); color: var(--primary-fg);
     border-color: var(--primary);
   }
-  .drawer-cp-panel .btn.primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
+  .drawer-cp-panel .btn.primary:hover:not(:disabled) { background: var(--primary-hover); border-color: var(--primary-hover); }
   .drawer-cp-panel .btn.ghost { background: transparent; border-color: transparent; color: var(--ink-mute); }
   .drawer-cp-panel .btn.ghost:hover { color: var(--ink); }
 
-  /* Item "+ Cadastrar" no dropdown do autocomplete. Distintivo do resto. */
+  /* Item "+ Cadastrar" no dropdown do autocomplete */
   .autocomplete-item-criar {
     font-family: var(--font-mono); font-size: 11px;
     letter-spacing: 0.04em; text-transform: uppercase;
@@ -172,5 +392,9 @@
     transition: background .12s;
   }
   .autocomplete-item-criar:hover { background: var(--surface-1); }
-  .autocomplete-item-criar .nome { color: var(--ink-strong); font-weight: 600; text-transform: none; letter-spacing: 0; font-family: var(--font-serif); font-style: italic; font-size: 13px; }
+  .autocomplete-item-criar .nome {
+    color: var(--ink-strong); font-weight: 600;
+    text-transform: none; letter-spacing: 0;
+    font-family: var(--font-serif); font-style: italic; font-size: 13px;
+  }
 </style>

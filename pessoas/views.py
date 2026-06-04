@@ -23,7 +23,7 @@ from .forms import (
     TelefoneFormSet,
     VinculoForm,
 )
-from .models import EmailPessoa, Entidade, Pessoa, Tag, Telefone, Vinculo
+from .models import Entidade, Pessoa, Tag, Vinculo
 from .viacep import consultar as consultar_cep
 
 # --- Pessoas ---
@@ -191,9 +191,33 @@ class _PessoaFormMixin:
             fs.save()
 
     def _sucesso(self):
+        # AJAX (drawer de criação rápida do form de demanda): retorna JSON
+        # com o shape que o autocomplete consome. HTML normal: redirect.
+        if self.request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            p = self.object
+            return JsonResponse(
+                {
+                    "id": p.pk,
+                    "slug_publico": p.slug_publico,
+                    "label": p.nome_exibicao,
+                    "secundario": " · ".join(filter(None, [p.bairro, p.cidade])),
+                },
+                status=201,
+            )
         return redirect("pessoas:pessoa_detalhe", slug=self.object.slug_publico)
 
     def form_invalid_with_formsets(self, form, formsets):
+        if self.request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            erros = {}
+            for campo, lst in form.errors.items():
+                erros[campo] = list(lst)
+            for chave, fs in formsets.items():
+                for i, fr in enumerate(fs.forms):
+                    if fr.errors:
+                        erros[f"{chave}-{i}"] = {k: list(v) for k, v in fr.errors.items()}
+                if fs.non_form_errors():
+                    erros[f"{chave}-__all__"] = list(fs.non_form_errors())
+            return JsonResponse({"erros": erros}, status=400)
         return self.render_to_response(self.get_context_data(form=form, formsets_contato=formsets))
 
 
@@ -377,9 +401,26 @@ class EntidadeCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView
 
     def form_valid(self, form):
         form.instance.criado_por = self.request.user
-        response = super().form_valid(form)
+        self.object = form.save()
+        if self.request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            e = self.object
+            return JsonResponse(
+                {
+                    "id": e.pk,
+                    "slug_publico": e.slug_publico,
+                    "label": e.nome,
+                    "secundario": e.get_tipo_display(),
+                },
+                status=201,
+            )
         messages.success(self.request, f"Entidade cadastrada: {self.object.nome}.")
-        return response
+        return redirect(self.get_success_url())
+
+    def form_invalid(self, form):
+        if self.request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            erros = {campo: list(lst) for campo, lst in form.errors.items()}
+            return JsonResponse({"erros": erros}, status=400)
+        return super().form_invalid(form)
 
     def get_success_url(self):
         return reverse("pessoas:entidade_detalhe", kwargs={"slug": self.object.slug_publico})
@@ -459,6 +500,35 @@ CORES_PREDEFINIDAS = [
     ("#8e24aa", "Uva"),
     ("#616161", "Grafite"),
 ]
+
+
+class TagBuscarJSONView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    """Lista tags ativas como JSON · consumido pelo drawer de criação rápida
+    de Pessoa, que popula um <select multiple> com elas."""
+
+    permission_required = "pessoas.view_tag"
+
+    def get(self, request):
+        tags = Tag.objects.filter(ativo=True).order_by("nome")
+        return JsonResponse({"resultados": [{"id": t.pk, "label": t.nome} for t in tags]})
+
+
+class TagCriarAjaxView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    """Cria Tag via AJAX a partir do form de Pessoa/Entidade. Mesmo padrão
+    do TemaCreateAjaxView de demandas. Retorna JSON com id, nome, cor para
+    o JS adicionar o chip dinâmico já marcado."""
+
+    permission_required = "pessoas.add_tag"
+
+    def post(self, request):
+        nome = (request.POST.get("nome") or "").strip()
+        cor = (request.POST.get("cor") or "").strip()
+        if not nome:
+            return JsonResponse({"erro": "Nome é obrigatório."}, status=400)
+        if Tag.objects.filter(nome__iexact=nome).exists():
+            return JsonResponse({"erro": f"Já existe uma tag com o nome '{nome}'."}, status=400)
+        tag = Tag.objects.create(nome=nome, cor=cor)
+        return JsonResponse({"id": tag.pk, "nome": tag.nome, "cor": tag.cor or ""}, status=201)
 
 
 class TagCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
@@ -735,96 +805,4 @@ class EntidadeBuscarJSONView(LoginRequiredMixin, PermissionRequiredMixin, View):
                     for e in qs
                 ]
             }
-        )
-
-
-class PessoaCriarAjaxView(LoginRequiredMixin, PermissionRequiredMixin, View):
-    """Cria Pessoa rapidamente a partir de form de demanda. Usado pelo
-    autocomplete quando o usuário digita um nome que não existe e clica
-    "+ Cadastrar". Recebe nome completo + um canal (telefone OU email).
-
-    Quebra do nome: primeiro token vira `nome`, resto vira `sobrenome`
-    (mais comum o usuário digitar "Maria Silva" do que separar). Se vier
-    só um token, sobrenome fica vazio.
-
-    A regra `tem_meio_de_contato()` do model continua respeitada — sem
-    canal preenchido, retorna 400. Cadastro mínimo, completar depois.
-    Resposta: {id, slug_publico, label, secundario} — mesmo shape do
-    `PessoaBuscarJSONView` pra o JS injetar direto no autocomplete.
-    """
-
-    permission_required = "pessoas.add_pessoa"
-
-    def post(self, request):
-        nome_completo = (request.POST.get("nome") or "").strip()
-        telefone = (request.POST.get("telefone") or "").strip()
-        email = (request.POST.get("email") or "").strip()
-        if not nome_completo:
-            return JsonResponse({"erro": "Nome é obrigatório."}, status=400)
-        if not telefone and not email:
-            return JsonResponse(
-                {"erro": "Informe ao menos um canal: telefone ou e-mail."},
-                status=400,
-            )
-        partes = nome_completo.split(maxsplit=1)
-        nome = partes[0]
-        sobrenome = partes[1] if len(partes) > 1 else ""
-        from django.db import transaction
-
-        try:
-            with transaction.atomic():
-                pessoa = Pessoa(nome=nome, sobrenome=sobrenome)
-                pessoa.save()
-                if telefone:
-                    Telefone.objects.create(
-                        pessoa=pessoa, numero=telefone, tipo=Telefone.TIPO_CELULAR
-                    )
-                if email:
-                    EmailPessoa.objects.create(pessoa=pessoa, endereco=email)
-                pessoa.full_clean()
-        except Exception as e:
-            return JsonResponse({"erro": str(e)}, status=400)
-        return JsonResponse(
-            {
-                "id": pessoa.pk,
-                "slug_publico": pessoa.slug_publico,
-                "label": pessoa.nome_exibicao,
-                "secundario": " · ".join(filter(None, [pessoa.bairro, pessoa.cidade])),
-            },
-            status=201,
-        )
-
-
-class EntidadeCriarAjaxView(LoginRequiredMixin, PermissionRequiredMixin, View):
-    """Cria Entidade rapidamente. Mesma lógica do PessoaCriarAjaxView, mas
-    Entidade não exige canal mínimo — basta nome + tipo. Tipo default
-    `associacao` se não vier (caso mais comum em encontro fortuito).
-    """
-
-    permission_required = "pessoas.add_entidade"
-
-    def post(self, request):
-        nome = (request.POST.get("nome") or "").strip()
-        tipo = (request.POST.get("tipo") or "associacao").strip()
-        if not nome:
-            return JsonResponse({"erro": "Nome é obrigatório."}, status=400)
-        if tipo not in dict(Entidade.TIPO_CHOICES):
-            return JsonResponse(
-                {"erro": f"Tipo inválido: '{tipo}'."},
-                status=400,
-            )
-        try:
-            entidade = Entidade(nome=nome, tipo=tipo)
-            entidade.full_clean()
-            entidade.save()
-        except Exception as e:
-            return JsonResponse({"erro": str(e)}, status=400)
-        return JsonResponse(
-            {
-                "id": entidade.pk,
-                "slug_publico": entidade.slug_publico,
-                "label": entidade.nome,
-                "secundario": entidade.get_tipo_display(),
-            },
-            status=201,
         )
