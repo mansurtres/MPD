@@ -2025,11 +2025,13 @@ def test_inbox_lista_marca_envelhecimento_amber_e_red(client, admin_user):
     resp = client.get(reverse("demandas:inbox_lista"))
     assert resp.status_code == 200
     body = resp.content
-    # Badges renderizadas com classes Tailwind amber/red
-    assert b"bg-amber-100" in body
-    assert b"Pendente h\xc3\xa1 +7d" in body
-    assert b"bg-red-100" in body
-    assert b"Pendente h\xc3\xa1 +30d" in body
+    # Badges de idade · classes `.age amber` (+7d) e `.age red` (+30d).
+    # Template foi refeito para o design system v2; a regressão antiga
+    # checava classes Tailwind, que não existem mais aqui.
+    assert b'class="age amber"' in body
+    assert b"+7 dias" in body
+    assert b'class="age red"' in body
+    assert b"+30 dias" in body
 
 
 # --- /minhas-pendencias/: marcar realizada (Tarefa 2.3 v0.7.3) ---

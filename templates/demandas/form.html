@@ -367,15 +367,20 @@
   .form-page .form-foot .right { display: flex; gap: 8px; }
 </style>
 
-{# Breadcrumb fora do documento — mesma posição da lista/detalhe #}
 <div class="page-head" style="margin-bottom: 16px">
   <div>
     <div class="breadcrumb">
       <a href="/" style="text-decoration:none;color:var(--ink-mute)">Início</a>
       <span class="sep">/</span>
+      {% if item_inbox %}
+      <a href="{% url 'demandas:inbox_lista' %}" style="text-decoration:none;color:var(--ink-mute)">Inbox</a>
+      <span class="sep">/</span>
+      <span style="color:var(--primary);font-weight:var(--fw-semibold)">Processar</span>
+      {% else %}
       <a href="{% url 'demandas:demanda_lista' %}" style="text-decoration:none;color:var(--ink-mute)">Demandas</a>
       <span class="sep">/</span>
       <span style="color:var(--primary);font-weight:var(--fw-semibold)">{% if view.object %}{{ view.object.numero }} · editar{% else %}Nova{% endif %}</span>
+      {% endif %}
     </div>
   </div>
 </div>
@@ -383,11 +388,26 @@
 <div class="form-page">
 <article class="doc">
 
+  {% if item_inbox %}
+  <div style="background: var(--info-50); border-bottom: 1px solid var(--info-200); border-top: 2px solid var(--info-500); padding: 14px 36px; display: grid; grid-template-columns: 32px 1fr; gap: 16px; align-items: start;">
+    <div style="width: 28px; height: 28px; display: grid; place-items: center; font-family: var(--font-serif); font-style: italic; font-size: 18px; font-weight: 700; background: var(--info-500); color: #fff;">i</div>
+    <div>
+      <div style="font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; color: var(--info-700); margin-bottom: 4px;">Item original do inbox</div>
+      <p style="font-family: var(--font-serif); font-size: 15px; line-height: 1.5; color: var(--ink); margin: 0 0 8px; white-space: pre-line;">{{ item_inbox.conteudo }}</p>
+      <div style="font-family: var(--font-mono); font-size: 11px; color: var(--ink-mute); letter-spacing: 0.04em;">
+        Capturado em {{ item_inbox.criado_em|date:"d/m/Y H:i" }} por {{ item_inbox.autor.nome_completo|default:item_inbox.autor.email }}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
   <header class="form-head">
-    <h1>{% if view.object %}Editar {{ view.object.numero }}{% else %}Nova demanda{% endif %}</h1>
+    <h1>{% if view.object %}Editar {{ view.object.numero }}{% elif item_inbox %}Processar item — nova demanda{% else %}Nova demanda{% endif %}</h1>
     <p class="sub">
       {% if view.object %}
         Ajuste os campos abaixo. Mudanças geram registros automáticos na timeline.
+      {% elif item_inbox %}
+        Estes campos vêm pré-preenchidos a partir da captura — ajuste o que precisar antes de salvar. Ao confirmar, o item de inbox é marcado como <strong>processado</strong> e fica vinculado à nova demanda.
       {% else %}
         Registre uma nova solicitação ou ação do mandato. <strong>Receberá um número automático</strong> ao salvar.
       {% endif %}

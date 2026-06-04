@@ -407,40 +407,6 @@ class InboxItemForm(forms.ModelForm):
         aplicar_tailwind(self)
 
 
-class ProcessarInboxForm(forms.ModelForm):
-    """Triagem: converte ItemInbox em Demanda. Reusa campos do DemandaForm
-    com a descrição pré-preenchida pelo conteúdo do item."""
-
-    class Meta:
-        model = Demanda
-        fields = [
-            "titulo",
-            "descricao",
-            "origem",
-            "canal_entrada",
-            "anonimo",
-            "prioridade",
-            "responsavel",
-            "coordenacao_responsavel",
-            "restrito",
-            "prazo",
-            "temas",
-        ]
-        widgets = {
-            "descricao": forms.Textarea(attrs={"rows": 4}),
-            "prazo": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
-            "temas": forms.CheckboxSelectMultiple,
-        }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        cond = Q(ativo=True)
-        self.fields["temas"].queryset = Tema.objects.filter(cond).distinct()
-        self.fields["responsavel"].required = False
-        self.fields["responsavel"].empty_label = "— Não atribuído —"
-        aplicar_tailwind(self)
-
-
 class DescartarInboxForm(forms.ModelForm):
     """Descarte exige motivo."""
 

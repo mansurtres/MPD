@@ -14,7 +14,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMix
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
@@ -38,7 +38,6 @@ from .forms import (
     FollowupForm,
     InboxItemForm,
     InteracaoForm,
-    ProcessarInboxForm,
     TemaForm,
 )
 from .models import Anexo, Demanda, Encaminhamento, Interacao, ItemInbox, Tema
@@ -1105,6 +1104,18 @@ class InboxListView(LoginRequiredMixin, ListView):
         ctx["hoje"] = hoje
         ctx["limite_7d"] = hoje - timedelta(days=7)
         ctx["limite_30d"] = hoje - timedelta(days=30)
+        # Counts por status — exibidos no header e nos chips de filtro.
+        # Sempre calculados sobre o universo total (não respeitam o filtro
+        # corrente; queremos saber quanto tem em cada balde).
+        counts = dict(
+            ItemInbox.objects.values_list("status")
+            .annotate(n=Count("status"))
+            .values_list("status", "n")
+        )
+        ctx["count_pendentes"] = counts.get(ItemInbox.STATUS_PENDENTE, 0)
+        ctx["count_processados"] = counts.get(ItemInbox.STATUS_PROCESSADO, 0)
+        ctx["count_descartados"] = counts.get(ItemInbox.STATUS_DESCARTADO, 0)
+        ctx["count_total"] = sum(counts.values())
         return ctx
 
 
@@ -1137,12 +1148,12 @@ class ProcessarInboxView(LoginRequiredMixin, PermissionRequiredMixin, View):
         # Pré-preenchimento: conteúdo do item vira descrição inicial;
         # título é os primeiros 80 chars (usuário ajusta).
         inicial = {"descricao": item.conteudo, "titulo": item.conteudo[:80]}
-        form = ProcessarInboxForm(initial=inicial)
+        form = DemandaForm(initial=inicial)
         return render(
             request,
-            "demandas/inbox/processar.html",
+            "demandas/form.html",
             {
-                "item": item,
+                "item_inbox": item,
                 "form": form,
                 "formsets": {
                     "pessoas": DemandaPessoaFormSet(prefix="dp"),
@@ -1156,7 +1167,7 @@ class ProcessarInboxView(LoginRequiredMixin, PermissionRequiredMixin, View):
         redirecionar = self._redirecionar_se_ja_processado(request, item)
         if redirecionar:
             return redirecionar
-        form = ProcessarInboxForm(request.POST)
+        form = DemandaForm(request.POST)
         formsets = {
             "pessoas": DemandaPessoaFormSet(request.POST, prefix="dp"),
             "entidades": DemandaEntidadeFormSet(request.POST, prefix="de"),
@@ -1164,8 +1175,8 @@ class ProcessarInboxView(LoginRequiredMixin, PermissionRequiredMixin, View):
         if not (form.is_valid() and all(fs.is_valid() for fs in formsets.values())):
             return render(
                 request,
-                "demandas/inbox/processar.html",
-                {"item": item, "form": form, "formsets": formsets},
+                "demandas/form.html",
+                {"item_inbox": item, "form": form, "formsets": formsets},
                 status=400,
             )
         try:
@@ -1189,8 +1200,8 @@ class ProcessarInboxView(LoginRequiredMixin, PermissionRequiredMixin, View):
                     transaction.set_rollback(True)
                     return render(
                         request,
-                        "demandas/inbox/processar.html",
-                        {"item": item, "form": form, "formsets": formsets},
+                        "demandas/form.html",
+                        {"item_inbox": item, "form": form, "formsets": formsets},
                         status=400,
                     )
                 item.status = ItemInbox.STATUS_PROCESSADO
