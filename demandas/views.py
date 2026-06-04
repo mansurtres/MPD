@@ -1273,15 +1273,21 @@ class MinhasPendenciasView(LoginRequiredMixin, ListView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         hoje = timezone.now().date()
+        agora = timezone.now()
         grupos = {}
+        total_vencidas = 0
         for p in ctx["pendencias"]:
             ordem, label = self._bucket(p.data_ocorrencia, hoje)
             grupos.setdefault((ordem, label), []).append(p)
+            if p.data_ocorrencia < agora:
+                total_vencidas += 1
         ctx["grupos"] = [
             {"label": label, "itens": itens}
             for (ordem, label), itens in sorted(grupos.items(), key=lambda kv: kv[0][0])
         ]
-        ctx["agora"] = timezone.now()
+        ctx["agora"] = agora
+        ctx["total_pendencias"] = len(ctx["pendencias"])
+        ctx["total_vencidas"] = total_vencidas
         return ctx
 
 

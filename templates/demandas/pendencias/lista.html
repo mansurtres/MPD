@@ -1,51 +1,214 @@
 {% extends "layouts/app.html" %}
 
 {% block app_conteudo %}
-<div class="flex items-center justify-between mb-2">
-  <h1 class="text-xl font-semibold text-slate-900">Minhas pendências</h1>
-  <a href="{% url 'demandas:minhas_reunioes' %}" class="text-sm text-slate-600 hover:text-slate-900 underline">Apenas reuniões →</a>
-</div>
-<p class="text-sm text-slate-500 mb-6">Suas interações agendadas. Vencidas no topo. Marque como realizada quando aconteceu.</p>
+<style>
+  /* Pendências · fiel ao protótipo v2/pendencias.html. Decisões editoriais:
+     mono caps nos cabeçalhos de horizonte, serif no título da pendência,
+     filete vermelho 4px nas vencidas. */
+
+  .pen-head {
+    border-top: 6px solid var(--primary);
+    background: var(--surface-2);
+    padding: 22px 28px 20px;
+    margin-bottom: 24px;
+    display: grid; grid-template-columns: 1fr auto; gap: 18px; align-items: end;
+    border-bottom: 1px solid var(--rule);
+  }
+  .pen-head h1 {
+    font-family: var(--font-display); font-weight: 600;
+    font-size: 34px; line-height: 1.1; letter-spacing: -0.025em;
+    color: var(--ink); margin: 0;
+  }
+  .pen-head h1 .count {
+    font-family: var(--font-mono); font-size: 14px; color: var(--ink-mute);
+    font-weight: 400; margin-left: 12px; vertical-align: 4px;
+  }
+  .pen-head h1 .count strong { color: var(--danger-600); font-weight: 700; }
+  .pen-head .sub {
+    font-family: var(--font-serif); font-style: italic;
+    font-size: 14.5px; color: var(--ink-mute);
+    margin: 6px 0 0; max-width: 60ch; line-height: 1.5;
+  }
+  .pen-head .sub a { color: var(--primary); font-style: normal; font-weight: 600; text-decoration: none; }
+
+  .horizon { margin-bottom: 28px; }
+  .horizon .h {
+    display: flex; align-items: baseline; gap: 14px;
+    padding: 10px 14px;
+    border-left: 4px solid var(--rule);
+    background: var(--surface-2);
+    border-top: 1px solid var(--rule);
+    border-right: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+  }
+  .horizon.urg .h { border-left-color: var(--danger-500); background: var(--danger-50); }
+  .horizon.hoje .h { border-left-color: var(--warning-500); }
+  .horizon.semana .h { border-left-color: var(--primary); }
+  .horizon.proximas .h { border-left-color: var(--rule-strong); }
+  .horizon .h h2 {
+    font-family: var(--font-mono); font-size: 11.5px;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ink); margin: 0; font-weight: 700;
+  }
+  .horizon.urg .h h2 { color: var(--danger-700); }
+  .horizon .h .ct {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--ink-mute); letter-spacing: 0.04em;
+  }
+  .horizon.urg .h .ct { color: var(--danger-600); font-weight: 600; }
+
+  .horizon .items {
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    border-top: 0;
+    border-left: 4px solid transparent;
+  }
+  .horizon.urg .items { border-left-color: var(--danger-500); }
+  .horizon.hoje .items { border-left-color: var(--warning-500); }
+  .horizon.semana .items { border-left-color: var(--primary); }
+  .horizon.proximas .items { border-left-color: var(--rule-strong); }
+
+  .it {
+    display: grid;
+    grid-template-columns: 110px 1fr 130px auto;
+    gap: 18px;
+    padding: 14px 22px;
+    border-bottom: 1px solid var(--rule);
+    align-items: center;
+  }
+  .it:last-child { border-bottom: 0; }
+  .it:hover { background: var(--surface-3); }
+
+  .it .type {
+    font-family: var(--font-mono); font-size: 10px;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    font-weight: 700; color: var(--ink-mute);
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .it .type::before { content: ""; width: 7px; height: 7px; background: currentColor; flex: none; }
+  .it.dev .type { color: var(--success-700); }
+  .it.reu .type { color: var(--primary); }
+  .it.lig .type { color: var(--info-600); }
+  .it.encam .type { color: var(--danger-600); }
+  .it.anot .type { color: var(--ink-soft); }
+
+  .it .body .ttl {
+    font-family: var(--font-serif); font-size: 15px;
+    color: var(--ink); margin: 0 0 4px;
+    font-weight: 500; line-height: 1.3;
+  }
+  .it .body .meta {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--ink-mute); letter-spacing: 0.02em;
+  }
+  .it .body .meta .demanda { color: var(--primary); font-weight: 600; text-decoration: none; }
+  .it .body .meta .demanda:hover { text-decoration: underline; }
+  .it .body .meta .sep { color: var(--rule-strong); margin: 0 6px; }
+
+  .it .age {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--ink-mute); text-align: right; letter-spacing: 0.02em;
+  }
+  .it .age .d {
+    display: block; color: var(--ink); font-weight: 700;
+    font-size: 12.5px;
+  }
+  .it.late .age .d { color: var(--danger-600); }
+  .it.late .age .extra { color: var(--danger-600); font-weight: 600; }
+
+  .it .actions { display: flex; flex-direction: column; gap: 4px; align-items: stretch; }
+  .it .actions form { margin: 0; }
+  .it .btn-sm {
+    background: var(--surface-3);
+    border: 1px solid var(--rule-strong);
+    color: var(--ink-soft);
+    font-family: var(--font-mono); font-size: 10.5px;
+    font-weight: 600; padding: 5px 10px;
+    letter-spacing: 0.04em; text-transform: uppercase;
+    cursor: pointer; text-align: center; text-decoration: none;
+    display: inline-block; width: 100%;
+    transition: background .12s, color .12s, border-color .12s;
+  }
+  .it .btn-sm:hover { color: var(--ink); border-color: var(--ink); }
+  .it .btn-sm.primary {
+    background: var(--primary); color: var(--primary-fg); border-color: var(--primary);
+  }
+  .it .btn-sm.primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); color: var(--primary-fg); }
+  .it .btn-sm.danger { color: var(--danger-600); border-color: var(--danger-100); }
+  .it .btn-sm.danger:hover { background: var(--danger-50); color: var(--danger-700); border-color: var(--danger-500); }
+
+  .pen-empty {
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    border-top: 6px solid var(--success-500);
+    padding: 60px 30px;
+    text-align: center;
+    margin-top: 36px;
+  }
+  .pen-empty h3 {
+    font-family: var(--font-display); font-weight: 600;
+    font-size: 24px; color: var(--ink); margin: 0 0 8px;
+    letter-spacing: -0.015em;
+  }
+  .pen-empty p {
+    font-family: var(--font-serif); font-size: 14.5px;
+    color: var(--ink-body); margin: 0;
+    max-width: 50ch; margin-left: auto; margin-right: auto;
+    line-height: 1.55; font-style: italic;
+  }
+</style>
+
+<header class="pen-head">
+  <div>
+    <h1>Minhas pendências
+      {% if total_pendencias %}<span class="count">{% if total_vencidas %}<strong>{{ total_vencidas }} vencida{{ total_vencidas|pluralize:"s" }}</strong> · {% endif %}{{ total_pendencias }} no total</span>{% endif %}
+    </h1>
+    <p class="sub">Devolutivas, reuniões, contatos e prazos com hora marcada — organizados por horizonte temporal. Para captura rápida de notas sem agenda, use o <a href="{% url 'demandas:inbox_lista' %}">Inbox</a>.</p>
+  </div>
+</header>
 
 {% if grupos %}
   {% for grupo in grupos %}
-  <section class="mb-6">
-    <h2 class="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-2">
-      {{ grupo.label }}{% if grupo.label == 'Vencidas' %} <span class="text-red-600 normal-case font-normal">({{ grupo.itens|length }})</span>{% endif %}
-    </h2>
-    <div class="space-y-2">
+  <div class="horizon {% if grupo.label == 'Vencidas' %}urg{% elif grupo.label == 'Hoje' %}hoje{% elif grupo.label == 'Amanhã' or grupo.label == 'Esta semana' %}semana{% else %}proximas{% endif %}">
+    <div class="h">
+      <h2>{{ grupo.label }}</h2>
+      <span class="ct">{{ grupo.itens|length }} ite{{ grupo.itens|length|pluralize:"m,ns" }}{% if grupo.label == 'Vencidas' %} · escalonamento recomendado{% endif %}</span>
+    </div>
+    <div class="items">
       {% for p in grupo.itens %}
-      <div class="bg-white border {% if grupo.label == 'Vencidas' %}border-red-200{% else %}border-slate-200{% endif %} rounded-xl p-4">
-        <div class="flex items-start justify-between gap-3">
-          <div class="flex-1">
-            <div class="flex flex-wrap items-center gap-2 mb-1 text-xs">
-              <span class="inline-flex items-center px-2 py-0.5 rounded font-medium bg-blue-100 text-blue-800">{{ p.get_tipo_display }}</span>
-              <span class="text-slate-500">{{ p.data_ocorrencia|date:"d/m/Y H:i" }}</span>
-              {% if p.data_ocorrencia < agora %}<span class="text-red-700 font-medium">vencida</span>{% endif %}
-              <span class="text-slate-300">·</span>
-              <a href="{% url 'demandas:demanda_detalhe' p.demanda.pk %}" class="text-slate-600 hover:underline">
-                {{ p.demanda.numero }} — {{ p.demanda.titulo|truncatechars:60 }}
-              </a>
-            </div>
-            <p class="text-sm text-slate-800 whitespace-pre-line">{{ p.conteudo }}</p>
+      <div class="it {% if p.tipo == 'devolutiva' %}dev{% elif p.tipo == 'reuniao' %}reu{% elif p.tipo == 'contato_com_pessoa' %}lig{% elif p.tipo == 'encaminhamento_externo' %}encam{% else %}anot{% endif %}{% if p.data_ocorrencia < agora %} late{% endif %}">
+        <div class="type">{{ p.get_tipo_display }}</div>
+        <div class="body">
+          <p class="ttl">{{ p.conteudo|truncatechars:100 }}</p>
+          <div class="meta">
+            <a href="{% url 'demandas:demanda_detalhe' p.demanda.pk %}" class="demanda">{{ p.demanda.numero }}</a>
+            <span class="sep">·</span>
+            <span>{{ p.demanda.titulo|truncatechars:40 }}</span>
           </div>
-          <div class="flex flex-col gap-2 shrink-0">
-            <form method="post" action="{% url 'demandas:interacao_realizada' p.pk %}">{% csrf_token %}
-              <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg">Marcar realizada</button>
-            </form>
-            <form method="post" action="{% url 'demandas:interacao_cancelar' p.pk %}" onsubmit="return confirm('Cancelar essa pendência?');">{% csrf_token %}
-              <button type="submit" class="text-xs text-slate-500 hover:text-slate-800 underline w-full">Cancelar</button>
-            </form>
-          </div>
+        </div>
+        <div class="age">
+          <span class="d">{{ p.data_ocorrencia|date:"d/m H:i" }}</span>
+          {% if p.data_ocorrencia < agora %}
+          <span class="extra">vencida</span>
+          {% endif %}
+        </div>
+        <div class="actions">
+          <form method="post" action="{% url 'demandas:interacao_realizada' p.pk %}">{% csrf_token %}
+            <button type="submit" class="btn-sm primary">Marcar realizada</button>
+          </form>
+          <form method="post" action="{% url 'demandas:interacao_cancelar' p.pk %}" onsubmit="return confirm('Cancelar essa pendência?');">{% csrf_token %}
+            <button type="submit" class="btn-sm danger">Cancelar</button>
+          </form>
         </div>
       </div>
       {% endfor %}
     </div>
-  </section>
+  </div>
   {% endfor %}
 {% else %}
-<div class="bg-white border border-slate-200 rounded-xl p-12 text-center text-sm text-slate-500">
-  Nenhuma pendência agendada.
+<div class="pen-empty">
+  <h3>Sem pendências agendadas.</h3>
+  <p>Quando você agendar interações (devolutivas, reuniões, follow-ups), elas aparecem aqui agrupadas por horizonte temporal — vencidas no topo.</p>
 </div>
 {% endif %}
 {% endblock %}

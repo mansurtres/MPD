@@ -1,173 +1,264 @@
 {% extends "layouts/app.html" %}
 
 {% block app_conteudo %}
-<h1 class="text-xl font-semibold text-slate-900 mb-2">Painel de análise</h1>
-<p class="text-sm text-slate-500 mb-6">Visão consolidada do mandato em números. Cada bloco oferece "Tabela" e "Gráfico" — clique pra alternar.</p>
+<style>
+  /* Análise · derivado da gramática v2 (papel cru, mono+serif+display).
+     Não há protótipo específico v2 para todas as métricas — adaptei a
+     grade existente da view (6 métricas) ao padrão visual estabelecido
+     pelas outras telas (lista, detalhe, inbox, pendências). */
+
+  .an-head {
+    border-top: 6px solid var(--primary);
+    background: var(--surface-2);
+    padding: 22px 28px 20px;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .an-head h1 {
+    font-family: var(--font-display); font-weight: 600;
+    font-size: 34px; line-height: 1.1; letter-spacing: -0.025em;
+    color: var(--ink); margin: 0;
+  }
+  .an-head .sub {
+    font-family: var(--font-serif); font-style: italic;
+    font-size: 14.5px; color: var(--ink-mute);
+    margin: 6px 0 0; max-width: 64ch; line-height: 1.5;
+  }
+  .an-head .sub strong { color: var(--ink); font-weight: 600; font-style: normal; }
+
+  .an-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  @media (max-width: 1024px) { .an-grid { grid-template-columns: 1fr; } }
+  .an-grid .wide { grid-column: 1 / -1; }
+
+  .an-card {
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    padding: 22px 26px;
+  }
+  .an-card-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .an-card-head h2 {
+    font-family: var(--font-mono); font-size: 10.5px;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--primary); font-weight: 700;
+    margin: 0;
+  }
+  .an-card-head .num {
+    font-family: var(--font-display); font-weight: 600;
+    font-size: 24px; line-height: 1; color: var(--ink);
+    letter-spacing: -0.02em;
+    display: block; margin-top: 4px;
+  }
+  .an-card-toggle {
+    display: inline-flex; border: 1px solid var(--rule-strong);
+  }
+  .an-card-toggle button {
+    background: var(--surface-3); border: 0;
+    font-family: var(--font-mono); font-size: 10px;
+    font-weight: 600; letter-spacing: 0.04em;
+    text-transform: uppercase; color: var(--ink-mute);
+    padding: 5px 10px; cursor: pointer;
+    border-right: 1px solid var(--rule-strong);
+  }
+  .an-card-toggle button:last-child { border-right: 0; }
+  .an-card-toggle button.on {
+    background: var(--ink-800); color: var(--surface-2);
+  }
+
+  .an-card-title {
+    font-family: var(--font-display); font-weight: 600;
+    font-size: 20px; letter-spacing: -0.015em;
+    color: var(--ink); margin: 0 0 12px;
+  }
+
+  .an-table { width: 100%; border-collapse: collapse; }
+  .an-table tr { border-bottom: 1px solid var(--rule); }
+  .an-table tr:last-child { border-bottom: 0; }
+  .an-table td, .an-table th {
+    padding: 8px 0;
+    font-family: var(--font-mono); font-size: 12px;
+    text-align: left; color: var(--ink-strong);
+  }
+  .an-table td.label { font-family: var(--font-serif); font-size: 14px; color: var(--ink-body); }
+  .an-table td.value {
+    text-align: right; font-family: var(--font-mono);
+    font-weight: 700; color: var(--ink); font-size: 13px;
+  }
+  .an-table th {
+    font-size: 10px; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--ink-mute);
+    font-weight: 700;
+    border-bottom: 1px solid var(--rule-strong);
+  }
+  .an-table td.danger { color: var(--danger-700); font-weight: 700; }
+  .an-table .link {
+    text-decoration: none; color: var(--ink-body);
+    border-bottom: 1px dotted var(--rule-strong);
+  }
+  .an-table .link:hover { color: var(--primary); border-bottom-color: var(--primary); }
+
+  .an-empty {
+    font-family: var(--font-serif); font-style: italic;
+    font-size: 13px; color: var(--ink-mute);
+    text-align: center; padding: 24px 0;
+  }
+
+  .vis-grafico { display: none; }
+  .vis-grafico.on { display: block; }
+  .vis-tabela.off { display: none; }
+</style>
+
+<header class="an-head">
+  <h1>Análise</h1>
+  <p class="sub">Visão consolidada do mandato em números. <strong>Cada bloco oferece tabela e gráfico</strong> — alterne pelo seletor no canto. Métricas respeitam a visibilidade restrita por coordenação.</p>
+</header>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+<div class="an-grid">
 
-  <!-- Demandas por tema -->
-  <section class="bg-white border border-slate-200 rounded-xl p-6" data-bloco="por_tema">
-    <div class="flex items-center justify-between mb-3">
-      <h2 class="text-base font-semibold text-slate-900">Demandas por tema</h2>
-      <div class="text-xs">
-        <button type="button" class="toggle-vis px-2 py-1 rounded border border-slate-300 bg-slate-800 text-white" data-vis="tabela">Tabela</button>
-        <button type="button" class="toggle-vis px-2 py-1 rounded border border-slate-300" data-vis="grafico">Gráfico</button>
+  {# Demandas por tema #}
+  <section class="an-card" data-bloco="por_tema">
+    <div class="an-card-head">
+      <h2>Demandas por tema</h2>
+      <div class="an-card-toggle">
+        <button type="button" class="toggle-vis on" data-vis="tabela">Tabela</button>
+        <button type="button" class="toggle-vis" data-vis="grafico">Gráfico</button>
       </div>
     </div>
     <div class="vis-tabela">
       {% if por_tema %}
-      <table class="w-full text-sm">
-        <tbody class="divide-y divide-slate-100">
-          {% for t in por_tema %}
-          <tr><td class="py-1.5 text-slate-700">{{ t.temas__nome }}</td><td class="py-1.5 text-right text-slate-900 font-medium">{{ t.total }}</td></tr>
-          {% endfor %}
+      <table class="an-table">
+        <tbody>
+          {% for t in por_tema %}<tr><td class="label">{{ t.temas__nome }}</td><td class="value">{{ t.total }}</td></tr>{% endfor %}
         </tbody>
       </table>
-      {% else %}<p class="text-sm text-slate-500">Sem dados.</p>{% endif %}
+      {% else %}<p class="an-empty">Sem dados ainda.</p>{% endif %}
     </div>
-    <div class="vis-grafico hidden">
-      <canvas id="chart-por_tema" height="160"></canvas>
-    </div>
+    <div class="vis-grafico"><canvas id="chart-por_tema" height="160"></canvas></div>
   </section>
 
-  <!-- Demandas por mês -->
-  <section class="bg-white border border-slate-200 rounded-xl p-6" data-bloco="por_mes">
-    <div class="flex items-center justify-between mb-3">
-      <h2 class="text-base font-semibold text-slate-900">Demandas por mês (últimos 12)</h2>
-      <div class="text-xs">
-        <button type="button" class="toggle-vis px-2 py-1 rounded border border-slate-300 bg-slate-800 text-white" data-vis="tabela">Tabela</button>
-        <button type="button" class="toggle-vis px-2 py-1 rounded border border-slate-300" data-vis="grafico">Gráfico</button>
+  {# Demandas por mês #}
+  <section class="an-card" data-bloco="por_mes">
+    <div class="an-card-head">
+      <h2>Volume mensal · últimos 12 meses</h2>
+      <div class="an-card-toggle">
+        <button type="button" class="toggle-vis on" data-vis="tabela">Tabela</button>
+        <button type="button" class="toggle-vis" data-vis="grafico">Gráfico</button>
       </div>
     </div>
     <div class="vis-tabela">
       {% if por_mes %}
-      <table class="w-full text-sm">
-        <tbody class="divide-y divide-slate-100">
-          {% for m in por_mes %}
-          <tr><td class="py-1.5 text-slate-700">{{ m.mes|date:"M/Y" }}</td><td class="py-1.5 text-right text-slate-900 font-medium">{{ m.total }}</td></tr>
-          {% endfor %}
+      <table class="an-table">
+        <tbody>
+          {% for m in por_mes %}<tr><td class="label">{{ m.mes|date:"M/Y" }}</td><td class="value">{{ m.total }}</td></tr>{% endfor %}
         </tbody>
       </table>
-      {% else %}<p class="text-sm text-slate-500">Sem dados.</p>{% endif %}
+      {% else %}<p class="an-empty">Sem dados ainda.</p>{% endif %}
     </div>
-    <div class="vis-grafico hidden">
-      <canvas id="chart-por_mes" height="160"></canvas>
-    </div>
+    <div class="vis-grafico"><canvas id="chart-por_mes" height="160"></canvas></div>
   </section>
 
-  <!-- Por coordenação -->
-  <section class="bg-white border border-slate-200 rounded-xl p-6" data-bloco="por_coord">
-    <div class="flex items-center justify-between mb-3">
-      <h2 class="text-base font-semibold text-slate-900">Demandas por coordenação</h2>
-      <div class="text-xs">
-        <button type="button" class="toggle-vis px-2 py-1 rounded border border-slate-300 bg-slate-800 text-white" data-vis="tabela">Tabela</button>
-        <button type="button" class="toggle-vis px-2 py-1 rounded border border-slate-300" data-vis="grafico">Gráfico</button>
+  {# Por coordenação #}
+  <section class="an-card" data-bloco="por_coord">
+    <div class="an-card-head">
+      <h2>Por coordenação</h2>
+      <div class="an-card-toggle">
+        <button type="button" class="toggle-vis on" data-vis="tabela">Tabela</button>
+        <button type="button" class="toggle-vis" data-vis="grafico">Gráfico</button>
       </div>
     </div>
     <div class="vis-tabela">
-      <table class="w-full text-sm">
-        <tbody class="divide-y divide-slate-100">
-          {% for c in por_coordenacao %}
-          <tr><td class="py-1.5 text-slate-700">{{ c.display }}</td><td class="py-1.5 text-right text-slate-900 font-medium">{{ c.total }}</td></tr>
-          {% endfor %}
+      <table class="an-table">
+        <tbody>
+          {% for c in por_coordenacao %}<tr><td class="label">{{ c.display }}</td><td class="value">{{ c.total }}</td></tr>{% endfor %}
         </tbody>
       </table>
     </div>
-    <div class="vis-grafico hidden">
-      <canvas id="chart-por_coord" height="160"></canvas>
-    </div>
+    <div class="vis-grafico"><canvas id="chart-por_coord" height="160"></canvas></div>
   </section>
 
-  <!-- Encaminhamentos por órgão -->
-  <section class="bg-white border border-slate-200 rounded-xl p-6" data-bloco="enc_orgao">
-    <div class="flex items-center justify-between mb-3">
-      <h2 class="text-base font-semibold text-slate-900">Encaminhamentos pendentes por órgão</h2>
-      <div class="text-xs">
-        <button type="button" class="toggle-vis px-2 py-1 rounded border border-slate-300 bg-slate-800 text-white" data-vis="tabela">Tabela</button>
-        <button type="button" class="toggle-vis px-2 py-1 rounded border border-slate-300" data-vis="grafico">Gráfico</button>
+  {# Encaminhamentos por órgão #}
+  <section class="an-card" data-bloco="enc_orgao">
+    <div class="an-card-head">
+      <h2>Encaminhamentos pendentes</h2>
+      <div class="an-card-toggle">
+        <button type="button" class="toggle-vis on" data-vis="tabela">Tabela</button>
+        <button type="button" class="toggle-vis" data-vis="grafico">Gráfico</button>
       </div>
     </div>
     <div class="vis-tabela">
       {% if enc_por_orgao %}
-      <table class="w-full text-sm">
-        <tbody class="divide-y divide-slate-100">
-          {% for e in enc_por_orgao %}
-          <tr><td class="py-1.5 text-slate-700">{{ e.destinatario_orgao }}</td><td class="py-1.5 text-right text-slate-900 font-medium">{{ e.total }}</td></tr>
-          {% endfor %}
+      <table class="an-table">
+        <tbody>
+          {% for e in enc_por_orgao %}<tr><td class="label">{{ e.destinatario_orgao }}</td><td class="value">{{ e.total }}</td></tr>{% endfor %}
         </tbody>
       </table>
-      {% else %}<p class="text-sm text-slate-500">Nenhum encaminhamento pendente.</p>{% endif %}
+      {% else %}<p class="an-empty">Nenhum encaminhamento pendente.</p>{% endif %}
     </div>
-    <div class="vis-grafico hidden">
-      <canvas id="chart-enc_orgao" height="160"></canvas>
-    </div>
+    <div class="vis-grafico"><canvas id="chart-enc_orgao" height="160"></canvas></div>
   </section>
 
-  <!-- Top pessoas -->
-  <section class="bg-white border border-slate-200 rounded-xl p-6 lg:col-span-2" data-bloco="top_pessoas">
-    <div class="flex items-center justify-between mb-3">
-      <h2 class="text-base font-semibold text-slate-900">Top 20 pessoas com mais demandas</h2>
-      <div class="text-xs">
-        <button type="button" class="toggle-vis px-2 py-1 rounded border border-slate-300 bg-slate-800 text-white" data-vis="tabela">Tabela</button>
-        <button type="button" class="toggle-vis px-2 py-1 rounded border border-slate-300" data-vis="grafico">Gráfico</button>
+  {# Top pessoas — wide #}
+  <section class="an-card wide" data-bloco="top_pessoas">
+    <div class="an-card-head">
+      <h2>Top 20 pessoas — mais demandas</h2>
+      <div class="an-card-toggle">
+        <button type="button" class="toggle-vis on" data-vis="tabela">Tabela</button>
+        <button type="button" class="toggle-vis" data-vis="grafico">Gráfico</button>
       </div>
     </div>
     <div class="vis-tabela">
       {% if top_pessoas %}
-      <table class="w-full text-sm">
-        <tbody class="divide-y divide-slate-100">
+      <table class="an-table">
+        <tbody>
           {% for p in top_pessoas %}
           <tr>
-            <td class="py-1.5"><a href="{% url 'pessoas:pessoa_detalhe' p.slug_publico %}" class="text-slate-700 hover:underline">{{ p.nome }} {{ p.sobrenome|default:'' }}</a></td>
-            <td class="py-1.5 text-right text-slate-900 font-medium">{{ p.total }}</td>
+            <td class="label"><a class="link" href="{% url 'pessoas:pessoa_detalhe' p.slug_publico %}">{{ p.nome }} {{ p.sobrenome|default:"" }}</a></td>
+            <td class="value">{{ p.total }}</td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
-      {% else %}<p class="text-sm text-slate-500">Sem dados.</p>{% endif %}
+      {% else %}<p class="an-empty">Sem dados ainda.</p>{% endif %}
     </div>
-    <div class="vis-grafico hidden">
-      <canvas id="chart-top_pessoas" height="200"></canvas>
-    </div>
+    <div class="vis-grafico"><canvas id="chart-top_pessoas" height="220"></canvas></div>
   </section>
 
-  <!-- Carga por assessor -->
-  <section class="bg-white border border-slate-200 rounded-xl p-6 lg:col-span-2" data-bloco="carga">
-    <div class="flex items-center justify-between mb-3">
-      <h2 class="text-base font-semibold text-slate-900">Carga por assessor</h2>
-      <div class="text-xs">
-        <button type="button" class="toggle-vis px-2 py-1 rounded border border-slate-300 bg-slate-800 text-white" data-vis="tabela">Tabela</button>
-        <button type="button" class="toggle-vis px-2 py-1 rounded border border-slate-300" data-vis="grafico">Gráfico</button>
+  {# Carga por assessor — wide #}
+  <section class="an-card wide" data-bloco="carga">
+    <div class="an-card-head">
+      <h2>Carga por assessor — abertas e vencidas</h2>
+      <div class="an-card-toggle">
+        <button type="button" class="toggle-vis on" data-vis="tabela">Tabela</button>
+        <button type="button" class="toggle-vis" data-vis="grafico">Gráfico</button>
       </div>
     </div>
     <div class="vis-tabela">
       {% if carga_assessores %}
-      <table class="w-full text-sm">
+      <table class="an-table">
         <thead>
-          <tr class="text-slate-500 border-b border-slate-100">
-            <th class="text-left py-1.5 font-medium">Assessor</th>
-            <th class="text-right py-1.5 font-medium">Abertas</th>
-            <th class="text-right py-1.5 font-medium">Vencidas</th>
-          </tr>
+          <tr><th>Assessor</th><th style="text-align:right">Abertas</th><th style="text-align:right">Vencidas</th></tr>
         </thead>
-        <tbody class="divide-y divide-slate-100">
+        <tbody>
           {% for a in carga_assessores %}
           <tr>
-            <td class="py-1.5 text-slate-700">{{ a.nome }}</td>
-            <td class="py-1.5 text-right text-slate-900 font-medium">{{ a.abertas }}</td>
-            <td class="py-1.5 text-right {% if a.vencidas %}text-red-700 font-medium{% else %}text-slate-500{% endif %}">{{ a.vencidas }}</td>
+            <td class="label">{{ a.nome }}</td>
+            <td class="value">{{ a.abertas }}</td>
+            <td class="value {% if a.vencidas %}danger{% endif %}">{{ a.vencidas }}</td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
-      {% else %}<p class="text-sm text-slate-500">Nenhum assessor com demandas abertas.</p>{% endif %}
+      {% else %}<p class="an-empty">Nenhum assessor com demandas abertas.</p>{% endif %}
     </div>
-    <div class="vis-grafico hidden">
-      <canvas id="chart-carga" height="200"></canvas>
-    </div>
+    <div class="vis-grafico"><canvas id="chart-carga" height="220"></canvas></div>
   </section>
 
 </div>
@@ -181,16 +272,16 @@
 
 <script>
 (function() {
-  // Toggle tabela/gráfico por bloco.
+  // Toggle tabela/gráfico por bloco — preserva o JS original que já
+  // funciona; só renomeei as classes pra .on/.off (sem dependência Tailwind).
   document.querySelectorAll('section[data-bloco]').forEach(sec => {
     const btns = sec.querySelectorAll('.toggle-vis');
     btns.forEach(btn => btn.addEventListener('click', () => {
-      btns.forEach(b => b.classList.toggle('bg-slate-800', false));
-      btns.forEach(b => b.classList.toggle('text-white', false));
-      btn.classList.add('bg-slate-800', 'text-white');
+      btns.forEach(b => b.classList.remove('on'));
+      btn.classList.add('on');
       const tipo = btn.dataset.vis;
-      sec.querySelector('.vis-tabela').classList.toggle('hidden', tipo !== 'tabela');
-      sec.querySelector('.vis-grafico').classList.toggle('hidden', tipo !== 'grafico');
+      sec.querySelector('.vis-tabela').classList.toggle('off', tipo !== 'tabela');
+      sec.querySelector('.vis-grafico').classList.toggle('on', tipo === 'grafico');
       if (tipo === 'grafico') renderChart(sec.dataset.bloco);
     }));
   });
@@ -201,54 +292,55 @@
     return el ? JSON.parse(el.textContent) : [];
   }
 
+  // Paleta navy (alinhada ao token --primary)
+  const NAVY = '#1f3a5f';
+  const NAVY_SOFT = '#3b5a85';
+  const DANGER = '#dc2626';
+  const ACCENT = '#0f766e';
+  const COORD_COLORS = ['#1f3a5f', '#0e7490', '#a16207', '#7c3aed', '#be185d'];
+
   function renderChart(bloco) {
     if (charts[bloco]) return;
     const ctx = document.getElementById('chart-' + bloco);
     if (!ctx) return;
     const data = leData(bloco);
     let cfg = null;
-
     if (bloco === 'por_tema') {
-      cfg = {
-        type: 'bar',
-        data: {
-          labels: data.map(d => d.temas__nome),
-          datasets: [{label: 'Demandas', data: data.map(d => d.total), backgroundColor: data.map(d => d.temas__cor || '#64748b')}],
-        },
-        options: {indexAxis: 'y', plugins: {legend: {display: false}}}
-      };
+      cfg = { type: 'bar', data: {
+        labels: data.map(d => d.temas__nome),
+        datasets: [{label: 'Demandas', data: data.map(d => d.total),
+                    backgroundColor: data.map(d => d.temas__cor || NAVY_SOFT)}],
+      }, options: {indexAxis: 'y', plugins: {legend: {display: false}}} };
     } else if (bloco === 'por_mes') {
-      cfg = {
-        type: 'line',
-        data: {labels: data.map(d => d.mes.slice(0,7)), datasets: [{label: 'Demandas/mês', data: data.map(d => d.total), borderColor: '#1e293b', tension: 0.2}]},
-        options: {plugins: {legend: {display: false}}}
-      };
+      cfg = { type: 'line', data: {
+        labels: data.map(d => d.mes.slice(0,7)),
+        datasets: [{label: 'Demandas/mês', data: data.map(d => d.total),
+                    borderColor: NAVY, backgroundColor: 'rgba(31,58,95,0.08)',
+                    tension: 0.25, fill: true}],
+      }, options: {plugins: {legend: {display: false}}} };
     } else if (bloco === 'por_coord') {
-      cfg = {
-        type: 'doughnut',
-        data: {labels: data.map(d => d.display), datasets: [{data: data.map(d => d.total), backgroundColor: ['#1e293b','#0e7490','#a16207']}]}
-      };
+      cfg = { type: 'doughnut', data: {
+        labels: data.map(d => d.display),
+        datasets: [{data: data.map(d => d.total), backgroundColor: COORD_COLORS}],
+      } };
     } else if (bloco === 'enc_orgao') {
-      cfg = {
-        type: 'bar',
-        data: {labels: data.map(d => d.destinatario_orgao), datasets: [{label: 'Pendentes', data: data.map(d => d.total), backgroundColor: '#4338ca'}]},
-        options: {indexAxis: 'y', plugins: {legend: {display: false}}}
-      };
+      cfg = { type: 'bar', data: {
+        labels: data.map(d => d.destinatario_orgao),
+        datasets: [{label: 'Pendentes', data: data.map(d => d.total), backgroundColor: DANGER}],
+      }, options: {indexAxis: 'y', plugins: {legend: {display: false}}} };
     } else if (bloco === 'top_pessoas') {
-      cfg = {
-        type: 'bar',
-        data: {labels: data.map(d => (d.nome + ' ' + (d.sobrenome||'')).trim()), datasets: [{label: 'Demandas', data: data.map(d => d.total), backgroundColor: '#0f766e'}]},
-        options: {indexAxis: 'y', plugins: {legend: {display: false}}}
-      };
+      cfg = { type: 'bar', data: {
+        labels: data.map(d => (d.nome + ' ' + (d.sobrenome||'')).trim()),
+        datasets: [{label: 'Demandas', data: data.map(d => d.total), backgroundColor: ACCENT}],
+      }, options: {indexAxis: 'y', plugins: {legend: {display: false}}} };
     } else if (bloco === 'carga') {
-      cfg = {
-        type: 'bar',
-        data: {labels: data.map(d => d.nome), datasets: [
-          {label: 'Abertas', data: data.map(d => d.abertas), backgroundColor: '#1e293b'},
-          {label: 'Vencidas', data: data.map(d => d.vencidas), backgroundColor: '#dc2626'},
-        ]},
-        options: {indexAxis: 'y'}
-      };
+      cfg = { type: 'bar', data: {
+        labels: data.map(d => d.nome),
+        datasets: [
+          {label: 'Abertas', data: data.map(d => d.abertas), backgroundColor: NAVY},
+          {label: 'Vencidas', data: data.map(d => d.vencidas), backgroundColor: DANGER},
+        ],
+      }, options: {indexAxis: 'y'} };
     }
     if (cfg) charts[bloco] = new Chart(ctx, cfg);
   }
