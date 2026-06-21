@@ -447,9 +447,22 @@
 
 
 /* ============================================================
-   BRIDGE — mapeia classes Tailwind antigas (slate/blue/etc.)
-   para os tokens novos sem precisar reescrever cada template.
-   Aplica em todas as telas que ainda usam a paleta original.
+   BASELINE DE CAMPOS DE FORMULÁRIO + ponte de classes legadas
+   ⚠️ NÃO É CÓDIGO MORTO. Esta seção é load-bearing:
+
+   1. A regra global `input, select, textarea { … }` (mais abaixo)
+      estiliza TODO campo de formulário do sistema — inclusive os
+      renderizados via `{{ form.field }}` (a função
+      `core.forms.aplicar_tailwind` injeta classes utilitárias nos
+      widgets) e os campos manuais (forms de usuário/perfil, busca
+      global, date pickers).
+   2. O dropdown do `static/js/autocomplete.js` é montado com classes
+      utilitárias (bg-white, border-slate-*, etc.) e depende daqui.
+
+   Por isso o mapeamento `slate/*` → tokens permanece: ele traduz as
+   classes que o Python e o JS ainda emitem para a paleta quente.
+   Aposentá-lo exige rewire de `aplicar_tailwind` + `autocomplete.js`
+   (decisão de manter, 2026-06-21 — risco visual não compensa o ganho).
    ============================================================ */
 
 /* Tipografia global das páginas internas — força mono na UI */
