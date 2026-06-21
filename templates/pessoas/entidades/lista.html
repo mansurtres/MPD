@@ -38,9 +38,6 @@
     color: var(--ink-soft); white-space: nowrap;
   }
   .lista-page td.col-cidade .none { color: var(--ink-mute); font-style: italic; }
-
-  .lista-page .badge.ativa   { background: var(--rs-atend-bg); color: var(--rs-atend-fg); border-color: rgba(52,64,34,0.35); }
-  .lista-page .badge.inativa { background: var(--st-arq-bg);   color: var(--st-arq-fg);   border-color: rgba(83,76,65,0.45); }
 </style>
 
 <div class="lista-page">
@@ -174,15 +171,4 @@
 
 </div>
 
-<script>
-(function() {
-  const btn = document.getElementById('toggle-filtros-adv');
-  const adv = document.getElementById('filtros-adv');
-  if (btn && adv) {
-    function sync() { btn.textContent = adv.hidden ? 'Filtros avançados ↓' : 'Filtros avançados ↑'; }
-    btn.addEventListener('click', () => { adv.hidden = !adv.hidden; sync(); });
-    sync();
-  }
-})();
-</script>
 {% endblock %}

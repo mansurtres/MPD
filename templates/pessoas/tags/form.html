@@ -1,71 +1,17 @@
 {% extends "layouts/app.html" %}
 
 {% block app_conteudo %}
-<style>
-  /* form-err local — espelha o padrão do form-page mas escopo estreito */
-  .tag-form-wrap .form-err {
-    background: var(--danger-50);
-    border-left: 3px solid var(--danger-500);
-    padding: 14px 18px;
-    font-family: var(--font-serif); font-size: 14px;
-    line-height: 1.5; color: var(--danger-700);
-    margin-bottom: 16px;
-  }
-  .tag-form-wrap .form-err .lbl {
-    font-family: var(--font-mono); font-size: 10px;
-    letter-spacing: 0.14em; text-transform: uppercase;
-    color: var(--danger-600); font-weight: 700;
-    display: block; margin-bottom: 4px;
-  }
-  .tag-form-wrap .form-err ul { margin: 4px 0 0; padding-left: 20px; }
-  .tag-form-wrap .form-err strong { color: var(--ink); font-weight: 600; }
-
-  /* Seletor de cor (paleta + custom) — tokens, sem Tailwind */
-  .tag-form-wrap .cor-palette { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
-  .tag-form-wrap .cor-row { display: flex; align-items: center; gap: 10px; }
-  .tag-form-wrap .cor-tipwrap { position: relative; display: inline-flex; }
-  .tag-form-wrap .cor-swatch {
-    width: 28px; height: 28px; display: block;
-    border-radius: var(--radius-full);
-    border: 1px solid var(--rule-strong);
-    cursor: pointer; padding: 0;
-    transition: box-shadow .12s, transform .12s;
-  }
-  .tag-form-wrap .cor-swatch:hover { transform: scale(1.08); }
-  .tag-form-wrap .cor-swatch.sel { box-shadow: 0 0 0 2px var(--surface-2), 0 0 0 4px var(--primary); }
-  .tag-form-wrap .cor-custom {
-    width: 36px; height: 36px; display: block; flex: none;
-    border-radius: var(--radius-full);
-    border: 1px solid var(--rule-strong);
-    cursor: pointer; box-shadow: var(--shadow-sm);
-    transition: transform .12s;
-  }
-  .tag-form-wrap .cor-custom:hover { transform: scale(1.06); }
-  .tag-form-wrap .cor-tip {
-    position: absolute; left: 50%; transform: translateX(-50%);
-    bottom: calc(100% + 6px);
-    background: var(--ink-900); color: var(--surface-2);
-    font-family: var(--font-mono); font-size: 10px;
-    letter-spacing: 0.04em; padding: 2px 7px; white-space: nowrap;
-    opacity: 0; pointer-events: none; transition: opacity .12s; z-index: 10;
-  }
-  .tag-form-wrap .cor-tipwrap:hover .cor-tip { opacity: 1; }
-  .tag-form-wrap .sr-only {
-    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
-    overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
-  }
-</style>
 
 <div class="page-head" style="margin-bottom:16px">
   <div>
     <div class="breadcrumb">
-      <a href="/" style="text-decoration:none;color:var(--ink-mute)">Início</a>
+      <a href="/">Início</a>
       <span class="sep">/</span>
-      <a href="{% url 'core:configuracoes' %}" style="text-decoration:none;color:var(--ink-mute)">Configurações</a>
+      <a href="{% url 'core:configuracoes' %}">Configurações</a>
       <span class="sep">/</span>
-      <a href="{% url 'pessoas:tag_lista' %}" style="text-decoration:none;color:var(--ink-mute)">Tags</a>
+      <a href="{% url 'pessoas:tag_lista' %}">Tags</a>
       <span class="sep">/</span>
-      <span style="color:var(--primary);font-weight:var(--fw-semibold)">{{ titulo }}</span>
+      <span class="here">{{ titulo }}</span>
     </div>
     <h1>{{ titulo }}</h1>
   </div>
@@ -86,35 +32,7 @@
       {% for e in form.nome.errors %}<p style="font-family:var(--font-mono);font-size:11px;color:var(--danger-600);margin-top:4px">{{ e }}</p>{% endfor %}
     </div>
 
-    <div style="margin-bottom:18px">
-      <label style="display:block;font-family:var(--font-mono);font-size:10.5px;font-weight:700;color:var(--ink-mute);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px">
-        Cor
-      </label>
-      <div class="cor-palette" id="cor-palette">
-        {% for cor, nome in cores_predefinidas %}
-        <span class="cor-tipwrap">
-          <button type="button" data-cor="{{ cor }}" aria-label="{{ nome }}" class="cor-swatch" style="background:{{ cor }}"></button>
-          <span class="cor-tip">{{ nome }}</span>
-        </span>
-        {% endfor %}
-      </div>
-      <div class="cor-row">
-        {{ form.cor }}
-        <span class="cor-tipwrap">
-          <button type="button" id="cor-personalizar-btn" aria-label="Personalizar cor" class="cor-custom"
-            style="background: conic-gradient(from 0deg, #ef4444, #f59e0b, #eab308, #22c55e, #06b6d4, #3b82f6, #8b5cf6, #ec4899, #ef4444);"></button>
-          <span class="cor-tip">Personalizar</span>
-        </span>
-        <input type="color" id="cor-picker" value="#475569" class="sr-only" tabindex="-1" aria-hidden="true">
-      </div>
-      <p style="margin-top:10px;font-family:var(--font-serif);font-size:13px;color:var(--ink-mute);display:flex;align-items:center;gap:8px;">
-        Prévia:
-        <span id="cor-preview" style="display:inline-flex;align-items:center;padding:2px 8px;font-family:var(--font-mono);font-size:11.5px;font-weight:600;background:var(--ink-100);color:var(--ink-soft);">
-          {{ form.nome.value|default:"tag" }}
-        </span>
-      </p>
-      {% for e in form.cor.errors %}<p style="font-family:var(--font-mono);font-size:11px;color:var(--danger-600);margin-top:4px">{{ e }}</p>{% endfor %}
-    </div>
+    {% include "_color_picker.html" with preview_default="tag" %}
 
     <div style="margin-bottom:24px">
       <label style="display:block;font-family:var(--font-mono);font-size:10.5px;font-weight:700;color:var(--ink-mute);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">
@@ -153,58 +71,4 @@
 
 </div>
 
-<script>
-(function() {
-  const form = document.getElementById("tag-form");
-  if (!form) return;
-
-  // --- Cor: paleta + input hex + color picker + preview ---
-  const corInput = form.querySelector("input[name=cor]");
-  const corPicker = document.getElementById("cor-picker");
-  const corPreview = document.getElementById("cor-preview");
-  const nomeInput = form.querySelector("input[name=nome]");
-  const swatches = form.querySelectorAll(".cor-swatch");
-
-  function hexValido(v) { return /^#[0-9a-fA-F]{6}$/.test((v || "").trim()); }
-  function aplicarCor(hex) {
-    if (!hexValido(hex)) {
-      corPreview.style.background = "var(--ink-100)";
-      corPreview.style.color = "var(--ink-soft)";
-      swatches.forEach(s => s.classList.remove("sel"));
-      return;
-    }
-    corPreview.style.background = `color-mix(in srgb, ${hex} 14%, white)`;
-    corPreview.style.color = `color-mix(in srgb, ${hex} 75%, black)`;
-    corPicker.value = hex;
-    swatches.forEach(s => {
-      if (s.dataset.cor.toLowerCase() === hex.toLowerCase()) {
-        s.classList.add("sel");
-      } else {
-        s.classList.remove("sel");
-      }
-    });
-  }
-  function atualizarPreviewTexto() {
-    if (corPreview && nomeInput) corPreview.textContent = (nomeInput.value || "tag").trim() || "tag";
-  }
-
-  swatches.forEach(s => {
-    s.addEventListener("click", () => {
-      corInput.value = s.dataset.cor;
-      aplicarCor(s.dataset.cor);
-    });
-  });
-  document.getElementById("cor-personalizar-btn")?.addEventListener("click", () => corPicker?.click());
-  corInput?.addEventListener("input", () => aplicarCor(corInput.value));
-  corPicker?.addEventListener("input", () => {
-    corInput.value = corPicker.value;
-    aplicarCor(corPicker.value);
-  });
-  nomeInput?.addEventListener("input", atualizarPreviewTexto);
-
-  // Estado inicial
-  atualizarPreviewTexto();
-  if (corInput?.value) aplicarCor(corInput.value);
-})();
-</script>
 {% endblock %}

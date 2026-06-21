@@ -331,18 +331,4 @@
 
 </div>
 
-<script>
-(function() {
-  // Toggle do bloco de filtros avançados
-  const btn = document.getElementById('toggle-filtros-adv');
-  const adv = document.getElementById('filtros-adv');
-  if (btn && adv) {
-    function sync() {
-      btn.textContent = adv.hidden ? 'Filtros avançados ↓' : 'Filtros avançados ↑';
-    }
-    btn.addEventListener('click', () => { adv.hidden = !adv.hidden; sync(); });
-    sync();
-  }
-})();
-</script>
 {% endblock %}

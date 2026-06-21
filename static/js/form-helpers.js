@@ -28,3 +28,27 @@
     }, 80);
   });
 })();
+
+/**
+ * Toggle de filtros avançados.
+ *
+ * Quando uma página de lista inclui um botão #toggle-filtros-adv e um bloco
+ * #filtros-adv com o atributo `hidden`, este helper sincroniza o texto do
+ * botão ("Filtros avançados ↓" / "↑") e alterna a visibilidade do bloco.
+ *
+ * Uso: basta incluir os dois elementos no template — nenhum data-* extra.
+ */
+(function () {
+  'use strict';
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const btn = document.getElementById('toggle-filtros-adv');
+    const adv = document.getElementById('filtros-adv');
+    if (!btn || !adv) return;
+    function sync() {
+      btn.textContent = adv.hidden ? 'Filtros avançados ↓' : 'Filtros avançados ↑';
+    }
+    btn.addEventListener('click', () => { adv.hidden = !adv.hidden; sync(); });
+    sync();
+  });
+})();
