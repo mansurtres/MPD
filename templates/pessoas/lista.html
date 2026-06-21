@@ -1,127 +1,215 @@
 {% extends "layouts/app.html" %}
 
 {% block app_conteudo %}
-<div class="flex items-center justify-between mb-6">
-  <h1 class="text-xl font-semibold text-slate-900">Pessoas</h1>
-  <div class="flex items-center gap-3">
+<style>
+  /* ════════════════════════════════════════════════════════════════
+     LISTA DE PESSOAS · colunas específicas. Estrutura (.quick-filters,
+     .filtros-adv, .ledger, .ledger-foot, .empty-state, .badge base) vem
+     de static/css/components.css, seção "LISTAS (ledger)".
+     ════════════════════════════════════════════════════════════════ */
+
+  .lista-page td.col-nome { min-width: 260px; }
+  .lista-page td.col-nome .wrap { display: flex; align-items: center; gap: 12px; }
+  .lista-page td.col-nome .av {
+    width: 38px; height: 38px; flex: none;
+    background: var(--navy-100); color: var(--navy-700);
+    border-radius: var(--radius-full);
+    display: grid; place-items: center;
+    font-family: var(--font-sans); font-size: 12px; font-weight: var(--fw-bold);
+    letter-spacing: 0.02em;
+  }
+  .lista-page td.col-nome .nm {
+    font-family: var(--font-serif); font-size: var(--text-lg);
+    color: var(--ink); font-weight: var(--fw-medium); line-height: 1.25;
+  }
+  .lista-page td.col-nome .nm a { color: inherit; text-decoration: none; }
+  .lista-page td.col-nome .nm a:hover { color: var(--primary); }
+
+  .lista-page td.col-contato {
+    font-family: var(--font-mono); font-size: 12.5px;
+    color: var(--ink-soft); white-space: nowrap; line-height: 1.5;
+  }
+  .lista-page td.col-contato .sub { display: block; color: var(--ink-mute); font-size: 11.5px; }
+  .lista-page td.col-contato .wa { color: var(--success-600); vertical-align: -2px; margin-left: 4px; }
+  .lista-page td.col-contato .none { color: var(--ink-mute); font-style: italic; font-family: var(--font-serif); }
+
+  .lista-page td.col-bairro { font-family: var(--font-sans); font-size: 13.5px; color: var(--ink-soft); white-space: nowrap; }
+  .lista-page td.col-bairro .none { color: var(--ink-mute); font-style: italic; }
+
+  .lista-page td.col-tags { max-width: 240px; }
+  .lista-page td.col-tags .pill {
+    display: inline-block; font-family: var(--font-sans); font-size: 11.5px;
+    font-weight: var(--fw-medium); padding: 2px 8px; margin: 2px 3px 2px 0;
+    border: 1px solid currentColor; white-space: nowrap;
+  }
+
+  .lista-page .badge.ativa   { background: var(--rs-atend-bg); color: var(--rs-atend-fg); border-color: rgba(52,64,34,0.35); }
+  .lista-page .badge.inativa { background: var(--st-arq-bg);   color: var(--st-arq-fg);   border-color: rgba(83,76,65,0.45); }
+</style>
+
+<div class="lista-page">
+
+<div class="page-head">
+  <div>
+    <div class="breadcrumb">
+      <a href="/" style="text-decoration:none;color:var(--ink-mute)">Início</a>
+      <span class="sep">/</span>
+      <span style="color:var(--primary);font-weight:var(--fw-semibold)">Pessoas</span>
+    </div>
+    <h1>Pessoas
+      {% if paginator %}
+      <span class="count"><strong>{{ paginator.count }}</strong> no total</span>
+      {% endif %}
+    </h1>
+  </div>
+  <div class="head-actions">
     {% if pode_exportar %}
-    <a href="{% url 'pessoas:pessoa_export_csv' %}?{{ request.GET.urlencode }}" class="text-sm text-slate-700 hover:text-slate-900 underline">
-      Exportar CSV
-    </a>
+    <a href="{% url 'pessoas:pessoa_export_csv' %}?{{ request.GET.urlencode }}" class="btn secondary">Exportar CSV <span class="arr">↓</span></a>
     {% endif %}
     {% if perms.pessoas.add_pessoa %}
-    <a href="{% url 'pessoas:pessoa_nova' %}" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
-      Nova pessoa
-    </a>
+    <a href="{% url 'pessoas:pessoa_nova' %}" class="btn primary"><span class="arr">+</span>Nova pessoa</a>
     {% endif %}
   </div>
 </div>
 
-<div class="flex flex-wrap gap-2 mb-4 text-sm">
+{# Quick filters #}
+<div class="quick-filters">
+  <span class="lbl">Visões</span>
   {% with f=filtro %}
-  <a href="?" class="px-3 py-1 rounded border {% if not f %}bg-slate-800 text-white border-slate-800{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-100{% endif %}">Todas</a>
-  <a href="?filtro=com_demanda_aberta" class="px-3 py-1 rounded border {% if f == 'com_demanda_aberta' %}bg-slate-800 text-white border-slate-800{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-100{% endif %}">Com demanda em aberto</a>
+  <a href="?" class="chip {% if not f %}on{% endif %}">Todas</a>
+  <a href="?filtro=com_demanda_aberta" class="chip {% if f == 'com_demanda_aberta' %}on{% endif %}">Com demanda em aberto</a>
   {% endwith %}
+  <a href="?{% if filtro %}filtro={{ filtro }}&{% endif %}inativos=1" class="chip {% if mostrar_inativos %}on{% endif %}">Incluir inativas</a>
+  <button type="button" class="chip" id="toggle-filtros-adv" style="margin-left:auto;text-transform:none;font-family:var(--font-sans);font-weight:500">Filtros avançados ↓</button>
 </div>
 
-<form method="get" class="bg-white border border-slate-200 rounded-xl p-4 mb-4 flex flex-wrap items-end gap-3">
-  <div class="flex-1 min-w-[220px]">
-    <label class="block text-xs font-medium text-slate-600 mb-1">Buscar</label>
-    <input type="text" name="q" value="{{ q }}" placeholder="Nome, e-mail, telefone, bairro..."
-      class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400">
-  </div>
-  <div class="min-w-[160px]">
-    <label class="block text-xs font-medium text-slate-600 mb-1">Bairro</label>
-    <input type="text" name="bairro" value="{{ bairro }}"
-      class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400">
-  </div>
-  <div class="min-w-[180px]">
-    <label class="block text-xs font-medium text-slate-600 mb-1">Tag</label>
-    <select name="tag" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400">
-      <option value="">Todas</option>
-      {% for t in tags_disponiveis %}
-      <option value="{{ t.pk }}" {% if tag_id|stringformat:'s' == t.pk|stringformat:'s' %}selected{% endif %}>{{ t.nome }}</option>
-      {% endfor %}
-    </select>
-  </div>
-  <label class="flex items-center gap-2 text-sm text-slate-700">
-    <input type="checkbox" name="inativos" value="1" {% if mostrar_inativos %}checked{% endif %} class="rounded border-slate-300">
-    Mostrar inativas
-  </label>
-  <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2 rounded-lg">Filtrar</button>
-</form>
+{# Filtros ativos #}
+{% if q or bairro or tag_id %}
+<div class="active-filters">
+  <span class="lbl">Filtros ativos</span>
+  {% if q %}<a class="fc" href="?">Busca: "{{ q }}" <span class="x">×</span></a>{% endif %}
+  {% if bairro %}<a class="fc" href="?">Bairro: {{ bairro }} <span class="x">×</span></a>{% endif %}
+  {% if tag_id %}<a class="fc" href="?">Tag selecionada <span class="x">×</span></a>{% endif %}
+  <a class="clear" href="?">Limpar tudo</a>
+</div>
+{% endif %}
 
-<div class="bg-white border border-slate-200 rounded-xl overflow-hidden">
-  {% if pessoas %}
-  <table class="w-full text-sm">
+{# Filtros avançados #}
+<div class="filtros-adv" id="filtros-adv" {% if not q and not bairro and not tag_id %}hidden{% endif %}>
+  <form method="get">
+    <div style="grid-column: span 2">
+      <label>Buscar</label>
+      <input type="text" name="q" value="{{ q }}" placeholder="nome, e-mail, telefone, bairro…">
+    </div>
+    <div>
+      <label>Bairro</label>
+      <input type="text" name="bairro" value="{{ bairro }}">
+    </div>
+    <div>
+      <label>Tag</label>
+      <select name="tag">
+        <option value="">Todas</option>
+        {% for t in tags_disponiveis %}<option value="{{ t.pk }}" {% if tag_id|stringformat:'s' == t.pk|stringformat:'s' %}selected{% endif %}>{{ t.nome }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label style="display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-family:var(--font-sans);font-size:12.5px;color:var(--ink-body)">
+        <input type="checkbox" name="inativos" value="1" {% if mostrar_inativos %}checked{% endif %} style="width:auto">
+        Mostrar inativas
+      </label>
+    </div>
+    <button type="submit" class="btn primary">Aplicar</button>
+  </form>
+</div>
+
+{# Tabela ou Empty state #}
+{% if pessoas %}
+<div class="ledger">
+  <table>
     <thead>
-      <tr class="border-b border-slate-200 bg-slate-50">
-        <th class="text-left px-4 py-3 font-medium text-slate-600">Nome</th>
-        <th class="text-left px-4 py-3 font-medium text-slate-600">E-mail</th>
-        <th class="text-left px-4 py-3 font-medium text-slate-600">Telefone</th>
-        <th class="text-left px-4 py-3 font-medium text-slate-600">Bairro</th>
-        <th class="text-left px-4 py-3 font-medium text-slate-600">Tags</th>
-        <th class="text-left px-4 py-3 font-medium text-slate-600">Status</th>
+      <tr>
+        <th>Nome</th>
+        <th>Contato</th>
+        <th>Bairro</th>
+        <th>Tags</th>
+        <th>Status</th>
       </tr>
     </thead>
-    <tbody class="divide-y divide-slate-100">
+    <tbody>
       {% for p in pessoas %}
-      <tr class="hover:bg-slate-50">
-        <td class="px-4 py-3 font-medium text-slate-900">
-          <a href="{% url 'pessoas:pessoa_detalhe' p.slug_publico %}" class="hover:underline">{{ p.nome_exibicao }}</a>
-        </td>
-        <td class="px-4 py-3 text-slate-600">{% with em=p.emails.all|first %}{% if em %}{{ em.endereco }}{% else %}—{% endif %}{% endwith %}</td>
-        <td class="px-4 py-3 text-slate-600">
-          {% with tel=p.telefones.all|first %}
-          {% if tel %}
-          <span class="inline-flex items-center gap-1.5">
-            {{ tel.numero_formatado }}
-            {% if tel.eh_whatsapp %}
-            <a href="https://wa.me/55{{ tel.numero }}" target="_blank" rel="noopener" class="text-green-600 hover:text-green-700" title="Abrir conversa no WhatsApp" onclick="event.stopPropagation();">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-4 h-4 fill-current"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/></svg>
-            </a>
-            {% endif %}
-          </span>
-          {% else %}—{% endif %}
-          {% endwith %}
-        </td>
-        <td class="px-4 py-3 text-slate-600">{{ p.bairro }}</td>
-        <td class="px-4 py-3">
-          <div class="flex flex-wrap gap-1">
-            {% for t in p.tags.all %}
-            {% if t.cor %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium" style="background: color-mix(in srgb, {{ t.cor }} 18%, white); color: color-mix(in srgb, {{ t.cor }} 75%, black);">{{ t.nome }}</span>{% else %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">{{ t.nome }}</span>{% endif %}
-            {% endfor %}
+      <tr onclick="window.location='{% url 'pessoas:pessoa_detalhe' p.slug_publico %}'">
+        <td class="col-nome">
+          <div class="wrap">
+            <span class="av">{{ p.nome_exibicao|slice:":2"|upper }}</span>
+            <span class="nm"><a href="{% url 'pessoas:pessoa_detalhe' p.slug_publico %}" onclick="event.stopPropagation()">{{ p.nome_exibicao }}</a></span>
           </div>
         </td>
-        <td class="px-4 py-3">
-          {% if p.ativo %}
-          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Ativa</span>
+        <td class="col-contato">
+          {% with tel=p.telefones.all|first em=p.emails.all|first %}
+          {% if tel %}
+            {{ tel.numero_formatado }}{% if tel.eh_whatsapp %}<a href="https://wa.me/55{{ tel.numero }}" target="_blank" rel="noopener" class="wa" title="Abrir conversa no WhatsApp" onclick="event.stopPropagation()"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" class="fill-current"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/></svg></a>{% endif %}
+            {% if em %}<span class="sub">{{ em.endereco }}</span>{% endif %}
+          {% elif em %}
+            {{ em.endereco }}
           {% else %}
-          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">Inativa</span>
+            <span class="none">sem contato</span>
           {% endif %}
+          {% endwith %}
+        </td>
+        <td class="col-bairro">{% if p.bairro %}{{ p.bairro }}{% else %}<span class="none">—</span>{% endif %}</td>
+        <td class="col-tags">
+          {% for t in p.tags.all %}
+          {% if t.cor %}<span class="pill" style="color:{{ t.cor }};background:color-mix(in srgb, {{ t.cor }} 14%, white)">{{ t.nome }}</span>{% else %}<span class="pill" style="color:var(--ink-soft)">{{ t.nome }}</span>{% endif %}
+          {% endfor %}
+        </td>
+        <td class="col-status">
+          {% if p.ativo %}<span class="badge ativa"><span class="dot"></span>Ativa</span>
+          {% else %}<span class="badge inativa"><span class="dot"></span>Inativa</span>{% endif %}
         </td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
-  {% else %}
-  <div class="px-4 py-12 text-center text-sm text-slate-500">
-    Nenhuma pessoa encontrada.
+
+  <div class="ledger-foot">
+    <div class="info">
+      {% if is_paginated %}
+        Mostrando <strong>{{ page_obj.start_index }}–{{ page_obj.end_index }}</strong> de <strong>{{ paginator.count }}</strong> pessoa{{ paginator.count|pluralize }}
+      {% else %}
+        <strong>{{ pessoas|length }}</strong> pessoa{{ pessoas|length|pluralize }}
+      {% endif %}
+    </div>
+    {% if is_paginated %}
+    <div class="pages">
+      {% if page_obj.has_previous %}<a href="?{% if request.GET.urlencode %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.previous_page_number }}">← Anterior</a>{% endif %}
+      <a class="on" href="?{% if request.GET.urlencode %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.number }}">{{ page_obj.number }}</a>
+      {% if page_obj.has_next %}<a href="?{% if request.GET.urlencode %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.next_page_number }}">Próxima →</a>{% endif %}
+    </div>
+    {% endif %}
   </div>
+</div>
+{% else %}
+<div class="empty-state">
+  <div class="icon-area">◌</div>
+  <h3>{% if q or bairro or tag_id or filtro %}Nenhuma pessoa encontrada{% else %}Nenhuma pessoa cadastrada ainda{% endif %}</h3>
+  <p class="desc">{% if q or bairro or tag_id or filtro %}Tente ajustar os filtros ou limpar a busca.{% else %}Cadastre a primeira pessoa — quem chegou ao gabinete, um contato de liderança, um demandante.{% endif %}</p>
+  {% if perms.pessoas.add_pessoa %}
+  <a href="{% url 'pessoas:pessoa_nova' %}" class="btn primary"><span class="arr">+</span>Nova pessoa</a>
   {% endif %}
 </div>
-
-{% if is_paginated %}
-<div class="flex items-center justify-between mt-4 text-sm text-slate-600">
-  <span>Página {{ page_obj.number }} de {{ paginator.num_pages }}</span>
-  <div class="flex gap-2">
-    {% if page_obj.has_previous %}
-    <a href="?{% if q %}q={{ q }}&{% endif %}{% if bairro %}bairro={{ bairro }}&{% endif %}{% if tag_id %}tag={{ tag_id }}&{% endif %}{% if mostrar_inativos %}inativos=1&{% endif %}page={{ page_obj.previous_page_number }}" class="px-3 py-1 rounded border border-slate-300 hover:bg-slate-100">Anterior</a>
-    {% endif %}
-    {% if page_obj.has_next %}
-    <a href="?{% if q %}q={{ q }}&{% endif %}{% if bairro %}bairro={{ bairro }}&{% endif %}{% if tag_id %}tag={{ tag_id }}&{% endif %}{% if mostrar_inativos %}inativos=1&{% endif %}page={{ page_obj.next_page_number }}" class="px-3 py-1 rounded border border-slate-300 hover:bg-slate-100">Próxima</a>
-    {% endif %}
-  </div>
-</div>
 {% endif %}
+
+</div>
+
+<script>
+(function() {
+  const btn = document.getElementById('toggle-filtros-adv');
+  const adv = document.getElementById('filtros-adv');
+  if (btn && adv) {
+    function sync() { btn.textContent = adv.hidden ? 'Filtros avançados ↓' : 'Filtros avançados ↑'; }
+    btn.addEventListener('click', () => { adv.hidden = !adv.hidden; sync(); });
+    sync();
+  }
+})();
+</script>
 {% endblock %}
