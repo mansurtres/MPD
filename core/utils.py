@@ -6,6 +6,8 @@ levantam `ValidationError`). A normalização real dos campos dos models é feit
 em signals `pre_save` (ver `pessoas/signals.py`).
 """
 
+import json
+import logging
 import re
 import uuid
 
@@ -131,6 +133,30 @@ def validate_cep(value):
         raise ValidationError("CEP deve ter 8 dígitos.")
 
 
+# --- Helpers de UI ---
+
+
+def flash_form_errors(request, *forms):
+    """Emite uma mensagem de erro por campo, para todos os formulários dados.
+
+    Substitui blocos duplicados que iteravam `form.errors.values()` e
+    chamavam `messages.error` em 5+ views de demandas.
+
+    Args:
+        request: HttpRequest com acesso ao message framework.
+        *forms: um ou mais objetos Form cujos erros serão exibidos.
+    """
+    from django.contrib import messages
+
+    for form in forms:
+        for erros in form.errors.values():
+            if hasattr(erros, "__iter__") and not isinstance(erros, str):
+                msg = "; ".join(erros)
+            else:
+                msg = str(erros)
+            messages.error(request, msg)
+
+
 # --- Auditoria de exportações (Fase 6, refinada na v0.7.3 / ADR 0053) ---
 
 
@@ -156,9 +182,6 @@ def registrar_export(user, modelo, filtros, total):
         filtros: dict de filtros aplicados (querystring).
         total: número de registros exportados.
     """
-    import json
-    import logging
-
     logger = logging.getLogger("mpd.exports")
     logger.info(
         "Exportação CSV — modelo=%s usuario=%s total=%d filtros=%s",

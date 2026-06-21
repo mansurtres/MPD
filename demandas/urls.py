@@ -20,11 +20,6 @@ urlpatterns = [
         name="demanda_editar",
     ),
     path(
-        "demandas/<uuid:pk>/estado/",
-        views.AtualizarEstadoView.as_view(),
-        name="demanda_estado",
-    ),
-    path(
         "demandas/<uuid:pk>/concluir/",
         views.ConcluirDemandaView.as_view(),
         name="demanda_concluir",

@@ -1,8 +1,10 @@
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.contenttypes.models import ContentType
+from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import render
+from django.urls import reverse
 from django.views.generic import ListView
 
 from core.permissoes import eh_admin, eh_cg_plus
@@ -292,10 +294,6 @@ def buscar_global_json(request):
     (Demanda primeiro porque o number lookup `D-AAMM-NNNNN` — ADR 0056 — é o
     caso mais comum de busca direta).
     """
-    from django.db.models import Q
-    from django.http import JsonResponse
-    from django.urls import reverse
-
     q = request.GET.get("q", "").strip()
     resultados = []
 

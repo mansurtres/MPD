@@ -32,17 +32,30 @@ from core.mixins import AuditavelMixin
 from core.utils import gerar_slug_publico
 
 
+def _q_demanda_visivel_para(user):
+    """Predicado Q de visibilidade de demanda.
+
+    Usado por DemandaQuerySet.visiveis_para e por Demanda.q_visivel_para
+    (classmethod para uso em queries externas como PessoaDetailView).
+    Retorna None se o usuário tem acesso irrestrito (CG+).
+    """
+    from core.permissoes import eh_cg_plus
+
+    if eh_cg_plus(user):
+        return None
+    return models.Q(restrito=False) | models.Q(responsavel=user)
+
+
 class DemandaQuerySet(models.QuerySet):
     def visiveis_para(self, user):
         """Filtra demandas pela regra de visibilidade restrita (ADR 0049).
         Restritas só aparecem para: responsável, ADM, CG ou superuser.
         Centraliza a regra que antes vivia em `_filtrar_visiveis` (views).
         """
-        from core.permissoes import eh_cg_plus
-
-        if eh_cg_plus(user):
+        q = _q_demanda_visivel_para(user)
+        if q is None:
             return self
-        return self.filter(models.Q(restrito=False) | models.Q(responsavel=user))
+        return self.filter(q)
 
 
 class DemandaManager(models.Manager.from_queryset(DemandaQuerySet)):
@@ -335,6 +348,13 @@ class Demanda(AuditavelMixin, models.Model):
         if self.responsavel_id == user.id:
             return True
         return eh_cg_plus(user)
+
+    @classmethod
+    def q_visivel_para(cls, user):
+        """Q predicate de visibilidade — para uso em queries externas (como
+        PessoaDetailView / EntidadeDetailView) que não passam pelo manager.
+        Retorna None se CG+."""
+        return _q_demanda_visivel_para(user)
 
     def get_absolute_url(self):
         from django.urls import reverse

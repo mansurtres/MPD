@@ -323,45 +323,6 @@ class ArquivarForm(forms.ModelForm):
         aplicar_tailwind(self)
 
 
-class EstadoForm(forms.ModelForm):
-    """Edição inline do painel administrativo da demanda (aside). ADR 0044.
-
-    Cobre os 5 campos que mudam ao longo do dia: status, resultado,
-    responsavel, coordenacao_responsavel e prazo. 'concluida' e 'arquivado'
-    NÃO aparecem no select de status — esses estados são exclusivos do
-    fluxo dedicado (CTA Concluir / botão Arquivar)."""
-
-    class Meta:
-        model = Demanda
-        fields = ["status", "resultado", "responsavel", "coordenacao_responsavel", "prazo"]
-        widgets = {"prazo": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d")}
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        editaveis = [
-            Demanda.STATUS_NOVO,
-            Demanda.STATUS_EM_ANDAMENTO,
-            Demanda.STATUS_AGUARDANDO_TERCEIROS,
-            Demanda.STATUS_AGUARDANDO_PESSOA,
-        ]
-        self.fields["status"].choices = [
-            (k, v) for k, v in Demanda.STATUS_CHOICES if k in editaveis
-        ]
-        # Se já saiu de 'pendente', não pode voltar (clean() proíbe).
-        if (
-            self.instance
-            and self.instance.pk
-            and self.instance.resultado != Demanda.RESULTADO_PENDENTE
-        ):
-            self.fields["resultado"].choices = [
-                (k, v) for k, v in Demanda.RESULTADO_CHOICES if k != Demanda.RESULTADO_PENDENTE
-            ]
-        self.fields["responsavel"].required = False
-        self.fields["responsavel"].empty_label = "— Não atribuído —"
-        self.fields["prazo"].required = False
-        aplicar_tailwind(self)
-
-
 # --- Fase 5: Inbox GTD ---
 
 

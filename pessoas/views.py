@@ -10,13 +10,13 @@ from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView, View
 
-from core.permissoes import eh_cg_plus, eh_co_plus
+from core.permissoes import eh_co_plus
 from core.utils import somente_digitos
 
 from .deduplicacao import buscar_similares
 from .forms import (
+    EmailContatoFormSet,
     EmailEntidadeFormSet,
-    EmailPessoaFormSet,
     EntidadeForm,
     PessoaForm,
     RedeSocialEntidadeFormSet,
@@ -118,13 +118,16 @@ class PessoaDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
         # Demandas vinculadas (respeitando visibilidade restrita por
         # coordenação/responsável). Critério §22 do roadmap §4.3.3.
         if u.has_perm("demandas.view_demanda"):
+            from demandas.models import Demanda
+
             demandas_qs = (
                 self.object.demandas.select_related("responsavel")
                 .prefetch_related("temas")
                 .order_by("-criado_em")
             )
-            if not eh_cg_plus(u):
-                demandas_qs = demandas_qs.filter(Q(restrito=False) | Q(responsavel=u))
+            q = Demanda.q_visivel_para(u)
+            if q is not None:
+                demandas_qs = demandas_qs.filter(q)
             ctx["demandas"] = demandas_qs
         else:
             ctx["demandas"] = []
@@ -139,7 +142,7 @@ class _PessoaFormMixin:
 
     FORMSETS = [
         ("telefones", TelefoneFormSet),
-        ("emails", EmailPessoaFormSet),
+        ("emails", EmailContatoFormSet),
         ("redes_sociais", RedeSocialFormSet),
         ("sites", SitePessoaFormSet),
     ]
@@ -331,13 +334,16 @@ class EntidadeListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
             qs = qs.filter(ativo=True)
         busca = self.request.GET.get("q", "").strip()
         if busca:
-            qs = qs.filter(
+            digitos = somente_digitos(busca)
+            condicoes = (
                 Q(nome__icontains=busca)
                 | Q(nome_fantasia__icontains=busca)
                 | Q(cnpj__icontains=busca)
                 | Q(emails__endereco__icontains=busca)
-                | Q(telefones__numero__icontains=busca)
             )
+            if digitos:
+                condicoes |= Q(telefones__numero__contains=digitos)
+            qs = qs.filter(condicoes)
         tipo = self.request.GET.get("tipo", "").strip()
         if tipo:
             qs = qs.filter(tipo=tipo)
@@ -391,13 +397,16 @@ class EntidadeDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView
         # Demandas em que esta entidade é parte (mesma regra de visibilidade
         # restrita usada em PessoaDetailView).
         if u.has_perm("demandas.view_demanda"):
+            from demandas.models import Demanda
+
             demandas_qs = (
                 self.object.demandas.select_related("responsavel")
                 .prefetch_related("temas")
                 .order_by("-criado_em")
             )
-            if not eh_cg_plus(u):
-                demandas_qs = demandas_qs.filter(Q(restrito=False) | Q(responsavel=u))
+            q = Demanda.q_visivel_para(u)
+            if q is not None:
+                demandas_qs = demandas_qs.filter(q)
             ctx["demandas"] = demandas_qs
         else:
             ctx["demandas"] = []
@@ -748,24 +757,39 @@ class PessoaCSVExportView(LoginRequiredMixin, View):
     def get(self, request):
         if not eh_co_plus(request.user):
             raise PermissionDenied("Exportação restrita a Coordenadores e acima.")
+        from core.csv_export import exportar_csv
 
-        lista = PessoaListView()
-        lista.request = request
-        lista.kwargs = {}
-        qs = lista.get_queryset()
-        total_filtrado = qs.count()
-        qs = qs[:10000]
+        def row_fn(p):
+            # list() força uso do cache do prefetch_related — `.first()`
+            # ignora cache e dispara nova query por pessoa (N+1). Para 10k
+            # pessoas isso virava 20k queries só por telefones/emails.
+            telefones = list(p.telefones.all())
+            emails = list(p.emails.all())
+            tel = telefones[0] if telefones else None
+            email = emails[0] if emails else None
+            tags = ", ".join(t.nome for t in p.tags.all())
+            return [
+                p.nome,
+                p.sobrenome or "",
+                p.nome_social or "",
+                p.cpf or "",
+                p.data_nascimento.strftime("%d/%m/%Y") if p.data_nascimento else "",
+                p.bairro or "",
+                p.cidade or "",
+                p.estado or "",
+                tel.numero if tel else "",
+                email.endereco if email else "",
+                tags,
+                "Sim" if p.ativo else "Não",
+                p.criado_em.strftime("%d/%m/%Y %H:%M"),
+            ]
 
-        import csv
-
-        from django.http import HttpResponse
-
-        response = HttpResponse(content_type="text/csv; charset=utf-8")
-        response["Content-Disposition"] = 'attachment; filename="pessoas.csv"'
-        response.write("﻿")
-        writer = csv.writer(response, delimiter=";")
-        writer.writerow(
-            [
+        return exportar_csv(
+            request,
+            list_view_cls=PessoaListView,
+            modelo="Pessoa",
+            filename="pessoas.csv",
+            header=[
                 "Nome",
                 "Sobrenome",
                 "Nome social",
@@ -779,39 +803,9 @@ class PessoaCSVExportView(LoginRequiredMixin, View):
                 "Tags",
                 "Ativa",
                 "Criada em",
-            ]
+            ],
+            row_fn=row_fn,
         )
-        for p in qs:
-            # list() força uso do cache do prefetch_related — `.first()`
-            # ignora cache e dispara nova query por pessoa (N+1). Para 10k
-            # pessoas isso virava 20k queries só por telefones/emails.
-            telefones = list(p.telefones.all())
-            emails = list(p.emails.all())
-            tel = telefones[0] if telefones else None
-            email = emails[0] if emails else None
-            tags = ", ".join(t.nome for t in p.tags.all())
-            writer.writerow(
-                [
-                    p.nome,
-                    p.sobrenome or "",
-                    p.nome_social or "",
-                    p.cpf or "",
-                    p.data_nascimento.strftime("%d/%m/%Y") if p.data_nascimento else "",
-                    p.bairro or "",
-                    p.cidade or "",
-                    p.estado or "",
-                    tel.numero if tel else "",
-                    email.endereco if email else "",
-                    tags,
-                    "Sim" if p.ativo else "Não",
-                    p.criado_em.strftime("%d/%m/%Y %H:%M"),
-                ]
-            )
-
-        from core.utils import registrar_export
-
-        registrar_export(request.user, "Pessoa", dict(request.GET.lists()), total_filtrado)
-        return response
 
 
 # --- Fase 6: Endpoint de busca para autocomplete (ADR sobre escala 10k+) ---

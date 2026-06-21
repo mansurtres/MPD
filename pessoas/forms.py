@@ -123,7 +123,7 @@ TelefoneFormSet = inlineformset_factory(
     min_num=0,
     validate_min=False,
 )
-EmailPessoaFormSet = inlineformset_factory(
+EmailContatoFormSet = inlineformset_factory(
     Pessoa,
     EmailContato,
     form=EmailContatoForm,

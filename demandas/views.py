@@ -15,13 +15,14 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.db.models import Count, Q
-from django.http import Http404, JsonResponse
+from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView, View
 
 from core.permissoes import eh_cg_plus, eh_co_plus
+from core.utils import flash_form_errors
 
 from .forms import (
     AnexoForm,
@@ -34,21 +35,12 @@ from .forms import (
     DescartarInboxForm,
     EncaminhamentoForm,
     EncaminhamentoRespostaForm,
-    EstadoForm,
     FollowupForm,
     InboxItemForm,
     InteracaoForm,
     TemaForm,
 )
 from .models import Anexo, Demanda, Encaminhamento, Interacao, ItemInbox, Tema
-
-
-def _filtrar_visiveis(qs, user):
-    """Wrapper para chamadas legadas. A regra vive em
-    `DemandaQuerySet.visiveis_para` (ADR 0049). Mantido como função porque
-    várias views já consomem como callable — refactor inline pode ser
-    feito em passo separado."""
-    return qs.visiveis_para(user)
 
 
 def _pode_exportar(user):
@@ -99,7 +91,7 @@ class DemandaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
             .select_related("responsavel", "criado_por")
             .prefetch_related("temas", "demanda_pessoas__pessoa", "demanda_entidades__entidade")
         )
-        qs = _filtrar_visiveis(qs, self.request.user)
+        qs = qs.visiveis_para(self.request.user)
 
         params = self.request.GET
         busca = (params.get("q") or "").strip()
@@ -234,8 +226,6 @@ class DemandaDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView)
             Demanda.STATUS_CONCLUIDA,
             Demanda.STATUS_ARQUIVADO,
         )
-        # Painel administrativo (aside) — edição inline de estado. ADR 0044.
-        ctx["form_estado"] = EstadoForm(instance=d)
         return ctx
 
 
@@ -374,38 +364,6 @@ class DemandaUpdateView(LoginRequiredMixin, PermissionRequiredMixin, _DemandaFor
         return ctx
 
 
-class AtualizarEstadoView(LoginRequiredMixin, PermissionRequiredMixin, View):
-    """POST do painel de Estado no aside — edita status/resultado/responsavel/
-    coordenacao/prazo em transação atômica. Mudanças em status, resultado e
-    responsavel disparam Interacoes automáticas (signals)."""
-
-    permission_required = "demandas.change_demanda"
-
-    def post(self, request, pk):
-        demanda = get_object_or_404(Demanda, pk=pk)
-        if not demanda.pode_ser_visto_por(request.user):
-            raise Http404
-        form = EstadoForm(request.POST, instance=demanda)
-        if not form.is_valid():
-            for erros in form.errors.values():
-                msg = (
-                    "; ".join(erros)
-                    if hasattr(erros, "__iter__") and not isinstance(erros, str)
-                    else str(erros)
-                )
-                messages.error(request, msg)
-            return redirect("demandas:demanda_detalhe", slug=demanda.slug_publico)
-        try:
-            with transaction.atomic():
-                form.save()
-        except ValidationError as e:
-            for erro in e.messages:
-                messages.error(request, erro)
-            return redirect("demandas:demanda_detalhe", slug=demanda.slug_publico)
-        messages.success(request, "Estado atualizado.")
-        return redirect("demandas:demanda_detalhe", slug=demanda.slug_publico)
-
-
 class ConcluirDemandaView(LoginRequiredMixin, PermissionRequiredMixin, View):
     """Conclui demanda. Bifurca por origem (ADR 0043):
     - Responsiva: cria Interacao(tipo=devolutiva) + classifica resultado + status=concluida.
@@ -428,13 +386,7 @@ class ConcluirDemandaView(LoginRequiredMixin, PermissionRequiredMixin, View):
             form = ConcluirAcaoForm(request.POST, instance=demanda)
 
         if not form.is_valid():
-            for erros in form.errors.values():
-                msg = (
-                    "; ".join(erros)
-                    if hasattr(erros, "__iter__") and not isinstance(erros, str)
-                    else str(erros)
-                )
-                messages.error(request, msg)
+            flash_form_errors(request, form)
             return redirect("demandas:demanda_detalhe", slug=demanda.slug_publico)
 
         try:
@@ -497,8 +449,7 @@ class ArquivarView(LoginRequiredMixin, View):
 
         form = ArquivarForm(request.POST, instance=demanda)
         if not form.is_valid():
-            for erros in form.errors.values():
-                messages.error(request, "; ".join(erros))
+            flash_form_errors(request, form)
             return redirect("demandas:demanda_detalhe", slug=demanda.slug_publico)
         demanda = form.save(commit=False)
         demanda.status = Demanda.STATUS_ARQUIVADO
@@ -540,12 +491,7 @@ class AdicionarInteracaoView(LoginRequiredMixin, PermissionRequiredMixin, View):
         form = InteracaoForm(request.POST)
         followup = FollowupForm(request.POST, prefix="fu")
         if not form.is_valid() or not followup.is_valid():
-            erros_lista = list(form.errors.values()) + list(followup.errors.values())
-            for grupo in erros_lista:
-                if hasattr(grupo, "__iter__") and not isinstance(grupo, str):
-                    messages.error(request, "; ".join(grupo))
-                else:
-                    messages.error(request, str(grupo))
+            flash_form_errors(request, form, followup)
             return redirect("demandas:demanda_detalhe", slug=demanda.slug_publico)
         try:
             with transaction.atomic():
@@ -630,8 +576,7 @@ class AdicionarEncaminhamentoView(LoginRequiredMixin, PermissionRequiredMixin, V
             raise Http404
         form = EncaminhamentoForm(request.POST)
         if not form.is_valid():
-            for erros in form.errors.values():
-                messages.error(request, "; ".join(erros))
+            flash_form_errors(request, form)
             return redirect("demandas:demanda_detalhe", slug=demanda.slug_publico)
         try:
             with transaction.atomic():
@@ -665,8 +610,7 @@ class EncaminhamentoRespostaView(LoginRequiredMixin, PermissionRequiredMixin, Vi
             raise Http404
         form = EncaminhamentoRespostaForm(request.POST, instance=enc)
         if not form.is_valid():
-            for erros in form.errors.values():
-                messages.error(request, "; ".join(erros))
+            flash_form_errors(request, form)
             return redirect("demandas:demanda_detalhe", slug=enc.demanda.slug_publico)
         enc = form.save()
         Interacao.objects.create(
@@ -703,7 +647,7 @@ class EncaminhamentoListView(LoginRequiredMixin, PermissionRequiredMixin, ListVi
     def get_queryset(self):
         # Visibilidade segue a da Demanda associada (encaminhamento de
         # demanda restrita só aparece para quem pode ver a demanda).
-        demandas_visiveis = _filtrar_visiveis(Demanda.objects.all(), self.request.user)
+        demandas_visiveis = Demanda.objects.visiveis_para(self.request.user)
         qs = (
             Encaminhamento.objects.filter(demanda__in=demandas_visiveis)
             .select_related("demanda", "criado_por")
@@ -763,7 +707,7 @@ class EncaminhamentoListView(LoginRequiredMixin, PermissionRequiredMixin, ListVi
         ctx["status_choices"] = Encaminhamento.STATUS_CHOICES
         ctx["tipo_choices"] = Encaminhamento.TIPO_DOCUMENTO_CHOICES
         # Lista de órgãos distintos para o filtro de autocomplete simples.
-        demandas_visiveis = _filtrar_visiveis(Demanda.objects.all(), self.request.user)
+        demandas_visiveis = Demanda.objects.visiveis_para(self.request.user)
         ctx["orgaos_distintos"] = (
             Encaminhamento.objects.filter(demanda__in=demandas_visiveis)
             .values_list("destinatario_orgao", flat=True)
@@ -993,8 +937,6 @@ class AnexoDownloadView(LoginRequiredMixin, View):
     """
 
     def get(self, request, pk):
-        from django.http import FileResponse
-
         anexo = get_object_or_404(Anexo, pk=pk)
         objeto_pai = anexo.objeto_pai
         if objeto_pai is None:
@@ -1285,19 +1227,16 @@ class MinhasPendenciasView(LoginRequiredMixin, ListView):
         hoje = timezone.now().date()
         agora = timezone.now()
         grupos = {}
-        total_vencidas = 0
         for p in ctx["pendencias"]:
             ordem, label = self._bucket(p.data_ocorrencia, hoje)
             grupos.setdefault((ordem, label), []).append(p)
-            if p.data_ocorrencia < agora:
-                total_vencidas += 1
         ctx["grupos"] = [
             {"label": label, "itens": itens}
             for (ordem, label), itens in sorted(grupos.items(), key=lambda kv: kv[0][0])
         ]
         ctx["agora"] = agora
         ctx["total_pendencias"] = len(ctx["pendencias"])
-        ctx["total_vencidas"] = total_vencidas
+        ctx["total_vencidas"] = len(grupos.get((0, "Vencidas"), []))
         return ctx
 
 
@@ -1330,25 +1269,32 @@ class DemandaCSVExportView(LoginRequiredMixin, View):
     def get(self, request):
         if not _pode_exportar(request.user):
             raise PermissionDenied("Exportação restrita a Coordenadores e acima.")
-        # Reusa o queryset filtrado da lista pública: instancia DemandaListView,
-        # configura request, chama get_queryset.
-        lista = DemandaListView()
-        lista.request = request
-        lista.kwargs = {}
-        qs = lista.get_queryset()
-        total_filtrado = qs.count()
-        qs = qs[:10000]
+        from core.csv_export import exportar_csv
 
-        import csv
+        def row_fn(d):
+            temas = ", ".join(t.nome for t in d.temas.all())
+            return [
+                d.numero,
+                d.titulo,
+                d.get_origem_display(),
+                d.get_canal_entrada_display(),
+                d.get_status_display(),
+                d.get_resultado_display(),
+                d.get_coordenacao_responsavel_display(),
+                (d.responsavel.nome_completo or d.responsavel.email) if d.responsavel else "",
+                "Sim" if d.restrito else "Não",
+                "Sim" if d.anonimo else "Não",
+                d.criado_em.strftime("%d/%m/%Y %H:%M"),
+                d.prazo.strftime("%d/%m/%Y") if d.prazo else "",
+                temas,
+            ]
 
-        from django.http import HttpResponse
-
-        response = HttpResponse(content_type="text/csv; charset=utf-8")
-        response["Content-Disposition"] = 'attachment; filename="demandas.csv"'
-        response.write("﻿")  # BOM para Excel BR
-        writer = csv.writer(response, delimiter=";")
-        writer.writerow(
-            [
+        return exportar_csv(
+            request,
+            list_view_cls=DemandaListView,
+            modelo="Demanda",
+            filename="demandas.csv",
+            header=[
                 "Número",
                 "Título",
                 "Origem",
@@ -1362,55 +1308,37 @@ class DemandaCSVExportView(LoginRequiredMixin, View):
                 "Criada em",
                 "Prazo",
                 "Temas",
-            ]
+            ],
+            row_fn=row_fn,
         )
-        for d in qs:
-            temas = ", ".join(t.nome for t in d.temas.all())
-            writer.writerow(
-                [
-                    d.numero,
-                    d.titulo,
-                    d.get_origem_display(),
-                    d.get_canal_entrada_display(),
-                    d.get_status_display(),
-                    d.get_resultado_display(),
-                    d.get_coordenacao_responsavel_display(),
-                    (d.responsavel.nome_completo or d.responsavel.email) if d.responsavel else "",
-                    "Sim" if d.restrito else "Não",
-                    "Sim" if d.anonimo else "Não",
-                    d.criado_em.strftime("%d/%m/%Y %H:%M"),
-                    d.prazo.strftime("%d/%m/%Y") if d.prazo else "",
-                    temas,
-                ]
-            )
-
-        from core.utils import registrar_export
-
-        registrar_export(request.user, "Demanda", dict(request.GET.lists()), total_filtrado)
-        return response
 
 
 class EncaminhamentoCSVExportView(LoginRequiredMixin, View):
     def get(self, request):
         if not _pode_exportar(request.user):
             raise PermissionDenied("Exportação restrita a Coordenadores e acima.")
-        lista = EncaminhamentoListView()
-        lista.request = request
-        lista.kwargs = {}
-        qs = lista.get_queryset()
-        total_filtrado = qs.count()
-        qs = qs[:10000]
+        from core.csv_export import exportar_csv
 
-        import csv
+        def row_fn(e):
+            return [
+                e.demanda.numero,
+                e.demanda.titulo,
+                e.destinatario_orgao,
+                e.destinatario_pessoa or "",
+                e.get_tipo_documento_display(),
+                e.numero_documento or "",
+                e.data_envio.strftime("%d/%m/%Y") if e.data_envio else "",
+                e.prazo_resposta.strftime("%d/%m/%Y") if e.prazo_resposta else "",
+                e.get_status_display(),
+                e.data_resposta.strftime("%d/%m/%Y") if e.data_resposta else "",
+            ]
 
-        from django.http import HttpResponse
-
-        response = HttpResponse(content_type="text/csv; charset=utf-8")
-        response["Content-Disposition"] = 'attachment; filename="encaminhamentos.csv"'
-        response.write("﻿")
-        writer = csv.writer(response, delimiter=";")
-        writer.writerow(
-            [
+        return exportar_csv(
+            request,
+            list_view_cls=EncaminhamentoListView,
+            modelo="Encaminhamento",
+            filename="encaminhamentos.csv",
+            header=[
                 "Demanda",
                 "Título da demanda",
                 "Órgão",
@@ -1421,25 +1349,6 @@ class EncaminhamentoCSVExportView(LoginRequiredMixin, View):
                 "Prazo resposta",
                 "Status",
                 "Data resposta",
-            ]
+            ],
+            row_fn=row_fn,
         )
-        for e in qs:
-            writer.writerow(
-                [
-                    e.demanda.numero,
-                    e.demanda.titulo,
-                    e.destinatario_orgao,
-                    e.destinatario_pessoa or "",
-                    e.get_tipo_documento_display(),
-                    e.numero_documento or "",
-                    e.data_envio.strftime("%d/%m/%Y") if e.data_envio else "",
-                    e.prazo_resposta.strftime("%d/%m/%Y") if e.prazo_resposta else "",
-                    e.get_status_display(),
-                    e.data_resposta.strftime("%d/%m/%Y") if e.data_resposta else "",
-                ]
-            )
-
-        from core.utils import registrar_export
-
-        registrar_export(request.user, "Encaminhamento", dict(request.GET.lists()), total_filtrado)
-        return response
