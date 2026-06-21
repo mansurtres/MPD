@@ -349,21 +349,7 @@
     </p>
   </header>
 
-  {% if form.non_field_errors %}
-  <div class="form-err">
-    <span class="lbl">Não foi possível salvar — corrija os pontos abaixo</span>
-    <ul>{% for erro in form.non_field_errors %}<li>{{ erro }}</li>{% endfor %}</ul>
-  </div>
-  {% endif %}
-
-  {% for chave, fs in formsets_contato.items %}
-    {% if fs.non_form_errors %}
-    <div class="form-err">
-      <span class="lbl">{{ chave|capfirst }} · erro</span>
-      <ul>{% for erro in fs.non_form_errors %}<li>{{ erro }}</li>{% endfor %}</ul>
-    </div>
-    {% endif %}
-  {% endfor %}
+  {% include "_form_erros_resumo.html" with form=form formsets=formsets_contato %}
 
   <form method="post" novalidate id="pessoa-form">
     {% csrf_token %}

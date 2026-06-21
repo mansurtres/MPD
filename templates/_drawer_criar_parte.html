@@ -1,6 +1,3 @@
-{# Drawer expandido de criação rápida de Pessoa/Entidade.
-   Submete pro próprio endpoint /pessoas/nova/ ou /entidades/nova/
-   com X-Requested-With: XMLHttpRequest — o backend devolve JSON. #}
 <div id="drawer-criar-parte" class="drawer-cp hidden" aria-hidden="true">
   <div class="drawer-cp-backdrop" data-cp-close></div>
   <aside class="drawer-cp-panel" role="dialog" aria-labelledby="cp-titulo" aria-modal="true">
@@ -129,11 +126,6 @@
         </details>
       </div>
 
-      {# ╔══ ENTIDADE ════════════════════════════════════════════════ ╗
-         Bloco entidade usa os MESMOS names de pessoa nos formsets de canal —
-         o JS desabilita inputs do bloco oculto pra evitar conflito ao
-         submeter. Campos próprios de entidade ganham prefixo `ent_` pra
-         distinguir do bloco pessoa que tem `nome`/`sobrenome`/`cpf`. #}
       <div data-cp-entidade hidden>
         <details class="cp-sec" open>
           <summary><span class="num">01</span> Identificação</summary>
