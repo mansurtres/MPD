@@ -237,6 +237,7 @@ Toda tela restante migrou para a identidade visual nova (editorial: Funnel Displ
 - **DT-011** — gestão de usuários por permissão custom `accounts.gerenciar_usuarios` (migrations `accounts/0005`+`0006`); `StaffRequiredMixin`→`GerenciarUsuariosMixin(PermissionRequiredMixin)`; forms param de expor `is_staff` (ADR 0040 obsoleta); promoção a staff só via Django Admin.
 - **Qualidade de front (Fase 7)**: confirmação explícita (one-way) ao classificar `resultado` no drawer Concluir; passada de responsividade mobile (grids de pendências/reuniões empilham <640px; listas/detalhes já colapsam); foco visível global (`:focus-visible`) e `aria-label` em controles só-ícone.
 - **Banner universal de erros** de formulário (`_form_erros_resumo.html` + `form-helpers.js`: lista erros no topo + auto-scroll/foco) aplicado a todos os forms.
+- **`slug_publico` curto (8 chars) padronizado** em todo o sistema (errata ADR 0038): lógica consolidada em `core.utils`; Pessoa/Entidade migram de 12→8; Demanda ganha `slug_publico` e o usa nas URLs browseadas (`demanda_detalhe`/`demanda_editar`), encurtando `/demandas/<uuid-36>/` → `/demandas/<hash-8>/`. Endpoints de ação seguem em `<uuid:pk>`.
 - Plano e ledger em `docs/superpowers/`.
 
 **228 testes passando** ao final deste fechamento (230 da v0.7.3 −3 testes de papel +1 de gating de usuários). ADRs 0001–0057. Pendência registrada para revisão: o painel inline de Estado (`EstadoForm`/endpoint `demanda_estado`, ADR 0044) ficou sem UI no detalhe refeito — decidir se restaura ou remove o endpoint.
