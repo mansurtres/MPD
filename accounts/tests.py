@@ -8,12 +8,16 @@ Usuario = get_user_model()
 
 @pytest.fixture
 def usuario_staff(db):
-    return Usuario.objects.create_user(
+    from django.contrib.auth.models import Permission
+
+    user = Usuario.objects.create_user(
         email="staff@test.com",
         password="senha12345",  # pragma: allowlist secret
         nome_completo="Staff User",
         is_staff=True,
     )
+    user.user_permissions.add(Permission.objects.get(codename="gerenciar_usuarios"))
+    return user
 
 
 @pytest.fixture
@@ -109,6 +113,18 @@ def test_usuario_comum_nao_acessa_lista_usuarios(client, usuario_comum):
     assert response.status_code == 403
 
 
+def test_gestao_usuarios_exige_permissao(client, usuario_comum):
+    """DT-011: acesso à gestão de equipe é por accounts.gerenciar_usuarios,
+    não mais por is_staff."""
+    from django.contrib.auth.models import Permission
+
+    client.force_login(usuario_comum)
+    assert client.get(reverse("accounts:usuarios_lista")).status_code == 403
+
+    usuario_comum.user_permissions.add(Permission.objects.get(codename="gerenciar_usuarios"))
+    assert client.get(reverse("accounts:usuarios_lista")).status_code == 200
+
+
 def test_usuario_staff_acessa_lista_usuarios(client, usuario_staff):
     client.force_login(usuario_staff)
     response = client.get(reverse("accounts:usuarios_lista"))
@@ -153,23 +169,13 @@ def test_usuario_staff_nao_desativa_si_mesmo(client, usuario_staff):
     assert usuario_staff.is_active
 
 
-def test_usuario_staff_nao_rebaixa_si_mesmo(client, usuario_staff):
-    """Mitigação ADR 0040: staff não pode mudar o próprio is_staff via form."""
-    client.force_login(usuario_staff)
-    response = client.post(
-        reverse("accounts:usuarios_editar", args=[usuario_staff.pk]),
-        {
-            "email": usuario_staff.email,
-            "nome_completo": usuario_staff.nome_completo,
-            "cargo": usuario_staff.cargo or "",
-            # is_staff omitido = checkbox desmarcado = False (tentativa de rebaixar)
-            "is_active": "on",
-        },
-    )
-    # Form rejeitado (200, com erro), e usuário ainda é staff.
-    assert response.status_code == 200
-    usuario_staff.refresh_from_db()
-    assert usuario_staff.is_staff
+def test_form_usuario_nao_expoe_is_staff(db):
+    """DT-011: is_staff deixou de ser editável via form. Promoção a staff/
+    superuser fica reservada ao Django Admin (ADR 0040 fica obsoleta)."""
+    from accounts.forms import UsuarioCreateForm, UsuarioUpdateForm
+
+    assert "is_staff" not in UsuarioCreateForm().fields
+    assert "is_staff" not in UsuarioUpdateForm().fields
 
 
 def test_usuario_staff_pode_alterar_outros_dados_de_si(client, usuario_staff):

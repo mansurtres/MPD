@@ -1,7 +1,6 @@
 from django.contrib import messages
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.contrib.auth.views import LoginView as DjangoLoginView
-from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.views.generic import CreateView, ListView, UpdateView, View
@@ -10,13 +9,13 @@ from .forms import LoginForm, PerfilForm, UsuarioCreateForm, UsuarioUpdateForm
 from .models import Usuario
 
 
-class StaffRequiredMixin(LoginRequiredMixin):
-    def dispatch(self, request, *args, **kwargs):
-        if not request.user.is_authenticated:
-            return self.handle_no_permission()
-        if not request.user.is_staff:
-            raise PermissionDenied
-        return super().dispatch(request, *args, **kwargs)
+class GerenciarUsuariosMixin(PermissionRequiredMixin):
+    """Gating da gestão de equipe pela permissão custom (DT-011).
+
+    Anônimo → redireciona para login; autenticado sem a permissão → 403.
+    Promoção a staff/superuser fica reservada ao Django Admin."""
+
+    permission_required = "accounts.gerenciar_usuarios"
 
 
 class MPDLoginView(DjangoLoginView):
@@ -45,14 +44,14 @@ class PerfilView(LoginRequiredMixin, UpdateView):
         return super().form_valid(form)
 
 
-class UsuarioListView(StaffRequiredMixin, ListView):
+class UsuarioListView(GerenciarUsuariosMixin, ListView):
     model = Usuario
     template_name = "accounts/usuarios/lista.html"
     context_object_name = "usuarios"
     ordering = ["nome_completo", "email"]
 
 
-class UsuarioCreateView(StaffRequiredMixin, CreateView):
+class UsuarioCreateView(GerenciarUsuariosMixin, CreateView):
     model = Usuario
     form_class = UsuarioCreateForm
     template_name = "accounts/usuarios/form.html"
@@ -68,7 +67,7 @@ class UsuarioCreateView(StaffRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class UsuarioUpdateView(StaffRequiredMixin, UpdateView):
+class UsuarioUpdateView(GerenciarUsuariosMixin, UpdateView):
     model = Usuario
     form_class = UsuarioUpdateForm
     template_name = "accounts/usuarios/form.html"
@@ -79,17 +78,12 @@ class UsuarioUpdateView(StaffRequiredMixin, UpdateView):
         ctx["titulo"] = f"Editar {self.object}"
         return ctx
 
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["editor"] = self.request.user
-        return kwargs
-
     def form_valid(self, form):
         messages.success(self.request, "Usuário atualizado.")
         return super().form_valid(form)
 
 
-class UsuarioToggleAtivoView(StaffRequiredMixin, View):
+class UsuarioToggleAtivoView(GerenciarUsuariosMixin, View):
     def post(self, request, pk):
         usuario = get_object_or_404(Usuario, pk=pk)
         if usuario == request.user:

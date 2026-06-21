@@ -53,6 +53,9 @@ class Usuario(AbstractUser):
     class Meta:
         verbose_name = "usuário"
         verbose_name_plural = "usuários"
+        permissions = [
+            ("gerenciar_usuarios", "Pode gerenciar usuários da equipe"),
+        ]
 
     def __str__(self):
         return self.nome_completo or self.email

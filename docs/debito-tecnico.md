@@ -33,6 +33,7 @@ Quando um item for resolvido, mover para a seção **Resolvidos** no fim com a r
 
 ### DT-011 — Gestão de usuários ainda usa `is_staff`, não Groups (arquitetural)
 
+**Status:** ✅ **Resolvido** (Fase 7) — permissão custom `accounts.gerenciar_usuarios` criada (migration `0005`) e atribuída ao grupo Administrador (migration `0006`). `StaffRequiredMixin` substituído por `GerenciarUsuariosMixin(PermissionRequiredMixin)` nas 4 views; `UsuarioCreateForm`/`UsuarioUpdateForm` deixaram de expor `is_staff` (e a mitigação tática ADR 0040 ficou obsoleta). Promoção a staff/superuser fica só no Django Admin.
 **Prioridade:** Alta antes de produção, Média antes de Fase 4
 **Sintoma:** [accounts/views.py:13-19](accounts/views.py#L13-L19) define `StaffRequiredMixin` que gata as views de gestão de usuário em `request.user.is_staff`. [accounts/forms.py:36](accounts/forms.py#L36) e [:63](accounts/forms.py#L63) incluem `is_staff` como campo editável em `UsuarioCreateForm` e `UsuarioUpdateForm`.
 **Por que é cheiro:** o app `pessoas` migrou para `PermissionRequiredMixin` + Django Groups (ADR 0024) na Fase 2. O app `accounts` ficou para trás — ainda usa o flag binário `is_staff`. Resultado: qualquer staff promove qualquer outro a staff via formulário. Em equipe pequena confiável (caso atual), risco baixo. Mas viola o modelo de permissões granular adotado e gera dois sistemas convivendo no mesmo projeto. Mitigação tática (commit `c216150`, ADR 0040) bloqueia self-edit de `is_staff` no form custom; o `/admin/auth/user/` continua aceitando.
