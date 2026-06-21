@@ -157,7 +157,7 @@ class Command(BaseCommand):
                 criado_por=admin,
                 responsavel=admin,
             )
-            DemandaPessoa.objects.create(demanda=d1, pessoa=maria, papel="solicitante")
+            DemandaPessoa.objects.create(demanda=d1, pessoa=maria)
             d1.temas.add(*Tema.objects.filter(nome__in=["Mobilidade urbana", "Infraestrutura"]))
             Encaminhamento.objects.create(
                 demanda=d1,
