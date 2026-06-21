@@ -351,7 +351,7 @@
       <div class="source"><span class="ic"></span>Captura rápida</div>
       <p>{{ item.conteudo }}{% if item.status == 'pendente' %}{% if item.criado_em.date <= limite_30d %} <span class="age red">+30 dias</span>{% elif item.criado_em.date <= limite_7d %} <span class="age amber">+7 dias</span>{% endif %}{% endif %}</p>
       {% if item.status == 'processado' and item.demanda_gerada %}
-      <div class="processado-link">→ virou demanda <a href="{% url 'demandas:demanda_detalhe' item.demanda_gerada.pk %}">{{ item.demanda_gerada.numero }}</a></div>
+      <div class="processado-link">→ virou demanda <a href="{% url 'demandas:demanda_detalhe' item.demanda_gerada.slug_publico %}">{{ item.demanda_gerada.numero }}</a></div>
       {% endif %}
       {% if item.status == 'descartado' and item.motivo_descarte %}
       <div class="descartado-motivo"><strong>Descartada</strong> {{ item.motivo_descarte }}</div>

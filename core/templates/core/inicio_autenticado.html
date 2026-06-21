@@ -620,7 +620,7 @@
 
       <div class="recent">
         {% for d in demandas_recentes %}
-        <a class="row" href="{% url 'demandas:demanda_detalhe' d.pk %}">
+        <a class="row" href="{% url 'demandas:demanda_detalhe' d.slug_publico %}">
           <span class="num"><span class="y">{{ d.numero|slice:":9" }}</span>{{ d.numero|slice:"9:" }}</span>
           <span class="ttl">{{ d.titulo|truncatechars:80 }}</span>
           {% if d.status == 'novo' %}<span class="badge novo"><span class="dot"></span>Novo</span>

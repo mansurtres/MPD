@@ -1129,7 +1129,7 @@
         <form method="post" action="{% url 'demandas:demanda_reabrir' demanda.pk %}">{% csrf_token %}<button type="submit" class="btn secondary">Reabrir</button></form>
         {% endif %}
         {% if pode_editar and demanda.status != 'arquivado' %}
-        <a href="{% url 'demandas:demanda_editar' demanda.pk %}" class="btn secondary">Editar</a>
+        <a href="{% url 'demandas:demanda_editar' demanda.slug_publico %}" class="btn secondary">Editar</a>
         {% endif %}
       </div>
       {% endif %}

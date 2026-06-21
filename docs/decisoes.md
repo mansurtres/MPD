@@ -1193,6 +1193,14 @@ O problema real era a **URL pública**, não a PK em si. Trocar PK por UUID reso
 - ADR 0002 (UUID universal) fica registrada como ideia inicial, mas a abordagem que vigora é `BigAutoField` + slug separado, conforme esta ADR e ADR 0025.
 - Fase 3 deve aplicar o mesmo padrão a `Demanda` (a primeira coisa que será compartilhada via URL).
 
+### Errata 2026-06-21 — slug padronizado em 8 caracteres e estendido à Demanda
+
+Decisão de produto do proprietário: o identificador público passa a ter **8 caracteres hex** em todo o sistema (era 12 em `Pessoa`/`Entidade`; `Demanda` usava o UUID completo na URL). 16^8 ≈ 4,3 bilhões de combinações — amplo para a escala de um mandato municipal, e URLs ainda mais curtas.
+
+- `Demanda` ganha `slug_publico` (8 chars, unique). Só as URLs **navegadas** migram para slug — `/demandas/<slug>/` (detalhe) e `/demandas/<slug>/editar/`. As rotas de ação (estado, concluir, arquivar, reabrir, interações, encaminhamentos, anexos, inbox) permanecem em `<uuid:pk>`, pois são endpoints de POST, não links públicos. A PK interna da Demanda continua sendo o `UUIDField` (ADR 0056 mantida).
+- A geração de slug foi **consolidada em `core/utils.py`** (`SLUG_LENGTH = 8`, `gerar_slug_publico()`, `salvar_com_slug_unico()`), eliminando a cópia que vivia em `pessoas/models.py`. `Pessoa`, `Entidade` e `Demanda` usam a mesma função (mantém o retry em `IntegrityError` da ADR 0051). Em `Demanda.save()`, número (D-AAMM-NNNNN) e slug são gerados juntos no mesmo laço de retry.
+- Sem produção: migrations regeram os slugs de `Pessoa`/`Entidade` para 8 chars (RunPython antes do `AlterField` 12→8) e fizeram backfill de `Demanda` (add nullable → backfill → alter unique).
+
 ---
 
 ## ADR 0039 — Drop do campo `categoria` em Tag (supersede ADR 0005 parcialmente; revisita ADR 0006)

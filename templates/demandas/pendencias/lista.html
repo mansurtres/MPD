@@ -184,7 +184,7 @@
         <div class="body">
           <p class="ttl">{{ p.conteudo|truncatechars:100 }}</p>
           <div class="meta">
-            <a href="{% url 'demandas:demanda_detalhe' p.demanda.pk %}" class="demanda">{{ p.demanda.numero }}</a>
+            <a href="{% url 'demandas:demanda_detalhe' p.demanda.slug_publico %}" class="demanda">{{ p.demanda.numero }}</a>
             <span class="sep">·</span>
             <span>{{ p.demanda.titulo|truncatechars:40 }}</span>
           </div>

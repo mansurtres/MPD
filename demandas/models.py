@@ -29,6 +29,7 @@ from django.db import IntegrityError, models, transaction
 from django.utils import timezone
 
 from core.mixins import AuditavelMixin
+from core.utils import gerar_slug_publico
 
 
 class DemandaQuerySet(models.QuerySet):
@@ -139,6 +140,13 @@ class Demanda(AuditavelMixin, models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     numero = models.CharField("número", max_length=20, unique=True, blank=True)
+    slug_publico = models.CharField(
+        max_length=8,
+        unique=True,
+        blank=True,
+        editable=False,
+        help_text="Slug curto (8 chars) para URLs públicas. Gerado automaticamente no save().",
+    )
     titulo = models.CharField("título", max_length=200)
     descricao = models.TextField("descrição")
     origem = models.CharField(max_length=15, choices=ORIGEM_CHOICES, default=ORIGEM_RESPONSIVA)
@@ -274,23 +282,33 @@ class Demanda(AuditavelMixin, models.Model):
     def save(self, *args, **kwargs):
         if self.status == self.STATUS_ARQUIVADO and not self.arquivado_em:
             self.arquivado_em = timezone.now()
-        if self.numero:
+        if self.numero and self.slug_publico:
             super().save(*args, **kwargs)
             return
-        # Numeração nova: gera D-AAMM-NNNNN e tenta INSERT em savepoint.
-        # Em caso de colisão (UNIQUE), regenera o sufixo até 10 vezes.
-        # Padrão idêntico ao slug_publico (ADR 0051).
+        # Registro novo: gera número (D-AAMM-NNNNN) e slug_publico, tenta
+        # INSERT em savepoint. Em colisão (UNIQUE de numero OU slug),
+        # regenera o campo vazio/colidido até 10 vezes.
+        # Padrão idêntico ao slug_publico de Pessoa/Entidade (ADR 0051).
         ultima_excecao = None
         for _ in range(10):
-            self.numero = self.gerar_numero()
+            if not self.numero:
+                self.numero = self.gerar_numero()
+            if not self.slug_publico:
+                self.slug_publico = gerar_slug_publico()
             try:
                 with transaction.atomic():
                     super().save(*args, **kwargs)
                 return
             except IntegrityError as exc:
                 ultima_excecao = exc
+                # Regenera o campo que colidiu na próxima tentativa.
+                msg = str(exc).lower()
+                if "slug_publico" in msg:
+                    self.slug_publico = ""
+                if "numero" in msg or "slug_publico" not in msg:
+                    self.numero = ""
                 continue
-        raise ultima_excecao  # 10 colisões consecutivas — improvável em 90k espaço
+        raise ultima_excecao  # 10 colisões consecutivas — improvável no espaço combinado
 
     @classmethod
     def gerar_numero(cls):
@@ -317,6 +335,11 @@ class Demanda(AuditavelMixin, models.Model):
         if self.responsavel_id == user.id:
             return True
         return eh_cg_plus(user)
+
+    def get_absolute_url(self):
+        from django.urls import reverse
+
+        return reverse("demandas:demanda_detalhe", kwargs={"slug": self.slug_publico})
 
 
 class DemandaPessoa(models.Model):

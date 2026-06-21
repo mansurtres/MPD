@@ -187,6 +187,8 @@ class DemandaDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView)
     model = Demanda
     template_name = "demandas/detalhe.html"
     context_object_name = "demanda"
+    slug_field = "slug_publico"
+    slug_url_kwarg = "slug"
 
     def get_object(self, queryset=None):
         obj = super().get_object(queryset)
@@ -296,7 +298,7 @@ class _DemandaFormMixin:
             fs.save()
 
     def _sucesso(self):
-        return redirect("demandas:demanda_detalhe", pk=self.object.pk)
+        return redirect("demandas:demanda_detalhe", slug=self.object.slug_publico)
 
     def form_invalid(self, form, formsets):
         return self.render_to_response(self.get_context_data(form=form, formsets=formsets))
@@ -359,6 +361,8 @@ class DemandaCreateView(LoginRequiredMixin, PermissionRequiredMixin, _DemandaFor
 class DemandaUpdateView(LoginRequiredMixin, PermissionRequiredMixin, _DemandaFormMixin, UpdateView):
     permission_required = "demandas.change_demanda"
     model = Demanda
+    slug_field = "slug_publico"
+    slug_url_kwarg = "slug"
 
     def _sucesso(self):
         messages.success(self.request, "Demanda atualizada.")
@@ -390,16 +394,16 @@ class AtualizarEstadoView(LoginRequiredMixin, PermissionRequiredMixin, View):
                     else str(erros)
                 )
                 messages.error(request, msg)
-            return redirect("demandas:demanda_detalhe", pk=pk)
+            return redirect("demandas:demanda_detalhe", slug=demanda.slug_publico)
         try:
             with transaction.atomic():
                 form.save()
         except ValidationError as e:
             for erro in e.messages:
                 messages.error(request, erro)
-            return redirect("demandas:demanda_detalhe", pk=pk)
+            return redirect("demandas:demanda_detalhe", slug=demanda.slug_publico)
         messages.success(request, "Estado atualizado.")
-        return redirect("demandas:demanda_detalhe", pk=pk)
+        return redirect("demandas:demanda_detalhe", slug=demanda.slug_publico)
 
 
 class ConcluirDemandaView(LoginRequiredMixin, PermissionRequiredMixin, View):
@@ -416,7 +420,7 @@ class ConcluirDemandaView(LoginRequiredMixin, PermissionRequiredMixin, View):
             raise Http404
         if demanda.status in (Demanda.STATUS_CONCLUIDA, Demanda.STATUS_ARQUIVADO):
             messages.error(request, "Demanda já está fechada.")
-            return redirect("demandas:demanda_detalhe", pk=pk)
+            return redirect("demandas:demanda_detalhe", slug=demanda.slug_publico)
 
         if demanda.origem == Demanda.ORIGEM_RESPONSIVA:
             form = ConcluirDemandaForm(request.POST)
@@ -431,7 +435,7 @@ class ConcluirDemandaView(LoginRequiredMixin, PermissionRequiredMixin, View):
                     else str(erros)
                 )
                 messages.error(request, msg)
-            return redirect("demandas:demanda_detalhe", pk=pk)
+            return redirect("demandas:demanda_detalhe", slug=demanda.slug_publico)
 
         try:
             with transaction.atomic():
@@ -467,9 +471,9 @@ class ConcluirDemandaView(LoginRequiredMixin, PermissionRequiredMixin, View):
         except ValidationError as e:
             for erro in e.messages:
                 messages.error(request, erro)
-            return redirect("demandas:demanda_detalhe", pk=pk)
+            return redirect("demandas:demanda_detalhe", slug=demanda.slug_publico)
         messages.success(request, f"Demanda {demanda.numero} concluída.")
-        return redirect("demandas:demanda_detalhe", pk=pk)
+        return redirect("demandas:demanda_detalhe", slug=demanda.slug_publico)
 
 
 class ArquivarView(LoginRequiredMixin, View):
@@ -495,7 +499,7 @@ class ArquivarView(LoginRequiredMixin, View):
         if not form.is_valid():
             for erros in form.errors.values():
                 messages.error(request, "; ".join(erros))
-            return redirect("demandas:demanda_detalhe", pk=pk)
+            return redirect("demandas:demanda_detalhe", slug=demanda.slug_publico)
         demanda = form.save(commit=False)
         demanda.status = Demanda.STATUS_ARQUIVADO
         try:
@@ -503,10 +507,10 @@ class ArquivarView(LoginRequiredMixin, View):
         except ValidationError as e:
             for erro in e.messages:
                 messages.error(request, erro)
-            return redirect("demandas:demanda_detalhe", pk=pk)
+            return redirect("demandas:demanda_detalhe", slug=demanda.slug_publico)
         demanda.save()
         messages.success(request, "Demanda arquivada.")
-        return redirect("demandas:demanda_detalhe", pk=pk)
+        return redirect("demandas:demanda_detalhe", slug=demanda.slug_publico)
 
 
 class ReabrirView(LoginRequiredMixin, PermissionRequiredMixin, View):
@@ -516,11 +520,11 @@ class ReabrirView(LoginRequiredMixin, PermissionRequiredMixin, View):
         demanda = get_object_or_404(Demanda, pk=pk)
         if demanda.status != Demanda.STATUS_CONCLUIDA:
             messages.error(request, "Apenas demandas concluídas podem ser reabertas.")
-            return redirect("demandas:demanda_detalhe", pk=pk)
+            return redirect("demandas:demanda_detalhe", slug=demanda.slug_publico)
         demanda.status = Demanda.STATUS_EM_ANDAMENTO
         demanda.save()
         messages.success(request, "Demanda reaberta.")
-        return redirect("demandas:demanda_detalhe", pk=pk)
+        return redirect("demandas:demanda_detalhe", slug=demanda.slug_publico)
 
 
 # --- Interações ---
@@ -542,7 +546,7 @@ class AdicionarInteracaoView(LoginRequiredMixin, PermissionRequiredMixin, View):
                     messages.error(request, "; ".join(grupo))
                 else:
                     messages.error(request, str(grupo))
-            return redirect("demandas:demanda_detalhe", pk=pk)
+            return redirect("demandas:demanda_detalhe", slug=demanda.slug_publico)
         try:
             with transaction.atomic():
                 interacao = form.save(commit=False)
@@ -572,9 +576,9 @@ class AdicionarInteracaoView(LoginRequiredMixin, PermissionRequiredMixin, View):
                     )
                 _anexar_se_houver(request, interacao)
         except ValueError:
-            return redirect("demandas:demanda_detalhe", pk=pk)
+            return redirect("demandas:demanda_detalhe", slug=demanda.slug_publico)
         messages.success(request, "Interação registrada.")
-        return redirect("demandas:demanda_detalhe", pk=pk)
+        return redirect("demandas:demanda_detalhe", slug=demanda.slug_publico)
 
 
 class InteracaoMarcarRealizadaView(LoginRequiredMixin, View):
@@ -588,11 +592,11 @@ class InteracaoMarcarRealizadaView(LoginRequiredMixin, View):
             raise PermissionDenied("Apenas o autor pode marcar como realizada.")
         if interacao.status != Interacao.STATUS_AGENDADA:
             messages.error(request, "Interação não está agendada.")
-            return redirect("demandas:demanda_detalhe", pk=interacao.demanda_id)
+            return redirect("demandas:demanda_detalhe", slug=interacao.demanda.slug_publico)
         interacao.status = Interacao.STATUS_REALIZADA
         interacao.save()
         messages.success(request, "Interação marcada como realizada.")
-        return redirect("demandas:demanda_detalhe", pk=interacao.demanda_id)
+        return redirect("demandas:demanda_detalhe", slug=interacao.demanda.slug_publico)
 
 
 class InteracaoCancelarView(LoginRequiredMixin, View):
@@ -607,11 +611,11 @@ class InteracaoCancelarView(LoginRequiredMixin, View):
             raise PermissionDenied("Sem permissão para cancelar interação alheia.")
         if interacao.status != Interacao.STATUS_AGENDADA:
             messages.error(request, "Apenas interações agendadas podem ser canceladas.")
-            return redirect("demandas:demanda_detalhe", pk=interacao.demanda_id)
+            return redirect("demandas:demanda_detalhe", slug=interacao.demanda.slug_publico)
         interacao.status = Interacao.STATUS_CANCELADA
         interacao.save()
         messages.success(request, "Interação cancelada.")
-        return redirect("demandas:demanda_detalhe", pk=interacao.demanda_id)
+        return redirect("demandas:demanda_detalhe", slug=interacao.demanda.slug_publico)
 
 
 # --- Encaminhamentos ---
@@ -628,7 +632,7 @@ class AdicionarEncaminhamentoView(LoginRequiredMixin, PermissionRequiredMixin, V
         if not form.is_valid():
             for erros in form.errors.values():
                 messages.error(request, "; ".join(erros))
-            return redirect("demandas:demanda_detalhe", pk=pk)
+            return redirect("demandas:demanda_detalhe", slug=demanda.slug_publico)
         try:
             with transaction.atomic():
                 enc = form.save(commit=False)
@@ -647,9 +651,9 @@ class AdicionarEncaminhamentoView(LoginRequiredMixin, PermissionRequiredMixin, V
                 )
                 _anexar_se_houver(request, enc)
         except ValueError:
-            return redirect("demandas:demanda_detalhe", pk=pk)
+            return redirect("demandas:demanda_detalhe", slug=demanda.slug_publico)
         messages.success(request, "Encaminhamento adicionado.")
-        return redirect("demandas:demanda_detalhe", pk=pk)
+        return redirect("demandas:demanda_detalhe", slug=demanda.slug_publico)
 
 
 class EncaminhamentoRespostaView(LoginRequiredMixin, PermissionRequiredMixin, View):
@@ -663,7 +667,7 @@ class EncaminhamentoRespostaView(LoginRequiredMixin, PermissionRequiredMixin, Vi
         if not form.is_valid():
             for erros in form.errors.values():
                 messages.error(request, "; ".join(erros))
-            return redirect("demandas:demanda_detalhe", pk=enc.demanda_id)
+            return redirect("demandas:demanda_detalhe", slug=enc.demanda.slug_publico)
         enc = form.save()
         Interacao.objects.create(
             demanda=enc.demanda,
@@ -679,7 +683,7 @@ class EncaminhamentoRespostaView(LoginRequiredMixin, PermissionRequiredMixin, Vi
             encaminhamento=enc,
         )
         messages.success(request, "Resposta registrada.")
-        return redirect("demandas:demanda_detalhe", pk=enc.demanda_id)
+        return redirect("demandas:demanda_detalhe", slug=enc.demanda.slug_publico)
 
 
 # --- Visão transversal: lista de Encaminhamentos (ADR 0046) ---
@@ -916,13 +920,16 @@ class AnexoUploadView(LoginRequiredMixin, PermissionRequiredMixin, View):
         # pra página do objeto pai. Demanda e Encaminhamento são os casos
         # primários (UI atual); outros tipos caem no referer ou na raiz.
         if tipo == "demanda":
-            return redirect("demandas:demanda_detalhe", pk=object_id)
+            slug = get_object_or_404(
+                Demanda.objects.values_list("slug_publico", flat=True), pk=object_id
+            )
+            return redirect("demandas:demanda_detalhe", slug=slug)
         if tipo == "encaminhamento":
             enc = get_object_or_404(Encaminhamento, pk=object_id)
-            return redirect("demandas:demanda_detalhe", pk=enc.demanda_id)
+            return redirect("demandas:demanda_detalhe", slug=enc.demanda.slug_publico)
         if tipo == "interacao":
             interacao = get_object_or_404(Interacao, pk=object_id)
-            return redirect("demandas:demanda_detalhe", pk=interacao.demanda_id)
+            return redirect("demandas:demanda_detalhe", slug=interacao.demanda.slug_publico)
         return redirect(request.META.get("HTTP_REFERER", "/"))
 
     def post(self, request, tipo, object_id):
@@ -1137,7 +1144,10 @@ class ProcessarInboxView(LoginRequiredMixin, PermissionRequiredMixin, View):
             nome = "outro usuário"
         messages.info(request, f"Este item já foi processado por {nome}.")
         if item.demanda_gerada_id:
-            return redirect("demandas:demanda_detalhe", pk=item.demanda_gerada_id)
+            slug = Demanda.objects.values_list("slug_publico", flat=True).get(
+                pk=item.demanda_gerada_id
+            )
+            return redirect("demandas:demanda_detalhe", slug=slug)
         return redirect("demandas:inbox_lista")
 
     def get(self, request, pk):
@@ -1215,7 +1225,7 @@ class ProcessarInboxView(LoginRequiredMixin, PermissionRequiredMixin, View):
                 messages.error(request, erro)
             return redirect("demandas:inbox_processar", pk=item.pk)
         messages.success(request, f"Demanda {demanda.numero} criada a partir do inbox.")
-        return redirect("demandas:demanda_detalhe", pk=demanda.pk)
+        return redirect("demandas:demanda_detalhe", slug=demanda.slug_publico)
 
 
 class DescartarInboxView(LoginRequiredMixin, View):

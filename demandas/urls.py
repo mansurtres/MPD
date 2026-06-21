@@ -13,9 +13,9 @@ urlpatterns = [
     # --- Demandas (CRUD) ---
     path("demandas/", views.DemandaListView.as_view(), name="demanda_lista"),
     path("demandas/nova/", views.DemandaCreateView.as_view(), name="demanda_nova"),
-    path("demandas/<uuid:pk>/", views.DemandaDetailView.as_view(), name="demanda_detalhe"),
+    path("demandas/<slug:slug>/", views.DemandaDetailView.as_view(), name="demanda_detalhe"),
     path(
-        "demandas/<uuid:pk>/editar/",
+        "demandas/<slug:slug>/editar/",
         views.DemandaUpdateView.as_view(),
         name="demanda_editar",
     ),

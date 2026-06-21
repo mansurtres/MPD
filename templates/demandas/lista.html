@@ -241,15 +241,15 @@
     </thead>
     <tbody>
       {% for d in demandas %}
-      <tr onclick="window.location='{% url 'demandas:demanda_detalhe' d.pk %}'">
+      <tr onclick="window.location='{% url 'demandas:demanda_detalhe' d.slug_publico %}'">
         <td class="col-num">
-          <a href="{% url 'demandas:demanda_detalhe' d.pk %}" onclick="event.stopPropagation()">
+          <a href="{% url 'demandas:demanda_detalhe' d.slug_publico %}" onclick="event.stopPropagation()">
             <span class="seq">{{ d.numero }}</span>
             {% if d.restrito %}<span class="icons"><span class="ic lock" title="Restrita">🔒</span></span>{% endif %}
           </a>
         </td>
         <td class="col-title">
-          <p class="ttl"><a href="{% url 'demandas:demanda_detalhe' d.pk %}" onclick="event.stopPropagation()">{{ d.titulo }}</a></p>
+          <p class="ttl"><a href="{% url 'demandas:demanda_detalhe' d.slug_publico %}" onclick="event.stopPropagation()">{{ d.titulo }}</a></p>
           <div class="partes">
             {% if d.anonimo and not d.demanda_pessoas.all and not d.demanda_entidades.all %}
               <span class="anon">Demanda anônima</span>

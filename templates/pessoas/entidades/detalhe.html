@@ -138,7 +138,7 @@
           {% for d in demandas %}
           <li>
             <div class="row">
-              <a class="tit" href="{% url 'demandas:demanda_detalhe' d.pk %}"><span class="seq">{{ d.numero }}</span>{{ d.titulo }}</a>
+              <a class="tit" href="{% url 'demandas:demanda_detalhe' d.slug_publico %}"><span class="seq">{{ d.numero }}</span>{{ d.titulo }}</a>
               <span style="display:flex;align-items:center;gap:8px;flex-shrink:0">
                 <span style="font-family:var(--font-mono);font-size:11px;color:var(--ink-mute);text-transform:uppercase;letter-spacing:0.04em">{{ d.get_status_display }}</span>
                 {% if d.resultado == 'atendido' %}<span class="badge rs-atend" style="border:1.5px solid rgba(52,64,34,0.35)"><span class="glyph">✓</span>Atendido</span>

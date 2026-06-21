@@ -751,7 +751,7 @@ def test_view_lista_demandas_redireciona_anonimo(client):
 
 
 def test_view_detalhe_protegido_por_login(client, demanda):
-    resp = client.get(reverse("demandas:demanda_detalhe", args=[demanda.pk]))
+    resp = client.get(reverse("demandas:demanda_detalhe", args=[demanda.slug_publico]))
     assert resp.status_code == 302
 
 
@@ -1603,7 +1603,7 @@ def test_processar_inbox_ja_processado_redireciona_para_demanda(client, admin_us
     client.force_login(admin_user)
     resp = client.get(reverse("demandas:inbox_processar", args=[item.pk]))
     assert resp.status_code == 302
-    assert reverse("demandas:demanda_detalhe", args=[demanda.pk]) in resp.url
+    assert reverse("demandas:demanda_detalhe", args=[demanda.slug_publico]) in resp.url
 
 
 def test_analise_carga_assessores_nao_tem_n_mais_1(client, admin_user):

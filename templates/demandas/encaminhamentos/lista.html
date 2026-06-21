@@ -171,16 +171,16 @@
     </thead>
     <tbody>
       {% for e in encaminhamentos %}
-      <tr onclick="window.location='{% url 'demandas:demanda_detalhe' e.demanda.pk %}'">
+      <tr onclick="window.location='{% url 'demandas:demanda_detalhe' e.demanda.slug_publico %}'">
         <td class="col-demanda">
-          <a href="{% url 'demandas:demanda_detalhe' e.demanda.pk %}" onclick="event.stopPropagation()">
+          <a href="{% url 'demandas:demanda_detalhe' e.demanda.slug_publico %}" onclick="event.stopPropagation()">
             <span class="num">{{ e.demanda.numero }}</span>
             <span class="titulo">{{ e.demanda.titulo }}</span>
           </a>
         </td>
         <td class="col-encam">
           <span class="destino">
-            <a href="{% url 'demandas:demanda_detalhe' e.demanda.pk %}" onclick="event.stopPropagation()">{{ e.get_tipo_documento_display }} → {{ e.destinatario_orgao }}</a>
+            <a href="{% url 'demandas:demanda_detalhe' e.demanda.slug_publico %}" onclick="event.stopPropagation()">{{ e.get_tipo_documento_display }} → {{ e.destinatario_orgao }}</a>
           </span>
           {% if e.numero_documento %}<span class="sub">Nº {{ e.numero_documento }}</span>{% endif %}
           {% if e.destinatario_pessoa %}<span class="sub">Contato: {{ e.destinatario_pessoa }}</span>{% endif %}

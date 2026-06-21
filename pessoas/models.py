@@ -9,21 +9,18 @@ via `pre_save`. Validação algorítmica usa validators no campo (ver core/utils
 e core/mixins.py).
 """
 
-import uuid
-
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError, models, transaction
+from django.db import models, transaction
 
 from core.mixins import UF_VALIDATOR, AuditavelMixin, EnderecavelMixin
 from core.utils import (
     formatar_cpf,
+    salvar_com_slug_unico,
     somente_digitos,
     validate_cnpj_tamanho,
     validate_cpf,
 )
-
-_MAX_TENTATIVAS_SLUG = 10
 
 
 def _validar_xor_pessoa_entidade(canal):
@@ -41,32 +38,6 @@ def _validar_xor_pessoa_entidade(canal):
 _CHECK_DONO_XOR = models.Q(pessoa__isnull=False, entidade__isnull=True) | models.Q(
     pessoa__isnull=True, entidade__isnull=False
 )
-
-
-def _salvar_com_slug_unico(instance, super_save, *args, **kwargs):
-    """Gera slug_publico (uuid4 hex curto) com retry em colisão de UNIQUE
-    constraint. Substitui a geração via pre_save signal (que tinha TOCTOU:
-    filter().exists() → save). Ver ADR 0051.
-
-    Cada tentativa roda dentro de um savepoint (`transaction.atomic`) — sem
-    isso, IntegrityError taints a transação externa e queries subsequentes
-    falham com TransactionManagementError.
-    """
-    if instance.slug_publico:
-        return super_save(*args, **kwargs)
-    for tentativa in range(_MAX_TENTATIVAS_SLUG):
-        instance.slug_publico = uuid.uuid4().hex[:12]
-        try:
-            with transaction.atomic():
-                return super_save(*args, **kwargs)
-        except IntegrityError as exc:
-            # Outras constraints (CPF/CNPJ unique) precisam propagar.
-            if "slug_publico" not in str(exc).lower():
-                raise
-            if tentativa == _MAX_TENTATIVAS_SLUG - 1:
-                raise
-            # Próxima iteração tenta novo uuid.
-            continue
 
 
 class Tag(models.Model):
@@ -121,11 +92,11 @@ class Pessoa(EnderecavelMixin, AuditavelMixin, models.Model):
     ]
 
     slug_publico = models.CharField(
-        max_length=12,
+        max_length=8,
         unique=True,
         blank=True,
         editable=False,
-        help_text="Slug curto para URLs públicas. Gerado automaticamente no pre_save.",
+        help_text="Slug curto (8 chars) para URLs públicas. Gerado automaticamente no save().",
     )
 
     nome = models.CharField("nome", max_length=100)
@@ -211,7 +182,7 @@ class Pessoa(EnderecavelMixin, AuditavelMixin, models.Model):
         )
 
     def save(self, *args, **kwargs):
-        return _salvar_com_slug_unico(self, super().save, *args, **kwargs)
+        return salvar_com_slug_unico(self, super().save, *args, **kwargs)
 
     @transaction.atomic
     def anonimizar(self):
@@ -257,11 +228,11 @@ class Entidade(EnderecavelMixin, AuditavelMixin, models.Model):
     ]
 
     slug_publico = models.CharField(
-        max_length=12,
+        max_length=8,
         unique=True,
         blank=True,
         editable=False,
-        help_text="Slug curto para URLs públicas. Gerado automaticamente no pre_save.",
+        help_text="Slug curto (8 chars) para URLs públicas. Gerado automaticamente no save().",
     )
 
     nome = models.CharField("nome", max_length=200)
@@ -313,7 +284,7 @@ class Entidade(EnderecavelMixin, AuditavelMixin, models.Model):
         return self.nome
 
     def save(self, *args, **kwargs):
-        return _salvar_com_slug_unico(self, super().save, *args, **kwargs)
+        return salvar_com_slug_unico(self, super().save, *args, **kwargs)
 
 
 class Vinculo(models.Model):

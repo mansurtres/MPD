@@ -7,8 +7,51 @@ em signals `pre_save` (ver `pessoas/signals.py`).
 """
 
 import re
+import uuid
 
 from django.core.exceptions import ValidationError
+from django.db import IntegrityError, transaction
+
+# --- Slug público curto (ADR 0038, padronizado em 8 chars) ---
+
+SLUG_LENGTH = 8
+_MAX_TENTATIVAS_SLUG = 10
+
+
+def gerar_slug_publico():
+    """Gera um identificador hex curto para URLs públicas (ADR 0038).
+
+    8 caracteres hex = 16^8 ≈ 4,3 bilhões de combinações — amplo para a escala
+    de um mandato municipal. Usado por Pessoa, Entidade e Demanda.
+    """
+    return uuid.uuid4().hex[:SLUG_LENGTH]
+
+
+def salvar_com_slug_unico(instance, super_save, *args, **kwargs):
+    """Salva `instance` garantindo `slug_publico` único, com retry em colisão.
+
+    Substitui a geração via pre_save signal (que tinha TOCTOU:
+    filter().exists() → save). Ver ADR 0051.
+
+    Cada tentativa roda dentro de um savepoint (`transaction.atomic`) — sem
+    isso, IntegrityError taints a transação externa e queries subsequentes
+    falham com TransactionManagementError.
+    """
+    if instance.slug_publico:
+        return super_save(*args, **kwargs)
+    for tentativa in range(_MAX_TENTATIVAS_SLUG):
+        instance.slug_publico = gerar_slug_publico()
+        try:
+            with transaction.atomic():
+                return super_save(*args, **kwargs)
+        except IntegrityError as exc:
+            # Outras constraints (CPF/CNPJ unique) precisam propagar.
+            if "slug_publico" not in str(exc).lower():
+                raise
+            if tentativa == _MAX_TENTATIVAS_SLUG - 1:
+                raise
+            # Próxima iteração tenta novo uuid.
+            continue
 
 
 def somente_digitos(value):

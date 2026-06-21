@@ -802,8 +802,8 @@ def test_export_csv_pessoas_nao_tem_n_mais_1(client, usuario_admin):
 def test_slug_publico_retenta_em_colisao(db, usuario_admin, monkeypatch):
     """Simula colisão de slug: primeiro uuid colide com pessoa já criada;
     segundo uuid é único e o save sucede. Sem o retry, IntegrityError
-    vazaria para o caller."""
-    from pessoas import models as pessoas_models
+    vazaria para o caller. Geração consolidada em core.utils (8 chars)."""
+    from core import utils as core_utils
 
     # Cria a primeira pessoa normalmente.
     p1 = Pessoa.objects.create(
@@ -816,13 +816,14 @@ def test_slug_publico_retenta_em_colisao(db, usuario_admin, monkeypatch):
     slug_existente = p1.slug_publico
 
     # Sequência forçada: primeiro retorno = slug já usado, segundo = slug novo.
-    sequencia = iter([slug_existente + "00000000", "ffffffffffff00000000"])
+    # gerar_slug_publico() usa uuid4().hex[:8], então o hex precisa ter >= 8 chars.
+    sequencia = iter([slug_existente + "00000000", "ffffffff00000000"])
 
     class FakeUUID:
         def __init__(self, hex_str):
             self.hex = hex_str
 
-    monkeypatch.setattr(pessoas_models.uuid, "uuid4", lambda: FakeUUID(next(sequencia)))
+    monkeypatch.setattr(core_utils.uuid, "uuid4", lambda: FakeUUID(next(sequencia)))
 
     p2 = Pessoa.objects.create(
         nome="Segunda",
@@ -832,5 +833,5 @@ def test_slug_publico_retenta_em_colisao(db, usuario_admin, monkeypatch):
         criado_por=usuario_admin,
     )
     # Retry funcionou: usou o segundo slug.
-    assert p2.slug_publico == "ffffffffffff"
+    assert p2.slug_publico == "ffffffff"
     assert p2.slug_publico != p1.slug_publico

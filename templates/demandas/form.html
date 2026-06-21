@@ -672,7 +672,7 @@
         {% endif %}
       </div>
       <div class="right">
-        <a href="{% if view.object %}{% url 'demandas:demanda_detalhe' view.object.pk %}{% else %}{% url 'demandas:demanda_lista' %}{% endif %}" class="btn ghost">Cancelar</a>
+        <a href="{% if view.object %}{% url 'demandas:demanda_detalhe' view.object.slug_publico %}{% else %}{% url 'demandas:demanda_lista' %}{% endif %}" class="btn ghost">Cancelar</a>
         <button type="submit" class="btn primary">{% if view.object %}Salvar alterações{% else %}Salvar demanda{% endif %} →</button>
       </div>
     </footer>

@@ -321,7 +321,7 @@ def buscar_global_json(request):
                     "categoria": "Demanda",
                     "label": f"{d.numero} — {d.titulo}",
                     "sublabel": " · ".join(sublabel_parts),
-                    "url": reverse("demandas:demanda_detalhe", args=[d.pk]),
+                    "url": reverse("demandas:demanda_detalhe", args=[d.slug_publico]),
                 }
             )
 
