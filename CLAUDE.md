@@ -229,7 +229,19 @@ A revisão de fim-de-Fase-6 levantou critérios literais do roadmap sem espelho 
 
 **226 testes passando** ao final da v0.7.3 (+19 sobre v0.7.2: 3 export LogEntry, 6 verificar_integridade, 4 auditoria filtros, 1 entidades quick filter, 3 inbox lista, 2 minhas pendências). ADRs 0001–0053.
 
-**Próximo marco:** v1.0 — Fase 7 (Polimento e Web). Ver [`roadmap.md`](./roadmap.md) §Fase 7.
+**Fechamento do front-end na nova identidade + Fase 7 (template) — branch `feature/teste-claude-design`:**
+Toda tela restante migrou para a identidade visual nova (editorial: Funnel Display + Source Serif 4 + Geist Mono, paleta quente, cantos retos, componentes próprios). O *bridge* Tailwind→tokens em `components.css` deixa de ser necessário nas telas vivas (varredura sem `slate-*`/`rounded-xl`/`bg-white` cru).
+- **Estrutura compartilhada extraída para `static/css/components.css`**: seção "LISTAS (ledger)" (escopo `.lista-page`: quick-filters, active-filters, filtros-adv, ledger, ledger-foot, empty-state, base de badge) e "DETALHE (documento)" (escopo `.detalhe-page`: doc/doc-grid/main-title/main-meta/sec/kv/itemlist/reclist/aside). Cada template carrega só CSS de coluna/seção próprio. O detalhe de Demanda permanece bespoke (não escopado).
+- **Telas refeitas**: listas de pessoas/entidades/encaminhamentos; detalhes de pessoa/entidade; CRUD de tags e temas (color picker em tokens); usuários (lista/form) + perfil; hub de configurações; auditoria (filtros + diff); reuniões; captura standalone; home pública.
+- **DT-013 (ADR 0054)** — drop de `papel`/`papel_outro` em `DemandaPessoa`/`DemandaEntidade` (migration `demandas/0009`; model/forms/templates/JS/seed/testes limpos). `Vinculo.papel` (pessoas) é outro campo e permanece.
+- **DT-011** — gestão de usuários por permissão custom `accounts.gerenciar_usuarios` (migrations `accounts/0005`+`0006`); `StaffRequiredMixin`→`GerenciarUsuariosMixin(PermissionRequiredMixin)`; forms param de expor `is_staff` (ADR 0040 obsoleta); promoção a staff só via Django Admin.
+- **Qualidade de front (Fase 7)**: confirmação explícita (one-way) ao classificar `resultado` no drawer Concluir; passada de responsividade mobile (grids de pendências/reuniões empilham <640px; listas/detalhes já colapsam); foco visível global (`:focus-visible`) e `aria-label` em controles só-ícone.
+- **Banner universal de erros** de formulário (`_form_erros_resumo.html` + `form-helpers.js`: lista erros no topo + auto-scroll/foco) aplicado a todos os forms.
+- Plano e ledger em `docs/superpowers/`.
+
+**228 testes passando** ao final deste fechamento (230 da v0.7.3 −3 testes de papel +1 de gating de usuários). ADRs 0001–0057. Pendência registrada para revisão: o painel inline de Estado (`EstadoForm`/endpoint `demanda_estado`, ADR 0044) ficou sem UI no detalhe refeito — decidir se restaura ou remove o endpoint.
+
+**Próximo marco:** v1.0 — Fase 7 restante (Polimento e Web: Docker, backup `-Fc`, docs de deploy/manual, performance, Lighthouse) → deploy. Ver [`roadmap.md`](./roadmap.md) §Fase 7.
 
 ---
 
@@ -308,4 +320,4 @@ Para o histórico completo ver [`docs/decisoes.md`](./docs/decisoes.md). Decisõ
 
 ---
 
-*Atualizar este arquivo ao fim de cada fase. Última atualização: 2026-05-17 (v0.7.3 — cobertura de testes dos critérios de Fases 4 a 6; exports visíveis em `/auditoria` via ADR 0053).*
+*Atualizar este arquivo ao fim de cada fase. Última atualização: 2026-06-21 (branch `feature/teste-claude-design` — front-end inteiro na identidade nova + Fase 7 que toca template: DT-013/DT-011 fechados, confirmação one-way do resultado, responsividade + a11y. 228 testes).*
