@@ -1,28 +1,46 @@
 {% extends "layouts/app.html" %}
 
 {% block app_conteudo %}
-<div class="max-w-lg">
-  <h1 class="text-xl font-semibold text-slate-900 mb-4">Remover tema</h1>
-  <div class="bg-white border border-slate-200 rounded-xl p-6">
+<div class="page-head" style="margin-bottom:16px">
+  <div>
+    <div class="breadcrumb">
+      <a href="/" style="text-decoration:none;color:var(--ink-mute)">Início</a>
+      <span class="sep">/</span>
+      <a href="{% url 'core:configuracoes' %}" style="text-decoration:none;color:var(--ink-mute)">Configurações</a>
+      <span class="sep">/</span>
+      <a href="{% url 'demandas:tema_lista' %}" style="text-decoration:none;color:var(--ink-mute)">Temas</a>
+      <span class="sep">/</span>
+      <span style="color:var(--danger-600);font-weight:var(--fw-semibold)">Remover</span>
+    </div>
+    <h1>Remover tema</h1>
+  </div>
+</div>
+
+<div style="max-width:560px">
+  <div style="background:var(--surface-2);border-top:6px solid var(--primary);box-shadow:var(--shadow-lg);padding:28px 32px;">
+
     {% if em_uso %}
-    <div class="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
-      <strong>Bloqueado.</strong> Este tema está em <strong>{{ em_uso }}</strong> demanda(s). Remoção apaga a classificação histórica delas sem trilha de auditoria.
+    <div class="msg warning" style="margin-bottom:20px">
+      <strong>Bloqueado.</strong> Este tema está em <strong>{{ em_uso }}</strong> demanda{{ em_uso|pluralize }}. Remoção apaga a classificação histórica sem trilha de auditoria.
       Use <strong>Arquivar</strong> em vez disso — tira o tema de novos cadastros mas mantém nas demandas que o tinham.
     </div>
-    <div class="flex gap-3">
-      <a href="{% url 'demandas:tema_editar' object.pk %}" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2 rounded-lg">Ir para "Editar / Arquivar"</a>
-      <a href="{% url 'demandas:tema_lista' %}" class="text-sm text-slate-500 hover:text-slate-800 px-4 py-2">Voltar à lista</a>
+    <div style="display:flex;gap:10px;align-items:center">
+      <a href="{% url 'demandas:tema_editar' object.pk %}" class="btn primary">Ir para "Editar / Arquivar"</a>
+      <a href="{% url 'demandas:tema_lista' %}" class="btn ghost">Voltar à lista</a>
     </div>
+
     {% else %}
-    <p class="text-sm text-slate-700 mb-4">
-      Confirma a remoção do tema <strong>{{ object.nome }}</strong>? Nenhuma demanda está usando ele agora.
+    <p style="font-family:var(--font-serif);font-size:15px;color:var(--ink-body);line-height:1.55;margin:0 0 20px">
+      Confirma a remoção do tema <strong>{{ object.nome }}</strong>?
+      Nenhuma demanda está usando ele agora. A operação não pode ser desfeita.
     </p>
-    <form method="post" class="flex gap-3">
+    <form method="post" style="display:flex;gap:10px;align-items:center">
       {% csrf_token %}
-      <button type="submit" class="bg-red-600 hover:bg-red-700 text-white text-sm font-medium px-4 py-2 rounded-lg">Remover</button>
-      <a href="{% url 'demandas:tema_lista' %}" class="text-sm text-slate-500 hover:text-slate-800 px-4 py-2">Cancelar</a>
+      <button type="submit" class="btn danger">Remover</button>
+      <a href="{% url 'demandas:tema_lista' %}" class="btn secondary">Cancelar</a>
     </form>
     {% endif %}
+
   </div>
 </div>
 {% endblock %}

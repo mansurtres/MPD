@@ -1,82 +1,156 @@
 {% extends "layouts/app.html" %}
 
 {% block app_conteudo %}
-<div class="max-w-lg">
-  <div class="flex items-center gap-3 mb-6">
-    <a href="{% url 'demandas:tema_lista' %}" class="text-sm text-slate-500 hover:text-slate-800">← Temas</a>
-    <span class="text-slate-300">/</span>
-    <h1 class="text-xl font-semibold text-slate-900">{{ titulo }}</h1>
-  </div>
+<style>
+  /* form-err local — espelha o padrão do form-page mas escopo estreito */
+  .tema-form-wrap .form-err {
+    background: var(--danger-50);
+    border-left: 3px solid var(--danger-500);
+    padding: 14px 18px;
+    font-family: var(--font-serif); font-size: 14px;
+    line-height: 1.5; color: var(--danger-700);
+    margin-bottom: 16px;
+  }
+  .tema-form-wrap .form-err .lbl {
+    font-family: var(--font-mono); font-size: 10px;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--danger-600); font-weight: 700;
+    display: block; margin-bottom: 4px;
+  }
+  .tema-form-wrap .form-err ul { margin: 4px 0 0; padding-left: 20px; }
+  .tema-form-wrap .form-err strong { color: var(--ink); font-weight: 600; }
 
-  <form method="post" class="bg-white border border-slate-200 rounded-xl p-6 space-y-4" id="tema-form">
+  /* Seletor de cor (paleta + custom) — tokens, sem Tailwind */
+  .tema-form-wrap .cor-palette { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+  .tema-form-wrap .cor-row { display: flex; align-items: center; gap: 10px; }
+  .tema-form-wrap .cor-tipwrap { position: relative; display: inline-flex; }
+  .tema-form-wrap .cor-swatch {
+    width: 28px; height: 28px; display: block;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--rule-strong);
+    cursor: pointer; padding: 0;
+    transition: box-shadow .12s, transform .12s;
+  }
+  .tema-form-wrap .cor-swatch:hover { transform: scale(1.08); }
+  .tema-form-wrap .cor-swatch.sel { box-shadow: 0 0 0 2px var(--surface-2), 0 0 0 4px var(--primary); }
+  .tema-form-wrap .cor-custom {
+    width: 36px; height: 36px; display: block; flex: none;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--rule-strong);
+    cursor: pointer; box-shadow: var(--shadow-sm);
+    transition: transform .12s;
+  }
+  .tema-form-wrap .cor-custom:hover { transform: scale(1.06); }
+  .tema-form-wrap .cor-tip {
+    position: absolute; left: 50%; transform: translateX(-50%);
+    bottom: calc(100% + 6px);
+    background: var(--ink-900); color: var(--surface-2);
+    font-family: var(--font-mono); font-size: 10px;
+    letter-spacing: 0.04em; padding: 2px 7px; white-space: nowrap;
+    opacity: 0; pointer-events: none; transition: opacity .12s; z-index: 10;
+  }
+  .tema-form-wrap .cor-tipwrap:hover .cor-tip { opacity: 1; }
+  .tema-form-wrap .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+  }
+</style>
+
+<div class="page-head" style="margin-bottom:16px">
+  <div>
+    <div class="breadcrumb">
+      <a href="/" style="text-decoration:none;color:var(--ink-mute)">Início</a>
+      <span class="sep">/</span>
+      <a href="{% url 'core:configuracoes' %}" style="text-decoration:none;color:var(--ink-mute)">Configurações</a>
+      <span class="sep">/</span>
+      <a href="{% url 'demandas:tema_lista' %}" style="text-decoration:none;color:var(--ink-mute)">Temas</a>
+      <span class="sep">/</span>
+      <span style="color:var(--primary);font-weight:var(--fw-semibold)">{{ titulo }}</span>
+    </div>
+    <h1>{{ titulo }}</h1>
+  </div>
+</div>
+
+<div class="tema-form-wrap" style="max-width:560px">
+
+  {% include "_form_erros_resumo.html" with form=form %}
+
+  <form method="post" style="background:var(--surface-2);border-top:6px solid var(--primary);box-shadow:var(--shadow-lg);padding:28px 32px;" id="tema-form">
     {% csrf_token %}
 
-    <div>
-      <label class="block text-sm font-medium text-slate-700 mb-1">Nome *</label>
+    <div style="margin-bottom:18px">
+      <label style="display:block;font-family:var(--font-mono);font-size:10.5px;font-weight:700;color:var(--ink-mute);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">
+        Nome <span style="color:var(--danger-500)">*</span>
+      </label>
       {{ form.nome }}
-      {% for e in form.nome.errors %}<p class="mt-1 text-xs text-red-600">{{ e }}</p>{% endfor %}
+      {% for e in form.nome.errors %}<p style="font-family:var(--font-mono);font-size:11px;color:var(--danger-600);margin-top:4px">{{ e }}</p>{% endfor %}
     </div>
 
-    <div>
-      <label class="block text-sm font-medium text-slate-700 mb-1">Cor</label>
-      <div class="flex flex-wrap gap-2 mb-2" id="cor-palette">
+    <div style="margin-bottom:18px">
+      <label style="display:block;font-family:var(--font-mono);font-size:10.5px;font-weight:700;color:var(--ink-mute);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px">
+        Cor
+      </label>
+      <div class="cor-palette" id="cor-palette">
         {% for cor, nome in cores_predefinidas %}
-        <span class="relative group">
-          <button type="button" data-cor="{{ cor }}" aria-label="{{ nome }}" class="cor-swatch w-7 h-7 rounded-full border border-slate-200 block" style="background:{{ cor }}"></button>
-          <span class="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-1 px-2 py-0.5 rounded text-xs font-medium bg-slate-900 text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10">{{ nome }}</span>
+        <span class="cor-tipwrap">
+          <button type="button" data-cor="{{ cor }}" aria-label="{{ nome }}" class="cor-swatch" style="background:{{ cor }}"></button>
+          <span class="cor-tip">{{ nome }}</span>
         </span>
         {% endfor %}
       </div>
-      <div class="flex items-center gap-2">
+      <div class="cor-row">
         {{ form.cor }}
-        <span class="relative group shrink-0">
-          <button type="button" id="cor-personalizar-btn" aria-label="Personalizar cor"
-            class="w-9 h-9 rounded-full border border-slate-200 cursor-pointer block shadow-sm hover:scale-105 transition-transform"
+        <span class="cor-tipwrap">
+          <button type="button" id="cor-personalizar-btn" aria-label="Personalizar cor" class="cor-custom"
             style="background: conic-gradient(from 0deg, #ef4444, #f59e0b, #eab308, #22c55e, #06b6d4, #3b82f6, #8b5cf6, #ec4899, #ef4444);"></button>
-          <span class="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-1 px-2 py-0.5 rounded text-xs font-medium bg-slate-900 text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10">Personalizar</span>
+          <span class="cor-tip">Personalizar</span>
         </span>
         <input type="color" id="cor-picker" value="#475569" class="sr-only" tabindex="-1" aria-hidden="true">
       </div>
-      <p class="mt-2 text-xs text-slate-500 flex items-center gap-2">Prévia:
-        <span id="cor-preview" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">
+      <p style="margin-top:10px;font-family:var(--font-serif);font-size:13px;color:var(--ink-mute);display:flex;align-items:center;gap:8px;">
+        Prévia:
+        <span id="cor-preview" style="display:inline-flex;align-items:center;padding:2px 8px;font-family:var(--font-mono);font-size:11.5px;font-weight:600;background:var(--ink-100);color:var(--ink-soft);">
           {{ form.nome.value|default:"tema" }}
         </span>
       </p>
-      {% for e in form.cor.errors %}<p class="mt-1 text-xs text-red-600">{{ e }}</p>{% endfor %}
+      {% for e in form.cor.errors %}<p style="font-family:var(--font-mono);font-size:11px;color:var(--danger-600);margin-top:4px">{{ e }}</p>{% endfor %}
     </div>
 
-    <div>
-      <label class="block text-sm font-medium text-slate-700 mb-1">Descrição</label>
+    <div style="margin-bottom:24px">
+      <label style="display:block;font-family:var(--font-mono);font-size:10.5px;font-weight:700;color:var(--ink-mute);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">
+        Descrição
+      </label>
       {{ form.descricao }}
     </div>
 
-    <div class="flex gap-3 pt-2">
-      <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-5 py-2 rounded-lg">Salvar</button>
-      <a href="{% url 'demandas:tema_lista' %}" class="text-sm text-slate-500 hover:text-slate-800 px-4 py-2">Cancelar</a>
+    <div style="display:flex;gap:10px;align-items:center">
+      <button type="submit" class="btn primary">Salvar →</button>
+      <a href="{% url 'demandas:tema_lista' %}" class="btn ghost">Cancelar</a>
     </div>
   </form>
 
   {% if form.instance.pk and perms.demandas.change_tema %}
-  <div class="mt-4 bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-center justify-between gap-4">
+  <div style="margin-top:16px;background:var(--surface-1);border:1px solid var(--rule);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;">
     {% if form.instance.ativo %}
-    <p class="text-sm text-slate-600">
+    <p style="font-family:var(--font-serif);font-size:14px;color:var(--ink-body);margin:0">
       Este tema está <strong>ativo</strong>. Arquivar tira ele de novos cadastros, mas mantém nas demandas que já o têm.
     </p>
-    <form method="post" action="{% url 'demandas:tema_arquivar' form.instance.pk %}" class="inline shrink-0">
+    <form method="post" action="{% url 'demandas:tema_arquivar' form.instance.pk %}" class="inline" style="flex:none">
       {% csrf_token %}
-      <button type="submit" class="text-sm font-medium text-slate-700 hover:text-slate-900 underline">Arquivar</button>
+      <button type="submit" class="btn secondary sm">Arquivar</button>
     </form>
     {% else %}
-    <p class="text-sm text-slate-600">
+    <p style="font-family:var(--font-serif);font-size:14px;color:var(--ink-body);margin:0">
       Este tema está <strong>arquivado</strong>. Não aparece em novos cadastros, mas continua nas demandas que o tinham.
     </p>
-    <form method="post" action="{% url 'demandas:tema_arquivar' form.instance.pk %}" class="inline shrink-0">
+    <form method="post" action="{% url 'demandas:tema_arquivar' form.instance.pk %}" class="inline" style="flex:none">
       {% csrf_token %}
-      <button type="submit" class="text-sm font-medium text-slate-700 hover:text-slate-900 underline">Desarquivar</button>
+      <button type="submit" class="btn secondary sm">Desarquivar</button>
     </form>
     {% endif %}
   </div>
   {% endif %}
+
 </div>
 
 <script>
@@ -94,21 +168,19 @@
   function hexValido(v) { return /^#[0-9a-fA-F]{6}$/.test((v || "").trim()); }
   function aplicarCor(hex) {
     if (!hexValido(hex)) {
-      corPreview.style.background = "";
-      corPreview.style.color = "";
-      corPreview.classList.add("bg-slate-100", "text-slate-700");
-      swatches.forEach(s => s.classList.remove("ring-2", "ring-offset-2", "ring-slate-400"));
+      corPreview.style.background = "var(--ink-100)";
+      corPreview.style.color = "var(--ink-soft)";
+      swatches.forEach(s => s.classList.remove("sel"));
       return;
     }
-    corPreview.classList.remove("bg-slate-100", "text-slate-700");
-    corPreview.style.background = `color-mix(in srgb, ${hex} 18%, white)`;
+    corPreview.style.background = `color-mix(in srgb, ${hex} 14%, white)`;
     corPreview.style.color = `color-mix(in srgb, ${hex} 75%, black)`;
     corPicker.value = hex;
     swatches.forEach(s => {
       if (s.dataset.cor.toLowerCase() === hex.toLowerCase()) {
-        s.classList.add("ring-2", "ring-offset-2", "ring-slate-400");
+        s.classList.add("sel");
       } else {
-        s.classList.remove("ring-2", "ring-offset-2", "ring-slate-400");
+        s.classList.remove("sel");
       }
     });
   }
