@@ -45,6 +45,7 @@ Quando um item for resolvido, mover para a seção **Resolvidos** no fim com a r
 
 ### DT-013 — Campo `papel` em `DemandaPessoa`/`DemandaEntidade` é ornamental
 
+**Status:** ✅ **Resolvido** (Fase 7) — drop dos 4 campos via `demandas/migrations/0009_drop_papel.py`; `DemandaPessoaForm`/`DemandaEntidadeForm`, `templates/demandas/form.html`, `templates/demandas/detalhe.html` e o IIFE de papel em `static/js/autocomplete.js` removidos; testes de papel limpos. ADR 0054.
 **Prioridade:** Média
 **Sintoma:** `DemandaPessoa.papel` (5 choices + `papel_outro`) e `DemandaEntidade.papel` (4 choices + `papel_outro`) aparecem no form de demanda, na tela de processar inbox e no detalhe, mas zero leitores no código: nenhuma view filtra, nenhum signal consulta, nenhuma regra de negócio depende. Em uso real, `solicitante`/`representada` (os defaults) cobrem ~100% dos registros.
 **Por que é cheiro:** o usuário escolhe num seletor de 5 valores em todo cadastro sem que a escolha afete nada — custo de UX sem retorno operacional. Vocabulário ("testemunha", "representada") herdado mais de processo judicial do que de mandato parlamentar; gera atrito sem ganho informacional.

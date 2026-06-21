@@ -628,13 +628,6 @@
   }
   .parte .nome a { color: var(--ink); text-decoration: none; }
   .parte .nome a:hover { color: var(--primary); }
-  .parte .papel {
-    font-family: var(--font-mono);
-    font-size: 9.5px; color: var(--ink-mute);
-    letter-spacing: 0.08em; text-transform: uppercase;
-    margin-top: 2px;
-  }
-
   /* Encaminhamento mini-card no aside */
   .encam-mini {
     background: var(--surface-3);
@@ -1208,7 +1201,6 @@
           <div class="av">{{ dp.pessoa.nome|slice:":1"|upper }}{{ dp.pessoa.sobrenome|slice:":1"|upper }}</div>
           <div>
             <div class="nome"><a href="{% url 'pessoas:pessoa_detalhe' dp.pessoa.slug_publico %}">{{ dp.pessoa.nome_exibicao }}</a></div>
-            {% if dp.papel %}<div class="papel">{{ dp.papel_display }}</div>{% endif %}
           </div>
         </div>
         {% endfor %}
@@ -1217,7 +1209,6 @@
           <div class="av entidade">{{ de.entidade.nome|slice:":2"|upper }}</div>
           <div>
             <div class="nome"><a href="{% url 'pessoas:entidade_detalhe' de.entidade.slug_publico %}">{{ de.entidade.nome }}</a></div>
-            {% if de.papel %}<div class="papel">{{ de.papel_display }}</div>{% endif %}
           </div>
         </div>
         {% endfor %}

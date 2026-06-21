@@ -107,7 +107,7 @@ def demanda(db, admin_user, pessoa):
         coordenacao_responsavel="gabinete",
         criado_por=admin_user,
     )
-    DemandaPessoa.objects.create(demanda=d, pessoa=pessoa, papel="solicitante")
+    DemandaPessoa.objects.create(demanda=d, pessoa=pessoa)
     return d
 
 
@@ -169,7 +169,7 @@ def test_criar_demanda_com_entidade_funciona(db, admin_user, entidade):
     )
     from demandas.models import DemandaEntidade
 
-    DemandaEntidade.objects.create(demanda=d, entidade=entidade, papel="representada")
+    DemandaEntidade.objects.create(demanda=d, entidade=entidade)
     assert d.tem_partes()
 
 
@@ -878,7 +878,6 @@ def test_criar_demanda_com_anexo_inicial(client, admin_user, pessoa):
             "dp-MIN_NUM_FORMS": "0",
             "dp-MAX_NUM_FORMS": "1000",
             "dp-0-pessoa": pessoa.pk,
-            "dp-0-papel": "solicitante",
             "dp-0-observacao": "",
             "de-TOTAL_FORMS": "0",
             "de-INITIAL_FORMS": "0",
@@ -946,7 +945,7 @@ def demanda_restrita_juridico(db, admin_user, pessoa):
         responsavel=admin_user,
         restrito=True,
     )
-    DemandaPessoa.objects.create(demanda=d, pessoa=pessoa, papel="solicitante")
+    DemandaPessoa.objects.create(demanda=d, pessoa=pessoa)
     return d
 
 
@@ -1104,7 +1103,6 @@ def test_processar_inbox_cria_demanda_e_marca_processado(client, admin_user, pes
             "dp-MIN_NUM_FORMS": "0",
             "dp-MAX_NUM_FORMS": "1000",
             "dp-0-pessoa": pessoa.pk,
-            "dp-0-papel": "solicitante",
             "dp-0-observacao": "",
             "de-TOTAL_FORMS": "0",
             "de-INITIAL_FORMS": "0",
@@ -1340,7 +1338,7 @@ def test_verificar_integridade_detecta_devolutiva_faltando(db, admin_user, pesso
     )
     # Bypass clean() pra simular drift de dados:
     d.save()
-    DemandaPessoa.objects.create(demanda=d, pessoa=pessoa, papel="solicitante")
+    DemandaPessoa.objects.create(demanda=d, pessoa=pessoa)
     Demanda.objects.filter(pk=d.pk).update(status=Demanda.STATUS_CONCLUIDA)
 
     out = StringIO()
@@ -1403,56 +1401,6 @@ def test_entidade_buscar_json_retorna_resultados(client, admin_user):
 
 
 # --- Papel com choices + Outro (Fase 6.1) ---
-
-
-def test_demanda_pessoa_papel_outro_exige_descricao(db, admin_user, pessoa):
-    """DemandaPessoa.clean() bloqueia papel='outro' sem papel_outro."""
-    d = Demanda.objects.create(
-        titulo="Teste",
-        descricao="X",
-        canal_entrada="presencial",
-        coordenacao_responsavel="gabinete",
-        criado_por=admin_user,
-        anonimo=True,
-    )
-    dp = DemandaPessoa(demanda=d, pessoa=pessoa, papel=DemandaPessoa.PAPEL_OUTRO, papel_outro="")
-    with pytest.raises(ValidationError):
-        dp.full_clean()
-
-
-def test_demanda_pessoa_papel_outro_com_descricao_funciona(db, admin_user, pessoa):
-    d = Demanda.objects.create(
-        titulo="Teste",
-        descricao="X",
-        canal_entrada="presencial",
-        coordenacao_responsavel="gabinete",
-        criado_por=admin_user,
-        anonimo=True,
-    )
-    dp = DemandaPessoa(
-        demanda=d,
-        pessoa=pessoa,
-        papel=DemandaPessoa.PAPEL_OUTRO,
-        papel_outro="Advogado",
-    )
-    dp.full_clean()  # não levanta
-    dp.save()
-    assert dp.papel_display == "Advogado"
-
-
-def test_demanda_pessoa_papel_choice_padrao_usa_display(db, admin_user, pessoa):
-    d = Demanda.objects.create(
-        titulo="Teste",
-        descricao="X",
-        canal_entrada="presencial",
-        coordenacao_responsavel="gabinete",
-        criado_por=admin_user,
-        anonimo=True,
-    )
-    dp = DemandaPessoa.objects.create(
-        demanda=d, pessoa=pessoa, papel=DemandaPessoa.PAPEL_SOLICITANTE
-    )
-    assert dp.papel_display == "Solicitante"
 
 
 # --- Criar Tema via AJAX (popup no form de Demanda) ---
@@ -1963,7 +1911,7 @@ def test_entidades_quick_filter_com_demanda_aberta(client, admin_user, entidade,
     vinculada a demanda aberta aparece; entidade sem demanda não."""
     from demandas.models import DemandaEntidade
 
-    DemandaEntidade.objects.create(demanda=demanda, entidade=entidade, papel="solicitante")
+    DemandaEntidade.objects.create(demanda=demanda, entidade=entidade)
     outra = Entidade.objects.create(nome="Sem demanda", tipo="associacao", criado_por=admin_user)
     client.force_login(admin_user)
     resp = client.get(reverse("pessoas:entidade_lista") + "?filtro=com_demanda_aberta")

@@ -73,10 +73,7 @@ class TemaForm(forms.ModelForm):
 class DemandaPessoaForm(forms.ModelForm):
     class Meta:
         model = DemandaPessoa
-        fields = ["pessoa", "papel", "papel_outro"]
-        widgets = {
-            "papel_outro": forms.TextInput(attrs={"placeholder": "Especifique o papel..."}),
-        }
+        fields = ["pessoa"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -84,14 +81,7 @@ class DemandaPessoaForm(forms.ModelForm):
 
         self.fields["pessoa"].queryset = Pessoa.objects.ativas()
         self.fields["pessoa"].widget.attrs["data-autocomplete"] = "pessoa"
-        self.fields["papel_outro"].required = False
         aplicar_tailwind(self)
-
-    def clean(self):
-        cleaned = super().clean()
-        if cleaned.get("papel") == DemandaPessoa.PAPEL_OUTRO and not cleaned.get("papel_outro"):
-            self.add_error("papel_outro", "Especifique o papel quando escolher 'Outro'.")
-        return cleaned
 
 
 DemandaPessoaFormSet = inlineformset_factory(
@@ -108,10 +98,7 @@ DemandaPessoaFormSet = inlineformset_factory(
 class DemandaEntidadeForm(forms.ModelForm):
     class Meta:
         model = DemandaEntidade
-        fields = ["entidade", "papel", "papel_outro"]
-        widgets = {
-            "papel_outro": forms.TextInput(attrs={"placeholder": "Especifique o papel..."}),
-        }
+        fields = ["entidade"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -119,14 +106,7 @@ class DemandaEntidadeForm(forms.ModelForm):
 
         self.fields["entidade"].queryset = Entidade.objects.filter(ativo=True)
         self.fields["entidade"].widget.attrs["data-autocomplete"] = "entidade"
-        self.fields["papel_outro"].required = False
         aplicar_tailwind(self)
-
-    def clean(self):
-        cleaned = super().clean()
-        if cleaned.get("papel") == DemandaEntidade.PAPEL_OUTRO and not cleaned.get("papel_outro"):
-            self.add_error("papel_outro", "Especifique o papel quando escolher 'Outro'.")
-        return cleaned
 
 
 DemandaEntidadeFormSet = inlineformset_factory(

@@ -276,7 +276,7 @@
   }
   .form-page .formset-row {
     display: grid;
-    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr) 36px;
+    grid-template-columns: minmax(0, 1fr) 36px;
     gap: 10px;
     padding: 10px 12px;
     border-bottom: 1px solid var(--rule);
@@ -587,20 +587,11 @@
           {% endif %}
           <div class="formset" id="formset-pessoas">
             {% for sub in formsets.pessoas %}
-            <div class="formset-row papel-row">
+            <div class="formset-row">
               <div>
                 <label class="mini">Pessoa</label>
                 {{ sub.pessoa }}
                 {% for e in sub.pessoa.errors %}<p class="err">{{ e }}</p>{% endfor %}
-              </div>
-              <div>
-                <label class="mini">Papel</label>
-                {{ sub.papel }}
-              </div>
-              <div class="papel-outro-wrap">
-                <label class="mini">Especifique</label>
-                {{ sub.papel_outro }}
-                {% for e in sub.papel_outro.errors %}<p class="err">{{ e }}</p>{% endfor %}
               </div>
               <div class="del-cell">
                 {% if sub.instance.pk %}<label>{{ sub.DELETE }} ×</label>{% endif %}
@@ -623,20 +614,11 @@
           {% endif %}
           <div class="formset" id="formset-entidades">
             {% for sub in formsets.entidades %}
-            <div class="formset-row papel-row">
+            <div class="formset-row">
               <div>
                 <label class="mini">Entidade</label>
                 {{ sub.entidade }}
                 {% for e in sub.entidade.errors %}<p class="err">{{ e }}</p>{% endfor %}
-              </div>
-              <div>
-                <label class="mini">Papel</label>
-                {{ sub.papel }}
-              </div>
-              <div class="papel-outro-wrap">
-                <label class="mini">Especifique</label>
-                {{ sub.papel_outro }}
-                {% for e in sub.papel_outro.errors %}<p class="err">{{ e }}</p>{% endfor %}
               </div>
               <div class="del-cell">
                 {% if sub.instance.pk %}<label>{{ sub.DELETE }} ×</label>{% endif %}

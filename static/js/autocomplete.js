@@ -626,32 +626,3 @@
   window.MPDAutocomplete = { init };
 })();
 
-
-/**
- * Toggle do campo "papel_outro" nos formsets de DemandaPessoa/DemandaEntidade.
- * O input só aparece quando papel === 'outro'. Cada linha tem class
- * `papel-row` e contém o select e o wrap `.papel-outro-wrap`.
- */
-(function () {
-  'use strict';
-
-  function bindPapelToggle(root) {
-    (root || document).querySelectorAll('.papel-row').forEach((row) => {
-      const select = row.querySelector('select[name$="papel"]');
-      const outroWrap = row.querySelector('.papel-outro-wrap');
-      if (!select || !outroWrap) return;
-      if (select.dataset.papelToggleInitialized) return;
-      select.dataset.papelToggleInitialized = 'true';
-
-      function aplicar() {
-        outroWrap.style.display = select.value === 'outro' ? '' : 'none';
-      }
-      select.addEventListener('change', aplicar);
-      aplicar();
-    });
-  }
-
-  document.addEventListener('DOMContentLoaded', () => bindPapelToggle());
-  window.MPDPapelToggle = { init: bindPapelToggle };
-})();
-
