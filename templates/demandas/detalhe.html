@@ -783,6 +783,14 @@
     display: flex; justify-content: flex-end; gap: 8px;
     background: var(--surface-1);
   }
+  /* Aviso de classificação one-way de resultado (confirmação na conclusão) */
+  .drawer-panel .confirm-oneway {
+    margin: 0 22px; padding: 12px 14px;
+    background: var(--warning-50); border-left: 3px solid var(--warning-500);
+    font-family: var(--font-serif); font-size: 13px;
+    color: var(--warning-700); line-height: 1.5;
+  }
+  .drawer-panel .confirm-oneway strong { color: var(--ink); }
 
   /* Painel inline de adicionar interação/encaminhamento · papel sobre
      a zona operacional (surface-1 da .actions-row). Surface-2 = mesmo
@@ -1362,6 +1370,38 @@
       b.classList.contains('on') ? close() : open(b.dataset.acao);
     }));
     painel.querySelectorAll('[data-acao-cancelar]').forEach(b => b.addEventListener('click', close));
+  }
+
+  // Confirmação da classificação one-way de resultado (Concluir demanda).
+  // O resultado material não volta a "Pendente" depois de classificado
+  // (Demanda.clean()), então pedimos confirmação explícita antes de enviar.
+  const drawerConcluir = document.getElementById('drawer-concluir');
+  if (drawerConcluir) {
+    drawerConcluir.querySelectorAll('form').forEach(form => {
+      const btn = form.querySelector('.actions button[type="submit"]');
+      const actions = form.querySelector('.actions');
+      if (!btn || !actions) return;
+      const labelOriginal = btn.textContent;
+      form.addEventListener('submit', e => {
+        if (form.dataset.confirmado === '1') return;
+        e.preventDefault();
+        form.dataset.confirmado = '1';
+        if (!form.querySelector('.confirm-oneway')) {
+          const aviso = document.createElement('div');
+          aviso.className = 'confirm-oneway';
+          aviso.innerHTML = '<strong>Classificação definitiva.</strong> O resultado material não volta a “Pendente” depois de classificado. Confira antes de concluir.';
+          actions.parentNode.insertBefore(aviso, actions);
+        }
+        btn.textContent = 'Confirmar e concluir';
+        btn.focus();
+      });
+      drawerConcluir.querySelectorAll('[data-close-drawer]').forEach(el => el.addEventListener('click', () => {
+        form.dataset.confirmado = '';
+        const aviso = form.querySelector('.confirm-oneway');
+        if (aviso) aviso.remove();
+        btn.textContent = labelOriginal;
+      }));
+    });
   }
 })();
 </script>
