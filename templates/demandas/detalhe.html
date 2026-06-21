@@ -1281,7 +1281,7 @@
   <aside class="drawer-panel">
     <header>
       <h3>Concluir demanda</h3>
-      <button type="button" class="x" data-close-drawer>×</button>
+      <button type="button" class="x" data-close-drawer aria-label="Fechar">×</button>
     </header>
     {% if demanda.origem == 'responsiva' %}
     <form method="post" action="{% url 'demandas:demanda_concluir' demanda.pk %}">
@@ -1320,7 +1320,7 @@
   <aside class="drawer-panel">
     <header>
       <h3>Arquivar demanda</h3>
-      <button type="button" class="x" data-close-drawer>×</button>
+      <button type="button" class="x" data-close-drawer aria-label="Fechar">×</button>
     </header>
     <form method="post" action="{% url 'demandas:demanda_arquivar' demanda.pk %}">
       {% csrf_token %}

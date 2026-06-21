@@ -1031,3 +1031,24 @@ main.flex-1 { background-color: var(--surface-0); }
 }
 @media (max-width: 560px) { .detalhe-page .inline-form .grid { grid-template-columns: 1fr; } }
 
+
+/* ============================================================
+   Foco visível global (acessibilidade — navegação por teclado)
+   Usa :focus-visible para não poluir o clique de mouse.
+   ============================================================ */
+a:focus-visible,
+button:focus-visible,
+.btn:focus-visible,
+.chip:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 0;
+}
+

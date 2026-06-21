@@ -89,6 +89,9 @@
   }
   .it:last-child { border-bottom: 0; }
   .it:hover { background: var(--surface-3); }
+  @media (max-width: 640px) {
+    .it { grid-template-columns: 1fr; gap: 6px; }
+  }
 
   .it .type {
     font-family: var(--font-mono); font-size: 10px;
