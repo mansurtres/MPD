@@ -1,27 +1,167 @@
 {% extends "layouts/app.html" %}
 
 {% block app_conteudo %}
-<div class="max-w-2xl mx-auto">
-  <div class="flex items-center gap-3 mb-4">
-    <a href="{% url 'demandas:inbox_lista' %}" class="text-sm text-slate-500 hover:text-slate-800">← Inbox</a>
-    <span class="text-slate-300">/</span>
-    <h1 class="text-xl font-semibold text-slate-900">Nova captura</h1>
-  </div>
-  <p class="text-sm text-slate-500 mb-4">Anote agora, triagem depois. Frase curta basta — a estrutura (título, partes, tema) vem na hora de processar.</p>
+<style>
+  /* ════════════════════════════════════════════════════════════════
+     CAPTURA RÁPIDA · formulário standalone de item de inbox.
+     Estrutura (.page-head, .btn) vem de static/css/components.css.
+     ════════════════════════════════════════════════════════════════ */
 
-  <form method="post" class="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
-    {% csrf_token %}
-    {% if form.non_field_errors %}
-    <div class="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-      {% for erro in form.non_field_errors %}{{ erro }}<br>{% endfor %}
+  .captura-page {
+    max-width: 640px;
+  }
+
+  .captura-page .page-sub {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: var(--text-base);
+    color: var(--ink-soft);
+    margin: -12px 0 28px;
+    line-height: var(--lh-relaxed);
+  }
+
+  .captura-page .captura-form-card {
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    border-top: 6px solid var(--primary);
+  }
+
+  .captura-page .captura-form-body {
+    padding: 24px 28px 28px;
+  }
+
+  .captura-page .field-label {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    font-weight: var(--fw-semibold);
+    margin-bottom: 8px;
+  }
+
+  .captura-page .field-label .hint {
+    font-weight: var(--fw-normal);
+    color: var(--ink-mute);
+    font-style: italic;
+    text-transform: none;
+    letter-spacing: 0;
+    font-family: var(--font-serif);
+    font-size: 11.5px;
+    margin-left: 6px;
+  }
+
+  .captura-page textarea.conteudo-area {
+    width: 100%;
+    border: 1px solid var(--rule-strong);
+    background: var(--surface-3);
+    padding: 14px 16px;
+    font-family: var(--font-serif);
+    font-size: 16px;
+    color: var(--ink);
+    outline: 0;
+    resize: vertical;
+    min-height: 120px;
+    line-height: var(--lh-relaxed);
+    box-sizing: border-box;
+  }
+  .captura-page textarea.conteudo-area:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(31,58,95,0.10);
+  }
+  .captura-page textarea.conteudo-area::placeholder {
+    color: var(--ink-mute);
+    font-style: italic;
+  }
+
+  .captura-page .field-errors {
+    margin-top: 6px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--danger-600);
+    letter-spacing: 0.02em;
+  }
+
+  .captura-page .non-field-errors {
+    background: var(--danger-50);
+    border-left: 3px solid var(--danger-500);
+    padding: 10px 14px;
+    margin-bottom: 18px;
+    font-family: var(--font-serif);
+    font-size: 13.5px;
+    color: var(--danger-700);
+    line-height: 1.5;
+  }
+
+  .captura-page .form-actions {
+    margin-top: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .captura-page .cancel-link {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    text-decoration: none;
+    padding: 8px 4px;
+    transition: color .12s;
+  }
+  .captura-page .cancel-link:hover {
+    color: var(--ink);
+  }
+</style>
+
+<div class="captura-page">
+
+  <div class="page-head">
+    <div>
+      <div class="breadcrumb">
+        <a href="/" style="text-decoration:none;color:var(--ink-mute)">Início</a>
+        <span class="sep">/</span>
+        <a href="{% url 'demandas:inbox_lista' %}" style="text-decoration:none;color:var(--ink-mute)">Inbox</a>
+        <span class="sep">/</span>
+        <span style="color:var(--primary);font-weight:var(--fw-semibold)">Capturar</span>
+      </div>
+      <h1>Captura rápida</h1>
     </div>
-    {% endif %}
-    {{ form.conteudo }}
-    {% for e in form.conteudo.errors %}<p class="text-xs text-red-600">{{ e }}</p>{% endfor %}
-    <div class="flex gap-3">
-      <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-5 py-2 rounded-lg">Capturar</button>
-      <a href="{% url 'demandas:inbox_lista' %}" class="text-sm text-slate-500 hover:text-slate-800 px-3 py-2">Cancelar</a>
+  </div>
+
+  <p class="page-sub">Anote agora, triagem depois. Frase curta basta — a estrutura (título, partes, tema) vem na hora de processar.</p>
+
+  <div class="captura-form-card">
+    <div class="captura-form-body">
+      <form method="post" action="{% url 'demandas:inbox_capturar' %}">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div class="non-field-errors">
+          {% for erro in form.non_field_errors %}{{ erro }}<br>{% endfor %}
+        </div>
+        {% endif %}
+
+        <label class="field-label" for="id_conteudo">
+          Conteúdo
+          <span class="hint">o que você quer lembrar</span>
+        </label>
+        {{ form.conteudo }}
+        {% if form.conteudo.errors %}
+        <div class="field-errors">
+          {% for e in form.conteudo.errors %}{{ e }}<br>{% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="form-actions">
+          <button type="submit" class="btn primary">Capturar</button>
+          <a href="{% url 'demandas:inbox_lista' %}" class="cancel-link">Cancelar</a>
+        </div>
+      </form>
     </div>
-  </form>
+  </div>
+
 </div>
 {% endblock %}
