@@ -1,55 +1,112 @@
 {% extends "layouts/app.html" %}
 
 {% block app_conteudo %}
-<div class="flex items-center justify-between mb-6">
-  <h1 class="text-xl font-semibold text-slate-900">Usuários</h1>
-  <a href="{% url 'accounts:usuarios_criar' %}" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
-    Novo usuário
-  </a>
+<style>
+  .lista-page td.col-nome { min-width: 220px; }
+  .lista-page td.col-nome .wrap { display: flex; align-items: center; gap: 12px; }
+  .lista-page td.col-nome .av {
+    width: 36px; height: 36px; flex: none;
+    background: var(--navy-100); color: var(--navy-700);
+    border-radius: var(--radius-full);
+    display: grid; place-items: center;
+    font-family: var(--font-mono); font-size: 11px; font-weight: var(--fw-bold);
+    letter-spacing: 0.04em;
+  }
+  .lista-page td.col-nome .nm {
+    font-family: var(--font-serif); font-size: var(--text-base);
+    color: var(--ink); font-weight: var(--fw-medium); line-height: 1.25;
+  }
+  .lista-page td.col-nome .sub {
+    display: block; font-family: var(--font-mono);
+    font-size: 11.5px; color: var(--ink-mute);
+    margin-top: 1px; letter-spacing: 0.02em;
+  }
+  .lista-page .badge.ativa   { background: var(--rs-atend-bg); color: var(--rs-atend-fg); border: 1px solid rgba(52,64,34,0.35); }
+  .lista-page .badge.inativa { background: var(--st-arq-bg);   color: var(--st-arq-fg);   border: 1px solid rgba(83,76,65,0.45); }
+  .lista-page .badge.papel-admin { background: var(--st-novo-bg); color: var(--st-novo-fg); border: 1px solid rgba(31,58,95,0.25); }
+  .lista-page .badge.papel-equipe { background: var(--surface-1); color: var(--ink-soft); border: 1px solid var(--rule-strong); }
+  .lista-page .ledger-acoes { display: flex; align-items: center; gap: 12px; justify-content: flex-end; }
+  .lista-page .ledger-acoes a,
+  .lista-page .ledger-acoes button {
+    font-family: var(--font-mono); font-size: 11px; font-weight: var(--fw-semibold);
+    letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--ink-mute); text-decoration: none; background: none;
+    border: 0; cursor: pointer; padding: 0; transition: color .12s;
+  }
+  .lista-page .ledger-acoes a:hover,
+  .lista-page .ledger-acoes button:hover { color: var(--primary); }
+</style>
+
+<div class="lista-page">
+
+<div class="page-head">
+  <div>
+    <div class="breadcrumb">
+      <a href="/" style="text-decoration:none;color:var(--ink-mute)">Início</a>
+      <span class="sep">/</span>
+      <a href="{% url 'core:configuracoes' %}" style="text-decoration:none;color:var(--ink-mute)">Configurações</a>
+      <span class="sep">/</span>
+      <span style="color:var(--primary);font-weight:var(--fw-semibold)">Usuários</span>
+    </div>
+    <h1>Usuários
+      {% if usuarios %}
+      <span class="count"><strong>{{ usuarios|length }}</strong> no total</span>
+      {% endif %}
+    </h1>
+  </div>
+  <div class="head-actions">
+    <a href="{% url 'accounts:usuarios_criar' %}" class="btn primary"><span class="arr">+</span>Novo usuário</a>
+  </div>
 </div>
 
-<div class="bg-white border border-slate-200 rounded-xl overflow-hidden">
-  {% if usuarios %}
-  <table class="w-full text-sm">
+{% if usuarios %}
+<div class="ledger">
+  <table>
     <thead>
-      <tr class="border-b border-slate-200 bg-slate-50">
-        <th class="text-left px-4 py-3 font-medium text-slate-600">Nome</th>
-        <th class="text-left px-4 py-3 font-medium text-slate-600">E-mail</th>
-        <th class="text-left px-4 py-3 font-medium text-slate-600">Cargo</th>
-        <th class="text-left px-4 py-3 font-medium text-slate-600">Acesso</th>
-        <th class="text-left px-4 py-3 font-medium text-slate-600">Status</th>
-        <th class="px-4 py-3"></th>
+      <tr>
+        <th>Nome</th>
+        <th>Cargo</th>
+        <th>Coordenação</th>
+        <th>Papel</th>
+        <th>Status</th>
+        <th></th>
       </tr>
     </thead>
-    <tbody class="divide-y divide-slate-100">
+    <tbody>
       {% for usuario in usuarios %}
-      <tr class="hover:bg-slate-50">
-        <td class="px-4 py-3 font-medium text-slate-900">{{ usuario.nome_completo|default:"—" }}</td>
-        <td class="px-4 py-3 text-slate-600">{{ usuario.email }}</td>
-        <td class="px-4 py-3 text-slate-600">{{ usuario.cargo|default:"—" }}</td>
-        <td class="px-4 py-3">
-          {% if usuario.is_staff %}
-          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-violet-100 text-violet-800">Admin</span>
+      <tr>
+        <td class="col-nome">
+          <div class="wrap">
+            <span class="av">{% with ini=usuario.nome_completo|default:usuario.email %}{{ ini|slice:":2"|upper }}{% endwith %}</span>
+            <span class="nm">
+              {{ usuario.nome_completo|default:"—" }}
+              <span class="sub">{{ usuario.email }}</span>
+            </span>
+          </div>
+        </td>
+        <td style="font-family:var(--font-sans);font-size:13.5px;color:var(--ink-soft)">{{ usuario.cargo|default:"—" }}</td>
+        <td style="font-family:var(--font-mono);font-size:12px;color:var(--ink-soft)">{{ usuario.get_coordenacao_display|default:"—" }}</td>
+        <td>
+          {% if usuario.is_staff or usuario.is_superuser %}
+          <span class="badge papel-admin"><span class="dot"></span>Admin</span>
           {% else %}
-          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600">Padrão</span>
+          <span class="badge papel-equipe"><span class="dot"></span>Equipe</span>
           {% endif %}
         </td>
-        <td class="px-4 py-3">
+        <td>
           {% if usuario.is_active %}
-          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Ativo</span>
+          <span class="badge ativa"><span class="dot"></span>Ativo</span>
           {% else %}
-          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">Inativo</span>
+          <span class="badge inativa"><span class="dot"></span>Inativo</span>
           {% endif %}
         </td>
-        <td class="px-4 py-3">
-          <div class="flex items-center gap-3 justify-end">
-            <a href="{% url 'accounts:usuarios_editar' usuario.pk %}" class="text-slate-500 hover:text-slate-800">Editar</a>
+        <td>
+          <div class="ledger-acoes">
+            <a href="{% url 'accounts:usuarios_editar' usuario.pk %}">Editar</a>
             {% if usuario != request.user %}
-            <form method="post" action="{% url 'accounts:usuarios_toggle_ativo' usuario.pk %}">
+            <form method="post" action="{% url 'accounts:usuarios_toggle_ativo' usuario.pk %}" style="margin:0">
               {% csrf_token %}
-              <button type="submit" class="text-slate-500 hover:text-slate-800">
-                {% if usuario.is_active %}Desativar{% else %}Ativar{% endif %}
-              </button>
+              <button type="submit">{% if usuario.is_active %}Desativar{% else %}Ativar{% endif %}</button>
             </form>
             {% endif %}
           </div>
@@ -58,10 +115,21 @@
       {% endfor %}
     </tbody>
   </table>
-  {% else %}
-  <div class="px-4 py-12 text-center text-sm text-slate-500">
-    Nenhum usuário cadastrado.
+
+  <div class="ledger-foot">
+    <div class="info">
+      <strong>{{ usuarios|length }}</strong> usuário{{ usuarios|length|pluralize }}
+    </div>
   </div>
-  {% endif %}
+</div>
+{% else %}
+<div class="empty-state">
+  <div class="icon-area">◌</div>
+  <h3>Nenhum usuário cadastrado</h3>
+  <p class="desc">Crie o primeiro usuário da equipe.</p>
+  <a href="{% url 'accounts:usuarios_criar' %}" class="btn primary"><span class="arr">+</span>Novo usuário</a>
+</div>
+{% endif %}
+
 </div>
 {% endblock %}

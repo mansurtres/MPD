@@ -1,133 +1,184 @@
 {% extends "layouts/app.html" %}
 
 {% block app_conteudo %}
-<div class="max-w-lg">
-  <div class="flex items-center gap-3 mb-6">
-    <a href="{% url 'accounts:usuarios_lista' %}" class="text-sm text-slate-500 hover:text-slate-800">← Usuários</a>
-    <span class="text-slate-300">/</span>
-    <h1 class="text-xl font-semibold text-slate-900">{{ titulo }}</h1>
+<style>
+  .usuario-form-wrap .form-err {
+    background: var(--danger-50);
+    border-left: 3px solid var(--danger-500);
+    padding: 14px 18px; margin-bottom: 16px;
+    font-family: var(--font-serif); font-size: 14px;
+    line-height: 1.5; color: var(--danger-700);
+  }
+  .usuario-form-wrap .form-err .lbl {
+    font-family: var(--font-mono); font-size: 10px;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--danger-600); font-weight: 700;
+    display: block; margin-bottom: 4px;
+  }
+  .usuario-form-wrap .form-err ul { margin: 4px 0 0; padding-left: 20px; }
+  .usuario-form-wrap .form-err strong { color: var(--ink); font-weight: 600; }
+</style>
+
+<div class="page-head" style="margin-bottom:16px">
+  <div>
+    <div class="breadcrumb">
+      <a href="/" style="text-decoration:none;color:var(--ink-mute)">Início</a>
+      <span class="sep">/</span>
+      <a href="{% url 'core:configuracoes' %}" style="text-decoration:none;color:var(--ink-mute)">Configurações</a>
+      <span class="sep">/</span>
+      <a href="{% url 'accounts:usuarios_lista' %}" style="text-decoration:none;color:var(--ink-mute)">Usuários</a>
+      <span class="sep">/</span>
+      <span style="color:var(--primary);font-weight:var(--fw-semibold)">{{ titulo }}</span>
+    </div>
+    <h1>{{ titulo }}</h1>
   </div>
+</div>
 
-  <div class="bg-white border border-slate-200 rounded-xl p-6">
-    <form method="post" novalidate class="space-y-4">
-      {% csrf_token %}
+<div class="usuario-form-wrap" style="max-width:560px">
 
-      <div>
-        <label for="{{ form.email.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-1">E-mail</label>
-        <input
-          type="email"
-          name="{{ form.email.html_name }}"
-          id="{{ form.email.id_for_label }}"
-          value="{{ form.email.value|default:'' }}"
-          class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 {% if form.email.errors %}border-red-400{% endif %}"
-        >
-        {% for erro in form.email.errors %}<p class="mt-1 text-xs text-red-600">{{ erro }}</p>{% endfor %}
-      </div>
+  {% include "_form_erros_resumo.html" with form=form %}
 
-      <div>
-        <label for="{{ form.nome_completo.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-1">Nome completo</label>
-        <input
-          type="text"
-          name="{{ form.nome_completo.html_name }}"
-          id="{{ form.nome_completo.id_for_label }}"
-          value="{{ form.nome_completo.value|default:'' }}"
-          class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
-        >
-        {% for erro in form.nome_completo.errors %}<p class="mt-1 text-xs text-red-600">{{ erro }}</p>{% endfor %}
-      </div>
+  <form method="post" novalidate
+        style="background:var(--surface-2);border-top:6px solid var(--primary);box-shadow:var(--shadow-lg);padding:28px 32px;">
+    {% csrf_token %}
 
-      <div>
-        <label for="{{ form.cargo.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-1">Cargo</label>
-        <input
-          type="text"
-          name="{{ form.cargo.html_name }}"
-          id="{{ form.cargo.id_for_label }}"
-          value="{{ form.cargo.value|default:'' }}"
-          class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
-        >
-        {% for erro in form.cargo.errors %}<p class="mt-1 text-xs text-red-600">{{ erro }}</p>{% endfor %}
-      </div>
+    {% comment %}E-mail{% endcomment %}
+    <div style="margin-bottom:18px">
+      <label for="{{ form.email.id_for_label }}"
+             style="display:block;font-family:var(--font-mono);font-size:10.5px;font-weight:700;color:var(--ink-mute);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">
+        E-mail <span style="color:var(--danger-500)">*</span>
+      </label>
+      <input
+        type="email"
+        name="{{ form.email.html_name }}"
+        id="{{ form.email.id_for_label }}"
+        value="{{ form.email.value|default:'' }}"
+        autocomplete="off"
+        {% if form.email.errors %}style="border-color:var(--danger-500)"{% endif %}
+      >
+      {% for erro in form.email.errors %}
+      <p style="font-family:var(--font-mono);font-size:11px;color:var(--danger-600);margin-top:4px">{{ erro }}</p>
+      {% endfor %}
+    </div>
 
-      <div>
-        <label for="{{ form.coordenacao.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-1">Coordenação</label>
-        <select
-          name="{{ form.coordenacao.html_name }}"
-          id="{{ form.coordenacao.id_for_label }}"
-          class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
-        >
-          <option value="" {% if not form.coordenacao.value %}selected{% endif %}>—</option>
-          {% for v, label in form.coordenacao.field.choices %}{% if v %}
-          <option value="{{ v }}" {% if form.coordenacao.value == v %}selected{% endif %}>{{ label }}</option>
-          {% endif %}{% endfor %}
-        </select>
-        <p class="mt-1 text-xs text-slate-400">Define escopo de visibilidade de demandas restritas.</p>
-        {% for erro in form.coordenacao.errors %}<p class="mt-1 text-xs text-red-600">{{ erro }}</p>{% endfor %}
-      </div>
+    {% comment %}Nome completo{% endcomment %}
+    <div style="margin-bottom:18px">
+      <label for="{{ form.nome_completo.id_for_label }}"
+             style="display:block;font-family:var(--font-mono);font-size:10.5px;font-weight:700;color:var(--ink-mute);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">
+        Nome completo
+      </label>
+      <input
+        type="text"
+        name="{{ form.nome_completo.html_name }}"
+        id="{{ form.nome_completo.id_for_label }}"
+        value="{{ form.nome_completo.value|default:'' }}"
+      >
+      {% for erro in form.nome_completo.errors %}
+      <p style="font-family:var(--font-mono);font-size:11px;color:var(--danger-600);margin-top:4px">{{ erro }}</p>
+      {% endfor %}
+    </div>
 
-      {% if form.password1 %}
-      <div>
-        <label for="{{ form.password1.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-1">Senha</label>
-        <input
-          type="password"
-          name="{{ form.password1.html_name }}"
-          id="{{ form.password1.id_for_label }}"
-          class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 {% if form.password1.errors %}border-red-400{% endif %}"
-        >
-        <p class="mt-1 text-xs text-slate-400">Mínimo 8 caracteres.</p>
-        {% for erro in form.password1.errors %}<p class="mt-1 text-xs text-red-600">{{ erro }}</p>{% endfor %}
-      </div>
+    {% comment %}Cargo{% endcomment %}
+    <div style="margin-bottom:18px">
+      <label for="{{ form.cargo.id_for_label }}"
+             style="display:block;font-family:var(--font-mono);font-size:10.5px;font-weight:700;color:var(--ink-mute);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">
+        Cargo
+      </label>
+      <input
+        type="text"
+        name="{{ form.cargo.html_name }}"
+        id="{{ form.cargo.id_for_label }}"
+        value="{{ form.cargo.value|default:'' }}"
+      >
+      {% for erro in form.cargo.errors %}
+      <p style="font-family:var(--font-mono);font-size:11px;color:var(--danger-600);margin-top:4px">{{ erro }}</p>
+      {% endfor %}
+    </div>
 
-      <div>
-        <label for="{{ form.password2.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-1">Confirmar senha</label>
-        <input
-          type="password"
-          name="{{ form.password2.html_name }}"
-          id="{{ form.password2.id_for_label }}"
-          class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 {% if form.password2.errors %}border-red-400{% endif %}"
-        >
-        {% for erro in form.password2.errors %}<p class="mt-1 text-xs text-red-600">{{ erro }}</p>{% endfor %}
-      </div>
-      {% endif %}
+    {% comment %}Coordenação{% endcomment %}
+    <div style="margin-bottom:18px">
+      <label for="{{ form.coordenacao.id_for_label }}"
+             style="display:block;font-family:var(--font-mono);font-size:10.5px;font-weight:700;color:var(--ink-mute);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">
+        Coordenação
+      </label>
+      <select
+        name="{{ form.coordenacao.html_name }}"
+        id="{{ form.coordenacao.id_for_label }}"
+      >
+        <option value="" {% if not form.coordenacao.value %}selected{% endif %}>—</option>
+        {% for v, label in form.coordenacao.field.choices %}{% if v %}
+        <option value="{{ v }}" {% if form.coordenacao.value == v %}selected{% endif %}>{{ label }}</option>
+        {% endif %}{% endfor %}
+      </select>
+      <p style="margin-top:6px;font-family:var(--font-serif);font-size:13px;color:var(--ink-mute)">Define escopo de visibilidade de demandas restritas.</p>
+      {% for erro in form.coordenacao.errors %}
+      <p style="font-family:var(--font-mono);font-size:11px;color:var(--danger-600);margin-top:4px">{{ erro }}</p>
+      {% endfor %}
+    </div>
 
-      {% if form.is_active %}
-      <div class="flex items-center gap-2">
-        <input
-          type="checkbox"
-          name="{{ form.is_active.html_name }}"
-          id="{{ form.is_active.id_for_label }}"
-          {% if form.is_active.value %}checked{% endif %}
-          class="rounded border-slate-300"
-        >
-        <label for="{{ form.is_active.id_for_label }}" class="text-sm text-slate-700">Conta ativa</label>
-      </div>
-      {% endif %}
+    {% comment %}Senha — somente na criação{% endcomment %}
+    {% if form.password1 %}
+    <div style="margin-bottom:18px">
+      <label for="{{ form.password1.id_for_label }}"
+             style="display:block;font-family:var(--font-mono);font-size:10.5px;font-weight:700;color:var(--ink-mute);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">
+        Senha <span style="color:var(--danger-500)">*</span>
+      </label>
+      <input
+        type="password"
+        name="{{ form.password1.html_name }}"
+        id="{{ form.password1.id_for_label }}"
+        autocomplete="new-password"
+        {% if form.password1.errors %}style="border-color:var(--danger-500)"{% endif %}
+      >
+      <p style="margin-top:6px;font-family:var(--font-serif);font-size:13px;color:var(--ink-mute)">Mínimo 8 caracteres.</p>
+      {% for erro in form.password1.errors %}
+      <p style="font-family:var(--font-mono);font-size:11px;color:var(--danger-600);margin-top:4px">{{ erro }}</p>
+      {% endfor %}
+    </div>
 
-      <div class="flex items-center gap-2">
-        <input
-          type="checkbox"
-          name="{{ form.is_staff.html_name }}"
-          id="{{ form.is_staff.id_for_label }}"
-          {% if form.is_staff.value %}checked{% endif %}
-          class="rounded border-slate-300"
-        >
-        <label for="{{ form.is_staff.id_for_label }}" class="text-sm text-slate-700">Acesso administrativo (pode gerenciar usuários)</label>
-      </div>
+    <div style="margin-bottom:18px">
+      <label for="{{ form.password2.id_for_label }}"
+             style="display:block;font-family:var(--font-mono);font-size:10.5px;font-weight:700;color:var(--ink-mute);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">
+        Confirmar senha <span style="color:var(--danger-500)">*</span>
+      </label>
+      <input
+        type="password"
+        name="{{ form.password2.html_name }}"
+        id="{{ form.password2.id_for_label }}"
+        autocomplete="new-password"
+        {% if form.password2.errors %}style="border-color:var(--danger-500)"{% endif %}
+      >
+      {% for erro in form.password2.errors %}
+      <p style="font-family:var(--font-mono);font-size:11px;color:var(--danger-600);margin-top:4px">{{ erro }}</p>
+      {% endfor %}
+    </div>
+    {% endif %}
 
-      {% if form.non_field_errors %}
-      <div class="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-        {% for erro in form.non_field_errors %}{{ erro }}{% endfor %}
-      </div>
-      {% endif %}
+    {% comment %}Conta ativa — somente na edição (UsuarioUpdateForm inclui is_active){% endcomment %}
+    {% if form.is_active %}
+    <div style="margin-bottom:24px;display:flex;align-items:center;gap:10px">
+      <input
+        type="checkbox"
+        name="{{ form.is_active.html_name }}"
+        id="{{ form.is_active.id_for_label }}"
+        {% if form.is_active.value %}checked{% endif %}
+        style="width:auto;margin:0"
+      >
+      <label for="{{ form.is_active.id_for_label }}"
+             style="font-family:var(--font-serif);font-size:14px;color:var(--ink-body);cursor:pointer;margin:0">
+        Conta ativa
+      </label>
+      {% for erro in form.is_active.errors %}
+      <p style="font-family:var(--font-mono);font-size:11px;color:var(--danger-600);margin-top:4px">{{ erro }}</p>
+      {% endfor %}
+    </div>
+    {% endif %}
 
-      <div class="flex gap-3 pt-2">
-        <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors">
-          Salvar
-        </button>
-        <a href="{% url 'accounts:usuarios_lista' %}" class="text-sm text-slate-500 hover:text-slate-800 px-4 py-2">
-          Cancelar
-        </a>
-      </div>
-    </form>
-  </div>
+    <div style="display:flex;gap:10px;align-items:center;padding-top:8px">
+      <button type="submit" class="btn primary">Salvar →</button>
+      <a href="{% url 'accounts:usuarios_lista' %}" class="btn ghost">Cancelar</a>
+    </div>
+  </form>
+
 </div>
 {% endblock %}
