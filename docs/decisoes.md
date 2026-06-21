@@ -671,6 +671,8 @@ Grupos criados junto com os models que protegem têm conteúdo real e testável 
 **Data:** 2026-05-08
 **Status:** Aceito (supersede ADR 0002)
 
+**Errata (2026-06-21):** a padronização vale para `accounts`, `pessoas` e `core`. O app `demandas` (`Demanda`, `Interacao`, `Encaminhamento`, `Anexo`, `ItemInbox`) usa **deliberadamente `UUIDField` como PK** — IDs não-sequenciais que não vazam volume, decididos junto com os models da Fase 3. A URL pública curta é resolvida por `slug_publico` (ADR 0038), não pela PK. Exceção registrada; sem intenção de migrar a PK de demandas para BigAutoField.
+
 ### Contexto
 
 ADR 0002 prescreveu `UUIDField` como PK em todos os models. Na Fase 1, o model `accounts.Usuario` foi implementado com a default do Django (`BigAutoField`) sem que o desvio fosse questionado. A Fase 2 agora introduz quatro novos models (`Pessoa`, `Entidade`, `Vinculo`, `Tag`) e exige uma decisão antes de criar as primeiras migrations: seguir o doc (UUID nos novos, mas Usuario seguiria com BigAutoField — schema misto), retroceder o Usuario para UUID (drop+recreate, perde a base de dev), ou padronizar todo o schema com BigAutoField.
@@ -1909,6 +1911,7 @@ Campos do `LogEntry`:
 ## ADR 0054 — Remoção do campo `papel` em `DemandaPessoa` e `DemandaEntidade`
 
 **Data:** 2026-05-17 (decisão; execução prevista para Fase 7 / `v1.0`)
+**Status:** ✅ Executado (2026-06-21, branch `feature/teste-claude-design`) — migration `demandas/0009_drop_papel.py`; model, forms, templates, JS, seed e testes limpos. Ver DT-013.
 
 ### Contexto
 
@@ -2049,9 +2052,10 @@ Sem produção ainda — data migration renumera as demandas existentes (decisã
 
 ---
 
-## ADR 0056 — Anexos sem whitelist de MIME; defesa anti-XSS na entrega
+## ADR 0058 — Anexos sem whitelist de MIME; defesa anti-XSS na entrega
 
 **Data:** 2026-05-27 (Fase 7 em curso)
+**Nota (2026-06-21):** renumerada de 0056 → 0058 — havia duas ADRs com o número 0056 (a outra é o formato de número da demanda, acima). 0057 já estava ocupada (canais compartilhados).
 
 ### Contexto
 
