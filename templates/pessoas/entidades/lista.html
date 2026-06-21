@@ -1,94 +1,188 @@
 {% extends "layouts/app.html" %}
 
 {% block app_conteudo %}
-<div class="flex items-center justify-between mb-6">
-  <h1 class="text-xl font-semibold text-slate-900">Entidades</h1>
-  {% if perms.pessoas.add_entidade %}
-  <a href="{% url 'pessoas:entidade_nova' %}" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
-    Nova entidade
-  </a>
-  {% endif %}
+<style>
+  /* ════════════════════════════════════════════════════════════════
+     LISTA DE ENTIDADES · colunas específicas. Estrutura (.quick-filters,
+     .filtros-adv, .ledger, .ledger-foot, .empty-state, .badge base) vem
+     de static/css/components.css, seção "LISTAS (ledger)".
+     ════════════════════════════════════════════════════════════════ */
+
+  .lista-page td.col-nome { min-width: 260px; }
+  .lista-page td.col-nome .wrap { display: flex; align-items: center; gap: 12px; }
+  .lista-page td.col-nome .av {
+    width: 38px; height: 38px; flex: none;
+    background: var(--navy-100); color: var(--navy-700);
+    border-radius: var(--radius-full);
+    display: grid; place-items: center;
+    font-family: var(--font-sans); font-size: 12px; font-weight: var(--fw-bold);
+    letter-spacing: 0.02em;
+  }
+  .lista-page td.col-nome .nm {
+    font-family: var(--font-serif); font-size: var(--text-lg);
+    color: var(--ink); font-weight: var(--fw-medium); line-height: 1.25;
+  }
+  .lista-page td.col-nome .nm a { color: inherit; text-decoration: none; }
+  .lista-page td.col-nome .nm a:hover { color: var(--primary); }
+
+  .lista-page td.col-tipo {
+    font-family: var(--font-sans); font-size: 13px;
+    color: var(--ink-soft); white-space: nowrap;
+  }
+  .lista-page td.col-cnpj {
+    font-family: var(--font-mono); font-size: 12.5px;
+    color: var(--ink-soft); white-space: nowrap;
+  }
+  .lista-page td.col-cidade {
+    font-family: var(--font-sans); font-size: 13.5px;
+    color: var(--ink-soft); white-space: nowrap;
+  }
+  .lista-page td.col-cidade .none { color: var(--ink-mute); font-style: italic; }
+
+  .lista-page .badge.ativa   { background: var(--rs-atend-bg); color: var(--rs-atend-fg); border-color: rgba(52,64,34,0.35); }
+  .lista-page .badge.inativa { background: var(--st-arq-bg);   color: var(--st-arq-fg);   border-color: rgba(83,76,65,0.45); }
+</style>
+
+<div class="lista-page">
+
+<div class="page-head">
+  <div>
+    <div class="breadcrumb">
+      <a href="/" style="text-decoration:none;color:var(--ink-mute)">Início</a>
+      <span class="sep">/</span>
+      <span style="color:var(--primary);font-weight:var(--fw-semibold)">Entidades</span>
+    </div>
+    <h1>Entidades
+      {% if paginator %}
+      <span class="count"><strong>{{ paginator.count }}</strong> no total</span>
+      {% endif %}
+    </h1>
+  </div>
+  <div class="head-actions">
+    {% if perms.pessoas.add_entidade %}
+    <a href="{% url 'pessoas:entidade_nova' %}" class="btn primary"><span class="arr">+</span>Nova entidade</a>
+    {% endif %}
+  </div>
 </div>
 
-<div class="flex flex-wrap gap-2 mb-4 text-sm">
+{# Quick filters #}
+<div class="quick-filters">
+  <span class="lbl">Visões</span>
   {% with f=filtro %}
-  <a href="?" class="px-3 py-1 rounded border {% if not f %}bg-slate-800 text-white border-slate-800{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-100{% endif %}">Todas</a>
-  <a href="?filtro=com_demanda_aberta" class="px-3 py-1 rounded border {% if f == 'com_demanda_aberta' %}bg-slate-800 text-white border-slate-800{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-100{% endif %}">Com demanda em aberto</a>
+  <a href="?" class="chip {% if not f %}on{% endif %}">Todas</a>
+  <a href="?filtro=com_demanda_aberta" class="chip {% if f == 'com_demanda_aberta' %}on{% endif %}">Com demanda em aberto</a>
   {% endwith %}
+  <a href="?{% if filtro %}filtro={{ filtro }}&{% endif %}inativos=1" class="chip {% if mostrar_inativos %}on{% endif %}">Incluir inativas</a>
+  <button type="button" class="chip" id="toggle-filtros-adv" style="margin-left:auto;text-transform:none;font-family:var(--font-sans);font-weight:500">Filtros avançados ↓</button>
 </div>
 
-<form method="get" class="bg-white border border-slate-200 rounded-xl p-4 mb-4 flex flex-wrap items-end gap-3">
-  <div class="flex-1 min-w-[220px]">
-    <label class="block text-xs font-medium text-slate-600 mb-1">Buscar</label>
-    <input type="text" name="q" value="{{ q }}" placeholder="Nome, CNPJ, e-mail..."
-      class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400">
-  </div>
-  <div class="min-w-[180px]">
-    <label class="block text-xs font-medium text-slate-600 mb-1">Tipo</label>
-    <select name="tipo" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400">
-      <option value="">Todos</option>
-      {% for code, label in tipos %}
-      <option value="{{ code }}" {% if tipo_atual == code %}selected{% endif %}>{{ label }}</option>
-      {% endfor %}
-    </select>
-  </div>
-  <label class="flex items-center gap-2 text-sm text-slate-700">
-    <input type="checkbox" name="inativos" value="1" {% if mostrar_inativos %}checked{% endif %} class="rounded border-slate-300">
-    Mostrar inativas
-  </label>
-  <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2 rounded-lg">Filtrar</button>
-</form>
+{# Filtros ativos #}
+{% if q or tipo_atual %}
+<div class="active-filters">
+  <span class="lbl">Filtros ativos</span>
+  {% if q %}<a class="fc" href="?">Busca: "{{ q }}" <span class="x">×</span></a>{% endif %}
+  {% if tipo_atual %}<a class="fc" href="?">Tipo selecionado <span class="x">×</span></a>{% endif %}
+  <a class="clear" href="?">Limpar tudo</a>
+</div>
+{% endif %}
 
-<div class="bg-white border border-slate-200 rounded-xl overflow-hidden">
-  {% if entidades %}
-  <table class="w-full text-sm">
+{# Filtros avançados #}
+<div class="filtros-adv" id="filtros-adv" {% if not q and not tipo_atual %}hidden{% endif %}>
+  <form method="get">
+    <div style="grid-column: span 2">
+      <label>Buscar</label>
+      <input type="text" name="q" value="{{ q }}" placeholder="nome, CNPJ, e-mail, telefone…">
+    </div>
+    <div>
+      <label>Tipo</label>
+      <select name="tipo">
+        <option value="">Todos</option>
+        {% for code, label in tipos %}<option value="{{ code }}" {% if tipo_atual == code %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label style="display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-family:var(--font-sans);font-size:12.5px;color:var(--ink-body)">
+        <input type="checkbox" name="inativos" value="1" {% if mostrar_inativos %}checked{% endif %} style="width:auto">
+        Mostrar inativas
+      </label>
+    </div>
+    <button type="submit" class="btn primary">Aplicar</button>
+  </form>
+</div>
+
+{# Tabela ou Empty state #}
+{% if entidades %}
+<div class="ledger">
+  <table>
     <thead>
-      <tr class="border-b border-slate-200 bg-slate-50">
-        <th class="text-left px-4 py-3 font-medium text-slate-600">Nome</th>
-        <th class="text-left px-4 py-3 font-medium text-slate-600">Tipo</th>
-        <th class="text-left px-4 py-3 font-medium text-slate-600">CNPJ</th>
-        <th class="text-left px-4 py-3 font-medium text-slate-600">Cidade</th>
-        <th class="text-left px-4 py-3 font-medium text-slate-600">Status</th>
+      <tr>
+        <th>Nome</th>
+        <th>Tipo</th>
+        <th>CNPJ</th>
+        <th>Cidade</th>
+        <th>Status</th>
       </tr>
     </thead>
-    <tbody class="divide-y divide-slate-100">
+    <tbody>
       {% for e in entidades %}
-      <tr class="hover:bg-slate-50">
-        <td class="px-4 py-3 font-medium text-slate-900">
-          <a href="{% url 'pessoas:entidade_detalhe' e.slug_publico %}" class="hover:underline">{{ e.nome }}</a>
+      <tr onclick="window.location='{% url 'pessoas:entidade_detalhe' e.slug_publico %}'">
+        <td class="col-nome">
+          <div class="wrap">
+            <span class="av">{{ e.nome|slice:":2"|upper }}</span>
+            <span class="nm"><a href="{% url 'pessoas:entidade_detalhe' e.slug_publico %}" onclick="event.stopPropagation()">{{ e.nome }}</a></span>
+          </div>
         </td>
-        <td class="px-4 py-3 text-slate-600">{{ e.get_tipo_display }}</td>
-        <td class="px-4 py-3 text-slate-600">{{ e.cnpj|default:"—" }}</td>
-        <td class="px-4 py-3 text-slate-600">{{ e.cidade|default:"—" }}</td>
-        <td class="px-4 py-3">
-          {% if e.ativo %}
-          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Ativa</span>
-          {% else %}
-          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">Inativa</span>
-          {% endif %}
+        <td class="col-tipo">{{ e.get_tipo_display }}</td>
+        <td class="col-cnpj">{% if e.cnpj %}{{ e.cnpj }}{% else %}<span style="color:var(--ink-mute);font-style:italic">—</span>{% endif %}</td>
+        <td class="col-cidade">{% if e.cidade %}{{ e.cidade }}{% else %}<span class="none">—</span>{% endif %}</td>
+        <td class="col-status">
+          {% if e.ativo %}<span class="badge ativa"><span class="dot"></span>Ativa</span>
+          {% else %}<span class="badge inativa"><span class="dot"></span>Inativa</span>{% endif %}
         </td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
-  {% else %}
-  <div class="px-4 py-12 text-center text-sm text-slate-500">
-    Nenhuma entidade encontrada.
+
+  <div class="ledger-foot">
+    <div class="info">
+      {% if is_paginated %}
+        Mostrando <strong>{{ page_obj.start_index }}–{{ page_obj.end_index }}</strong> de <strong>{{ paginator.count }}</strong> entidade{{ paginator.count|pluralize }}
+      {% else %}
+        <strong>{{ entidades|length }}</strong> entidade{{ entidades|length|pluralize }}
+      {% endif %}
+    </div>
+    {% if is_paginated %}
+    <div class="pages">
+      {% if page_obj.has_previous %}<a href="?{% if request.GET.urlencode %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.previous_page_number }}">← Anterior</a>{% endif %}
+      <a class="on" href="?{% if request.GET.urlencode %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.number }}">{{ page_obj.number }}</a>
+      {% if page_obj.has_next %}<a href="?{% if request.GET.urlencode %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.next_page_number }}">Próxima →</a>{% endif %}
+    </div>
+    {% endif %}
   </div>
+</div>
+{% else %}
+<div class="empty-state">
+  <div class="icon-area">◌</div>
+  <h3>{% if q or tipo_atual or filtro %}Nenhuma entidade encontrada{% else %}Nenhuma entidade cadastrada ainda{% endif %}</h3>
+  <p class="desc">{% if q or tipo_atual or filtro %}Tente ajustar os filtros ou limpar a busca.{% else %}Cadastre a primeira entidade — um órgão público, associação, escola ou qualquer organização relacionada ao mandato.{% endif %}</p>
+  {% if perms.pessoas.add_entidade %}
+  <a href="{% url 'pessoas:entidade_nova' %}" class="btn primary"><span class="arr">+</span>Nova entidade</a>
   {% endif %}
 </div>
-
-{% if is_paginated %}
-<div class="flex items-center justify-between mt-4 text-sm text-slate-600">
-  <span>Página {{ page_obj.number }} de {{ paginator.num_pages }}</span>
-  <div class="flex gap-2">
-    {% if page_obj.has_previous %}
-    <a href="?{% if q %}q={{ q }}&{% endif %}{% if tipo_atual %}tipo={{ tipo_atual }}&{% endif %}{% if mostrar_inativos %}inativos=1&{% endif %}page={{ page_obj.previous_page_number }}" class="px-3 py-1 rounded border border-slate-300 hover:bg-slate-100">Anterior</a>
-    {% endif %}
-    {% if page_obj.has_next %}
-    <a href="?{% if q %}q={{ q }}&{% endif %}{% if tipo_atual %}tipo={{ tipo_atual }}&{% endif %}{% if mostrar_inativos %}inativos=1&{% endif %}page={{ page_obj.next_page_number }}" class="px-3 py-1 rounded border border-slate-300 hover:bg-slate-100">Próxima</a>
-    {% endif %}
-  </div>
-</div>
 {% endif %}
+
+</div>
+
+<script>
+(function() {
+  const btn = document.getElementById('toggle-filtros-adv');
+  const adv = document.getElementById('filtros-adv');
+  if (btn && adv) {
+    function sync() { btn.textContent = adv.hidden ? 'Filtros avançados ↓' : 'Filtros avançados ↑'; }
+    btn.addEventListener('click', () => { adv.hidden = !adv.hidden; sync(); });
+    sync();
+  }
+})();
+</script>
 {% endblock %}
