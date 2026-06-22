@@ -2190,4 +2190,51 @@ Forçar o assessor a escolher "o" telefone/email/site da entidade é perda de in
 
 ---
 
+## ADR 0059 — Inversão para acesso *need-to-know*; remoção de Coordenação; papéis v1 = Admin / Chefe de Gabinete / Assessor
+
+**Data:** 2026-06-22
+**Status:** Aceito (supersede ADR 0041; inverte o princípio "colaborativo por default" da `permissoes.md`; mantém ADR 0024/0048 — Groups+Permissions nativos)
+
+### Contexto
+
+Sessão de produto (revisão estratégica + brainstorm). O modelo vigente é **aberto por default**: todo usuário logado vê todas as demandas não-restritas, a lista completa de pessoas/entidades, e Coordenador+ exporta CSV. A única trava é o flag `restrito` por demanda. O dono (Admin) decidiu inverter: o risco de **exfiltração da base inteira** é incomparavelmente maior que o de um vazamento pontual; cada usuário deve ver só o que precisa para operar **agora**.
+
+Em paralelo, o campo **Coordenação** (time: gabinete/jurídico/comunicação — ADR 0041) nunca cumpriu seu propósito (visibilidade por coordenação jamais foi implementada; a regra de restrita usa responsável + CG + ADM, não coordenação) e virou ruído. Sai da v1. O papel "Coordenador", que existia como "dono de um time", perde a razão de ser sem o campo.
+
+### Decisão
+
+**1. Princípio: privilégio mínimo / *need-to-know*.** Supersede "default: visibilidade total entre perfis logados".
+
+**2. Papéis v1 = Admin, Chefe de Gabinete, Assessor.** Remove o grupo "Coordenador" (data migration; membros migram para Assessor ou o Admin reatribui).
+
+**3. Remoção do campo Coordenação:** drop de `Usuario.coordenacao`, `Demanda.coordenacao_responsavel`, `COORDENACAO_CHOICES`, o índice `(status, coordenacao_responsavel)`, o filtro "da minha coordenação" e as métricas "por coordenação". Migrations `RemoveField` (espelha o drop de `papel`, ADR 0054).
+
+**4. Visibilidade por papel:**
+- **Admin:** vê tudo (demandas, pessoas, entidades, histórico, auditoria); **único que exporta**.
+- **Chefe de Gabinete:** todas as demandas e pendências **ativas**; **sem** lista geral de pessoas/entidades, **sem** histórico concluído, **sem** auditoria, **sem** export, **sem** `/analise`. Dados de uma parte só no contexto de demanda ativa.
+- **Assessor:** demandas onde é **responsável ou autor**. Ativas com contexto completo (inclui os dados das partes daquela demanda). **Histórico próprio** (concluídas/arquivadas) em **leitura**, com os dados das partes **mascarados** — o **nome** da parte aparece (é o caso dele), mas **sem link para a ficha e sem dados de contato**. Sem listas gerais; sem export.
+
+**5. Exclusivo do Admin:** exportação (qualquer lista), `/auditoria`, `/analise`, configuração (tags, temas, usuários).
+
+**6. Busca cega:** o Assessor cadastra/vincula pessoa por uma busca que só confirma "existe registro compatível — vincular?" sem exibir ficha nem permitir navegação (preserva a deduplicação sem expor a base). Ficha completa só no contexto da demanda ativa.
+
+**7. Encaminhamentos, interações, anexos:** herdam a visibilidade da demanda à qual pertencem (Assessor só os das suas demandas; CG os das ativas; Admin todos).
+
+**8. Continuidade (risco criado):** com só o Admin enxergando tudo, a memória do mandato depende de um único login → **backup testado + procedimento de recuperação da conta Admin** viram **críticos** (Fase 7).
+
+### Consequências
+
+- **Visibilidade centralizada:** a regra vive no manager (`Demanda.objects.visiveis_para` + predicado Q) e em helpers de `core/permissoes.py`, estendidos para os 3 papéis e para o histórico próprio do Assessor. Nenhuma checagem de papel fora desses pontos (ADR 0024/0048).
+- **Frontend:** as listas `/pessoas/` e `/entidades/` deixam de existir para CG e Assessor; o autocomplete que exibe ficha vira **busca cega**; os botões de exportar / `/analise` / `/auditoria` / configurações aparecem só para o Admin; demandas/encaminhamentos/pendências filtram por papel.
+- **`permissoes.md` reescrita** como v2 (fonte de verdade operacional).
+
+### Alternativas consideradas
+
+- **Manter "colaborativo por default":** rejeitado — oposto do que o dono quer; risco de exfiltração da base inteira.
+- **Apenas Admin + Assessor:** rejeitado — uma camada de gestão operacional (CG) que vê demandas/pendências ativas sem navegar a base é útil.
+- **Manter os 4 papéis:** rejeitado — sem o campo Coordenação, "Coordenador" fica oco.
+- **Esconder também o histórico próprio do Assessor:** rejeitado — o próprio rastro é fatia mínima da base (risco quase nulo) e escondê-lo prejudica recontato/consulta/relatório; **mascarar os dados das partes** no histórico já endereça o risco real.
+
+---
+
 *Decisões adicionadas em ordem cronológica conforme surgem. Cada decisão registrada uma vez; alterações futuras criam nova ADR (não editam a anterior).*
