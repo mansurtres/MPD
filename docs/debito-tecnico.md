@@ -87,6 +87,18 @@ Quando um item for resolvido, mover para a seção **Resolvidos** no fim com a r
 
 ---
 
+## Permissões (need-to-know, ADR 0059)
+
+### DT-018 — Matriz fina de permissões de grupo ainda reflete o modelo antigo
+
+**Prioridade:** Média
+**Sintoma:** A ADR 0059 inverteu o acesso para need-to-know e travou as garantias críticas (visibilidade, export, listas, `/analise`/`/auditoria`/configurações) na **view/manager**. Mas as permissões custom atribuídas aos grupos nas data migrations (`pessoas/0002_grupos_padrao`, `demandas/0002_grupos_padrao_demandas`) ainda refletem o modelo colaborativo: o **Chefe de Gabinete** carrega `pode_anonimizar_pessoa`, `add_tag`/`change_tag` etc., que a `permissoes.md` v2 reserva ao **Admin** (§3.1, §3.7).
+**Por que é cheiro:** a defesa real (view/manager) está correta, mas a matriz de grupos é a "configuração padrão" que a doc promete. Há divergência entre o que o grupo *tem* e o que a matriz *diz*. Hoje é inofensivo (as views barram), mas confunde quem ler os grupos.
+**Proposta:** data migration que realinha as permissões dos 3 grupos à matriz da `permissoes.md` v2 (tags/temas e anonimizar → só Admin; desativar/reativar → Admin+CG). Cobrir com testes de `grupo.permissions`.
+**Gatilho:** antes de produção (Fase 7) ou quando a gestão de permissões por grupo for revisada.
+
+---
+
 ## Resolvidos
 
 ### DT-001 — Normalização vazada entre `clean()` e `save()` em Pessoa/Entidade
