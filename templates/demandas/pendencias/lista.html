@@ -1,51 +1,58 @@
 {% extends "layouts/app.html" %}
 
 {% block app_conteudo %}
-<div class="flex items-center justify-between mb-2">
-  <h1 class="text-xl font-semibold text-slate-900">Minhas pendências</h1>
-  <a href="{% url 'demandas:minhas_reunioes' %}" class="text-sm text-slate-600 hover:text-slate-900 underline">Apenas reuniões →</a>
-</div>
-<p class="text-sm text-slate-500 mb-6">Suas interações agendadas. Vencidas no topo. Marque como realizada quando aconteceu.</p>
+
+<header class="pen-head">
+  <div>
+    <h1>Minhas pendências
+      {% if total_pendencias %}<span class="count">{% if total_vencidas %}<strong>{{ total_vencidas }} vencida{{ total_vencidas|pluralize:"s" }}</strong> · {% endif %}{{ total_pendencias }} no total</span>{% endif %}
+    </h1>
+    <p class="sub">Devolutivas, reuniões, contatos e prazos com hora marcada — organizados por horizonte temporal. Para captura rápida de notas sem agenda, use o <a href="{% url 'demandas:inbox_lista' %}">Inbox</a>.</p>
+  </div>
+</header>
 
 {% if grupos %}
   {% for grupo in grupos %}
-  <section class="mb-6">
-    <h2 class="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-2">
-      {{ grupo.label }}{% if grupo.label == 'Vencidas' %} <span class="text-red-600 normal-case font-normal">({{ grupo.itens|length }})</span>{% endif %}
-    </h2>
-    <div class="space-y-2">
+  <div class="horizon {% if grupo.label == 'Vencidas' %}urg{% elif grupo.label == 'Hoje' %}hoje{% elif grupo.label == 'Amanhã' or grupo.label == 'Esta semana' %}semana{% else %}proximas{% endif %}">
+    <div class="h">
+      <h2>{{ grupo.label }}</h2>
+      <span class="ct">{{ grupo.itens|length }} ite{{ grupo.itens|length|pluralize:"m,ns" }}{% if grupo.label == 'Vencidas' %} · escalonamento recomendado{% endif %}</span>
+    </div>
+    <div class="items">
       {% for p in grupo.itens %}
-      <div class="bg-white border {% if grupo.label == 'Vencidas' %}border-red-200{% else %}border-slate-200{% endif %} rounded-xl p-4">
-        <div class="flex items-start justify-between gap-3">
-          <div class="flex-1">
-            <div class="flex flex-wrap items-center gap-2 mb-1 text-xs">
-              <span class="inline-flex items-center px-2 py-0.5 rounded font-medium bg-blue-100 text-blue-800">{{ p.get_tipo_display }}</span>
-              <span class="text-slate-500">{{ p.data_ocorrencia|date:"d/m/Y H:i" }}</span>
-              {% if p.data_ocorrencia < agora %}<span class="text-red-700 font-medium">vencida</span>{% endif %}
-              <span class="text-slate-300">·</span>
-              <a href="{% url 'demandas:demanda_detalhe' p.demanda.pk %}" class="text-slate-600 hover:underline">
-                {{ p.demanda.numero }} — {{ p.demanda.titulo|truncatechars:60 }}
-              </a>
-            </div>
-            <p class="text-sm text-slate-800 whitespace-pre-line">{{ p.conteudo }}</p>
+      <div class="it {% if p.tipo == 'devolutiva' %}dev{% elif p.tipo == 'reuniao' %}reu{% elif p.tipo == 'contato_com_pessoa' %}lig{% elif p.tipo == 'encaminhamento_externo' %}encam{% else %}anot{% endif %}{% if p.data_ocorrencia < agora %} late{% endif %}">
+        <div class="type">{{ p.get_tipo_display }}</div>
+        <div class="body">
+          <p class="ttl">{{ p.conteudo|truncatechars:100 }}</p>
+          <div class="meta">
+            <a href="{% url 'demandas:demanda_detalhe' p.demanda.slug_publico %}" class="demanda">{{ p.demanda.numero }}</a>
+            <span class="sep">·</span>
+            <span>{{ p.demanda.titulo|truncatechars:40 }}</span>
           </div>
-          <div class="flex flex-col gap-2 shrink-0">
-            <form method="post" action="{% url 'demandas:interacao_realizada' p.pk %}">{% csrf_token %}
-              <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg">Marcar realizada</button>
-            </form>
-            <form method="post" action="{% url 'demandas:interacao_cancelar' p.pk %}" onsubmit="return confirm('Cancelar essa pendência?');">{% csrf_token %}
-              <button type="submit" class="text-xs text-slate-500 hover:text-slate-800 underline w-full">Cancelar</button>
-            </form>
-          </div>
+        </div>
+        <div class="age">
+          <span class="d">{{ p.data_ocorrencia|date:"d/m H:i" }}</span>
+          {% if p.data_ocorrencia < agora %}
+          <span class="extra">vencida</span>
+          {% endif %}
+        </div>
+        <div class="actions">
+          <form method="post" action="{% url 'demandas:interacao_realizada' p.pk %}">{% csrf_token %}
+            <button type="submit" class="btn-sm primary">Marcar realizada</button>
+          </form>
+          <form method="post" action="{% url 'demandas:interacao_cancelar' p.pk %}" onsubmit="return confirm('Cancelar essa pendência?');">{% csrf_token %}
+            <button type="submit" class="btn-sm danger">Cancelar</button>
+          </form>
         </div>
       </div>
       {% endfor %}
     </div>
-  </section>
+  </div>
   {% endfor %}
 {% else %}
-<div class="bg-white border border-slate-200 rounded-xl p-12 text-center text-sm text-slate-500">
-  Nenhuma pendência agendada.
+<div class="pen-empty">
+  <h3>Sem pendências agendadas.</h3>
+  <p>Quando você agendar interações (devolutivas, reuniões, follow-ups), elas aparecem aqui agrupadas por horizonte temporal — vencidas no topo.</p>
 </div>
 {% endif %}
 {% endblock %}

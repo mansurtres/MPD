@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>MPD · Protótipo</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="v2/tokens.css">
+<style>
+  body { background: var(--surface-0); padding: 80px 32px; min-height: 100vh; }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+
+  .kicker {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-bottom: 18px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .kicker::after {
+    content: ""; flex: 1; height: 1px; background: var(--rule-strong);
+    max-width: 200px;
+  }
+  h1 {
+    font-family: var(--font-serif);
+    font-weight: var(--fw-normal);
+    font-size: var(--text-5xl);
+    line-height: var(--lh-tight);
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    margin: 0 0 20px;
+    max-width: 22ch;
+  }
+  h1 em { font-style: italic; color: var(--primary); }
+  .lede {
+    font-family: var(--font-serif);
+    font-size: var(--text-lg);
+    line-height: var(--lh-relaxed);
+    color: var(--ink-body);
+    max-width: 64ch;
+    margin: 0 0 48px;
+  }
+
+  .versions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 48px;
+  }
+  .v-card {
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-md);
+    padding: 28px 32px;
+    text-decoration: none;
+    color: inherit;
+    display: block;
+    transition: transform .14s, box-shadow .14s, border-color .14s;
+    box-shadow: var(--shadow-sm);
+  }
+  .v-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--ink);
+  }
+  .v-card.current {
+    border-color: var(--primary);
+    border-top: 4px solid var(--primary);
+    padding-top: 25px;
+  }
+  .v-card .tag {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    border: 1px solid var(--rule-strong);
+    padding: 3px 8px;
+    border-radius: var(--radius-sm);
+    margin-bottom: 16px;
+    font-weight: var(--fw-semibold);
+  }
+  .v-card.current .tag {
+    background: var(--primary);
+    color: var(--primary-fg);
+    border-color: var(--primary);
+  }
+  .v-card h2 {
+    font-family: var(--font-serif);
+    font-weight: var(--fw-medium);
+    font-size: var(--text-3xl);
+    line-height: var(--lh-tight);
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    margin: 0 0 8px;
+  }
+  .v-card .sub {
+    font-family: var(--font-serif);
+    font-style: italic;
+    color: var(--ink-mute);
+    font-size: var(--text-base);
+    margin: 0 0 18px;
+  }
+  .v-card .desc {
+    font-family: var(--font-serif);
+    font-size: var(--text-base);
+    line-height: var(--lh-relaxed);
+    color: var(--ink-body);
+    margin: 0 0 22px;
+  }
+  .v-card .links {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    margin-bottom: 18px;
+  }
+  .v-card .links a {
+    background: var(--surface-3);
+    border: 1px solid var(--rule);
+    padding: 4px 10px;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    text-decoration: none;
+    border-radius: var(--radius-sm);
+    letter-spacing: 0.02em;
+  }
+  .v-card .links a:hover { color: var(--primary); border-color: var(--primary); }
+  .v-card .cta {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    font-weight: var(--fw-semibold);
+    color: var(--ink);
+    letter-spacing: 0.01em;
+  }
+  .v-card.current .cta { color: var(--primary); }
+  .v-card .cta .arr { font-family: var(--font-mono); opacity: 0.65; }
+
+  .meta-row {
+    display: flex; gap: 16px;
+    margin-bottom: 20px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-mute);
+    letter-spacing: 0.04em;
+  }
+  .meta-row .item strong {
+    display: block;
+    color: var(--ink-strong);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    font-weight: var(--fw-semibold);
+    margin-top: 4px;
+    letter-spacing: 0;
+  }
+  .meta-row .item {
+    border-right: 1px solid var(--rule);
+    padding-right: 16px;
+  }
+  .meta-row .item:last-child { border-right: 0; }
+
+  .note {
+    margin-top: 56px;
+    padding: 18px 22px;
+    background: var(--info-50);
+    border-left: 3px solid var(--info-500);
+    border-radius: var(--radius-md);
+    font-family: var(--font-serif);
+    font-size: 14px;
+    line-height: var(--lh-relaxed);
+    color: var(--info-700);
+    max-width: 70ch;
+  }
+  .note .lbl {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--info-500);
+    font-weight: var(--fw-bold);
+    display: block; margin-bottom: 4px;
+  }
+
+  .footer {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid var(--rule);
+    font-family: var(--font-sans);
+    font-size: 12px;
+    color: var(--ink-mute);
+    display: flex; justify-content: space-between;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="kicker">MPD · Mandato Parlamentar Digital · Protótipo</div>
+  <h1>Um sistema de gabinete que parece <em>um sistema</em> — sem virar mais um dashboard.</h1>
+  <p class="lede">A pasta de trabalho está dividida em dois experimentos. O <strong>piloto</strong> (v1) explorou a estética, aprendeu o domínio e descartou três direções até pousar em uma. A <strong>versão oficial</strong> (v2) reaproveita o espírito visual — papel cru, cantos retos, réguas finas, status como carimbo — e constrói o protótipo dos 8 padrões de tela conforme o briefing do back-end. Use a v2 para validar com o time; a v1 fica como registro do processo.</p>
+
+  <div class="versions">
+
+    <a class="v-card current" href="v2/design-system.html">
+      <span class="tag">Atual · Fase 1</span>
+      <h2>v2 · Protótipo oficial</h2>
+      <div class="sub">8 padrões de tela cobrindo 36 rotas</div>
+      <p class="desc">Construído sobre o briefing do dev de back-end. Design system tokenizado, badges com cor + forma (acessível a daltônicos), densidade Linear/Notion, traduzível direto para Tailwind v4. Em desenvolvimento — Fase 1 (design system + lista rica) entregue.</p>
+      <div class="links">
+        <a href="v2/design-system.html">/design-system</a>
+        <a href="v2/demandas.html">/demandas</a>
+      </div>
+      <div class="cta">Abrir versão atual <span class="arr">→</span></div>
+    </a>
+
+    <a class="v-card" href="v1/index.html">
+      <span class="tag">Arquivo · piloto</span>
+      <h2>v1 · Piloto exploratório</h2>
+      <div class="sub">12 telas desktop + 6 mobile (iOS + Android)</div>
+      <p class="desc">A primeira passada — experimento para entender o domínio e calibrar a direção estética. A página de Demanda (detalhe) foi a melhor entrega e inspirou a v2. Listas ficaram densas demais; identidade ficou ambígua entre carimbo de tinta e badge moderno. Preservado como referência.</p>
+      <div class="links">
+        <a href="v1/index.html">/mapa</a>
+        <a href="v1/01-prontuario.html">/demanda</a>
+        <a href="v1/mobile/index.html">/mobile</a>
+      </div>
+      <div class="cta">Ver piloto <span class="arr">→</span></div>
+    </a>
+
+  </div>
+
+  <div class="meta-row">
+    <div class="item">
+      <span>Domínio</span>
+      <strong>Mandato Parlamentar Digital</strong>
+    </div>
+    <div class="item">
+      <span>Cliente piloto</span>
+      <strong>Gabinete Demo</strong>
+    </div>
+    <div class="item">
+      <span>Stack alvo</span>
+      <strong>Django + Tailwind v4</strong>
+    </div>
+    <div class="item">
+      <span>Fase atual</span>
+      <strong>v2 / Fase 1 — validação</strong>
+    </div>
+  </div>
+
+  <div class="note">
+    <span class="lbl">O que vem a seguir</span>
+    Depois da aprovação da Fase 1 (design system + lista rica), os próximos protótipos da v2 são: Login, Home + Hub de configurações, Formulário complexo, Detalhe rico (o que era o "prontuário" no piloto), Pendências/Inbox e Painel de análise. Cada um com 3+ estados e versão mobile.
+  </div>
+
+  <div class="footer">
+    <span>MPD · Protótipo</span>
+    <span style="font-family:var(--font-mono);letter-spacing:0.04em">v2 · maio 2026</span>
+  </div>
+
+</div>
+</body>
+</html>

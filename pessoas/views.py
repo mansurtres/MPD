@@ -10,16 +10,21 @@ from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView, View
 
-from core.permissoes import eh_cg_plus, eh_co_plus
+from core.permissoes import SomenteAdminMixin, eh_admin
 from core.utils import somente_digitos
 
 from .deduplicacao import buscar_similares
 from .forms import (
-    EmailPessoaFormSet,
+    EmailContatoFormSet,
+    EmailEntidadeFormSet,
     EntidadeForm,
     PessoaForm,
+    RedeSocialEntidadeFormSet,
     RedeSocialFormSet,
+    SiteEntidadeFormSet,
+    SitePessoaFormSet,
     TagForm,
+    TelefoneEntidadeFormSet,
     TelefoneFormSet,
     VinculoForm,
 )
@@ -29,8 +34,8 @@ from .viacep import consultar as consultar_cep
 # --- Pessoas ---
 
 
-class PessoaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
-    permission_required = "pessoas.view_pessoa"
+class PessoaListView(LoginRequiredMixin, SomenteAdminMixin, ListView):
+    # Navegar o acervo de pessoas é exclusivo do Admin (ADR 0059 — need-to-know).
     model = Pessoa
     template_name = "pessoas/lista.html"
     context_object_name = "pessoas"
@@ -87,8 +92,27 @@ class PessoaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         ctx["filtro"] = self.request.GET.get("filtro", "")
         ctx["mostrar_inativos"] = self.request.GET.get("inativos") == "1"
         ctx["tags_disponiveis"] = Tag.objects.filter(ativo=True)
-        ctx["pode_exportar"] = eh_co_plus(self.request.user)
+        ctx["pode_exportar"] = eh_admin(self.request.user)
         return ctx
+
+
+def _pode_ver_ficha(user, registro):
+    """Need-to-know (ADR 0059): Admin vê qualquer ficha; os demais só veem
+    a ficha de quem é parte de uma demanda visível a eles — ou de quem eles
+    mesmos cadastraram. Sem navegação livre pelo acervo."""
+    from core.permissoes import eh_admin
+
+    if eh_admin(user):
+        return True
+    if getattr(registro, "criado_por_id", None) == user.id:
+        return True
+    from demandas.models import Demanda
+
+    demandas = registro.demandas.all()
+    q = Demanda.q_visivel_para(user)
+    if q is not None:
+        demandas = demandas.filter(q)
+    return demandas.exists()
 
 
 class PessoaDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
@@ -102,6 +126,12 @@ class PessoaDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
     def get_queryset(self):
         return super().get_queryset().select_related("criado_por")
 
+    def get_object(self, queryset=None):
+        obj = super().get_object(queryset)
+        if not _pode_ver_ficha(self.request.user, obj):
+            raise PermissionDenied("Ficha acessível apenas no contexto de uma demanda sua.")
+        return obj
+
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["vinculos"] = self.object.vinculos.select_related("entidade").all()
@@ -113,13 +143,16 @@ class PessoaDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
         # Demandas vinculadas (respeitando visibilidade restrita por
         # coordenação/responsável). Critério §22 do roadmap §4.3.3.
         if u.has_perm("demandas.view_demanda"):
+            from demandas.models import Demanda
+
             demandas_qs = (
                 self.object.demandas.select_related("responsavel")
                 .prefetch_related("temas")
                 .order_by("-criado_em")
             )
-            if not eh_cg_plus(u):
-                demandas_qs = demandas_qs.filter(Q(restrito=False) | Q(responsavel=u))
+            q = Demanda.q_visivel_para(u)
+            if q is not None:
+                demandas_qs = demandas_qs.filter(q)
             ctx["demandas"] = demandas_qs
         else:
             ctx["demandas"] = []
@@ -127,15 +160,16 @@ class PessoaDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
 
 
 class _PessoaFormMixin:
-    """Lógica comum a Create e Update: processa 3 formsets (telefones, emails,
-    redes sociais) e exige pelo menos um canal preenchido."""
+    """Lógica comum a Create e Update: processa 4 formsets de canais (telefones,
+    emails, redes sociais, sites) e exige pelo menos um canal preenchido."""
 
     template_name = "pessoas/form.html"
 
     FORMSETS = [
         ("telefones", TelefoneFormSet),
-        ("emails", EmailPessoaFormSet),
+        ("emails", EmailContatoFormSet),
         ("redes_sociais", RedeSocialFormSet),
+        ("sites", SitePessoaFormSet),
     ]
 
     def _build_formsets(self, post_data=None):
@@ -179,7 +213,8 @@ class _PessoaFormMixin:
         if tem_canal:
             return self._sucesso()
         form.add_error(
-            None, "Preencha pelo menos um canal de contato: telefone, e-mail ou rede social."
+            None,
+            "Preencha pelo menos um canal de contato: telefone, e-mail, rede social ou site.",
         )
         return self.form_invalid_with_formsets(form, formsets)
 
@@ -191,9 +226,33 @@ class _PessoaFormMixin:
             fs.save()
 
     def _sucesso(self):
+        # AJAX (drawer de criação rápida do form de demanda): retorna JSON
+        # com o shape que o autocomplete consome. HTML normal: redirect.
+        if self.request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            p = self.object
+            return JsonResponse(
+                {
+                    "id": p.pk,
+                    "slug_publico": p.slug_publico,
+                    "label": p.nome_exibicao,
+                    "secundario": " · ".join(filter(None, [p.bairro, p.cidade])),
+                },
+                status=201,
+            )
         return redirect("pessoas:pessoa_detalhe", slug=self.object.slug_publico)
 
     def form_invalid_with_formsets(self, form, formsets):
+        if self.request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            erros = {}
+            for campo, lst in form.errors.items():
+                erros[campo] = list(lst)
+            for chave, fs in formsets.items():
+                for i, fr in enumerate(fs.forms):
+                    if fr.errors:
+                        erros[f"{chave}-{i}"] = {k: list(v) for k, v in fr.errors.items()}
+                if fs.non_form_errors():
+                    erros[f"{chave}-__all__"] = list(fs.non_form_errors())
+            return JsonResponse({"erros": erros}, status=400)
         return self.render_to_response(self.get_context_data(form=form, formsets_contato=formsets))
 
 
@@ -287,25 +346,29 @@ class VinculoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, View):
 # --- Entidades ---
 
 
-class EntidadeListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
-    permission_required = "pessoas.view_entidade"
+class EntidadeListView(LoginRequiredMixin, SomenteAdminMixin, ListView):
+    # Navegar o acervo de entidades é exclusivo do Admin (ADR 0059).
     model = Entidade
     template_name = "pessoas/entidades/lista.html"
     context_object_name = "entidades"
     paginate_by = 25
 
     def get_queryset(self):
-        qs = Entidade.objects.all().prefetch_related("tags")
+        qs = Entidade.objects.all().prefetch_related("tags", "emails", "telefones")
         if self.request.GET.get("inativos") != "1":
             qs = qs.filter(ativo=True)
         busca = self.request.GET.get("q", "").strip()
         if busca:
-            qs = qs.filter(
+            digitos = somente_digitos(busca)
+            condicoes = (
                 Q(nome__icontains=busca)
                 | Q(nome_fantasia__icontains=busca)
                 | Q(cnpj__icontains=busca)
-                | Q(email__icontains=busca)
+                | Q(emails__endereco__icontains=busca)
             )
+            if digitos:
+                condicoes |= Q(telefones__numero__contains=digitos)
+            qs = qs.filter(condicoes)
         tipo = self.request.GET.get("tipo", "").strip()
         if tipo:
             qs = qs.filter(tipo=tipo)
@@ -323,6 +386,9 @@ class EntidadeListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
                     Demanda.STATUS_AGUARDANDO_PESSOA,
                 ]
             ).distinct()
+        # Busca cruza emails/telefones (joins M:N) — distinct para não duplicar.
+        if busca:
+            qs = qs.distinct()
         return qs
 
     def get_context_data(self, **kwargs):
@@ -346,6 +412,12 @@ class EntidadeDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView
     def get_queryset(self):
         return super().get_queryset().select_related("criado_por")
 
+    def get_object(self, queryset=None):
+        obj = super().get_object(queryset)
+        if not _pode_ver_ficha(self.request.user, obj):
+            raise PermissionDenied("Ficha acessível apenas no contexto de uma demanda sua.")
+        return obj
+
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["vinculos"] = self.object.vinculos.select_related("pessoa").filter(pessoa__ativo=True)
@@ -356,33 +428,114 @@ class EntidadeDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView
         # Demandas em que esta entidade é parte (mesma regra de visibilidade
         # restrita usada em PessoaDetailView).
         if u.has_perm("demandas.view_demanda"):
+            from demandas.models import Demanda
+
             demandas_qs = (
                 self.object.demandas.select_related("responsavel")
                 .prefetch_related("temas")
                 .order_by("-criado_em")
             )
-            if not eh_cg_plus(u):
-                demandas_qs = demandas_qs.filter(Q(restrito=False) | Q(responsavel=u))
+            q = Demanda.q_visivel_para(u)
+            if q is not None:
+                demandas_qs = demandas_qs.filter(q)
             ctx["demandas"] = demandas_qs
         else:
             ctx["demandas"] = []
         return ctx
 
 
-class EntidadeCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class _EntidadeFormMixin:
+    """Lógica comum a Create/Update de Entidade: 4 formsets de canais
+    (telefones, emails, redes sociais, sites). Diferente de Pessoa, Entidade
+    não exige canal mínimo (uma família ou grupo informal pode existir só
+    pelo nome). ADR 0057."""
+
+    template_name = "pessoas/entidades/form.html"
+
+    FORMSETS = [
+        ("telefones", TelefoneEntidadeFormSet),
+        ("emails", EmailEntidadeFormSet),
+        ("redes_sociais", RedeSocialEntidadeFormSet),
+        ("sites", SiteEntidadeFormSet),
+    ]
+
+    def _build_formsets(self, post_data=None):
+        instance = self.object if hasattr(self, "object") else None
+        return {
+            chave: cls(post_data, instance=instance, prefix=chave) for chave, cls in self.FORMSETS
+        }
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        if "formsets_contato" not in ctx:
+            ctx["formsets_contato"] = self._build_formsets()
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        eh_update = bool(self.kwargs.get("slug"))
+        self.object = self.get_object() if eh_update else None
+        for chave, _ in self.FORMSETS:
+            if f"{chave}-TOTAL_FORMS" not in request.POST:
+                messages.warning(
+                    request, "A página estava desatualizada. Recarregue e preencha novamente."
+                )
+                return redirect(request.path)
+        form = self.get_form()
+        formsets = self._build_formsets(request.POST)
+        if not (form.is_valid() and all(fs.is_valid() for fs in formsets.values())):
+            return self._form_invalid(form, formsets)
+        with transaction.atomic():
+            self._salvar(form, formsets)
+        return self._sucesso()
+
+    def _salvar(self, form, formsets):
+        if not getattr(form.instance, "criado_por_id", None):
+            form.instance.criado_por = self.request.user
+        self.object = form.save()
+        for fs in formsets.values():
+            fs.instance = self.object
+            fs.save()
+
+    def _sucesso(self):
+        if self.request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            e = self.object
+            return JsonResponse(
+                {
+                    "id": e.pk,
+                    "slug_publico": e.slug_publico,
+                    "label": e.nome,
+                    "secundario": e.get_tipo_display(),
+                },
+                status=201,
+            )
+        return redirect("pessoas:entidade_detalhe", slug=self.object.slug_publico)
+
+    def _form_invalid(self, form, formsets):
+        if self.request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            erros = {}
+            for campo, lst in form.errors.items():
+                erros[campo] = list(lst)
+            for chave, fs in formsets.items():
+                for i, fr in enumerate(fs.forms):
+                    if fr.errors:
+                        erros[f"{chave}-{i}"] = {k: list(v) for k, v in fr.errors.items()}
+                if fs.non_form_errors():
+                    erros[f"{chave}-__all__"] = list(fs.non_form_errors())
+            return JsonResponse({"erros": erros}, status=400)
+        return self.render_to_response(self.get_context_data(form=form, formsets_contato=formsets))
+
+
+class EntidadeCreateView(
+    LoginRequiredMixin, PermissionRequiredMixin, _EntidadeFormMixin, CreateView
+):
     permission_required = "pessoas.add_entidade"
     model = Entidade
     form_class = EntidadeForm
-    template_name = "pessoas/entidades/form.html"
 
-    def form_valid(self, form):
-        form.instance.criado_por = self.request.user
-        response = super().form_valid(form)
-        messages.success(self.request, f"Entidade cadastrada: {self.object.nome}.")
-        return response
-
-    def get_success_url(self):
-        return reverse("pessoas:entidade_detalhe", kwargs={"slug": self.object.slug_publico})
+    def _sucesso(self):
+        if self.request.headers.get("X-Requested-With") != "XMLHttpRequest":
+            messages.success(self.request, f"Entidade cadastrada: {self.object.nome}.")
+        return super()._sucesso()
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -390,21 +543,19 @@ class EntidadeCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView
         return ctx
 
 
-class EntidadeUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class EntidadeUpdateView(
+    LoginRequiredMixin, PermissionRequiredMixin, _EntidadeFormMixin, UpdateView
+):
     permission_required = "pessoas.change_entidade"
     model = Entidade
     form_class = EntidadeForm
-    template_name = "pessoas/entidades/form.html"
     slug_field = "slug_publico"
     slug_url_kwarg = "slug"
 
-    def form_valid(self, form):
-        response = super().form_valid(form)
-        messages.success(self.request, "Entidade atualizada.")
-        return response
-
-    def get_success_url(self):
-        return reverse("pessoas:entidade_detalhe", kwargs={"slug": self.object.slug_publico})
+    def _sucesso(self):
+        if self.request.headers.get("X-Requested-With") != "XMLHttpRequest":
+            messages.success(self.request, "Entidade atualizada.")
+        return super()._sucesso()
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -459,6 +610,35 @@ CORES_PREDEFINIDAS = [
     ("#8e24aa", "Uva"),
     ("#616161", "Grafite"),
 ]
+
+
+class TagBuscarJSONView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    """Lista tags ativas como JSON · consumido pelo drawer de criação rápida
+    de Pessoa, que popula um <select multiple> com elas."""
+
+    permission_required = "pessoas.view_tag"
+
+    def get(self, request):
+        tags = Tag.objects.filter(ativo=True).order_by("nome")
+        return JsonResponse({"resultados": [{"id": t.pk, "label": t.nome} for t in tags]})
+
+
+class TagCriarAjaxView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    """Cria Tag via AJAX a partir do form de Pessoa/Entidade. Mesmo padrão
+    do TemaCreateAjaxView de demandas. Retorna JSON com id, nome, cor para
+    o JS adicionar o chip dinâmico já marcado."""
+
+    permission_required = "pessoas.add_tag"
+
+    def post(self, request):
+        nome = (request.POST.get("nome") or "").strip()
+        cor = (request.POST.get("cor") or "").strip()
+        if not nome:
+            return JsonResponse({"erro": "Nome é obrigatório."}, status=400)
+        if Tag.objects.filter(nome__iexact=nome).exists():
+            return JsonResponse({"erro": f"Já existe uma tag com o nome '{nome}'."}, status=400)
+        tag = Tag.objects.create(nome=nome, cor=cor)
+        return JsonResponse({"id": tag.pk, "nome": tag.nome, "cor": tag.cor or ""}, status=201)
 
 
 class TagCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
@@ -606,26 +786,41 @@ class PessoaCSVExportView(LoginRequiredMixin, View):
     canais primários (telefone, email) mas não dados sensíveis em massa."""
 
     def get(self, request):
-        if not eh_co_plus(request.user):
-            raise PermissionDenied("Exportação restrita a Coordenadores e acima.")
+        if not eh_admin(request.user):
+            raise PermissionDenied("Exportação restrita ao Administrador.")
+        from core.csv_export import exportar_csv
 
-        lista = PessoaListView()
-        lista.request = request
-        lista.kwargs = {}
-        qs = lista.get_queryset()
-        total_filtrado = qs.count()
-        qs = qs[:10000]
+        def row_fn(p):
+            # list() força uso do cache do prefetch_related — `.first()`
+            # ignora cache e dispara nova query por pessoa (N+1). Para 10k
+            # pessoas isso virava 20k queries só por telefones/emails.
+            telefones = list(p.telefones.all())
+            emails = list(p.emails.all())
+            tel = telefones[0] if telefones else None
+            email = emails[0] if emails else None
+            tags = ", ".join(t.nome for t in p.tags.all())
+            return [
+                p.nome,
+                p.sobrenome or "",
+                p.nome_social or "",
+                p.cpf or "",
+                p.data_nascimento.strftime("%d/%m/%Y") if p.data_nascimento else "",
+                p.bairro or "",
+                p.cidade or "",
+                p.estado or "",
+                tel.numero if tel else "",
+                email.endereco if email else "",
+                tags,
+                "Sim" if p.ativo else "Não",
+                p.criado_em.strftime("%d/%m/%Y %H:%M"),
+            ]
 
-        import csv
-
-        from django.http import HttpResponse
-
-        response = HttpResponse(content_type="text/csv; charset=utf-8")
-        response["Content-Disposition"] = 'attachment; filename="pessoas.csv"'
-        response.write("﻿")
-        writer = csv.writer(response, delimiter=";")
-        writer.writerow(
-            [
+        return exportar_csv(
+            request,
+            list_view_cls=PessoaListView,
+            modelo="Pessoa",
+            filename="pessoas.csv",
+            header=[
                 "Nome",
                 "Sobrenome",
                 "Nome social",
@@ -639,39 +834,9 @@ class PessoaCSVExportView(LoginRequiredMixin, View):
                 "Tags",
                 "Ativa",
                 "Criada em",
-            ]
+            ],
+            row_fn=row_fn,
         )
-        for p in qs:
-            # list() força uso do cache do prefetch_related — `.first()`
-            # ignora cache e dispara nova query por pessoa (N+1). Para 10k
-            # pessoas isso virava 20k queries só por telefones/emails.
-            telefones = list(p.telefones.all())
-            emails = list(p.emails.all())
-            tel = telefones[0] if telefones else None
-            email = emails[0] if emails else None
-            tags = ", ".join(t.nome for t in p.tags.all())
-            writer.writerow(
-                [
-                    p.nome,
-                    p.sobrenome or "",
-                    p.nome_social or "",
-                    p.cpf or "",
-                    p.data_nascimento.strftime("%d/%m/%Y") if p.data_nascimento else "",
-                    p.bairro or "",
-                    p.cidade or "",
-                    p.estado or "",
-                    tel.numero if tel else "",
-                    email.endereco if email else "",
-                    tags,
-                    "Sim" if p.ativo else "Não",
-                    p.criado_em.strftime("%d/%m/%Y %H:%M"),
-                ]
-            )
-
-        from core.utils import registrar_export
-
-        registrar_export(request.user, "Pessoa", dict(request.GET.lists()), total_filtrado)
-        return response
 
 
 # --- Fase 6: Endpoint de busca para autocomplete (ADR sobre escala 10k+) ---
@@ -697,13 +862,20 @@ class PessoaBuscarJSONView(LoginRequiredMixin, PermissionRequiredMixin, View):
                 Q(nome__icontains=q) | Q(sobrenome__icontains=q) | Q(nome_social__icontains=q)
             )
         qs = qs.order_by("nome", "sobrenome")[:20]
+        # Busca cega (ADR 0059): não-Admin vincula sem ver a ficha — recebe só
+        # o nome. A localização (bairro/cidade) é detalhe da ficha e some.
+        mostrar_detalhe = eh_admin(request.user)
         return JsonResponse(
             {
                 "resultados": [
                     {
                         "id": p.pk,
                         "label": p.nome_exibicao,
-                        "secundario": " · ".join(filter(None, [p.bairro, p.cidade])),
+                        "secundario": (
+                            " · ".join(filter(None, [p.bairro, p.cidade]))
+                            if mostrar_detalhe
+                            else ""
+                        ),
                     }
                     for p in qs
                 ]
@@ -724,13 +896,15 @@ class EntidadeBuscarJSONView(LoginRequiredMixin, PermissionRequiredMixin, View):
                 Q(nome__icontains=q) | Q(nome_fantasia__icontains=q) | Q(cnpj__icontains=q)
             )
         qs = qs.order_by("nome")[:20]
+        # Busca cega (ADR 0059): não-Admin recebe só o nome para vincular.
+        mostrar_detalhe = eh_admin(request.user)
         return JsonResponse(
             {
                 "resultados": [
                     {
                         "id": e.pk,
                         "label": e.nome,
-                        "secundario": e.get_tipo_display(),
+                        "secundario": e.get_tipo_display() if mostrar_detalhe else "",
                     }
                     for e in qs
                 ]

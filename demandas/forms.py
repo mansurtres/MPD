@@ -29,8 +29,6 @@ class DemandaForm(forms.ModelForm):
             "anonimo",
             "prioridade",
             "responsavel",
-            "coordenacao_responsavel",
-            "restrito",
             "prazo",
             "temas",
         ]
@@ -38,6 +36,10 @@ class DemandaForm(forms.ModelForm):
             "descricao": forms.Textarea(attrs={"rows": 4}),
             "prazo": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
             "temas": forms.CheckboxSelectMultiple,
+            # Origem é binária (responsiva/proativa) — RadioSelect alimenta o
+            # toggle segmentado `.seg` do template. Sem isso, o widget padrão
+            # vira <select> e o markup do form quebra.
+            "origem": forms.RadioSelect,
         }
 
     def __init__(self, *args, **kwargs):
@@ -69,10 +71,7 @@ class TemaForm(forms.ModelForm):
 class DemandaPessoaForm(forms.ModelForm):
     class Meta:
         model = DemandaPessoa
-        fields = ["pessoa", "papel", "papel_outro"]
-        widgets = {
-            "papel_outro": forms.TextInput(attrs={"placeholder": "Especifique o papel..."}),
-        }
+        fields = ["pessoa"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -80,14 +79,7 @@ class DemandaPessoaForm(forms.ModelForm):
 
         self.fields["pessoa"].queryset = Pessoa.objects.ativas()
         self.fields["pessoa"].widget.attrs["data-autocomplete"] = "pessoa"
-        self.fields["papel_outro"].required = False
         aplicar_tailwind(self)
-
-    def clean(self):
-        cleaned = super().clean()
-        if cleaned.get("papel") == DemandaPessoa.PAPEL_OUTRO and not cleaned.get("papel_outro"):
-            self.add_error("papel_outro", "Especifique o papel quando escolher 'Outro'.")
-        return cleaned
 
 
 DemandaPessoaFormSet = inlineformset_factory(
@@ -104,10 +96,7 @@ DemandaPessoaFormSet = inlineformset_factory(
 class DemandaEntidadeForm(forms.ModelForm):
     class Meta:
         model = DemandaEntidade
-        fields = ["entidade", "papel", "papel_outro"]
-        widgets = {
-            "papel_outro": forms.TextInput(attrs={"placeholder": "Especifique o papel..."}),
-        }
+        fields = ["entidade"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -115,14 +104,7 @@ class DemandaEntidadeForm(forms.ModelForm):
 
         self.fields["entidade"].queryset = Entidade.objects.filter(ativo=True)
         self.fields["entidade"].widget.attrs["data-autocomplete"] = "entidade"
-        self.fields["papel_outro"].required = False
         aplicar_tailwind(self)
-
-    def clean(self):
-        cleaned = super().clean()
-        if cleaned.get("papel") == DemandaEntidade.PAPEL_OUTRO and not cleaned.get("papel_outro"):
-            self.add_error("papel_outro", "Especifique o papel quando escolher 'Outro'.")
-        return cleaned
 
 
 DemandaEntidadeFormSet = inlineformset_factory(
@@ -180,11 +162,11 @@ class InteracaoForm(forms.ModelForm):
 
 
 class FollowupForm(forms.Form):
-    """Campos extras quando o usuário marca 'criar follow-up' ao salvar uma
-    interação realizada. Cria nova Interacao com status agendada e
-    interacao_origem apontando para a interação que acabou de ser salva."""
+    """Campos opcionais para agendar um próximo passo junto com a interação
+    realizada. A view (`AdicionarInteracaoView`) detecta a intenção pelo
+    preenchimento — se `data_ocorrencia` e `conteudo` vierem, cria a
+    Interacao agendada com `interacao_origem` apontando para a recém-salva."""
 
-    criar = forms.BooleanField(required=False, label="Criar follow-up")
     tipo = forms.ChoiceField(required=False, choices=Interacao.TIPO_CHOICES)
     data_ocorrencia = forms.DateTimeField(
         required=False,
@@ -213,14 +195,10 @@ class FollowupForm(forms.Form):
 
     def clean(self):
         cleaned = super().clean()
-        if cleaned.get("criar"):
-            faltando = [
-                campo for campo in ("tipo", "data_ocorrencia", "conteudo") if not cleaned.get(campo)
-            ]
-            if faltando:
-                raise forms.ValidationError(
-                    f"Para criar follow-up, preencha: {', '.join(faltando)}."
-                )
+        data = cleaned.get("data_ocorrencia")
+        conteudo = (cleaned.get("conteudo") or "").strip()
+        if (data and not conteudo) or (conteudo and not data):
+            raise forms.ValidationError("Para agendar próximo passo, preencha data e conteúdo.")
         return cleaned
 
 
@@ -284,9 +262,6 @@ class AnexoForm(forms.ModelForm):
             raise forms.ValidationError(
                 f"Arquivo excede o limite de {Anexo.TAMANHO_MAXIMO_BYTES // (1024*1024)} MB."
             )
-        mime = getattr(f, "content_type", "") or ""
-        if mime and mime not in Anexo.MIME_WHITELIST:
-            raise forms.ValidationError(f"Tipo de arquivo não permitido: {mime}.")
         return f
 
 
@@ -346,45 +321,6 @@ class ArquivarForm(forms.ModelForm):
         aplicar_tailwind(self)
 
 
-class EstadoForm(forms.ModelForm):
-    """Edição inline do painel administrativo da demanda (aside). ADR 0044.
-
-    Cobre os 5 campos que mudam ao longo do dia: status, resultado,
-    responsavel, coordenacao_responsavel e prazo. 'concluida' e 'arquivado'
-    NÃO aparecem no select de status — esses estados são exclusivos do
-    fluxo dedicado (CTA Concluir / botão Arquivar)."""
-
-    class Meta:
-        model = Demanda
-        fields = ["status", "resultado", "responsavel", "coordenacao_responsavel", "prazo"]
-        widgets = {"prazo": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d")}
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        editaveis = [
-            Demanda.STATUS_NOVO,
-            Demanda.STATUS_EM_ANDAMENTO,
-            Demanda.STATUS_AGUARDANDO_TERCEIROS,
-            Demanda.STATUS_AGUARDANDO_PESSOA,
-        ]
-        self.fields["status"].choices = [
-            (k, v) for k, v in Demanda.STATUS_CHOICES if k in editaveis
-        ]
-        # Se já saiu de 'pendente', não pode voltar (clean() proíbe).
-        if (
-            self.instance
-            and self.instance.pk
-            and self.instance.resultado != Demanda.RESULTADO_PENDENTE
-        ):
-            self.fields["resultado"].choices = [
-                (k, v) for k, v in Demanda.RESULTADO_CHOICES if k != Demanda.RESULTADO_PENDENTE
-            ]
-        self.fields["responsavel"].required = False
-        self.fields["responsavel"].empty_label = "— Não atribuído —"
-        self.fields["prazo"].required = False
-        aplicar_tailwind(self)
-
-
 # --- Fase 5: Inbox GTD ---
 
 
@@ -407,40 +343,6 @@ class InboxItemForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["conteudo"].required = True
-        aplicar_tailwind(self)
-
-
-class ProcessarInboxForm(forms.ModelForm):
-    """Triagem: converte ItemInbox em Demanda. Reusa campos do DemandaForm
-    com a descrição pré-preenchida pelo conteúdo do item."""
-
-    class Meta:
-        model = Demanda
-        fields = [
-            "titulo",
-            "descricao",
-            "origem",
-            "canal_entrada",
-            "anonimo",
-            "prioridade",
-            "responsavel",
-            "coordenacao_responsavel",
-            "restrito",
-            "prazo",
-            "temas",
-        ]
-        widgets = {
-            "descricao": forms.Textarea(attrs={"rows": 4}),
-            "prazo": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
-            "temas": forms.CheckboxSelectMultiple,
-        }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        cond = Q(ativo=True)
-        self.fields["temas"].queryset = Tema.objects.filter(cond).distinct()
-        self.fields["responsavel"].required = False
-        self.fields["responsavel"].empty_label = "— Não atribuído —"
         aplicar_tailwind(self)
 
 

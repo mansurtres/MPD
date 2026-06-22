@@ -13,16 +13,11 @@ urlpatterns = [
     # --- Demandas (CRUD) ---
     path("demandas/", views.DemandaListView.as_view(), name="demanda_lista"),
     path("demandas/nova/", views.DemandaCreateView.as_view(), name="demanda_nova"),
-    path("demandas/<uuid:pk>/", views.DemandaDetailView.as_view(), name="demanda_detalhe"),
+    path("demandas/<slug:slug>/", views.DemandaDetailView.as_view(), name="demanda_detalhe"),
     path(
-        "demandas/<uuid:pk>/editar/",
+        "demandas/<slug:slug>/editar/",
         views.DemandaUpdateView.as_view(),
         name="demanda_editar",
-    ),
-    path(
-        "demandas/<uuid:pk>/estado/",
-        views.AtualizarEstadoView.as_view(),
-        name="demanda_estado",
     ),
     path(
         "demandas/<uuid:pk>/concluir/",
@@ -103,6 +98,11 @@ urlpatterns = [
         "demandas/anexos/<str:tipo>/<uuid:object_id>/",
         views.AnexoUploadView.as_view(),
         name="anexo_upload",
+    ),
+    path(
+        "demandas/anexos/<uuid:pk>/baixar/",
+        views.AnexoDownloadView.as_view(),
+        name="anexo_baixar",
     ),
     path(
         "demandas/anexos/<uuid:pk>/remover/",

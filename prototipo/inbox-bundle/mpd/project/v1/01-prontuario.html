@@ -1,0 +1,922 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>MPD · 01 Prontuário</title>
+<meta name="viewport" content="width=1400">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  body { background: #ece8e0; font-family: 'IBM Plex Sans', sans-serif; }
+
+  /* === Direção 01: Prontuário ===
+     Paleta institucional: papel off-white, tinta navy, carimbo bordô.
+     Tipografia: IBM Plex Sans (títulos/UI), Source Serif 4 (corpo, descrições).
+     Sem cantos arredondados. Réguas finas. Marginalia para datas. */
+
+  :root {
+    --paper: #f8f5ee;
+    --paper-2: #efeadc;
+    --ink: #1a1814;
+    --ink-soft: #46423b;
+    --ink-mute: #6b6357;
+    --rule: #d6cdb8;
+    --rule-strong: #b8ad94;
+    --navy: #1f3a5f;
+    --navy-soft: #e8edf3;
+    --bordo: #8a2a2a;
+    --bordo-soft: #f3e3e3;
+    --tan: #6b4a2a;
+    --olive: #5a6b3a;
+    --amber: #b4751c;
+  }
+
+  .doc {
+    max-width: 1280px;
+    margin: 0 auto 80px;
+    background: var(--paper);
+    box-shadow:
+      0 1px 0 rgba(0,0,0,0.04),
+      0 28px 80px -24px rgba(60,50,30,0.30),
+      0 8px 24px -16px rgba(60,50,30,0.20);
+    font-family: 'IBM Plex Sans', sans-serif;
+    color: var(--ink);
+  }
+
+  /* === Cabeçalho institucional do documento === */
+  .doc-head {
+    border-top: 6px solid var(--navy);
+    padding: 28px 48px 24px;
+    border-bottom: 1px solid var(--rule);
+    background: linear-gradient(180deg, var(--paper), var(--paper-2));
+  }
+  .doc-head .breadcrumb {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: var(--ink-mute);
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 18px;
+    text-transform: uppercase;
+  }
+  .doc-head .breadcrumb a { text-decoration: none; }
+  .doc-head .breadcrumb .sep { color: var(--rule-strong); }
+  .doc-head .breadcrumb .num {
+    color: var(--navy);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+  .doc-head .head-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 32px;
+    align-items: end;
+  }
+  .doc-head h1 {
+    font-family: 'Source Serif 4', serif;
+    font-weight: 500;
+    font-size: 36px;
+    line-height: 1.15;
+    letter-spacing: -0.005em;
+    margin: 0;
+    color: var(--ink);
+    max-width: 22ch;
+  }
+  .doc-head .head-actions {
+    display: flex; gap: 8px;
+  }
+  .btn {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 16px;
+    border: 1px solid var(--rule-strong);
+    background: var(--paper);
+    color: var(--ink);
+    text-decoration: none;
+    display: inline-flex; align-items: center; gap: 8px;
+    transition: background .12s, border-color .12s;
+  }
+  .btn:hover { background: #fff; border-color: var(--ink); }
+  .btn.primary {
+    background: var(--navy); border-color: var(--navy); color: #fff;
+  }
+  .btn.primary:hover { background: #18304c; }
+  .btn.danger { color: var(--bordo); border-color: var(--bordo); }
+
+  .doc-head .meta-grid {
+    margin-top: 22px;
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 0;
+    border-top: 1px solid var(--rule);
+    padding-top: 18px;
+  }
+  .doc-head .meta-grid .cell {
+    padding-right: 16px;
+    border-right: 1px solid var(--rule);
+  }
+  .doc-head .meta-grid .cell:last-child { border-right: 0; }
+  .doc-head .meta-grid .lbl {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-bottom: 4px;
+  }
+  .doc-head .meta-grid .val {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .doc-head .meta-grid .val.mono {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+  }
+
+  /* === Status como carimbo === */
+  .stamp {
+    display: inline-block;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 4px 10px 5px;
+    border: 2px solid currentColor;
+    transform: rotate(-1deg);
+  }
+  .stamp.andamento { color: var(--amber); }
+  .stamp.atendido  { color: var(--olive); }
+  .stamp.pendente  { color: var(--ink-mute); }
+  .stamp.urgente   { color: var(--bordo); }
+
+  /* === Corpo do documento (duas colunas: timeline + sidebar) === */
+  .doc-body {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+  }
+
+  .body-main {
+    padding: 36px 48px 48px;
+    border-right: 1px solid var(--rule);
+  }
+  .body-side {
+    padding: 36px 32px 48px;
+    background: var(--paper-2);
+  }
+
+  /* Descrição inicial (em serif, como o relato) */
+  .relato {
+    font-family: 'Source Serif 4', serif;
+    margin-bottom: 36px;
+  }
+  .relato .section-mark {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--navy);
+    font-weight: 600;
+    margin-bottom: 10px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .relato .section-mark::after {
+    content: ""; flex: 1; height: 1px; background: var(--rule);
+  }
+  .relato p {
+    font-size: 16px;
+    line-height: 1.65;
+    color: var(--ink-soft);
+    margin: 0 0 14px;
+    text-wrap: pretty;
+  }
+  .relato p:first-of-type::first-line {
+    font-variant: small-caps;
+    letter-spacing: 0.02em;
+  }
+  .relato .source {
+    margin-top: 14px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 12px;
+    color: var(--ink-mute);
+    display: flex; gap: 8px; flex-wrap: wrap;
+    align-items: center;
+  }
+  .relato .source .who { color: var(--ink); font-weight: 500; }
+  .relato .source .sep { color: var(--rule-strong); }
+
+  /* === Linha do tempo (entradas de prontuário) === */
+  .timeline-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 18px;
+  }
+  .timeline-head h2 {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--navy);
+    font-weight: 600;
+    margin: 0;
+  }
+  .timeline-head .count {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-mute);
+  }
+
+  .entries { border-top: 1px solid var(--rule); }
+  .entry {
+    display: grid;
+    grid-template-columns: 92px 1fr;
+    gap: 24px;
+    padding: 18px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .entry .marginalia {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-mute);
+    line-height: 1.5;
+    text-align: right;
+    padding-top: 2px;
+  }
+  .entry .marginalia .day {
+    color: var(--navy);
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 0;
+  }
+  .entry .marginalia .time { display: block; margin-top: 2px; }
+  .entry .marginalia .author { display: block; margin-top: 6px; color: var(--ink-soft); font-family: 'IBM Plex Sans', sans-serif; font-size: 11px; }
+  .entry .content {}
+  .entry .content .type {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    display: inline-flex; align-items: center; gap: 8px;
+    color: var(--ink);
+  }
+  .entry .content .type::before {
+    content: "";
+    display: inline-block;
+    width: 8px; height: 8px;
+    background: currentColor;
+  }
+  .entry.contato .content .type { color: var(--navy); }
+  .entry.encaminhamento .content .type { color: var(--bordo); }
+  .entry.devolutiva .content .type { color: var(--olive); }
+  .entry.registro .content .type { color: var(--ink-mute); }
+  .entry.agendada .content .type { color: var(--amber); }
+  .entry.interna .content .type { color: var(--tan); }
+  .entry .content .body-text {
+    font-family: 'Source Serif 4', serif;
+    font-size: 15px;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    margin: 0;
+  }
+  .entry .content .body-text strong { color: var(--ink); font-weight: 600; }
+  .entry.agendada .content .body-text { font-style: italic; color: var(--ink-mute); }
+
+  /* Bloco anexado a um encaminhamento */
+  .encam-detail {
+    margin-top: 10px;
+    background: var(--navy-soft);
+    border-left: 2px solid var(--navy);
+    padding: 12px 14px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 12px;
+  }
+  .encam-detail .row {
+    display: flex; gap: 16px; padding: 2px 0;
+  }
+  .encam-detail .row .k {
+    color: var(--ink-mute);
+    min-width: 110px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .encam-detail .row .v { color: var(--ink); font-weight: 500; }
+  .encam-detail .response {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--rule-strong);
+    font-family: 'Source Serif 4', serif;
+    font-size: 13px;
+    color: var(--ink-soft);
+    line-height: 1.5;
+  }
+  .encam-detail .response em {
+    font-style: italic; color: var(--navy);
+    display: block;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 11px;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  /* Pendência de devolutiva (banda alerta) */
+  .pending-devolutiva {
+    margin-top: 28px;
+    padding: 16px 20px;
+    background: var(--bordo-soft);
+    border-top: 2px solid var(--bordo);
+    border-bottom: 1px solid var(--rule);
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 16px;
+    align-items: center;
+  }
+  .pending-devolutiva .lbl {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--bordo);
+    margin-bottom: 4px;
+  }
+  .pending-devolutiva .msg {
+    font-family: 'Source Serif 4', serif;
+    font-size: 14px;
+    color: var(--ink);
+    line-height: 1.4;
+  }
+
+  /* Painel de ação no rodapé do main */
+  .actions {
+    margin-top: 28px;
+    padding: 16px 0;
+    border-top: 1px solid var(--rule);
+    display: flex; gap: 8px; flex-wrap: wrap;
+  }
+
+  /* === Sidebar === */
+  .side-block {
+    margin-bottom: 30px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .side-block:last-child { border-bottom: 0; }
+  .side-block h3 {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--navy);
+    font-weight: 600;
+    margin: 0 0 14px;
+  }
+  .side-block .row {
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    gap: 12px;
+    padding: 6px 0;
+    border-top: 1px dotted var(--rule);
+    font-size: 13px;
+  }
+  .side-block .row:first-of-type { border-top: 0; padding-top: 0; }
+  .side-block .row .k {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-mute);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding-top: 2px;
+  }
+  .side-block .row .v {
+    color: var(--ink);
+    font-weight: 500;
+  }
+  .side-block .v .pill {
+    display: inline-flex; align-items: center;
+    background: var(--paper);
+    border: 1px solid var(--rule-strong);
+    padding: 2px 8px;
+    font-size: 11px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-weight: 500;
+    color: var(--ink);
+    margin-right: 4px;
+    margin-bottom: 4px;
+  }
+  .side-block .v .pill.tema-mob { border-color: #2a6f8a; color: #2a6f8a; background: #e8f2f5; }
+  .side-block .v .pill.tema-seg { border-color: var(--bordo); color: var(--bordo); background: var(--bordo-soft); }
+
+  /* Pessoas/Entidades — lista compacta */
+  .parte {
+    display: grid;
+    grid-template-columns: 32px 1fr;
+    gap: 10px;
+    padding: 8px 0;
+    border-top: 1px dotted var(--rule);
+    align-items: center;
+  }
+  .parte:first-of-type { border-top: 0; padding-top: 0; }
+  .parte .avatar {
+    width: 32px; height: 32px;
+    background: var(--navy-soft);
+    color: var(--navy);
+    display: grid; place-items: center;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  .parte .avatar.ent { background: var(--paper-2); color: var(--tan); border: 1px solid var(--rule-strong); }
+  .parte .nome {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .parte .papel {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-mute);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  /* Selo lateral lateral de coordenação */
+  .coord-seal {
+    border: 1px solid var(--navy);
+    color: var(--navy);
+    padding: 10px 14px;
+    margin-top: 4px;
+  }
+  .coord-seal .ttl {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+    opacity: 0.7;
+  }
+  .coord-seal .v {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  .coord-seal .sub {
+    font-family: 'Source Serif 4', serif;
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin-top: 4px;
+  }
+
+  /* Anexos como linhas tipo arquivo */
+  .anexo {
+    display: grid;
+    grid-template-columns: 24px 1fr auto;
+    gap: 10px;
+    align-items: center;
+    padding: 8px 0;
+    border-top: 1px dotted var(--rule);
+    font-size: 13px;
+  }
+  .anexo:first-of-type { border-top: 0; padding-top: 0; }
+  .anexo .ico {
+    width: 22px; height: 28px;
+    background: #fff;
+    border: 1px solid var(--rule-strong);
+    position: relative;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 7px;
+    color: var(--ink-mute);
+    display: grid; place-items: end center;
+    padding-bottom: 2px;
+  }
+  .anexo .ico::after {
+    content: ""; position: absolute; top: 0; right: 0;
+    border-style: solid; border-width: 0 6px 6px 0;
+    border-color: transparent var(--paper-2) transparent transparent;
+  }
+  .anexo .nome { color: var(--ink); font-family: 'IBM Plex Sans', sans-serif; font-weight: 500; font-size: 13px; }
+  .anexo .nome small { display: block; color: var(--ink-mute); font-weight: 400; font-size: 11px; margin-top: 2px; }
+  .anexo .tam { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--ink-mute); }
+
+  /* === Status × Resultado bar (no topo da sidebar) === */
+  .state {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border: 1px solid var(--rule-strong);
+    background: var(--paper);
+  }
+  .state .col {
+    padding: 14px 16px;
+  }
+  .state .col + .col {
+    border-left: 1px solid var(--rule-strong);
+  }
+  .state .col .k {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-bottom: 6px;
+  }
+  .state .col .v {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .state .col .v .dot {
+    width: 10px; height: 10px; flex: none;
+  }
+  .state .col.s .v .dot { background: var(--amber); }
+  .state .col.r .v .dot { background: var(--rule-strong); }
+
+  /* Pequeno helper */
+  .row-inline { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+
+<header class="appbar">
+  <div class="appbar-inner">
+    <a class="brand" href="home.html">
+      <span class="mark">M</span>
+      <span class="name">MPD</span>
+      <span class="tag">Pedro Trés · 11ª Legislatura</span>
+    </a>
+    <nav>
+      <a href="home.html">Início</a>
+      <a href="05-inbox.html">Entrada <span class="alert">7</span></a>
+      <a href="04-lista.html" class="current">Demandas</a>
+      <a href="pessoas.html">Pessoas</a>
+      <a href="entidades.html">Entidades</a>
+      <a href="encaminhamentos.html">Encaminhamentos</a>
+      <a href="pendencias.html">Pendências <span class="alert">3</span></a>
+    </nav>
+    <div class="me">
+      <div class="who">
+        <span class="av">MC</span>
+        <span>
+          <span class="name">Mariana Costa</span>
+          <span class="role">Gabinete · resp.</span>
+        </span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="frame" style="padding:0 28px;margin-top:32px">
+
+<article class="doc">
+
+  <!-- Cabeçalho do documento -->
+  <header class="doc-head">
+    <div class="breadcrumb">
+      <a href="04-lista.html" class="demo-link">DEMANDAS</a>
+      <span class="sep">/</span>
+      <span class="num">MPD-2026-00342</span>
+      <span class="sep">/</span>
+      <span>EDIÇÃO Nº 7</span>
+    </div>
+
+    <div class="head-row">
+      <h1>Falta de iluminação na Rua Antônio Ataíde — trecho da Praça Costa Pereira</h1>
+      <div class="head-actions">
+        <button class="btn">Editar</button>
+        <button class="btn primary">Concluir demanda</button>
+      </div>
+    </div>
+
+    <div class="meta-grid">
+      <div class="cell">
+        <div class="lbl">Origem</div>
+        <div class="val">Responsiva</div>
+      </div>
+      <div class="cell">
+        <div class="lbl">Canal entrada</div>
+        <div class="val">WhatsApp</div>
+      </div>
+      <div class="cell">
+        <div class="lbl">Aberta em</div>
+        <div class="val mono">02 / 05 / 2026</div>
+      </div>
+      <div class="cell">
+        <div class="lbl">Prazo</div>
+        <div class="val mono" style="color:var(--bordo)">28 / 05 / 2026</div>
+      </div>
+      <div class="cell">
+        <div class="lbl">Responsável</div>
+        <div class="val">Mariana Costa</div>
+      </div>
+      <div class="cell">
+        <div class="lbl">Status</div>
+        <div class="val"><span class="stamp andamento">Em andamento</span></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Corpo: timeline + sidebar -->
+  <div class="doc-body">
+
+    <section class="body-main">
+
+      <!-- Relato inicial -->
+      <div class="relato">
+        <div class="section-mark">Relato inicial</div>
+        <p>
+          Sebastiana Oliveira, líder da Associação de Moradores do Centro, encaminhou via WhatsApp denúncia de que <strong>nove postes de iluminação pública estão sem funcionar há mais de três semanas</strong> na Rua Antônio Ataíde, no trecho entre a Praça Costa Pereira e a Rua Sete de Setembro. Moradores relatam aumento de ocorrências de furto à noite e dificuldade para idosos retornarem do centro comercial após o expediente.
+        </p>
+        <p>
+          A líder anexou fotos do local feitas na noite de 01/05 e relatou que protocolou demanda direta junto à concessionária há duas semanas, sem retorno. Pede intermediação do mandato junto à SEMOB e à EDP-ES.
+        </p>
+        <div class="source">
+          <span class="who">Sebastiana Oliveira</span>
+          <span class="sep">·</span>
+          <span>via WhatsApp · 02/05/2026, 09:14</span>
+          <span class="sep">·</span>
+          <a href="#" class="demo-link" style="color:var(--navy)">Abrir ficha →</a>
+        </div>
+      </div>
+
+      <!-- Linha do tempo -->
+      <div class="timeline-head">
+        <h2>Linha do tempo</h2>
+        <div class="count">7 entradas · do mais recente</div>
+      </div>
+
+      <div class="entries">
+
+        <!-- Devolutiva agendada (futura) -->
+        <article class="entry agendada">
+          <div class="marginalia">
+            <span class="day">19 MAI</span>
+            <span class="time">14:30</span>
+            <span class="author">Agendada</span>
+          </div>
+          <div class="content">
+            <span class="type">Devolutiva agendada · ao demandante</span>
+            <p class="body-text">
+              Retorno a Sebastiana com cronograma confirmado pela SEMOB. Combinar visita conjunta ao local se o reparo não tiver iniciado.
+            </p>
+          </div>
+        </article>
+
+        <!-- Retorno externo -->
+        <article class="entry encaminhamento">
+          <div class="marginalia">
+            <span class="day">14 MAI</span>
+            <span class="time">11:08</span>
+            <span class="author">Mariana C.</span>
+          </div>
+          <div class="content">
+            <span class="type">Retorno externo recebido · SEMOB</span>
+            <p class="body-text">
+              Resposta oficial recebida do Sr. Edmilson Rocha (Diretor de Operações). Confirma que os postes do trecho foram identificados em vistoria de 09/05 e estão na <strong>fila de manutenção corretiva</strong>, com previsão de execução até 12/06/2026.
+            </p>
+
+            <div class="encam-detail">
+              <div class="row"><span class="k">Documento</span><span class="v">Ofício 0142/2026 · resposta via Of. SEMOB 318/2026</span></div>
+              <div class="row"><span class="k">Enviado</span><span class="v">05/05/2026 · prazo 19/05</span></div>
+              <div class="row"><span class="k">Respondido</span><span class="v">14/05/2026 · 9 dias</span></div>
+              <div class="response">
+                <em>Resposta · Edmilson Rocha (SEMOB)</em>
+                "Informamos que a equipe de vistoria identificou 9 pontos de iluminação inoperantes no trecho indicado. A demanda foi protocolada na fila de manutenção corretiva sob nº 2026-3914 com previsão de execução até 12/06/2026, respeitada a ordem cronológica de pedidos do bairro."
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <!-- Contato interno -->
+        <article class="entry interna">
+          <div class="marginalia">
+            <span class="day">12 MAI</span>
+            <span class="time">17:42</span>
+            <span class="author">Mariana C.</span>
+          </div>
+          <div class="content">
+            <span class="type">Contato interno · gabinete</span>
+            <p class="body-text">
+              Conversado com Pedro sobre prazo apertado. Decisão: aguardar resposta da SEMOB até 16/05; se não vier, escalar via Of. de cobrança e considerar requerimento de informação na sessão de 19/05.
+            </p>
+          </div>
+        </article>
+
+        <!-- Encaminhamento -->
+        <article class="entry encaminhamento">
+          <div class="marginalia">
+            <span class="day">05 MAI</span>
+            <span class="time">10:20</span>
+            <span class="author">Mariana C.</span>
+          </div>
+          <div class="content">
+            <span class="type">Encaminhamento externo · enviado</span>
+            <p class="body-text">
+              Ofício 0142/2026 enviado à <strong>Secretaria Municipal de Mobilidade (SEMOB)</strong>, aos cuidados do Diretor de Operações, solicitando vistoria emergencial e cronograma de reparo dos postes inoperantes.
+            </p>
+
+            <div class="encam-detail">
+              <div class="row"><span class="k">Tipo</span><span class="v">Ofício solicitação</span></div>
+              <div class="row"><span class="k">Número</span><span class="v">0142/2026</span></div>
+              <div class="row"><span class="k">Destinatário</span><span class="v">SEMOB · Edmilson Rocha</span></div>
+              <div class="row"><span class="k">Prazo resposta</span><span class="v">19/05/2026 (14 dias úteis)</span></div>
+              <div class="row"><span class="k">Anexos</span><span class="v" style="font-family:'Source Serif 4',serif;font-style:italic">Of-0142-2026.pdf · fotos-local.pdf</span></div>
+            </div>
+          </div>
+        </article>
+
+        <!-- Visita ao local -->
+        <article class="entry contato">
+          <div class="marginalia">
+            <span class="day">03 MAI</span>
+            <span class="time">18:30</span>
+            <span class="author">P. Trés / M. Costa</span>
+          </div>
+          <div class="content">
+            <span class="type">Visita ao local · com demandante</span>
+            <p class="body-text">
+              Visita noturna ao trecho com Sebastiana e dois moradores (Sr. Antônio e Sra. Ivete). Confirmados 9 pontos inoperantes, ausência total de iluminação pública entre os números 412 e 488. Vereador conversou com comerciantes locais. <strong>Foto-documentação anexada.</strong>
+            </p>
+          </div>
+        </article>
+
+        <!-- Anotação interna -->
+        <article class="entry registro">
+          <div class="marginalia">
+            <span class="day">02 MAI</span>
+            <span class="time">14:05</span>
+            <span class="author">Mariana C.</span>
+          </div>
+          <div class="content">
+            <span class="type">Anotação interna</span>
+            <p class="body-text">
+              Sebastiana é demanda recorrente (já trouxe a questão dos bancos da Costa Pereira e da coleta seletiva). Pessoa de confiança da associação — vale priorizar o retorno.
+            </p>
+          </div>
+        </article>
+
+        <!-- Registro inicial automático -->
+        <article class="entry registro">
+          <div class="marginalia">
+            <span class="day">02 MAI</span>
+            <span class="time">09:14</span>
+            <span class="author">automática</span>
+          </div>
+          <div class="content">
+            <span class="type">Registro inicial</span>
+            <p class="body-text">Demanda aberta a partir de mensagem de Sebastiana Oliveira no WhatsApp. Triagem feita por Mariana Costa.</p>
+          </div>
+        </article>
+
+      </div>
+
+      <!-- Banda: devolutiva pendente -->
+      <div class="pending-devolutiva">
+        <div>
+          <div class="lbl">Pendente · demanda responsiva</div>
+          <div class="msg">Esta demanda só pode ser concluída após a devolutiva ao demandante. A próxima está <strong>agendada para 19/05</strong>.</div>
+        </div>
+        <button class="btn primary">Registrar devolutiva</button>
+      </div>
+
+      <!-- Painel de ação -->
+      <div class="actions">
+        <button class="btn">+ Nova interação</button>
+        <button class="btn">+ Novo encaminhamento</button>
+        <button class="btn">+ Anexar arquivo</button>
+        <button class="btn" style="margin-left:auto">Imprimir prontuário</button>
+        <button class="btn danger">Arquivar</button>
+      </div>
+
+    </section>
+
+    <!-- Sidebar -->
+    <aside class="body-side">
+
+      <div class="side-block">
+        <h3>Estado</h3>
+        <div class="state">
+          <div class="col s">
+            <div class="k">Status</div>
+            <div class="v"><span class="dot"></span>Em andamento</div>
+          </div>
+          <div class="col r">
+            <div class="k">Resultado</div>
+            <div class="v"><span class="dot"></span>Pendente</div>
+          </div>
+        </div>
+        <div class="coord-seal" style="margin-top:14px">
+          <div class="ttl">Coordenação responsável</div>
+          <div class="v">Gabinete</div>
+          <div class="sub">Mariana Costa · resp. designada</div>
+        </div>
+      </div>
+
+      <div class="side-block">
+        <h3>Classificação</h3>
+        <div class="row">
+          <div class="k">Temas</div>
+          <div class="v">
+            <span class="pill tema-mob">Mobilidade urbana</span>
+            <span class="pill tema-seg">Segurança pública</span>
+          </div>
+        </div>
+        <div class="row">
+          <div class="k">Tags</div>
+          <div class="v">
+            <span class="pill">Centro</span>
+            <span class="pill">Líder local</span>
+            <span class="pill">EDP-ES</span>
+          </div>
+        </div>
+        <div class="row">
+          <div class="k">Prioridade</div>
+          <div class="v">Alta</div>
+        </div>
+      </div>
+
+      <div class="side-block">
+        <h3>Partes envolvidas</h3>
+        <div class="parte">
+          <div class="avatar">SO</div>
+          <div>
+            <div class="nome">Sebastiana Oliveira</div>
+            <div class="papel">Solicitante · líder comunitária</div>
+          </div>
+        </div>
+        <div class="parte">
+          <div class="avatar ent">AM</div>
+          <div>
+            <div class="nome">Assoc. Moradores do Centro</div>
+            <div class="papel">Representada</div>
+          </div>
+        </div>
+        <div class="parte">
+          <div class="avatar">AO</div>
+          <div>
+            <div class="nome">Antônio Oliveira</div>
+            <div class="papel">Testemunha</div>
+          </div>
+        </div>
+        <div class="parte">
+          <div class="avatar">IM</div>
+          <div>
+            <div class="nome">Ivete Magalhães</div>
+            <div class="papel">Testemunha</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="side-block">
+        <h3>Encaminhamentos</h3>
+        <div class="parte" style="grid-template-columns:32px 1fr auto">
+          <div class="avatar ent" style="background:var(--bordo-soft);color:var(--bordo);border-color:var(--bordo)">OF</div>
+          <div>
+            <div class="nome">Of. 0142/2026 → SEMOB</div>
+            <div class="papel">Respondido · 9 dias</div>
+          </div>
+          <div class="papel" style="color:var(--olive)">14/05</div>
+        </div>
+      </div>
+
+      <div class="side-block">
+        <h3>Anexos · 4</h3>
+        <div class="anexo">
+          <div class="ico">PDF</div>
+          <div class="nome">Of-0142-2026.pdf <small>Mariana Costa · 05/05</small></div>
+          <div class="tam">218 KB</div>
+        </div>
+        <div class="anexo">
+          <div class="ico">PDF</div>
+          <div class="nome">SEMOB-resp-318.pdf <small>recebido · 14/05</small></div>
+          <div class="tam">94 KB</div>
+        </div>
+        <div class="anexo">
+          <div class="ico">JPG</div>
+          <div class="nome">fotos-local-noite.zip <small>vistoria 03/05</small></div>
+          <div class="tam">3,4 MB</div>
+        </div>
+        <div class="anexo">
+          <div class="ico">WAV</div>
+          <div class="nome">audio-sebastiana.ogg <small>WhatsApp · 02/05</small></div>
+          <div class="tam">1,1 MB</div>
+        </div>
+      </div>
+
+    </aside>
+  </div>
+
+</article>
+
+</main>
+
+</body>
+</html>

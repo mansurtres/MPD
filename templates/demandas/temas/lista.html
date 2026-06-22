@@ -1,60 +1,82 @@
 {% extends "layouts/app.html" %}
 
 {% block app_conteudo %}
-<div class="flex items-center justify-between mb-6">
-  <h1 class="text-xl font-semibold text-slate-900">Temas</h1>
-  {% if perms.demandas.add_tema %}
-  <a href="{% url 'demandas:tema_novo' %}" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2 rounded-lg">
-    Novo tema
-  </a>
-  {% endif %}
+<div class="lista-page">
+
+<div class="page-head">
+  <div>
+    <div class="breadcrumb">
+      <a href="/" style="text-decoration:none;color:var(--ink-mute)">Início</a>
+      <span class="sep">/</span>
+      <a href="{% url 'core:configuracoes' %}" style="text-decoration:none;color:var(--ink-mute)">Configurações</a>
+      <span class="sep">/</span>
+      <span style="color:var(--primary);font-weight:var(--fw-semibold)">Temas</span>
+    </div>
+    <h1>Temas</h1>
+  </div>
+  <div class="head-actions">
+    {% if perms.demandas.add_tema %}
+    <a href="{% url 'demandas:tema_novo' %}" class="btn primary"><span class="arr">+</span>Novo tema</a>
+    {% endif %}
+  </div>
 </div>
 
-<div class="bg-white border border-slate-200 rounded-xl overflow-hidden">
-  {% if temas %}
-  <table class="w-full text-sm">
+{% if temas %}
+<div class="ledger">
+  <table>
     <thead>
-      <tr class="border-b border-slate-200 bg-slate-50">
-        <th class="text-left px-4 py-3 font-medium text-slate-600">Nome</th>
-        <th class="text-left px-4 py-3 font-medium text-slate-600">Status</th>
-        <th class="px-4 py-3"></th>
+      <tr>
+        <th>Nome</th>
+        <th>Status</th>
+        <th></th>
       </tr>
     </thead>
-    <tbody class="divide-y divide-slate-100">
+    <tbody>
       {% for t in temas %}
-      <tr class="hover:bg-slate-50">
-        <td class="px-4 py-3 font-medium">
+      <tr>
+        <td>
           {% if t.cor %}
-          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium" style="background: color-mix(in srgb, {{ t.cor }} 18%, white); color: color-mix(in srgb, {{ t.cor }} 75%, black);">{{ t.nome }}</span>
+          <span style="display:inline-flex;align-items:center;gap:8px;">
+            <span style="width:12px;height:12px;border-radius:50%;background:{{ t.cor }};flex:none;border:1px solid rgba(0,0,0,0.08);"></span>
+            <span style="display:inline-flex;align-items:center;padding:2px 8px;font-family:var(--font-mono);font-size:11.5px;font-weight:var(--fw-semibold);background:color-mix(in srgb,{{ t.cor }} 14%,white);color:color-mix(in srgb,{{ t.cor }} 75%,black);">{{ t.nome }}</span>
+          </span>
           {% else %}
-          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">{{ t.nome }}</span>
+          <span style="display:inline-flex;align-items:center;padding:2px 8px;font-family:var(--font-mono);font-size:11.5px;font-weight:var(--fw-semibold);background:var(--ink-100);color:var(--ink-soft);">{{ t.nome }}</span>
           {% endif %}
         </td>
-        <td class="px-4 py-3">
+        <td>
           {% if t.ativo %}
-          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Ativo</span>
+          <span class="badge" style="background:var(--rs-atend-bg);color:var(--rs-atend-fg);border-color:rgba(52,64,34,0.35)"><span class="dot"></span>Ativo</span>
           {% else %}
-          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-200 text-slate-600">Arquivado</span>
+          <span class="badge" style="background:var(--st-arq-bg);color:var(--st-arq-fg);border-color:rgba(83,76,65,0.45)"><span class="dot"></span>Arquivado</span>
           {% endif %}
         </td>
-        <td class="px-4 py-3 text-right">
-          <div class="flex gap-3 justify-end items-center">
-            {% if perms.demandas.change_tema %}
-            <a href="{% url 'demandas:tema_editar' t.pk %}" class="text-slate-500 hover:text-slate-800">Editar</a>
-            {% endif %}
-            {% if perms.demandas.delete_tema %}
-            <a href="{% url 'demandas:tema_remover' t.pk %}" class="text-slate-500 hover:text-red-600">Remover</a>
-            {% endif %}
-          </div>
+        <td style="text-align:right;white-space:nowrap">
+          {% if perms.demandas.change_tema %}
+          <a href="{% url 'demandas:tema_editar' t.pk %}" class="btn secondary sm">Editar</a>
+          {% endif %}
+          {% if perms.demandas.delete_tema %}
+          <a href="{% url 'demandas:tema_remover' t.pk %}" class="btn ghost sm" style="color:var(--ink-mute)">Remover</a>
+          {% endif %}
         </td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
-  {% else %}
-  <div class="px-4 py-12 text-center text-sm text-slate-500">
-    Nenhum tema cadastrado.
+  <div class="ledger-foot">
+    <div class="info"><strong>{{ temas|length }}</strong> tema{{ temas|length|pluralize }}</div>
   </div>
+</div>
+{% else %}
+<div class="empty-state">
+  <div class="icon-area">#</div>
+  <h3>Nenhum tema cadastrado ainda</h3>
+  <p class="desc">Temas classificam demandas por área temática. Crie o primeiro.</p>
+  {% if perms.demandas.add_tema %}
+  <a href="{% url 'demandas:tema_novo' %}" class="btn primary"><span class="arr">+</span>Novo tema</a>
   {% endif %}
+</div>
+{% endif %}
+
 </div>
 {% endblock %}

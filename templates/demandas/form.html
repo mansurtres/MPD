@@ -1,317 +1,820 @@
 {% extends "layouts/app.html" %}
 
 {% block app_conteudo %}
-<div class="max-w-4xl">
-  <div class="flex items-center gap-3 mb-6">
-    <a href="{% url 'demandas:demanda_lista' %}" class="text-sm text-slate-500 hover:text-slate-800">← Demandas</a>
-    <span class="text-slate-300">/</span>
-    <h1 class="text-xl font-semibold text-slate-900">{{ titulo }}</h1>
-  </div>
+<style>
+  /* ════════════════════════════════════════════════════════════════
+     FORM DE DEMANDA · porte fiel de prototipo/project/v2/nova-demanda.html
+     ════════════════════════════════════════════════════════════════ */
 
-  <form method="post" enctype="multipart/form-data" novalidate class="space-y-6" id="demanda-form">
+  .form-page { max-width: 920px; margin: 0 auto; }
+
+  /* Documento do form — filete navy direto no .doc, breadcrumb fica fora */
+  .form-page .doc {
+    background: var(--surface-2);
+    box-shadow: var(--shadow-lg);
+    border-top: 6px solid var(--primary);
+  }
+
+  /* Cabeçalho editorial */
+  .form-page .form-head {
+    padding: 32px 36px 24px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .form-page .form-head h1 {
+    font-family: var(--font-display); font-weight: 600;
+    font-size: 36px; line-height: 1.1; letter-spacing: -0.025em;
+    color: var(--ink); margin: 0 0 8px;
+  }
+  .form-page .form-head .sub {
+    font-family: var(--font-serif); font-size: 15px;
+    line-height: 1.55; color: var(--ink-body);
+    margin: 0; max-width: 60ch; font-style: italic;
+  }
+  .form-page .form-head .sub strong {
+    color: var(--ink); font-weight: 600; font-style: normal;
+  }
+
+  /* Corpo do form */
+  .form-page .form-body { padding: 28px 36px 36px; }
+  .form-page .section {
+    margin-bottom: 32px;
+    padding-bottom: 28px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .form-page .section:last-of-type {
+    border-bottom: 0;
+    padding-bottom: 0;
+    margin-bottom: 0;
+  }
+  .form-page .section-mark {
+    font-family: var(--font-mono); font-size: 10.5px;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--primary); font-weight: 700;
+    margin-bottom: 14px;
+    display: flex; align-items: baseline; gap: 12px;
+  }
+  .form-page .section-mark .num { color: var(--ink-mute); }
+  .form-page .section-mark .req {
+    margin-left: auto; color: var(--ink-mute);
+    font-weight: 500; letter-spacing: 0.04em; text-transform: none;
+    font-style: italic; font-family: var(--font-serif); font-size: 13px;
+  }
+
+  /* Botões à direita do section-mark · padrão das CTAs de seção */
+  .form-page .section-mark .section-actions {
+    margin-left: auto; display: flex; gap: 6px;
+  }
+  .form-page .section-mark .acao-mini {
+    background: var(--surface-2);
+    color: var(--primary);
+    border: 1px solid var(--primary);
+    font-family: var(--font-mono); font-size: 10.5px;
+    font-weight: 700; letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 5px 11px; cursor: pointer;
+    transition: background .12s, color .12s;
+  }
+  .form-page .section-mark .acao-mini:hover {
+    background: var(--primary); color: var(--primary-fg);
+  }
+
+
+  /* Field — label mono uppercase + input/textarea/select */
+  .form-page .field { margin-bottom: 16px; }
+  .form-page .field > label.lbl {
+    display: block;
+    font-family: var(--font-mono); font-size: 10.5px;
+    font-weight: 700; color: var(--ink-mute);
+    letter-spacing: 0.1em; text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .form-page .field > label.lbl .req { color: var(--danger-500); margin-left: 2px; }
+  .form-page .field > label.lbl .hint {
+    font-family: var(--font-serif); font-style: italic;
+    color: var(--ink-mute); font-weight: 400; font-size: 12px;
+    text-transform: none; letter-spacing: 0;
+    margin-left: 8px;
+  }
+  .form-page .field .help {
+    font-family: var(--font-serif); font-style: italic;
+    font-size: 12.5px; color: var(--ink-mute);
+    margin-top: 6px; line-height: 1.4;
+  }
+  .form-page .field .err {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--danger-600); margin-top: 4px;
+  }
+  .form-page .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 720px) {
+    .form-page .field-row { grid-template-columns: 1fr; }
+  }
+
+  /* Inputs/select/textarea — sobrescrevem o bridge global */
+  .form-page .field input[type=text],
+  .form-page .field input[type=email],
+  .form-page .field input[type=date],
+  .form-page .field input[type=number],
+  .form-page .field input[type=url],
+  .form-page .field textarea,
+  .form-page .field select {
+    width: 100%;
+    background: var(--surface-3) !important;
+    border: 1px solid var(--rule-strong) !important;
+    color: var(--ink) !important;
+    font-family: var(--font-mono) !important;
+    font-size: 13px !important;
+    padding: 9px 12px !important;
+    outline: 0;
+    border-radius: 0 !important;
+  }
+  .form-page .field input:focus,
+  .form-page .field textarea:focus,
+  .form-page .field select:focus {
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 3px rgba(31,58,95,0.10) !important;
+  }
+  /* Título → input grande tipográfico serif */
+  .form-page .field.titulo input[type=text] {
+    font-family: var(--font-serif) !important;
+    font-size: 18px !important;
+    line-height: 1.4 !important;
+    padding: 12px 14px !important;
+  }
+  /* Descrição → textarea serif grande */
+  .form-page .field.descricao textarea {
+    font-family: var(--font-serif) !important;
+    font-size: 16px !important;
+    line-height: 1.55 !important;
+    resize: vertical;
+    min-height: 200px;
+    padding: 14px 16px !important;
+  }
+
+  /* Toggle segmentado · origem */
+  .form-page .seg {
+    display: flex; gap: 0;
+    border: 1px solid var(--rule-strong);
+  }
+  .form-page .seg label {
+    flex: 1; cursor: pointer;
+    padding: 11px 14px;
+    border-right: 1px solid var(--rule-strong);
+    font-family: var(--font-mono); font-size: 11.5px;
+    letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--ink-soft); font-weight: 600;
+    text-align: center;
+    background: var(--surface-3);
+    margin: 0;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .form-page .seg label:last-child { border-right: 0; }
+  .form-page .seg label.on,
+  .form-page .seg label:has(input:checked) {
+    background: var(--primary); color: var(--primary-fg);
+  }
+  /* Esconde o radio visualmente mas mantém clicável via label */
+  .form-page .seg label input {
+    position: absolute; opacity: 0; pointer-events: none;
+    width: 0; height: 0;
+  }
+  .form-page .seg label .desc {
+    font-family: var(--font-serif); font-style: italic;
+    font-size: 11.5px; opacity: 0.85; text-transform: none;
+    letter-spacing: 0; font-weight: 400;
+  }
+
+  /* Checkbox em bloco · restrita */
+  .form-page label.check {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 12px 14px;
+    background: var(--surface-3);
+    border: 1px solid var(--rule-strong);
+    cursor: pointer;
+    margin-bottom: 10px;
+  }
+  .form-page label.check input { margin-top: 3px; accent-color: var(--primary); }
+  .form-page label.check .body {
+    font-family: var(--font-sans); font-size: 12.5px;
+    color: var(--ink-body); line-height: 1.5;
+  }
+  .form-page label.check .body strong { color: var(--ink); font-weight: 600; }
+
+  /* Temas — chips clicáveis */
+  .form-page .chips { display: flex; flex-wrap: wrap; gap: 5px; }
+  .form-page .chips .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--surface-3);
+    border: 1px solid var(--rule-strong);
+    padding: 5px 11px;
+    font-family: var(--font-mono); font-size: 11.5px;
+    color: var(--ink-soft); cursor: pointer;
+    letter-spacing: 0.04em; text-transform: uppercase;
+    font-weight: 600;
+    transition: background .12s, color .12s, border-color .12s;
+  }
+  .form-page .chips .chip:hover { color: var(--ink); border-color: var(--ink); }
+  .form-page .chips .chip input { display: none; }
+  .form-page .chips .chip:has(input:checked) {
+    background: var(--ink-800); color: var(--surface-2); border-color: var(--ink-800);
+  }
+  .form-page .chips .chip.add {
+    background: transparent;
+    border-style: dashed;
+    color: var(--ink-mute);
+  }
+  .form-page .chips .chip.add:hover { color: var(--primary); border-color: var(--primary); border-style: solid; }
+
+  /* Popup novo tema */
+  .form-page .popup-tema {
+    margin-top: 14px;
+    background: var(--surface-1);
+    border: 1px solid var(--rule);
+    padding: 14px 16px;
+  }
+  .form-page .popup-tema[hidden] { display: none; }
+  .form-page .popup-tema .grid { display: grid; grid-template-columns: 2fr 1fr; gap: 14px; align-items: end; }
+  .form-page .popup-tema .paleta { display: flex; flex-wrap: wrap; gap: 5px; }
+  .form-page .popup-tema .paleta button {
+    width: 22px; height: 22px;
+    border: 1px solid var(--rule-strong);
+    cursor: pointer; padding: 0; border-radius: 50%;
+  }
+  .form-page .popup-tema .paleta button.sel {
+    outline: 2px solid var(--primary); outline-offset: 2px;
+  }
+  .form-page .popup-tema .acts {
+    display: flex; gap: 8px; margin-top: 12px; align-items: center;
+  }
+  .form-page .popup-tema .err {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--danger-600); margin-left: auto;
+  }
+
+  /* Formset · linha de parte (pessoa ou entidade) */
+  .form-page .formset {
+    border: 1px solid var(--rule-strong);
+    background: var(--surface-3);
+  }
+  .form-page .formset-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 36px;
+    gap: 10px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--rule);
+    align-items: end;
+  }
+  .form-page .formset-row:last-of-type { border-bottom: 0; }
+  .form-page .formset-row label.mini {
+    display: block;
+    font-family: var(--font-mono); font-size: 9.5px;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--ink-mute); font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .form-page .formset-row .del-cell {
+    display: flex; align-items: center; justify-content: center;
+    height: 100%;
+  }
+  .form-page .formset-row .del-cell label {
+    display: flex; align-items: center; gap: 4px;
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--danger-600); cursor: pointer;
+    text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .form-page .formset-row .del-cell label:hover { color: var(--danger-700); }
+
+  /* Drop area de anexos */
+  .form-page .drop {
+    display: block; cursor: pointer;
+    background: var(--surface-3);
+    border: 1.5px dashed var(--rule-strong);
+    padding: 28px 20px;
+    text-align: center;
+    font-family: var(--font-serif); font-size: 14px;
+    color: var(--ink-mute);
+    transition: border-color .15s, background .15s;
+  }
+  .form-page .drop:hover,
+  .form-page .drop.dragging { border-color: var(--primary); background: var(--surface-2); }
+  .form-page .drop.dragging { border-style: solid; }
+  .form-page .drop strong { color: var(--ink); font-weight: 600; }
+  .form-page .drop .or {
+    font-style: italic; margin: 0 8px;
+  }
+  .form-page .drop .browse {
+    display: inline-block;
+    background: var(--surface-2); border: 1px solid var(--rule-strong);
+    padding: 5px 12px;
+    font-family: var(--font-mono); font-size: 12px; color: var(--ink);
+    letter-spacing: 0.04em; text-transform: uppercase; font-weight: 600;
+  }
+  .form-page .drop .types {
+    margin-top: 10px;
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--ink-mute); letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  .form-page .drop input[type=file] { display: none; }
+
+  /* Lista de anexos selecionados (renderizada via JS) */
+  .form-page .anexos-lista { margin-top: 10px; display: grid; gap: 6px; }
+  .form-page .anexo-sel {
+    display: grid; grid-template-columns: 36px 1fr auto auto;
+    gap: 12px; align-items: center;
+    padding: 10px 12px;
+    background: var(--surface-3); border: 1px solid var(--rule);
+  }
+  .form-page .anexo-sel .ext {
+    font-family: var(--font-mono); font-size: 9px;
+    background: var(--ink-800); color: var(--surface-2);
+    padding: 4px 5px; letter-spacing: 0.08em; font-weight: 700;
+    text-align: center; line-height: 1;
+  }
+  .form-page .anexo-sel .nome {
+    font-family: var(--font-mono); font-size: 12.5px;
+    color: var(--ink); font-weight: 500;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .form-page .anexo-sel .tam {
+    font-family: var(--font-mono); font-size: 10.5px;
+    color: var(--ink-mute);
+  }
+  .form-page .anexo-sel .x {
+    background: transparent; border: 0;
+    color: var(--ink-mute); cursor: pointer;
+    font-family: var(--font-mono); font-size: 14px;
+    padding: 2px 6px;
+  }
+  .form-page .anexo-sel .x:hover { color: var(--danger-600); }
+
+  /* Rodapé sticky */
+  .form-page .form-foot {
+    position: sticky; bottom: 0;
+    background: var(--surface-1);
+    border-top: 2px solid var(--ink-200);
+    padding: 16px 36px;
+    display: flex; justify-content: space-between; align-items: center; gap: 14px;
+    z-index: 5;
+  }
+  .form-page .form-foot .left {
+    font-family: var(--font-serif); font-style: italic;
+    font-size: 13px; color: var(--ink-mute);
+  }
+  .form-page .form-foot .left strong {
+    color: var(--ink-strong); font-family: var(--font-mono);
+    font-weight: 700; font-style: normal;
+    letter-spacing: 0.02em;
+  }
+  .form-page .form-foot .right { display: flex; gap: 8px; }
+</style>
+
+<div class="page-head" style="margin-bottom: 16px">
+  <div>
+    <div class="breadcrumb">
+      <a href="/" style="text-decoration:none;color:var(--ink-mute)">Início</a>
+      <span class="sep">/</span>
+      {% if item_inbox %}
+      <a href="{% url 'demandas:inbox_lista' %}" style="text-decoration:none;color:var(--ink-mute)">Inbox</a>
+      <span class="sep">/</span>
+      <span style="color:var(--primary);font-weight:var(--fw-semibold)">Processar</span>
+      {% else %}
+      <a href="{% url 'demandas:demanda_lista' %}" style="text-decoration:none;color:var(--ink-mute)">Demandas</a>
+      <span class="sep">/</span>
+      <span style="color:var(--primary);font-weight:var(--fw-semibold)">{% if view.object %}{{ view.object.numero }} · editar{% else %}Nova{% endif %}</span>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="form-page">
+<article class="doc">
+
+  {% if item_inbox %}
+  <div style="background: var(--info-50); border-bottom: 1px solid var(--info-200); border-top: 2px solid var(--info-500); padding: 14px 36px; display: grid; grid-template-columns: 32px 1fr; gap: 16px; align-items: start;">
+    <div style="width: 28px; height: 28px; display: grid; place-items: center; font-family: var(--font-serif); font-style: italic; font-size: 18px; font-weight: 700; background: var(--info-500); color: #fff;">i</div>
+    <div>
+      <div style="font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; color: var(--info-700); margin-bottom: 4px;">Item original do inbox</div>
+      <p style="font-family: var(--font-serif); font-size: 15px; line-height: 1.5; color: var(--ink); margin: 0 0 8px; white-space: pre-line;">{{ item_inbox.conteudo }}</p>
+      <div style="font-family: var(--font-mono); font-size: 11px; color: var(--ink-mute); letter-spacing: 0.04em;">
+        Capturado em {{ item_inbox.criado_em|date:"d/m/Y H:i" }} por {{ item_inbox.autor.nome_completo|default:item_inbox.autor.email }}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <header class="form-head">
+    <h1>{% if view.object %}Editar {{ view.object.numero }}{% elif item_inbox %}Processar item — nova demanda{% else %}Nova demanda{% endif %}</h1>
+    <p class="sub">
+      {% if view.object %}
+        Ajuste os campos abaixo. Mudanças geram registros automáticos na timeline.
+      {% elif item_inbox %}
+        Estes campos vêm pré-preenchidos a partir da captura — ajuste o que precisar antes de salvar. Ao confirmar, o item de inbox é marcado como <strong>processado</strong> e fica vinculado à nova demanda.
+      {% else %}
+        Registre uma nova solicitação ou ação do mandato. <strong>Receberá um número automático</strong> ao salvar.
+      {% endif %}
+    </p>
+  </header>
+
+  {% include "_form_erros_resumo.html" with form=form formsets=formsets %}
+
+  <form method="post" enctype="multipart/form-data" novalidate id="demanda-form">
     {% csrf_token %}
 
-    {% if form.non_field_errors %}
-    <div class="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-      {% for erro in form.non_field_errors %}{{ erro }}<br>{% endfor %}
-    </div>
-    {% endif %}
+    <div class="form-body">
 
-    <section class="bg-white border border-slate-200 rounded-xl p-6">
-      <h2 class="text-base font-semibold text-slate-900 mb-4">Identificação</h2>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div class="md:col-span-2">
-          <label class="block text-sm font-medium text-slate-700 mb-1">Título *</label>
+      {# ─── §01 Identificação ─── #}
+      <section class="section">
+        <div class="section-mark"><span class="num">01</span>Identificação<span class="req">campos obrigatórios *</span></div>
+
+        <div class="field titulo">
+          <label class="lbl">Título <span class="req">*</span></label>
           {{ form.titulo }}
-          {% for e in form.titulo.errors %}<p class="mt-1 text-xs text-red-600">{{ e }}</p>{% endfor %}
+          {% for e in form.titulo.errors %}<p class="err">{{ e }}</p>{% endfor %}
         </div>
-        <div class="md:col-span-2">
-          <label class="block text-sm font-medium text-slate-700 mb-1">Descrição *</label>
-          {{ form.descricao }}
-          {% for e in form.descricao.errors %}<p class="mt-1 text-xs text-red-600">{{ e }}</p>{% endfor %}
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">Origem *</label>
-          {{ form.origem }}
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">Canal de entrada *</label>
-          {{ form.canal_entrada }}
-          {% for e in form.canal_entrada.errors %}<p class="mt-1 text-xs text-red-600">{{ e }}</p>{% endfor %}
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">Coordenação responsável *</label>
-          {{ form.coordenacao_responsavel }}
-          {% for e in form.coordenacao_responsavel.errors %}<p class="mt-1 text-xs text-red-600">{{ e }}</p>{% endfor %}
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">Responsável</label>
-          {{ form.responsavel }}
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">Prioridade</label>
-          {{ form.prioridade }}
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">Prazo</label>
-          {{ form.prazo }}
-        </div>
-        <label class="inline-flex items-center gap-2 text-sm md:col-span-2">
-          {{ form.anonimo }} <span>Demanda anônima (sem partes identificadas)</span>
-        </label>
-        <label class="inline-flex items-center gap-2 text-sm md:col-span-2">
-          {{ form.restrito }} <span>Demanda restrita (apenas responsável + chefia)</span>
-        </label>
-      </div>
-    </section>
 
-    <section class="bg-white border border-slate-200 rounded-xl p-6">
-      <h2 class="text-base font-semibold text-slate-900 mb-2">Partes — Pessoas</h2>
-      <p class="text-xs text-slate-500 mb-3">Vincule pessoas afetadas. Marque "anônima" acima se a demanda não tem pessoa identificada.</p>
-      {{ formsets.pessoas.management_form }}
-      {% if formsets.pessoas.non_form_errors %}
-      <div class="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-3">
-        {% for erro in formsets.pessoas.non_form_errors %}{{ erro }}<br>{% endfor %}
-      </div>
-      {% endif %}
-      <div class="space-y-3" id="formset-pessoas">
-        {% for sub in formsets.pessoas %}
-        <div class="grid grid-cols-1 md:grid-cols-12 gap-2 items-end border border-slate-100 rounded-lg p-3 papel-row">
-          <div class="md:col-span-6">
-            <label class="block text-xs font-medium text-slate-600 mb-1">Pessoa</label>
-            {{ sub.pessoa }}
-            {% for e in sub.pessoa.errors %}<p class="mt-1 text-xs text-red-600">{{ e }}</p>{% endfor %}
+        <div class="field">
+          <label class="lbl">Origem <span class="req">*</span></label>
+          <div class="seg">
+            {% for radio in form.origem %}
+            <label>
+              {{ radio.tag }}
+              {{ radio.choice_label }}
+              {% if radio.choice_label|lower == "responsiva" %}<span class="desc">— cidadão pediu</span>
+              {% elif radio.choice_label|lower == "proativa" %}<span class="desc">— gabinete iniciou</span>{% endif %}
+            </label>
+            {% endfor %}
           </div>
-          <div class="md:col-span-3">
-            <label class="block text-xs font-medium text-slate-600 mb-1">Papel</label>
-            {{ sub.papel }}
-          </div>
-          <div class="md:col-span-2 papel-outro-wrap">
-            <label class="block text-xs font-medium text-slate-600 mb-1">Especifique</label>
-            {{ sub.papel_outro }}
-            {% for e in sub.papel_outro.errors %}<p class="mt-1 text-xs text-red-600">{{ e }}</p>{% endfor %}
-          </div>
-          <div class="md:col-span-1 flex items-center justify-end">
-            {% if sub.instance.pk %}<label class="text-xs text-red-600 inline-flex items-center gap-1">{{ sub.DELETE }} remover</label>{% endif %}
-          </div>
-          {{ sub.id }}
+          {% for e in form.origem.errors %}<p class="err">{{ e }}</p>{% endfor %}
         </div>
-        {% endfor %}
-      </div>
-    </section>
 
-    <section class="bg-white border border-slate-200 rounded-xl p-6">
-      <h2 class="text-base font-semibold text-slate-900 mb-2">Partes — Entidades</h2>
-      {{ formsets.entidades.management_form }}
-      {% if formsets.entidades.non_form_errors %}
-      <div class="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-3">
-        {% for erro in formsets.entidades.non_form_errors %}{{ erro }}<br>{% endfor %}
-      </div>
-      {% endif %}
-      <div class="space-y-3" id="formset-entidades">
-        {% for sub in formsets.entidades %}
-        <div class="grid grid-cols-1 md:grid-cols-12 gap-2 items-end border border-slate-100 rounded-lg p-3 papel-row">
-          <div class="md:col-span-6">
-            <label class="block text-xs font-medium text-slate-600 mb-1">Entidade</label>
-            {{ sub.entidade }}
-            {% for e in sub.entidade.errors %}<p class="mt-1 text-xs text-red-600">{{ e }}</p>{% endfor %}
+        <div class="field-row">
+          <div class="field">
+            <label class="lbl">Canal de entrada <span class="req">*</span></label>
+            {{ form.canal_entrada }}
+            {% for e in form.canal_entrada.errors %}<p class="err">{{ e }}</p>{% endfor %}
           </div>
-          <div class="md:col-span-3">
-            <label class="block text-xs font-medium text-slate-600 mb-1">Papel</label>
-            {{ sub.papel }}
-          </div>
-          <div class="md:col-span-2 papel-outro-wrap">
-            <label class="block text-xs font-medium text-slate-600 mb-1">Especifique</label>
-            {{ sub.papel_outro }}
-            {% for e in sub.papel_outro.errors %}<p class="mt-1 text-xs text-red-600">{{ e }}</p>{% endfor %}
-          </div>
-          <div class="md:col-span-1 flex items-center justify-end">
-            {% if sub.instance.pk %}<label class="text-xs text-red-600 inline-flex items-center gap-1">{{ sub.DELETE }} remover</label>{% endif %}
-          </div>
-          {{ sub.id }}
+          <div class="field"><!-- coluna vazia para manter o grid --></div>
         </div>
-        {% endfor %}
-      </div>
-    </section>
 
-    <section class="bg-white border border-slate-200 rounded-xl p-6">
-      <div class="flex items-center justify-between mb-3">
-        <h2 class="text-base font-semibold text-slate-900">Temas</h2>
-        {% if perms.demandas.add_tema %}
-        <button type="button" id="abrir-novo-tema"
-                class="text-sm text-slate-700 hover:text-slate-900 underline">
-          + Novo tema
-        </button>
-        {% endif %}
-      </div>
-
-      <div class="flex flex-wrap gap-3" id="temas-checkboxes">
-        {% for choice in form.temas %}
-        <label class="inline-flex items-center gap-2 text-sm">
-          {{ choice.tag }} <span>{{ choice.choice_label }}</span>
-        </label>
-        {% endfor %}
-        {% if not form.temas.field.queryset.exists %}
-        <span class="text-sm text-slate-500" id="sem-temas-msg">Nenhum tema cadastrado ainda. Use "+ Novo tema" para criar agora.</span>
-        {% endif %}
-      </div>
-
-      {% if perms.demandas.add_tema %}
-      <div id="popup-novo-tema" class="hidden mt-4 border-t border-slate-100 pt-4">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
-          <div class="md:col-span-2">
-            <label class="block text-xs font-medium text-slate-600 mb-1">Nome do tema</label>
-            <input type="text" id="novo-tema-nome" placeholder="Ex.: Saúde, Educação, Cultura..."
-                   class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400">
+        <div class="field">
+          <label class="lbl">Tema <span class="hint">marque um ou mais</span></label>
+          <div class="chips" id="temas-checkboxes">
+            {% for choice in form.temas %}
+            <label class="chip">{{ choice.tag }} {{ choice.choice_label }}</label>
+            {% endfor %}
+            {% if perms.demandas.add_tema %}
+            <button type="button" class="chip add" id="abrir-novo-tema">+ Novo tema</button>
+            {% endif %}
           </div>
-          <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Cor (opcional)</label>
-            <div id="paleta-cores" class="flex flex-wrap gap-1.5">
-              <button type="button" data-cor="" class="cor-btn w-6 h-6 rounded-full border border-slate-300 bg-slate-100" title="Sem cor"></button>
-              <button type="button" data-cor="#d50000" class="cor-btn w-6 h-6 rounded-full border border-slate-300" style="background:#d50000" title="Tomate"></button>
-              <button type="button" data-cor="#e67c73" class="cor-btn w-6 h-6 rounded-full border border-slate-300" style="background:#e67c73" title="Flamingo"></button>
-              <button type="button" data-cor="#f4511e" class="cor-btn w-6 h-6 rounded-full border border-slate-300" style="background:#f4511e" title="Tangerina"></button>
-              <button type="button" data-cor="#f6bf26" class="cor-btn w-6 h-6 rounded-full border border-slate-300" style="background:#f6bf26" title="Banana"></button>
-              <button type="button" data-cor="#33b679" class="cor-btn w-6 h-6 rounded-full border border-slate-300" style="background:#33b679" title="Sálvia"></button>
-              <button type="button" data-cor="#0b8043" class="cor-btn w-6 h-6 rounded-full border border-slate-300" style="background:#0b8043" title="Manjericão"></button>
-              <button type="button" data-cor="#039be5" class="cor-btn w-6 h-6 rounded-full border border-slate-300" style="background:#039be5" title="Pavão"></button>
-              <button type="button" data-cor="#3f51b5" class="cor-btn w-6 h-6 rounded-full border border-slate-300" style="background:#3f51b5" title="Mirtilo"></button>
-              <button type="button" data-cor="#7986cb" class="cor-btn w-6 h-6 rounded-full border border-slate-300" style="background:#7986cb" title="Lavanda"></button>
-              <button type="button" data-cor="#8e24aa" class="cor-btn w-6 h-6 rounded-full border border-slate-300" style="background:#8e24aa" title="Uva"></button>
-              <button type="button" data-cor="#616161" class="cor-btn w-6 h-6 rounded-full border border-slate-300" style="background:#616161" title="Grafite"></button>
+          {% if not form.temas.field.queryset.exists %}
+          <p class="help" id="sem-temas-msg">Nenhum tema cadastrado ainda. Use "+ Novo tema" para criar agora.</p>
+          {% endif %}
+
+          {% if perms.demandas.add_tema %}
+          <div id="popup-novo-tema" class="popup-tema" hidden>
+            <div class="grid">
+              <div class="field">
+                <label class="lbl">Nome do tema</label>
+                <input type="text" id="novo-tema-nome" placeholder="Ex.: Saúde, Educação, Cultura…">
+              </div>
+              <div class="field">
+                <label class="lbl">Cor <span class="hint">opcional</span></label>
+                <div class="paleta" id="paleta-cores">
+                  <button type="button" data-cor="" style="background:var(--surface-1)" title="Sem cor"></button>
+                  <button type="button" data-cor="#d50000" style="background:#d50000" title="Tomate"></button>
+                  <button type="button" data-cor="#e67c73" style="background:#e67c73" title="Flamingo"></button>
+                  <button type="button" data-cor="#f4511e" style="background:#f4511e" title="Tangerina"></button>
+                  <button type="button" data-cor="#f6bf26" style="background:#f6bf26" title="Banana"></button>
+                  <button type="button" data-cor="#33b679" style="background:#33b679" title="Sálvia"></button>
+                  <button type="button" data-cor="#0b8043" style="background:#0b8043" title="Manjericão"></button>
+                  <button type="button" data-cor="#039be5" style="background:#039be5" title="Pavão"></button>
+                  <button type="button" data-cor="#3f51b5" style="background:#3f51b5" title="Mirtilo"></button>
+                  <button type="button" data-cor="#7986cb" style="background:#7986cb" title="Lavanda"></button>
+                  <button type="button" data-cor="#8e24aa" style="background:#8e24aa" title="Uva"></button>
+                  <button type="button" data-cor="#616161" style="background:#616161" title="Grafite"></button>
+                </div>
+              </div>
+            </div>
+            <div class="acts">
+              <button type="button" id="confirmar-novo-tema" class="btn primary">Criar e selecionar</button>
+              <button type="button" id="cancelar-novo-tema" class="btn ghost">Cancelar</button>
+              <span id="erro-novo-tema" class="err" hidden></span>
             </div>
           </div>
+          {% endif %}
         </div>
-        <div class="flex gap-2 mt-3">
-          <button type="button" id="confirmar-novo-tema"
-                  class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-4 py-1.5 rounded-lg">
-            Criar e selecionar
-          </button>
-          <button type="button" id="cancelar-novo-tema"
-                  class="text-sm text-slate-500 hover:text-slate-800 px-3 py-1.5">
-            Cancelar
-          </button>
-          <span id="erro-novo-tema" class="hidden self-center text-xs text-red-600"></span>
+
+        <div class="field-row">
+          <div class="field">
+            <label class="lbl">Responsável <span class="hint">opcional</span></label>
+            {{ form.responsavel }}
+          </div>
+          <div class="field">
+            <label class="lbl">Prioridade</label>
+            {{ form.prioridade }}
+          </div>
         </div>
-      </div>
 
-      <script>
-      (function () {
-        const abrir = document.getElementById('abrir-novo-tema');
-        const popup = document.getElementById('popup-novo-tema');
-        const cancelar = document.getElementById('cancelar-novo-tema');
-        const confirmar = document.getElementById('confirmar-novo-tema');
-        const inputNome = document.getElementById('novo-tema-nome');
-        const erroBox = document.getElementById('erro-novo-tema');
-        const paleta = document.getElementById('paleta-cores');
-        const container = document.getElementById('temas-checkboxes');
-        if (!abrir) return;
+      </section>
 
-        let corSelecionada = '';
+      {# ─── §02 Descrição ─── #}
+      <section class="section">
+        <div class="section-mark"><span class="num">02</span>Descrição</div>
 
-        paleta.querySelectorAll('.cor-btn').forEach((b) => {
-          b.addEventListener('click', () => {
-            corSelecionada = b.dataset.cor;
-            paleta.querySelectorAll('.cor-btn').forEach((x) => x.classList.remove('ring-2', 'ring-offset-2', 'ring-slate-400'));
-            b.classList.add('ring-2', 'ring-offset-2', 'ring-slate-400');
-          });
-        });
+        <div class="field descricao">
+          <label class="lbl">Relato completo <span class="req">*</span></label>
+          {{ form.descricao }}
+          {% for e in form.descricao.errors %}<p class="err">{{ e }}</p>{% endfor %}
+          <div class="help">Use parágrafos. O texto fica preservado em serif na ficha da demanda.</div>
+        </div>
+      </section>
 
-        abrir.addEventListener('click', () => {
-          popup.classList.remove('hidden');
-          inputNome.focus();
-          erroBox.classList.add('hidden');
-        });
+      {# ─── §03 Partes envolvidas ─── #}
+      <section class="section">
+        <div class="section-mark">
+          <span class="num">03</span>Partes envolvidas
+          <div class="section-actions">
+            {% if perms.pessoas.add_pessoa %}<button type="button" class="acao-mini" data-cp-abrir="pessoa">+ Nova pessoa</button>{% endif %}
+            {% if perms.pessoas.add_entidade %}<button type="button" class="acao-mini" data-cp-abrir="entidade">+ Nova entidade</button>{% endif %}
+          </div>
+        </div>
 
-        cancelar.addEventListener('click', () => {
-          popup.classList.add('hidden');
-          inputNome.value = '';
-          corSelecionada = '';
-          paleta.querySelectorAll('.cor-btn').forEach((x) => x.classList.remove('ring-2', 'ring-offset-2', 'ring-slate-400'));
-        });
+        <label class="check">
+          {{ form.anonimo }}
+          <span class="body">
+            <strong>Demanda anônima.</strong> Use quando o demandante não quis se identificar ou quando o pedido chegou sem identificação. A seção de Partes envolvidas fica opcional; se sabe quem é, prefira cadastrar com "+ Nova pessoa".
+          </span>
+        </label>
 
-        function mostrarErro(msg) {
-          erroBox.textContent = msg;
-          erroBox.classList.remove('hidden');
-        }
+        {# Pessoas #}
+        <div class="field">
+          <label class="lbl">Pessoas</label>
+          {{ formsets.pessoas.management_form }}
+          {% if formsets.pessoas.non_form_errors %}
+          <div class="form-err" style="margin:0 0 12px;border-left:3px solid var(--danger-500)">
+            <span class="lbl">Partes — pessoas</span>
+            {% for erro in formsets.pessoas.non_form_errors %}<div>{{ erro }}</div>{% endfor %}
+          </div>
+          {% endif %}
+          <div class="formset" id="formset-pessoas">
+            {% for sub in formsets.pessoas %}
+            <div class="formset-row">
+              <div>
+                <label class="mini">Pessoa</label>
+                {{ sub.pessoa }}
+                {% for e in sub.pessoa.errors %}<p class="err">{{ e }}</p>{% endfor %}
+              </div>
+              <div class="del-cell">
+                {% if sub.instance.pk %}<label>{{ sub.DELETE }} ×</label>{% endif %}
+              </div>
+              {{ sub.id }}
+            </div>
+            {% endfor %}
+          </div>
+        </div>
 
-        function adicionarCheckbox(tema) {
-          const semMsg = document.getElementById('sem-temas-msg');
-          if (semMsg) semMsg.remove();
-          const label = document.createElement('label');
-          label.className = 'inline-flex items-center gap-2 text-sm';
-          const cb = document.createElement('input');
-          cb.type = 'checkbox';
-          cb.name = 'temas';
-          cb.value = tema.id;
-          cb.checked = true;  // opt-out: já vem marcado
-          label.appendChild(cb);
-          const span = document.createElement('span');
-          if (tema.cor) {
-            const dot = document.createElement('span');
-            dot.className = 'inline-block w-2.5 h-2.5 rounded-full mr-1 align-middle';
-            dot.style.background = tema.cor;
-            span.appendChild(dot);
-          }
-          span.appendChild(document.createTextNode(tema.nome));
-          label.appendChild(span);
-          container.appendChild(label);
-        }
+        {# Entidades #}
+        <div class="field" style="margin-top:18px">
+          <label class="lbl">Entidades</label>
+          {{ formsets.entidades.management_form }}
+          {% if formsets.entidades.non_form_errors %}
+          <div class="form-err" style="margin:0 0 12px;border-left:3px solid var(--danger-500)">
+            <span class="lbl">Partes — entidades</span>
+            {% for erro in formsets.entidades.non_form_errors %}<div>{{ erro }}</div>{% endfor %}
+          </div>
+          {% endif %}
+          <div class="formset" id="formset-entidades">
+            {% for sub in formsets.entidades %}
+            <div class="formset-row">
+              <div>
+                <label class="mini">Entidade</label>
+                {{ sub.entidade }}
+                {% for e in sub.entidade.errors %}<p class="err">{{ e }}</p>{% endfor %}
+              </div>
+              <div class="del-cell">
+                {% if sub.instance.pk %}<label>{{ sub.DELETE }} ×</label>{% endif %}
+              </div>
+              {{ sub.id }}
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </section>
 
-        async function criar() {
-          const nome = inputNome.value.trim();
-          if (!nome) { mostrarErro('Informe o nome.'); return; }
-          erroBox.classList.add('hidden');
-          const fd = new FormData();
-          fd.append('nome', nome);
-          fd.append('cor', corSelecionada);
-          const csrf = document.querySelector('input[name=csrfmiddlewaretoken]').value;
-          try {
-            const resp = await fetch('{% url "demandas:tema_criar_ajax" %}', {
-              method: 'POST',
-              headers: { 'X-CSRFToken': csrf },
-              body: fd,
-            });
-            const data = await resp.json();
-            if (!resp.ok) { mostrarErro(data.erro || 'Erro ao criar.'); return; }
-            adicionarCheckbox(data);
-            popup.classList.add('hidden');
-            inputNome.value = '';
-            corSelecionada = '';
-            paleta.querySelectorAll('.cor-btn').forEach((x) => x.classList.remove('ring-2', 'ring-offset-2', 'ring-slate-400'));
-          } catch (e) {
-            mostrarErro('Erro de rede.');
-          }
-        }
+      {# ─── §04 Prazos ─── #}
+      <section class="section">
+        <div class="section-mark"><span class="num">04</span>Prazos<span class="req">opcional</span></div>
+        <div class="field-row">
+          <div class="field">
+            <label class="lbl">Prazo de conclusão <span class="hint">se houver</span></label>
+            {{ form.prazo }}
+            <div class="help">Define o cálculo de vencimento na lista de demandas.</div>
+          </div>
+          <div class="field"><!-- coluna vazia para manter o grid --></div>
+        </div>
+      </section>
 
-        confirmar.addEventListener('click', criar);
-        inputNome.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter') { e.preventDefault(); criar(); }
-        });
-      })();
-      </script>
+      {# ─── §05 Anexos (só na criação) ─── #}
+      {% if not view.object %}
+      <section class="section">
+        <div class="section-mark"><span class="num">05</span>Anexos<span class="req">até 25 MB por arquivo</span></div>
+
+        <label class="drop" for="anexos-input">
+          <strong>Arraste arquivos aqui</strong>
+          <span class="or">ou</span>
+          <span class="browse">Escolher do computador</span>
+          <div class="types">PDF · imagens · áudio · Word · Excel · até 25 MB</div>
+          <input type="file" id="anexos-input" name="arquivos" multiple>
+        </label>
+
+        <div class="anexos-lista" id="anexos-lista"></div>
+      </section>
       {% endif %}
-    </section>
 
-    {# Anexos iniciais — opcionais. Só aparecem no detalhe depois de salvar. #}
-    {% if not view.object %}
-    <section class="bg-white border border-slate-200 rounded-xl p-6">
-      <h2 class="text-base font-semibold text-slate-900 mb-1">Anexos iniciais</h2>
-      <p class="text-xs text-slate-500 mb-3">Opcional. Pode anexar documentos, fotos ou prints que a demanda já trouxe consigo. Você pode adicionar mais depois.</p>
-      <input type="file" name="arquivos" multiple
-             class="block w-full text-sm text-slate-700
-                    file:mr-3 file:py-1.5 file:px-3 file:rounded-lg
-                    file:border-0 file:text-sm file:font-medium
-                    file:bg-slate-800 file:text-white file:cursor-pointer
-                    hover:file:bg-slate-700">
-      <p class="text-[11px] text-slate-400 mt-2">Tipos aceitos: PDF, imagens (JPG/PNG/GIF/WebP), Word, Excel, texto, CSV. Limite de 25 MB por arquivo.</p>
-    </section>
-    {% endif %}
-
-    <div class="flex gap-3">
-      <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-5 py-2 rounded-lg">Salvar</button>
-      <a href="{% if view.object %}{% url 'demandas:demanda_detalhe' view.object.pk %}{% else %}{% url 'demandas:demanda_lista' %}{% endif %}" class="text-sm text-slate-500 hover:text-slate-800 px-4 py-2">Cancelar</a>
     </div>
+
+    {# ─── Rodapé sticky ─── #}
+    <footer class="form-foot">
+      <div class="left">
+        {% if view.object %}
+          Editando <strong>{{ view.object.numero }}</strong>
+        {% else %}
+          <strong>5 seções</strong> · campos obrigatórios marcados com asterisco
+        {% endif %}
+      </div>
+      <div class="right">
+        <a href="{% if view.object %}{% url 'demandas:demanda_detalhe' view.object.slug_publico %}{% else %}{% url 'demandas:demanda_lista' %}{% endif %}" class="btn ghost">Cancelar</a>
+        <button type="submit" class="btn primary">{% if view.object %}Salvar alterações{% else %}Salvar demanda{% endif %} →</button>
+      </div>
+    </footer>
   </form>
+
+</article>
 </div>
+
+<script>
+// Origem (toggle segmentado) — fallback ao :has(input:checked) via .on no label.
+// Garante visual cross-browser mesmo se o :has falhar por algum override.
+(function() {
+  const seg = document.querySelector('.form-page .seg');
+  if (!seg) return;
+  function sync() {
+    seg.querySelectorAll('label').forEach(lab => {
+      const input = lab.querySelector('input[type=radio]');
+      lab.classList.toggle('on', !!(input && input.checked));
+    });
+  }
+  seg.querySelectorAll('input[type=radio]').forEach(r => r.addEventListener('change', sync));
+  sync();
+})();
+
+// Drop area + lista de anexos selecionados — drag & drop funcional
+(function() {
+  const input = document.getElementById('anexos-input');
+  const lista = document.getElementById('anexos-lista');
+  const drop = document.querySelector('.form-page .drop');
+  if (!input || !lista) return;
+
+  function fmt(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' KB';
+    return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+  }
+  function ext(name) {
+    const i = name.lastIndexOf('.');
+    return i >= 0 ? name.slice(i + 1).toUpperCase().slice(0, 4) : '···';
+  }
+  function render() {
+    lista.innerHTML = '';
+    Array.from(input.files || []).forEach((f, idx) => {
+      const row = document.createElement('div');
+      row.className = 'anexo-sel';
+      row.innerHTML = `
+        <span class="ext">${ext(f.name)}</span>
+        <div class="nome" title="${f.name}">${f.name}</div>
+        <span class="tam">${fmt(f.size)}</span>
+        <button type="button" class="x" data-idx="${idx}" title="Remover">×</button>
+      `;
+      lista.appendChild(row);
+    });
+    lista.querySelectorAll('.x').forEach(btn => btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.idx, 10);
+      const dt = new DataTransfer();
+      Array.from(input.files).forEach((f, i) => { if (i !== idx) dt.items.add(f); });
+      input.files = dt.files;
+      render();
+    }));
+  }
+  input.addEventListener('change', render);
+
+  // Drag & drop
+  if (drop) {
+    ['dragenter', 'dragover'].forEach(ev =>
+      drop.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); drop.classList.add('dragging'); })
+    );
+    ['dragleave', 'drop'].forEach(ev =>
+      drop.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); drop.classList.remove('dragging'); })
+    );
+    drop.addEventListener('drop', e => {
+      const dt = new DataTransfer();
+      // Mantém os arquivos já selecionados
+      Array.from(input.files || []).forEach(f => dt.items.add(f));
+      // Adiciona os novos vindos do drag
+      Array.from(e.dataTransfer.files || []).forEach(f => dt.items.add(f));
+      input.files = dt.files;
+      render();
+    });
+  }
+})();
+</script>
+
+{% if perms.demandas.add_tema %}
+<script>
+// Popup "+ Novo tema" — preserva fluxo AJAX original
+(function () {
+  const abrir = document.getElementById('abrir-novo-tema');
+  const popup = document.getElementById('popup-novo-tema');
+  const cancelar = document.getElementById('cancelar-novo-tema');
+  const confirmar = document.getElementById('confirmar-novo-tema');
+  const inputNome = document.getElementById('novo-tema-nome');
+  const erroBox = document.getElementById('erro-novo-tema');
+  const paleta = document.getElementById('paleta-cores');
+  const container = document.getElementById('temas-checkboxes');
+  if (!abrir) return;
+
+  let corSelecionada = '';
+
+  paleta.querySelectorAll('button').forEach((b) => {
+    b.addEventListener('click', () => {
+      corSelecionada = b.dataset.cor;
+      paleta.querySelectorAll('button').forEach((x) => x.classList.remove('sel'));
+      b.classList.add('sel');
+    });
+  });
+
+  abrir.addEventListener('click', () => {
+    popup.hidden = false;
+    inputNome.focus();
+    erroBox.hidden = true;
+  });
+  cancelar.addEventListener('click', () => {
+    popup.hidden = true;
+    inputNome.value = '';
+    corSelecionada = '';
+    paleta.querySelectorAll('button').forEach((x) => x.classList.remove('sel'));
+  });
+
+  function mostrarErro(msg) {
+    erroBox.textContent = msg;
+    erroBox.hidden = false;
+  }
+
+  function adicionarChip(tema) {
+    const semMsg = document.getElementById('sem-temas-msg');
+    if (semMsg) semMsg.remove();
+    const label = document.createElement('label');
+    label.className = 'chip';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.name = 'temas';
+    cb.value = tema.id;
+    cb.checked = true;
+    label.appendChild(cb);
+    label.appendChild(document.createTextNode(' ' + tema.nome));
+    container.insertBefore(label, abrir);
+  }
+
+  async function criar() {
+    const nome = inputNome.value.trim();
+    if (!nome) { mostrarErro('Informe o nome.'); return; }
+    erroBox.hidden = true;
+    const fd = new FormData();
+    fd.append('nome', nome);
+    fd.append('cor', corSelecionada);
+    const csrf = document.querySelector('input[name=csrfmiddlewaretoken]').value;
+    try {
+      const resp = await fetch('{% url "demandas:tema_criar_ajax" %}', {
+        method: 'POST', headers: { 'X-CSRFToken': csrf }, body: fd,
+      });
+      const data = await resp.json();
+      if (!resp.ok) { mostrarErro(data.erro || 'Erro ao criar.'); return; }
+      adicionarChip(data);
+      popup.hidden = true;
+      inputNome.value = '';
+      corSelecionada = '';
+      paleta.querySelectorAll('button').forEach((x) => x.classList.remove('sel'));
+    } catch (e) {
+      mostrarErro('Erro de rede.');
+    }
+  }
+
+  confirmar.addEventListener('click', criar);
+  inputNome.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); criar(); }
+  });
+})();
+</script>
+{% endif %}
+
+{# Drawer de criação rápida de Pessoa/Entidade · ativado pelo autocomplete.js #}
+{% include "_drawer_criar_parte.html" %}
 {% endblock %}

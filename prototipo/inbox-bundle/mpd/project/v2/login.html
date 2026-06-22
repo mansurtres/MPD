@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>MPD · Entrar</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  body {
+    background: var(--surface-0);
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 40px 20px;
+  }
+  .login-frame { width: 100%; max-width: 440px; }
+
+  .pre {
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    color: var(--ink-mute);
+    margin-bottom: 16px;
+    text-transform: uppercase;
+  }
+
+  /* Cartão com filete navy 6px (assinatura institucional) */
+  .login-card {
+    background: var(--surface-2);
+    border-top: 6px solid var(--primary);
+    padding: 40px 44px 32px;
+    box-shadow: var(--shadow-lg);
+  }
+  .login-card .head { text-align: center; margin-bottom: 32px; padding-bottom: 22px; border-bottom: 1px solid var(--rule); }
+  .login-card .mark {
+    width: 56px; height: 56px;
+    background: var(--primary); color: var(--primary-fg);
+    display: grid; place-items: center;
+    font-family: var(--font-mono);
+    font-weight: 700; font-size: 24px;
+    letter-spacing: 0.04em;
+    margin: 0 auto 14px;
+  }
+  .login-card h1 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 28px;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    margin: 0 0 4px;
+    color: var(--ink);
+  }
+  .login-card .sub {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 14px;
+    color: var(--ink-mute);
+    margin: 0;
+  }
+  .login-card .mandato {
+    margin-top: 14px;
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--primary);
+    border: 1.5px solid var(--primary);
+    padding: 3px 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+
+  .field { margin-bottom: 18px; }
+  .field label {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--ink-mute);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .field input {
+    width: 100%;
+    background: var(--surface-3);
+    border: 1px solid var(--rule-strong);
+    color: var(--ink);
+    font-family: var(--font-mono);
+    font-size: 14px;
+    padding: 11px 14px;
+    outline: 0;
+  }
+  .field input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(31,58,95,0.10);
+  }
+  .field input.error { border-color: var(--danger-500); }
+  .field .meta {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .field .meta a {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--primary);
+    text-decoration: none;
+    letter-spacing: 0.04em;
+  }
+  .field .meta a:hover { text-decoration: underline; }
+
+  .options {
+    display: flex; align-items: center; justify-content: space-between;
+    margin: -4px 0 22px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink-soft);
+    letter-spacing: 0.02em;
+  }
+  .options label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+  .options input { accent-color: var(--primary); }
+
+  .submit {
+    width: 100%;
+    background: var(--primary);
+    color: var(--primary-fg);
+    border: 1px solid var(--primary);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 13px 20px;
+    cursor: pointer;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .submit:hover { background: var(--primary-hover); }
+  .submit .arr { font-family: var(--font-mono); opacity: 0.7; }
+
+  /* Erro inline (estado 2 — erro) */
+  .err {
+    background: var(--danger-50);
+    border-left: 3px solid var(--danger-500);
+    padding: 12px 14px;
+    margin-bottom: 18px;
+    font-family: var(--font-serif);
+    font-size: 13.5px;
+    line-height: 1.45;
+    color: var(--danger-700);
+  }
+  .err .lbl {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--danger-600);
+    font-weight: 700;
+    margin-bottom: 3px;
+  }
+  .err strong { color: var(--ink); font-weight: 600; }
+
+  /* Rodapé do cartão */
+  .card-foot {
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid var(--rule);
+    text-align: center;
+    font-family: var(--font-serif);
+    font-size: 12.5px;
+    color: var(--ink-mute);
+    line-height: 1.5;
+    font-style: italic;
+  }
+  .card-foot strong { color: var(--ink-soft); font-weight: 600; font-style: normal; }
+  .card-foot .v {
+    margin-top: 8px;
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    color: var(--ink-mute);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-style: normal;
+  }
+
+  /* Rodapé externo */
+  .post {
+    margin-top: 14px;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    color: var(--ink-mute);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .post a { color: var(--ink-soft); text-decoration: none; }
+  .post a:hover { color: var(--primary); }
+
+  /* Estado divider para mostrar variações */
+  .divider {
+    margin: 64px 0 24px;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--primary);
+    font-weight: 700;
+  }
+  .divider::before, .divider::after {
+    content: ""; display: inline-block; width: 80px; height: 1px;
+    background: var(--rule-strong);
+    vertical-align: middle;
+    margin: 0 14px;
+  }
+</style>
+</head>
+<body>
+
+<div class="login-frame">
+
+  <div class="pre">MPD · Mandato Parlamentar Digital · Acesso Restrito</div>
+
+  <!-- Estado 1: padrão -->
+  <div class="login-card">
+    <div class="head">
+      <div class="mark">M</div>
+      <h1>Acesse o MPD</h1>
+      <p class="sub">plataforma de gestão do gabinete</p>
+      <div class="mandato">Gabinete Demo · 2025–2028</div>
+    </div>
+
+    <form>
+      <div class="field">
+        <label for="email">E-mail institucional</label>
+        <input id="email" type="email" placeholder="seu.nome@gabinete.demo.gov.br" autocomplete="email">
+      </div>
+      <div class="field">
+        <div class="meta">
+          <label for="senha">Senha</label>
+          <a href="#">Esqueci minha senha</a>
+        </div>
+        <input id="senha" type="password" autocomplete="current-password">
+      </div>
+      <div class="options">
+        <label>
+          <input type="checkbox" checked>
+          Lembrar-me por 30 dias
+        </label>
+      </div>
+      <button type="button" class="submit" onclick="window.location.href='lista-demandas.html'">
+        Entrar <span class="arr">→</span>
+      </button>
+    </form>
+
+    <div class="card-foot">
+      Acesso restrito à equipe do mandato.<br>
+      <strong>Suporte:</strong> mpd@suporte.dev
+      <div class="v">v2 · maio 2026</div>
+    </div>
+  </div>
+
+  <div class="post">
+    Sistema apartidário · LGPD-aware · <a href="#">termos</a> · <a href="#">privacidade</a>
+  </div>
+
+  <!-- Estado 2: erro de credencial -->
+  <div class="divider">Estado · erro de credencial</div>
+
+  <div class="login-card">
+    <div class="head">
+      <div class="mark">M</div>
+      <h1>Acesse o MPD</h1>
+      <p class="sub">plataforma de gestão do gabinete</p>
+      <div class="mandato">Gabinete Demo · 2025–2028</div>
+    </div>
+
+    <div class="err">
+      <div class="lbl">Não foi possível entrar</div>
+      <strong>E-mail ou senha incorretos.</strong> 3 tentativas restantes antes do bloqueio temporário.
+    </div>
+
+    <form>
+      <div class="field">
+        <label for="email-err">E-mail institucional</label>
+        <input id="email-err" type="email" value="maria.coelho@gabinete.demo.gov.br" class="error">
+      </div>
+      <div class="field">
+        <div class="meta">
+          <label for="senha-err">Senha</label>
+          <a href="#">Esqueci minha senha</a>
+        </div>
+        <input id="senha-err" type="password" value="••••••••" class="error">
+      </div>
+      <div class="options">
+        <label>
+          <input type="checkbox" checked>
+          Lembrar-me por 30 dias
+        </label>
+      </div>
+      <button type="button" class="submit">
+        Entrar <span class="arr">→</span>
+      </button>
+    </form>
+  </div>
+
+  <!-- Estado 3: conta bloqueada -->
+  <div class="divider">Estado · conta bloqueada</div>
+
+  <div class="login-card">
+    <div class="head">
+      <div class="mark">M</div>
+      <h1>Acesse o MPD</h1>
+      <p class="sub">plataforma de gestão do gabinete</p>
+      <div class="mandato">Gabinete Demo · 2025–2028</div>
+    </div>
+
+    <div class="err" style="background:var(--warning-50);border-left-color:var(--warning-500);color:var(--warning-700)">
+      <div class="lbl" style="color:var(--warning-600)">Conta temporariamente bloqueada</div>
+      <strong>5 tentativas mal-sucedidas.</strong> Tente novamente em <strong>14 min 32 s</strong>, ou redefina sua senha.
+    </div>
+
+    <form>
+      <div class="field">
+        <label for="email-block">E-mail institucional</label>
+        <input id="email-block" type="email" value="maria.coelho@gabinete.demo.gov.br" disabled>
+      </div>
+      <div class="field">
+        <div class="meta">
+          <label>Senha</label>
+          <a href="#">Esqueci minha senha</a>
+        </div>
+        <input type="password" disabled>
+      </div>
+      <button type="button" class="submit" disabled style="opacity:0.5;cursor:not-allowed">
+        Entrar <span class="arr">→</span>
+      </button>
+    </form>
+  </div>
+
+</div>
+
+</body>
+</html>

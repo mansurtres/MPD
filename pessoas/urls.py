@@ -49,7 +49,15 @@ urlpatterns = [
     ),
     # Tags (UUID — área administrativa, não exposta a cidadãos)
     path("configuracoes/tags/", views.TagListView.as_view(), name="tag_lista"),
+    path(
+        "configuracoes/tags/buscar.json", views.TagBuscarJSONView.as_view(), name="tag_buscar_json"
+    ),
     path("configuracoes/tags/nova/", views.TagCreateView.as_view(), name="tag_nova"),
+    path(
+        "configuracoes/tags/criar.json",
+        views.TagCriarAjaxView.as_view(),
+        name="tag_criar_ajax",
+    ),
     path(
         "configuracoes/tags/<int:pk>/editar/",
         views.TagUpdateView.as_view(),

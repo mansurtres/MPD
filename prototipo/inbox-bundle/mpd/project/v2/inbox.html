@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>MPD · Inbox</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  body { background: var(--surface-0); padding-bottom: 80px; }
+
+  /* SHELL */
+  .topbar { background: var(--surface-2); border-bottom: 1px solid var(--rule); position: sticky; top: 0; z-index: var(--z-sticky); }
+  .topbar-inner { max-width: 1440px; margin: 0 auto; padding: 0 28px; display: grid; grid-template-columns: auto 1fr auto; gap: 24px; align-items: center; min-height: 56px; }
+  .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink-strong); }
+  .brand .mark { width: 28px; height: 28px; background: var(--primary); color: var(--primary-fg); display: grid; place-items: center; font-family: var(--font-mono); font-weight: 700; font-size: 12px; letter-spacing: 0.04em; }
+  .brand .name { font-family: var(--font-mono); font-weight: 600; font-size: 14px; letter-spacing: 0.04em; }
+  .brand .tag { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; color: var(--ink-mute); text-transform: uppercase; margin-left: 6px; padding-left: 10px; border-left: 1px solid var(--rule-strong); }
+  .topbar-right { display: flex; align-items: center; gap: 4px; }
+  .topbar-right nav a { text-decoration: none; color: var(--ink-soft); font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em; padding: 8px 12px; position: relative; display: inline-flex; align-items: center; gap: 6px; }
+  .topbar-right nav a.current { color: var(--primary); font-weight: 600; }
+  .topbar-right nav a.current::after { content: ""; position: absolute; bottom: -1px; left: 12px; right: 12px; height: 2px; background: var(--primary); }
+  .topbar-right nav a .badge-count { font-family: var(--font-mono); font-size: 10px; background: var(--ink-200); color: var(--ink-800); padding: 1px 6px; font-weight: 600; }
+  .topbar-right nav a .badge-count.alert { background: var(--danger-500); color: #fff; }
+  .topbar-right .me { display: flex; align-items: center; gap: 10px; padding: 4px 10px; }
+  .topbar-right .me .av { width: 28px; height: 28px; background: var(--navy-100); color: var(--navy-700); border-radius: var(--radius-full); display: grid; place-items: center; font-family: var(--font-mono); font-size: 11px; font-weight: 700; }
+  .topbar-right .me .who { font-family: var(--font-mono); font-size: 12px; color: var(--ink); font-weight: 600; letter-spacing: 0.02em; }
+  .topbar-right .me .role { display: block; font-family: var(--font-mono); font-size: 10px; color: var(--ink-mute); margin-top: 1px; letter-spacing: 0.04em; text-transform: uppercase; }
+
+  .page { max-width: 1180px; margin: 0 auto; padding: 32px 28px 60px; }
+
+  /* Header */
+  .head {
+    border-top: 6px solid var(--primary);
+    background: var(--surface-2);
+    padding: 24px 32px 22px;
+    margin-bottom: 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .head h1 {
+    font-family: var(--font-display); font-weight: 600;
+    font-size: 34px; line-height: 1.1; letter-spacing: -0.025em;
+    color: var(--ink); margin: 0;
+  }
+  .head h1 .count {
+    font-family: var(--font-mono); font-size: 14px;
+    color: var(--ink-mute); font-weight: 400; margin-left: 12px; vertical-align: 4px;
+  }
+  .head .sub {
+    font-family: var(--font-serif); font-style: italic;
+    font-size: 14.5px; color: var(--ink-mute);
+    margin: 6px 0 0; max-width: 60ch; line-height: 1.5;
+  }
+  .head .sub a { color: var(--primary); font-style: normal; font-weight: 600; text-decoration: none; }
+  .head .sub kbd {
+    font-family: var(--font-mono); font-size: 10.5px;
+    background: var(--surface-1); border: 1px solid var(--rule-strong);
+    padding: 1px 6px; color: var(--ink-soft);
+    letter-spacing: 0.04em; font-style: normal;
+  }
+
+  /* Filters bar */
+  .filters {
+    background: var(--surface-1);
+    border: 1px solid var(--rule); border-top: 0;
+    padding: 12px 32px;
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  }
+  .filters .lbl {
+    font-family: var(--font-mono);
+    font-size: 10.5px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--ink-mute);
+    font-weight: 700; margin-right: 6px;
+  }
+  .filters .chip {
+    background: var(--surface-3); border: 1px solid var(--rule-strong);
+    color: var(--ink-soft);
+    font-family: var(--font-mono); font-size: 11px;
+    padding: 4px 11px;
+    letter-spacing: 0.04em; text-transform: uppercase; font-weight: 600;
+    cursor: pointer;
+  }
+  .filters .chip.on { background: var(--ink-800); color: var(--surface-2); border-color: var(--ink-800); }
+  .filters .chip .ct { opacity: 0.6; margin-left: 4px; }
+  .filters .gap { flex: 1; }
+  .filters .right {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--ink-mute); letter-spacing: 0.04em;
+  }
+  .filters .right kbd {
+    font-family: var(--font-mono); font-size: 10.5px;
+    background: var(--surface-3); border: 1px solid var(--rule-strong);
+    padding: 1px 6px; color: var(--ink-soft);
+    letter-spacing: 0.04em;
+  }
+
+  /* Lista de itens */
+  .inbox-list { background: var(--surface-2); border: 1px solid var(--rule); border-top: 0; }
+  .inbox-item {
+    padding: 18px 32px;
+    border-bottom: 1px solid var(--rule);
+    display: grid;
+    grid-template-columns: 110px 1fr 180px;
+    gap: 24px;
+    align-items: start;
+  }
+  .inbox-item:last-child { border-bottom: 0; }
+  .inbox-item:hover { background: var(--surface-3); }
+
+  /* Coluna esquerda · quando + quem */
+  .inbox-item .when {
+    font-family: var(--font-mono);
+    font-size: 11px; color: var(--ink-mute);
+    letter-spacing: 0.02em;
+  }
+  .inbox-item .when .d {
+    display: block; font-weight: 700;
+    color: var(--ink-strong); font-size: 13px;
+    letter-spacing: 0.04em;
+  }
+  .inbox-item .when .h {
+    display: block;
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--ink-mute); margin-top: 2px;
+  }
+  .inbox-item .when .by {
+    display: flex; align-items: center; gap: 6px;
+    margin-top: 8px; padding-top: 8px;
+    border-top: 1px solid var(--rule);
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--ink-mute); letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .inbox-item .when .av {
+    width: 18px; height: 18px;
+    background: var(--navy-100); color: var(--navy-700);
+    border-radius: var(--radius-full);
+    display: grid; place-items: center;
+    font-family: var(--font-mono); font-size: 8px; font-weight: 700;
+    letter-spacing: 0;
+  }
+
+  /* Centro · texto e contexto */
+  .inbox-item .content .source {
+    font-family: var(--font-mono); font-size: 9.5px;
+    color: var(--ink-mute); letter-spacing: 0.14em;
+    text-transform: uppercase; font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .inbox-item .content .source .ic {
+    display: inline-block; width: 6px; height: 6px;
+    background: currentColor; margin-right: 6px;
+    vertical-align: 1px;
+  }
+  .inbox-item .content p {
+    font-family: var(--font-serif);
+    font-size: 16px; line-height: 1.5;
+    color: var(--ink); margin: 0 0 10px;
+  }
+  .inbox-item .content p strong { font-weight: 600; }
+
+  /* Sugestões inteligentes */
+  .suggest {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    margin-top: 4px;
+  }
+  .suggest .lbl {
+    font-family: var(--font-mono); font-size: 9.5px;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--ink-mute); font-weight: 700;
+    padding: 4px 0;
+  }
+  .suggest .pin {
+    background: var(--info-50);
+    border: 1px solid var(--info-200);
+    color: var(--info-700);
+    font-family: var(--font-mono); font-size: 10.5px;
+    padding: 3px 9px; cursor: pointer;
+    letter-spacing: 0.04em; font-weight: 600;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .suggest .pin:hover { background: var(--info-100); }
+  .suggest .pin .num { color: var(--info-600); }
+  .suggest .pin .pref { color: var(--ink-mute); font-weight: 500; }
+
+  /* Idade indicador */
+  .age {
+    display: inline-block;
+    font-family: var(--font-mono); font-size: 9.5px;
+    padding: 1px 7px; letter-spacing: 0.08em; text-transform: uppercase;
+    font-weight: 700;
+    margin-left: 8px;
+    vertical-align: 1px;
+  }
+  .age.amber { background: var(--warning-100); color: var(--warning-700); border: 1.5px solid var(--warning-500); }
+  .age.red   { background: var(--danger-50); color: var(--danger-700); border: 1.5px solid var(--danger-500); }
+
+  /* Direita · ações */
+  .acts { display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
+  .acts .btn-sm {
+    background: var(--surface-3);
+    border: 1px solid var(--rule-strong);
+    color: var(--ink-soft);
+    font-family: var(--font-mono); font-size: 10.5px;
+    font-weight: 600; padding: 7px 12px;
+    letter-spacing: 0.04em; text-transform: uppercase;
+    cursor: pointer; text-align: center;
+  }
+  .acts .btn-sm.primary { background: var(--primary); color: var(--primary-fg); border-color: var(--primary); }
+  .acts .btn-sm.primary:hover { background: var(--primary-hover); }
+  .acts .btn-sm.danger { color: var(--danger-600); border-color: var(--danger-100); }
+  .acts .btn-sm.danger:hover { background: var(--danger-50); }
+
+  /* Captura rápida (banner com input no topo) */
+  .quick-capture {
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    border-top: 0;
+    border-bottom: 0;
+    padding: 18px 32px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .quick-capture .ic {
+    width: 40px; height: 40px;
+    background: var(--primary);
+    color: var(--primary-fg);
+    display: grid; place-items: center;
+    font-family: var(--font-mono); font-size: 22px; font-weight: 700;
+    flex: none;
+  }
+  .quick-capture input {
+    flex: 1; outline: 0;
+    background: var(--surface-3);
+    border: 1px solid var(--rule-strong);
+    padding: 11px 14px;
+    font-family: var(--font-serif); font-size: 15px;
+    color: var(--ink);
+  }
+  .quick-capture input::placeholder { color: var(--ink-mute); font-style: italic; }
+  .quick-capture .kbd {
+    font-family: var(--font-mono); font-size: 10.5px;
+    background: var(--surface-3); border: 1px solid var(--rule-strong);
+    padding: 4px 8px; color: var(--ink-soft);
+    letter-spacing: 0.04em;
+    flex: none;
+  }
+  .quick-capture .btn {
+    background: var(--primary); color: var(--primary-fg);
+    border: 1px solid var(--primary);
+    font-family: var(--font-mono); font-size: 11.5px; font-weight: 600;
+    padding: 10px 18px;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  /* Empty (estado fim ou vazio) */
+  .empty {
+    background: var(--surface-2); border: 1px solid var(--rule);
+    border-top: 6px solid var(--success-500);
+    padding: 60px 30px;
+    text-align: center;
+    margin-top: 36px;
+  }
+  .empty .ic {
+    width: 60px; height: 60px;
+    border: 1.5px dashed var(--rule-strong);
+    margin: 0 auto 18px;
+    display: grid; place-items: center;
+    font-family: var(--font-mono); font-size: 26px; color: var(--success-500);
+    font-weight: 700;
+  }
+  .empty h3 {
+    font-family: var(--font-display); font-weight: 600;
+    font-size: 24px; color: var(--ink); margin: 0 0 8px;
+    letter-spacing: -0.015em;
+  }
+  .empty p {
+    font-family: var(--font-serif); font-size: 14.5px;
+    color: var(--ink-body); margin: 0; max-width: 50ch;
+    margin-left: auto; margin-right: auto; line-height: 1.55;
+    font-style: italic;
+  }
+  .empty p strong { color: var(--ink); font-weight: 600; font-style: normal; }
+  .empty p kbd {
+    font-family: var(--font-mono); font-size: 11px;
+    background: var(--surface-1); border: 1px solid var(--rule-strong);
+    padding: 1px 6px; color: var(--ink-soft);
+    letter-spacing: 0.04em; font-style: normal;
+    margin: 0 2px;
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="design-system.html"><span class="mark">M</span><span class="name">MPD</span><span class="tag">Gabinete Demo</span></a>
+    <div></div>
+    <div class="topbar-right">
+      <nav>
+        <a href="home.html">Início</a>
+        <a href="#" class="current">Inbox <span class="badge-count">12</span></a>
+        <a href="pendencias.html">Pendências <span class="badge-count alert">3</span></a>
+        <a href="lista-demandas.html">Demandas</a>
+        <a href="#">Pessoas</a>
+        <a href="analise.html">Análise</a>
+      </nav>
+      <div class="me">
+        <div class="av">MC</div>
+        <div><div class="who">Maria Coelho</div><span class="role">Coordenadora</span></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="page">
+
+  <header class="head">
+    <h1>Inbox <span class="count">7 pendentes · 42 processadas · 8 descartadas</span></h1>
+    <p class="sub">Captura GTD — anote agora, decida depois. Itens entram aqui sem ferir o foco do trabalho atual; <strong style="color:var(--ink);font-style:normal">processar</strong> vira demanda, encaminhamento ou tarefa em uma demanda existente. Para itens com hora marcada, vá direto a <a href="pendencias.html">Pendências</a>. Capture rápido com <kbd>⌘ K</kbd>.</p>
+  </header>
+
+  <div class="filters">
+    <span class="lbl">Status</span>
+    <button class="chip on">Pendentes <span class="ct">7</span></button>
+    <button class="chip">Processadas <span class="ct">42</span></button>
+    <button class="chip">Descartadas <span class="ct">8</span></button>
+    <button class="chip">Todas</button>
+    <span style="width:1px;height:18px;background:var(--rule-strong);margin:0 10px"></span>
+    <span class="lbl">Capturado por</span>
+    <button class="chip on">Qualquer</button>
+    <button class="chip">Eu</button>
+    <button class="chip">Minha coord.</button>
+    <span class="gap"></span>
+    <span class="right">Triagem em lote: <kbd>J/K</kbd> navegar · <kbd>P</kbd> processar · <kbd>X</kbd> descartar</span>
+  </div>
+
+  <!-- Quick capture -->
+  <div class="quick-capture">
+    <div class="ic">+</div>
+    <input type="text" placeholder="Anote algo rápido — o que ouviu, o que pensar depois, o nome de alguém para registrar…">
+    <span class="kbd">⌘ K</span>
+    <button class="btn">Capturar →</button>
+  </div>
+
+  <!-- Lista -->
+  <div class="inbox-list">
+
+    <!-- Item 1: vinculado a demanda existente (sugestão) -->
+    <div class="inbox-item">
+      <div class="when">
+        <span class="d">17 mai</span>
+        <span class="h">09:12</span>
+        <div class="by"><span class="av">LA</span>Lucas A.</div>
+      </div>
+      <div class="content">
+        <div class="source" style="color:var(--success-700)"><span class="ic"></span>WhatsApp · Sebastiana Oliveira</div>
+        <p>Sebastiana ligou. <strong>11 vizinhos endossam o pedido</strong> de iluminação na Antônio Ataíde. Pediu para registrar a manifestação dos novos vizinhos junto ao caso já aberto.</p>
+        <div class="suggest">
+          <span class="lbl">Vincular a</span>
+          <button class="pin"><span class="pref">MPD-2026-</span><span class="num">00342</span> — Iluminação Antônio Ataíde</button>
+        </div>
+      </div>
+      <div class="acts">
+        <button class="btn-sm primary">Vincular →</button>
+        <button class="btn-sm">Nova demanda</button>
+        <button class="btn-sm danger">Descartar</button>
+      </div>
+    </div>
+
+    <!-- Item 2: dois candidatos (escolha) -->
+    <div class="inbox-item">
+      <div class="when">
+        <span class="d">17 mai</span>
+        <span class="h">08:40</span>
+        <div class="by"><span class="av">BF</span>Bia F.</div>
+      </div>
+      <div class="content">
+        <div class="source" style="color:var(--primary)"><span class="ic"></span>Presencial · Praça Costa Pereira</div>
+        <p>Senhor procurou perto da banca de jornal. Disse que <strong>"a luz tá tudo apagada"</strong> e que falou com a Sebastiana. Quer registrar nome próprio: <strong>Antônio Carlos da Silva</strong>, 68 anos, mora na Sete de Setembro nº 412.</p>
+        <div class="suggest">
+          <span class="lbl">2 sugestões</span>
+          <button class="pin"><span class="pref">MPD-2026-</span><span class="num">00342</span> — Iluminação A. Ataíde</button>
+          <button class="pin">+ Cadastrar pessoa <span class="num">"Antônio Carlos da Silva"</span></button>
+        </div>
+      </div>
+      <div class="acts">
+        <button class="btn-sm primary">Processar →</button>
+        <button class="btn-sm danger">Descartar</button>
+      </div>
+    </div>
+
+    <!-- Item 3: nota solta sem vínculo claro -->
+    <div class="inbox-item">
+      <div class="when">
+        <span class="d">16 mai</span>
+        <span class="h">22:18</span>
+        <div class="by"><span class="av">MC</span>Maria C.</div>
+      </div>
+      <div class="content">
+        <div class="source" style="color:var(--ink-mute)"><span class="ic"></span>Nota interna</div>
+        <p>Pensar em pauta sobre <strong>ônibus escolar madrugadão</strong> — pais reclamaram outro dia no portão do CEMEI Eunice. Verificar se Lucas tem registro disso ou se virou só conversa.</p>
+        <div class="suggest">
+          <span class="lbl">Nenhum vínculo</span>
+          <button class="pin">+ Nova demanda</button>
+          <button class="pin">+ Encaminhar a Lucas</button>
+        </div>
+      </div>
+      <div class="acts">
+        <button class="btn-sm primary">Processar →</button>
+        <button class="btn-sm danger">Descartar</button>
+      </div>
+    </div>
+
+    <!-- Item 4: envelhecido (amber) -->
+    <div class="inbox-item">
+      <div class="when">
+        <span class="d">10 mai</span>
+        <span class="h">15:30</span>
+        <div class="by"><span class="av">BF</span>Bia F.</div>
+      </div>
+      <div class="content">
+        <div class="source" style="color:var(--success-700)"><span class="ic"></span>WhatsApp · Família Sr. Antônio</div>
+        <p>
+          Família do Sr. Antônio (São Pedro) mandou mensagem — <strong>atendimento na UPA foi suspenso</strong>, não sabem o motivo. Pedem ajuda urgente, possivelmente sensível (saúde individual).
+          <span class="age amber">+7 dias</span>
+        </p>
+        <div class="suggest">
+          <span class="lbl">Possível vínculo</span>
+          <button class="pin"><span class="pref">Pessoa: </span>Antônio Oliveira (São Pedro)</button>
+        </div>
+      </div>
+      <div class="acts">
+        <button class="btn-sm primary">Processar →</button>
+        <button class="btn-sm">Marcar restrita</button>
+        <button class="btn-sm danger">Descartar</button>
+      </div>
+    </div>
+
+    <!-- Item 5: muito antigo (red) -->
+    <div class="inbox-item">
+      <div class="when">
+        <span class="d">14 abr</span>
+        <span class="h">11:08</span>
+        <div class="by"><span class="av">PT</span>Pedro T.</div>
+      </div>
+      <div class="content">
+        <div class="source" style="color:var(--ink-mute)"><span class="ic"></span>Nota interna</div>
+        <p>
+          Pensar em ofício pedindo cópia do <strong>plano diretor de mobilidade</strong> — citar na sessão. Verificar se Bia já tem alguma versão arquivada.
+          <span class="age red">+30 dias</span>
+        </p>
+      </div>
+      <div class="acts">
+        <button class="btn-sm primary">Processar →</button>
+        <button class="btn-sm danger">Descartar</button>
+      </div>
+    </div>
+
+    <!-- Item 6: dupla sugestão (entidade) -->
+    <div class="inbox-item">
+      <div class="when">
+        <span class="d">15 mai</span>
+        <span class="h">14:55</span>
+        <div class="by"><span class="av">LA</span>Lucas A.</div>
+      </div>
+      <div class="content">
+        <div class="source" style="color:var(--success-700)"><span class="ic"></span>DM Instagram · @uniaobenfica</div>
+        <p>Página da Associação União de Bemfica mandou DM com prints de buracos na <strong>Rua dos Andradas</strong>. Pediram resposta hoje. Texto: "Vereador, isso aqui virou armadilha pra moto".</p>
+        <div class="suggest">
+          <span class="lbl">Sugestões</span>
+          <button class="pin"><span class="pref">Entidade: </span>União Bemfica (cadastrada)</button>
+          <button class="pin">+ Nova demanda</button>
+        </div>
+      </div>
+      <div class="acts">
+        <button class="btn-sm primary">Processar →</button>
+        <button class="btn-sm danger">Descartar</button>
+      </div>
+    </div>
+
+    <!-- Item 7: e-mail genérico -->
+    <div class="inbox-item">
+      <div class="when">
+        <span class="d">14 mai</span>
+        <span class="h">10:02</span>
+        <div class="by"><span class="av">MC</span>Maria C.</div>
+      </div>
+      <div class="content">
+        <div class="source" style="color:var(--info-600)"><span class="ic"></span>E-mail · contato@gabinetedemo.gov.br</div>
+        <p>"Sou comerciante na Beira-Mar e quero saber por que o vereador <strong>não comparece</strong> em nenhuma reunião da Associação. Esperamos um retorno."</p>
+        <div class="suggest">
+          <span class="lbl">Possível vínculo</span>
+          <button class="pin"><span class="pref">Demanda: </span>00321 — Beira-Mar</button>
+        </div>
+      </div>
+      <div class="acts">
+        <button class="btn-sm primary">Processar →</button>
+        <button class="btn-sm danger">Descartar</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Estado vazio (mostrado abaixo da lista como exemplo) -->
+  <div class="empty">
+    <div class="ic">✓</div>
+    <h3>Quando a inbox estiver limpa, ela aparece assim.</h3>
+    <p>Capture novos itens com <kbd>⌘ K</kbd> a qualquer momento — o foco do trabalho atual fica preservado. <strong>Processar</strong> não significa resolver: significa decidir se aquilo virou demanda, virou encaminhamento, virou nota para alguém, ou se foi conversa fiada.</p>
+  </div>
+
+</main>
+
+</body>
+</html>

@@ -1,0 +1,933 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>MPD · Assoc. Moradores do Centro</title>
+<meta name="viewport" content="width=1400">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  body { background: var(--bg); }
+  .page { max-width: 1360px; margin: 32px auto 80px; padding: 0 28px; }
+
+  /* ===== Documento de pessoa ===== */
+  .doc {
+    background: var(--paper);
+    box-shadow: 0 1px 0 rgba(0,0,0,0.04), 0 16px 40px -24px rgba(60,50,30,0.22);
+  }
+
+  .doc-head {
+    border-top: 6px solid var(--navy);
+    padding: 28px 36px 24px;
+    border-bottom: 1px solid var(--rule);
+    background: linear-gradient(180deg, var(--paper), var(--paper-2));
+    position: relative;
+  }
+  .doc-head .breadcrumb {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-bottom: 18px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .doc-head .breadcrumb a { text-decoration: none; }
+  .doc-head .breadcrumb .sep { color: var(--rule-strong); }
+  .doc-head .breadcrumb .slug { color: var(--navy); font-weight: 600; letter-spacing: 0.04em; }
+
+  .doc-head .id-row {
+    display: grid;
+    grid-template-columns: 96px 1fr auto;
+    gap: 28px;
+    align-items: end;
+  }
+  .doc-head .portrait {
+    width: 96px; height: 96px;
+    background: var(--navy-soft);
+    border: 1px solid var(--navy);
+    color: var(--navy);
+    display: grid; place-items: center;
+    font-family: var(--sans);
+    font-size: 34px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+  .doc-head .titles { padding-bottom: 6px; }
+  .doc-head h1 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 38px;
+    line-height: 1.1;
+    letter-spacing: -0.005em;
+    margin: 0 0 4px;
+    color: var(--ink);
+  }
+  .doc-head .social {
+    font-family: var(--serif);
+    font-style: italic;
+    color: var(--ink-mute);
+    font-size: 17px;
+  }
+  .doc-head .role-line {
+    margin-top: 6px;
+    font-family: var(--sans);
+    font-size: 13.5px;
+    color: var(--ink-soft);
+  }
+  .doc-head .role-line .role { font-weight: 600; color: var(--ink); }
+  .doc-head .role-line .sep { color: var(--rule-strong); margin: 0 6px; }
+  .doc-head .role-line .ent { color: var(--navy); text-decoration: none; }
+  .doc-head .role-line .ent:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+  .doc-head .head-actions { display: flex; gap: 8px; padding-bottom: 6px; }
+
+  .btn {
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 16px;
+    border: 1px solid var(--rule-strong);
+    background: var(--paper);
+    color: var(--ink);
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn:hover { background: #fff; border-color: var(--ink); }
+  .btn.primary { background: var(--navy); border-color: var(--navy); color: #fff; }
+  .btn.primary:hover { background: var(--navy-deep); }
+  .btn.danger { color: var(--bordo); border-color: var(--bordo); }
+
+  /* Régua de metas */
+  .meta-ruler {
+    margin-top: 22px;
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    border-top: 1px solid var(--rule);
+    padding-top: 16px;
+  }
+  .meta-ruler .cell {
+    padding-right: 16px;
+    border-right: 1px solid var(--rule);
+  }
+  .meta-ruler .cell:last-child { border-right: 0; }
+  .meta-ruler .k {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-bottom: 4px;
+  }
+  .meta-ruler .v {
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .meta-ruler .v.mono { font-family: var(--mono); font-size: 12px; }
+  .meta-ruler .v.big {
+    font-family: var(--serif);
+    font-size: 22px;
+    line-height: 1;
+    letter-spacing: -0.005em;
+    font-weight: 500;
+  }
+  .meta-ruler .sub {
+    display: block;
+    font-family: var(--sans);
+    font-size: 11px;
+    color: var(--ink-mute);
+    margin-top: 2px;
+  }
+
+  /* Tags row */
+  .tags-row {
+    padding: 14px 36px;
+    background: var(--paper-2);
+    border-bottom: 1px solid var(--rule);
+    display: flex; align-items: center; gap: 10px;
+    flex-wrap: wrap;
+  }
+  .tags-row .lbl {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+  }
+  .pill {
+    display: inline-block;
+    font-family: var(--sans);
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 3px 9px;
+    border: 1px solid currentColor;
+    background: transparent;
+    color: var(--ink-soft);
+  }
+  .pill.lider { color: var(--navy); background: var(--navy-soft); }
+  .pill.midia { color: var(--tan); background: #f1eadd; }
+  .pill.idoso { color: var(--olive); background: #eef0e3; }
+  .pill.bairro { color: var(--ink); background: var(--paper); }
+
+  /* ===== Corpo 2-col ===== */
+  .doc-body { display: grid; grid-template-columns: 1fr 340px; }
+  .body-main { padding: 32px 36px 40px; border-right: 1px solid var(--rule); }
+  .body-side { padding: 32px 28px 40px; background: var(--paper-2); }
+
+  .section { margin-bottom: 36px; }
+  .section:last-child { margin-bottom: 0; }
+  .section-head {
+    display: flex; align-items: baseline; gap: 12px;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--navy);
+  }
+  .section-head h2 {
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--navy);
+    margin: 0;
+  }
+  .section-head .count {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-mute);
+    letter-spacing: 0.04em;
+  }
+  .section-head .lede {
+    font-family: var(--serif);
+    font-size: 13.5px;
+    color: var(--ink-mute);
+    font-style: italic;
+    margin-left: 6px;
+  }
+  .section-head .all {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-mute);
+    text-decoration: none;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .section-head .all:hover { color: var(--navy); }
+
+  /* Sobre — relato em serif */
+  .sobre p {
+    font-family: var(--serif);
+    font-size: 16px;
+    line-height: 1.65;
+    color: var(--ink-soft);
+    margin: 0 0 12px;
+    text-wrap: pretty;
+  }
+  .sobre p:first-of-type::first-line {
+    font-variant: small-caps;
+    letter-spacing: 0.02em;
+  }
+  .sobre p strong { color: var(--ink); font-weight: 600; }
+  .sobre .source {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-mute);
+    letter-spacing: 0.04em;
+    margin-top: 6px;
+  }
+
+  /* Histórico de demandas */
+  .demandas-list { border-top: 1px solid var(--rule); }
+  .demandas-list .d {
+    display: grid;
+    grid-template-columns: 130px 1fr auto auto;
+    gap: 20px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--rule);
+    align-items: center;
+  }
+  .demandas-list .d .num {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink-soft);
+    letter-spacing: 0.02em;
+  }
+  .demandas-list .d .num .y { color: var(--ink-mute); }
+  .demandas-list .d .num .seq { color: var(--navy); font-weight: 600; }
+  .demandas-list .d .ttl {
+    font-family: var(--serif);
+    font-size: 15px;
+    color: var(--ink);
+    line-height: 1.3;
+    font-weight: 500;
+    margin: 0 0 3px;
+  }
+  .demandas-list .d .ttl a { color: var(--ink); text-decoration: none; }
+  .demandas-list .d .ttl a:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .demandas-list .d .sub {
+    font-family: var(--sans);
+    font-size: 11.5px;
+    color: var(--ink-mute);
+  }
+  .demandas-list .d .sub .role {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--navy);
+    margin-right: 6px;
+    border: 1px solid var(--navy);
+    padding: 1px 5px;
+    font-weight: 600;
+  }
+  .demandas-list .d .stamp-s {
+    display: inline-block;
+    font-family: var(--sans);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 2px 7px 3px;
+    border: 1.5px solid currentColor;
+    white-space: nowrap;
+  }
+  .demandas-list .d .stamp-s.and { color: var(--amber); }
+  .demandas-list .d .stamp-s.cnc { color: var(--olive); }
+  .demandas-list .d .stamp-s.arq { color: var(--ink-mute); }
+  .demandas-list .d .when {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-mute);
+    white-space: nowrap;
+    text-align: right;
+  }
+  .demandas-list .d .when .res {
+    display: block;
+    margin-top: 3px;
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .demandas-list .d .when .res.atd { color: var(--olive); }
+  .demandas-list .d .when .res.inv { color: var(--tan); }
+  .demandas-list .d .when .res.prc { color: var(--olive); }
+  .demandas-list .d .when .res.pen { color: var(--ink-mute); }
+
+  /* Timeline cross-demandas */
+  .timeline { border-top: 1px solid var(--rule); }
+  .timeline .e {
+    display: grid;
+    grid-template-columns: 90px 1fr;
+    gap: 20px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .timeline .e .date {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-mute);
+    text-align: right;
+  }
+  .timeline .e .date .d { color: var(--navy); font-weight: 600; font-size: 13px; display: block; }
+  .timeline .e .date .t { display: block; margin-top: 2px; }
+  .timeline .e .date .who { display: block; margin-top: 6px; color: var(--ink-soft); font-family: var(--sans); font-size: 11px; }
+  .timeline .e .body .type {
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+    color: var(--ink-mute);
+  }
+  .timeline .e.devolutiva .body .type { color: var(--olive); }
+  .timeline .e.contato .body .type { color: var(--navy); }
+  .timeline .e.encaminhamento .body .type { color: var(--bordo); }
+  .timeline .e.interna .body .type { color: var(--tan); }
+  .timeline .e .body p {
+    font-family: var(--serif);
+    font-size: 14.5px;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    margin: 0;
+  }
+  .timeline .e .body p strong { color: var(--ink); font-weight: 600; }
+  .timeline .e .body p .demanda {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--navy);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  /* ====== Sidebar ====== */
+  .side-block {
+    margin-bottom: 26px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .side-block:last-child { border-bottom: 0; padding-bottom: 0; margin-bottom: 0; }
+  .side-block h3 {
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--navy);
+    margin: 0 0 12px;
+    display: flex; align-items: baseline; justify-content: space-between;
+  }
+  .side-block h3 .add {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-mute);
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 500;
+  }
+  .side-block h3 .add:hover { color: var(--navy); }
+
+  /* Contato — linhas com ícone-tipo em mono */
+  .contact .row {
+    display: grid;
+    grid-template-columns: 70px 1fr auto;
+    gap: 10px;
+    padding: 7px 0;
+    border-top: 1px dotted var(--rule);
+    align-items: center;
+  }
+  .contact .row:first-of-type { border-top: 0; padding-top: 0; }
+  .contact .row .k {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-mute);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .contact .row .v {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--ink);
+    word-break: break-word;
+  }
+  .contact .row .v.label {
+    font-family: var(--sans);
+    font-size: 12.5px;
+  }
+  .contact .row .badge {
+    font-family: var(--sans);
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 1px 6px;
+    background: var(--olive);
+    color: var(--paper);
+  }
+  .contact .row .badge.alt { background: var(--paper); color: var(--olive); border: 1px solid var(--olive); }
+
+  /* Endereço — bloco serif */
+  .address {
+    font-family: var(--serif);
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    padding: 4px 0;
+  }
+  .address .cep {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-mute);
+    margin-top: 4px;
+    display: block;
+    letter-spacing: 0.04em;
+  }
+
+  /* Vínculos */
+  .vinc .v {
+    display: grid;
+    grid-template-columns: 36px 1fr auto;
+    gap: 10px;
+    padding: 9px 0;
+    border-top: 1px dotted var(--rule);
+    align-items: center;
+  }
+  .vinc .v:first-of-type { border-top: 0; padding-top: 0; }
+  .vinc .v .av {
+    width: 36px; height: 36px;
+    background: var(--paper);
+    border: 1.5px solid var(--rule-strong);
+    color: var(--ink-soft);
+    display: grid; place-items: center;
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  .vinc .v .nome {
+    font-family: var(--serif);
+    font-size: 13.5px;
+    color: var(--ink);
+    line-height: 1.2;
+    font-weight: 500;
+  }
+  .vinc .v .nome a { color: var(--ink); text-decoration: none; }
+  .vinc .v .nome a:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .vinc .v .papel {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-mute);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+  .vinc .v .papel .ativo {
+    color: var(--olive);
+    margin-left: 4px;
+    font-weight: 600;
+  }
+  .vinc .v .since {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-mute);
+    white-space: nowrap;
+    text-align: right;
+  }
+
+  /* Auditoria */
+  .audit {
+    font-family: var(--sans);
+    font-size: 12px;
+    color: var(--ink-mute);
+    line-height: 1.6;
+  }
+  .audit .row {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    border-top: 1px dotted var(--rule);
+  }
+  .audit .row:first-of-type { border-top: 0; }
+  .audit .row .v {
+    color: var(--ink-soft);
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+</style>
+</head>
+<body>
+
+<header class="appbar">
+  <div class="appbar-inner">
+    <a class="brand" href="home.html">
+      <span class="mark">M</span>
+      <span class="name">MPD</span>
+      <span class="tag">Pedro Trés · 11ª Legislatura</span>
+    </a>
+    <nav>
+      <a href="home.html">Início</a>
+      <a href="05-inbox.html">Entrada <span class="alert">7</span></a>
+      <a href="04-lista.html">Demandas</a>
+      <a href="pessoas.html">Pessoas</a>
+      <a href="entidades.html" class="current">Entidades</a>
+      <a href="encaminhamentos.html">Encaminhamentos</a>
+      <a href="pendencias.html">Pendências <span class="alert">3</span></a>
+    </nav>
+    <div class="me">
+      <div class="who">
+        <span class="av">MC</span>
+        <span>
+          <span class="name">Mariana Costa</span>
+          <span class="role">Gabinete · resp.</span>
+        </span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="page">
+  <article class="doc">
+
+    <header class="doc-head">
+      <div class="breadcrumb">
+        <a href="entidades.html" class="demo-link">ENTIDADES</a>
+        <span class="sep">/</span>
+        <span class="slug">e3c91f7b4a26</span>
+        <span class="sep">/</span>
+        <span>FICHA</span>
+      </div>
+
+      <div class="id-row">
+        <div class="portrait" style="background:var(--olive);color:var(--paper);border-color:var(--olive-deep);font-family:var(--mono)">AM</div>
+        <div class="titles">
+          <h1>Associação de Moradores do Centro</h1>
+          <div class="role-line">
+            <span class="role">Associação de moradores</span>
+            <span class="sep">·</span>
+            <span>fundada em 1987</span>
+            <span class="sep">·</span>
+            <span>Centro · Vitória / ES</span>
+          </div>
+        </div>
+        <div class="head-actions">
+          <button class="btn">Editar ficha</button>
+          <button class="btn primary">+ Nova demanda</button>
+        </div>
+      </div>
+
+      <div class="meta-ruler">
+        <div class="cell">
+          <div class="k">Demandas</div>
+          <div class="v big">12</div>
+          <div class="sub">desde 04/2024</div>
+        </div>
+        <div class="cell">
+          <div class="k">Em aberto</div>
+          <div class="v big" style="color:var(--amber)">1</div>
+          <div class="sub">#00342</div>
+        </div>
+        <div class="cell">
+          <div class="k">Pessoas vinculadas</div>
+          <div class="v big">14</div>
+          <div class="sub">2 lideranças</div>
+        </div>
+        <div class="cell">
+          <div class="k">CNPJ</div>
+          <div class="v mono">12.347.821/0001-32</div>
+          <div class="sub">ativa · Receita</div>
+        </div>
+        <div class="cell">
+          <div class="k">Fundada em</div>
+          <div class="v">1987</div>
+          <div class="sub">há 39 anos</div>
+        </div>
+        <div class="cell">
+          <div class="k">Associados</div>
+          <div class="v">1.140</div>
+          <div class="sub">na última assembleia</div>
+        </div>
+      </div>
+    </header>
+
+    <div class="tags-row">
+      <span class="lbl">Tags</span>
+      <span class="pill lider">Associação consolidada</span>
+      <span class="pill bairro">Centro</span>
+      <span class="pill">Demandas recorrentes</span>
+      <span class="pill midia">Apartidária</span>
+      <span class="pill">Reunião mensal</span>
+      <span class="pill" style="border-style:dashed;color:var(--ink-mute)">+ adicionar</span>
+    </div>
+
+    <div class="doc-body">
+
+      <!-- Main col -->
+      <section class="body-main">
+
+        <!-- Sobre -->
+        <div class="section">
+          <div class="section-head">
+            <h2>Sobre</h2>
+            <span class="lede">anotações longas do gabinete</span>
+            <a class="all" href="#">Editar</a>
+          </div>
+          <div class="sobre">
+            <p>
+              A Associação de Moradores do Centro foi fundada em 1987 como reação à especulação imobiliária que ameaçava o bairro histórico. Tem hoje <strong>1.140 associados ativos</strong>, com eleições a cada dois anos. Causas concretas: iluminação pública, limpeza urbana, segurança noturna, preservação do patrimônio arquitetônico. Reúne-se na primeira segunda-feira de cada mês, às 19h, na sede própria.
+            </p>
+            <p>
+              <strong>Relação com o mandato:</strong> presença constante desde o início da legislatura. É a entidade civil que mais nos procurou em 2025 e 2026 — 12 demandas formais e dezenas de contatos informais via WhatsApp. A presidência (Sebastiana Oliveira, desde 2022) é o canal principal; ela articula com lideranças menores do entorno antes de trazer pauta.
+            </p>
+            <p>
+              <strong>Cuidados:</strong> rigorosamente apartidária. Pediu em 2024 para não ser citada como apoiadora de candidaturas. Não aceita doações de campanha. Em contrapartida, é fonte confiável de pauta orgânica do bairro — quando a Associação pede algo, costuma haver respaldo de pelo menos 30–40 vizinhos.
+            </p>
+            <div class="source">Última atualização: 11/05/2026 por Pedro Trés</div>
+          </div>
+        </div>
+
+        <!-- Demandas -->
+        <div class="section">
+          <div class="section-head">
+            <h2>Histórico de demandas</h2>
+            <span class="count">12 demandas</span>
+            <span class="lede">11 concluídas · 1 em aberto · taxa de atendimento 73%</span>
+            <a class="all" href="04-lista.html?entidade=e3c91f7b4a26">Ver na lista →</a>
+          </div>
+
+          <div class="demandas-list">
+
+            <div class="d">
+              <span class="num"><span class="y">MPD-2026-</span><span class="seq">00342</span></span>
+              <div>
+                <p class="ttl"><a href="01-prontuario.html">Falta de iluminação na Rua Antônio Ataíde — trecho da Praça Costa Pereira</a></p>
+                <div class="sub"><span class="role">Solicitante</span> Mobilidade · Segurança · Mariana C.</div>
+              </div>
+              <span class="stamp-s and">Em andamento</span>
+              <div class="when">02/05/26<div class="res pen">○ Pendente</div></div>
+            </div>
+
+            <div class="d">
+              <span class="num"><span class="y">MPD-2026-</span><span class="seq">00318</span></span>
+              <div>
+                <p class="ttl"><a href="#">Praça Costa Pereira — pedido de novos bancos e lixeiras</a></p>
+                <div class="sub"><span class="role">Solicitante</span> Urbanismo · Mariana C.</div>
+              </div>
+              <span class="stamp-s cnc">Concluída</span>
+              <div class="when">02/05/26<div class="res inv">⊘ Inviável</div></div>
+            </div>
+
+            <div class="d">
+              <span class="num"><span class="y">MPD-2025-</span><span class="seq">00891</span></span>
+              <div>
+                <p class="ttl"><a href="#">Coleta seletiva no Centro — irregularidade na frequência</a></p>
+                <div class="sub"><span class="role">Solicitante</span> Meio ambiente · Bia F.</div>
+              </div>
+              <span class="stamp-s cnc">Concluída</span>
+              <div class="when">14/12/25<div class="res atd">✓ Atendido</div></div>
+            </div>
+
+            <div class="d">
+              <span class="num"><span class="y">MPD-2025-</span><span class="seq">00712</span></span>
+              <div>
+                <p class="ttl"><a href="#">Limpeza do córrego do Centro — entupimento na época de chuvas</a></p>
+                <div class="sub"><span class="role">Solicitante</span> Meio ambiente · Saneamento · Bia F.</div>
+              </div>
+              <span class="stamp-s cnc">Concluída</span>
+              <div class="when">28/10/25<div class="res prc">◐ Atend. parcial</div></div>
+            </div>
+
+            <div class="d">
+              <span class="num"><span class="y">MPD-2025-</span><span class="seq">00498</span></span>
+              <div>
+                <p class="ttl"><a href="#">Vacinação contra gripe para idosos — campanha em parceria com a pastoral</a></p>
+                <div class="sub"><span class="role" style="color:var(--olive-deep);border-color:var(--olive)">Testemunha</span> Saúde · Pedro Trés</div>
+              </div>
+              <span class="stamp-s cnc">Concluída</span>
+              <div class="when">12/08/25<div class="res atd">✓ Atendido</div></div>
+            </div>
+
+            <div class="d">
+              <span class="num"><span class="y">MPD-2025-</span><span class="seq">00342</span></span>
+              <div>
+                <p class="ttl"><a href="#">Reforço da ronda da PM — Av. Beira-Mar à noite (acolhe Comerciantes do Centro)</a></p>
+                <div class="sub"><span class="role" style="color:var(--olive-deep);border-color:var(--olive)">Testemunha</span> Segurança · Mariana C.</div>
+              </div>
+              <span class="stamp-s cnc">Concluída</span>
+              <div class="when">07/05/25<div class="res prc">◐ Atend. parcial</div></div>
+            </div>
+
+            <div class="d">
+              <span class="num"><span class="y">MPD-2024-</span><span class="seq">01023</span></span>
+              <div>
+                <p class="ttl"><a href="#">Feira do produtor no Centro — apoio logístico à 1ª edição</a></p>
+                <div class="sub"><span class="role" style="color:var(--tan);border-color:var(--tan)">Representante</span> Cultura · Pedro Trés</div>
+              </div>
+              <span class="stamp-s arq">Arquivada</span>
+              <div class="when">19/11/24<div class="res atd">✓ Atendido</div></div>
+            </div>
+
+            <div class="d">
+              <span class="num"><span class="y">MPD-2024-</span><span class="seq">00207</span></span>
+              <div>
+                <p class="ttl"><a href="#">Calçada quebrada — Rua dos Coqueiros, em frente ao número 124</a></p>
+                <div class="sub"><span class="role">Solicitante</span> Urbanismo · Bia F.</div>
+              </div>
+              <span class="stamp-s arq">Arquivada</span>
+              <div class="when">22/04/24<div class="res atd">✓ Atendido</div></div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Linha do tempo cross-demandas -->
+        <div class="section">
+          <div class="section-head">
+            <h2>Linha do tempo com a Associação</h2>
+            <span class="count">18 interações</span>
+            <span class="lede">reuniões e contatos atravessando as 12 demandas</span>
+            <a class="all" href="#">Ver tudo →</a>
+          </div>
+
+          <div class="timeline">
+
+            <div class="e devolutiva">
+              <div class="date"><span class="d">19 MAI</span><span class="t">14:30</span><span class="who">agendada</span></div>
+              <div class="body">
+                <div class="type">▣ Devolutiva agendada</div>
+                <p>Retornar com cronograma confirmado pela SEMOB sobre a iluminação da Antônio Ataíde — execução até 12/06. <span class="demanda">MPD-2026-00342</span></p>
+              </div>
+            </div>
+
+            <div class="e contato">
+              <div class="date"><span class="d">03 MAI</span><span class="t">18:30</span><span class="who">P. Trés &amp; M.C.</span></div>
+              <div class="body">
+                <div class="type">▣ Visita ao local</div>
+                <p>Visita noturna à Rua Antônio Ataíde. Confirmados 9 pontos inoperantes. Sebastiana levou Pedro a conversar com Sr. Antônio e Sra. Ivete. <span class="demanda">MPD-2026-00342</span></p>
+              </div>
+            </div>
+
+            <div class="e contato">
+              <div class="date"><span class="d">02 MAI</span><span class="t">09:14</span><span class="who">automática</span></div>
+              <div class="body">
+                <div class="type">▣ Contato com pessoa · entrada</div>
+                <p>Mensagem via WhatsApp relatando 9 postes inoperantes na Antônio Ataíde. Abriu <span class="demanda">MPD-2026-00342</span>.</p>
+              </div>
+            </div>
+
+            <div class="e devolutiva">
+              <div class="date"><span class="d">28 ABR</span><span class="t">11:00</span><span class="who">Mariana C.</span></div>
+              <div class="body">
+                <div class="type">▣ Devolutiva registrada</div>
+                <p>Comunicada a inviabilidade dos novos bancos da Costa Pereira por incompatibilidade com o tombamento da praça. Sebastiana entendeu e pediu para registrar a manifestação. <span class="demanda">MPD-2026-00318</span></p>
+              </div>
+            </div>
+
+            <div class="e interna">
+              <div class="date"><span class="d">14 DEZ</span><span class="t">15:40</span><span class="who">Bia F.</span></div>
+              <div class="body">
+                <div class="type">▣ Anotação interna</div>
+                <p>Sebastiana ligou pedindo retorno sobre a coleta seletiva. Conferida com a SEMOB — caminhão começou rota nova em 12/12. <span class="demanda">MPD-2025-00891</span></p>
+              </div>
+            </div>
+
+            <div class="e contato">
+              <div class="date"><span class="d">22 OUT</span><span class="t">14:00</span><span class="who">Pedro Trés</span></div>
+              <div class="body">
+                <div class="type">▣ Reunião</div>
+                <p>Reunião na sede da Associação. Sebastiana apresentou Pedro a 4 novas lideranças do entorno (Sr. José da Rua Sete, D. Joana do mercadinho, Pe. Antônio, Marina da escola).</p>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </section>
+
+      <!-- Sidebar -->
+      <aside class="body-side">
+
+        <!-- Contatos -->
+        <div class="side-block">
+          <h3>Canais de contato <button class="add">+ adicionar</button></h3>
+          <div class="contact">
+            <div class="row">
+              <span class="k">Telefone</span>
+              <span class="v">(27) 3324-7791</span>
+              <span class="badge alt">Sede</span>
+            </div>
+            <div class="row">
+              <span class="k">WhatsApp</span>
+              <span class="v">via Sebastiana</span>
+              <span class="badge">canal 1º</span>
+            </div>
+            <div class="row">
+              <span class="k">E-mail</span>
+              <span class="v" style="font-size:11.5px">amcentro1987@gmail.com</span>
+              <span></span>
+            </div>
+            <div class="row">
+              <span class="k">Instagram</span>
+              <span class="v">@amcentrovix</span>
+              <span class="badge alt">Página</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Endereço -->
+        <div class="side-block">
+          <h3>Sede</h3>
+          <div class="address">
+            Rua Sete de Setembro, 22 — sobreloja<br>
+            Centro · Vitória — ES
+            <span class="cep">CEP 29.015-000</span>
+          </div>
+          <div style="margin-top:8px;font-family:var(--serif);font-size:12px;color:var(--ink-mute);font-style:italic;line-height:1.4">Reuniões ordinárias: 1ª segunda-feira do mês, 19h.</div>
+        </div>
+
+        <!-- Pessoas vinculadas -->
+        <div class="side-block">
+          <h3>Pessoas vinculadas <button class="add">+ adicionar</button></h3>
+          <div class="vinc">
+            <div class="v">
+              <div class="av" style="background:var(--navy);color:var(--paper);border-color:var(--navy-deep)">SO</div>
+              <div>
+                <div class="nome"><a href="pessoa.html">Sebastiana Oliveira</a></div>
+                <div class="papel">Presidente · <span class="ativo">desde 2022</span></div>
+              </div>
+              <span class="since">vigente</span>
+            </div>
+            <div class="v">
+              <div class="av">LM</div>
+              <div>
+                <div class="nome"><a href="#">Lúcia Mendes</a></div>
+                <div class="papel">Tesoureira · <span class="ativo">desde 2022</span></div>
+              </div>
+              <span class="since">vigente</span>
+            </div>
+            <div class="v">
+              <div class="av">CR</div>
+              <div>
+                <div class="nome"><a href="#">Carlos Rocha</a></div>
+                <div class="papel">Diretor jurídico · <span class="ativo">desde 2018</span></div>
+              </div>
+              <span class="since">vigente</span>
+            </div>
+            <div class="v">
+              <div class="av">AO</div>
+              <div>
+                <div class="nome"><a href="#">Antônio Oliveira</a></div>
+                <div class="papel">Associado · <span class="ativo">desde 2023</span></div>
+              </div>
+              <span class="since">vigente</span>
+            </div>
+            <div class="v">
+              <div class="av">JS</div>
+              <div>
+                <div class="nome"><a href="#">José Luis da Silva</a></div>
+                <div class="papel">Liderança Rua Sete</div>
+              </div>
+              <span class="since">+ 9 outros</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Próximas marcações -->
+        <div class="side-block">
+          <h3>Próximas marcações</h3>
+          <div style="background:var(--paper);border:1px solid var(--rule);padding:10px 12px;margin-bottom:6px;border-left:3px solid var(--navy)">
+            <div style="font-family:var(--mono);font-size:10px;color:var(--navy);letter-spacing:0.08em;text-transform:uppercase;font-weight:600">Reunião mensal · hoje 16:00</div>
+            <div style="font-family:var(--serif);font-size:13px;color:var(--ink);margin-top:2px;line-height:1.3">Pauta da casa · sede da AM Centro</div>
+          </div>
+          <div style="background:var(--paper);border:1px solid var(--rule);padding:10px 12px;border-left:3px solid var(--olive)">
+            <div style="font-family:var(--mono);font-size:10px;color:var(--olive);letter-spacing:0.08em;text-transform:uppercase;font-weight:600">Assembleia anual · 12 jul</div>
+            <div style="font-family:var(--serif);font-size:13px;color:var(--ink);margin-top:2px;line-height:1.3">Prestação de contas + eleição de delegados regionais</div>
+          </div>
+        </div>
+
+        <!-- Auditoria -->
+        <div class="side-block">
+          <h3>Auditoria</h3>
+          <div class="audit">
+            <div class="row"><span>Cadastrada em</span><span class="v">15/04/2024</span></div>
+            <div class="row"><span>Por</span><span class="v">Pedro Trés</span></div>
+            <div class="row"><span>Última edição</span><span class="v">11/05/26</span></div>
+            <div class="row"><span>Por</span><span class="v">Pedro Trés</span></div>
+            <div class="row"><span>CNPJ verificado</span><span class="v">08/05/26</span></div>
+            <div class="row"><span>Visibilidade</span><span class="v">Pública</span></div>
+          </div>
+        </div>
+
+      </aside>
+
+    </div>
+
+  </article>
+</main>
+
+</body>
+</html>

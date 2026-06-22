@@ -9,47 +9,35 @@ via `pre_save`. Validação algorítmica usa validators no campo (ver core/utils
 e core/mixins.py).
 """
 
-import uuid
-
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError, models, transaction
+from django.db import models, transaction
 
 from core.mixins import UF_VALIDATOR, AuditavelMixin, EnderecavelMixin
 from core.utils import (
     formatar_cpf,
+    salvar_com_slug_unico,
     somente_digitos,
     validate_cnpj_tamanho,
     validate_cpf,
 )
 
-_MAX_TENTATIVAS_SLUG = 10
+
+def _validar_xor_pessoa_entidade(canal):
+    """XOR: canal de contato pertence a uma Pessoa OU a uma Entidade, nunca
+    ambas (ADR 0057). Usado em clean() de Telefone, EmailContato, RedeSocial
+    e Site. Não barra "ambos vazios" — durante validação de inlineformset,
+    a FK só é atribuída no save; a CheckConstraint do banco impede que
+    registros órfãos sejam efetivamente persistidos."""
+    if canal.pessoa_id is not None and canal.entidade_id is not None:
+        raise ValidationError(
+            "Canal não pode pertencer simultaneamente a uma pessoa e a uma entidade."
+        )
 
 
-def _salvar_com_slug_unico(instance, super_save, *args, **kwargs):
-    """Gera slug_publico (uuid4 hex curto) com retry em colisão de UNIQUE
-    constraint. Substitui a geração via pre_save signal (que tinha TOCTOU:
-    filter().exists() → save). Ver ADR 0051.
-
-    Cada tentativa roda dentro de um savepoint (`transaction.atomic`) — sem
-    isso, IntegrityError taints a transação externa e queries subsequentes
-    falham com TransactionManagementError.
-    """
-    if instance.slug_publico:
-        return super_save(*args, **kwargs)
-    for tentativa in range(_MAX_TENTATIVAS_SLUG):
-        instance.slug_publico = uuid.uuid4().hex[:12]
-        try:
-            with transaction.atomic():
-                return super_save(*args, **kwargs)
-        except IntegrityError as exc:
-            # Outras constraints (CPF/CNPJ unique) precisam propagar.
-            if "slug_publico" not in str(exc).lower():
-                raise
-            if tentativa == _MAX_TENTATIVAS_SLUG - 1:
-                raise
-            # Próxima iteração tenta novo uuid.
-            continue
+_CHECK_DONO_XOR = models.Q(pessoa__isnull=False, entidade__isnull=True) | models.Q(
+    pessoa__isnull=True, entidade__isnull=False
+)
 
 
 class Tag(models.Model):
@@ -104,11 +92,11 @@ class Pessoa(EnderecavelMixin, AuditavelMixin, models.Model):
     ]
 
     slug_publico = models.CharField(
-        max_length=12,
+        max_length=8,
         unique=True,
         blank=True,
         editable=False,
-        help_text="Slug curto para URLs públicas. Gerado automaticamente no pre_save.",
+        help_text="Slug curto (8 chars) para URLs públicas. Gerado automaticamente no save().",
     )
 
     nome = models.CharField("nome", max_length=100)
@@ -183,13 +171,18 @@ class Pessoa(EnderecavelMixin, AuditavelMixin, models.Model):
         return formatar_cpf(self.cpf) if self.cpf else ""
 
     def tem_meio_de_contato(self):
-        """Pelo menos um canal: telefone, email ou rede social."""
+        """Pelo menos um canal: telefone, email, rede social ou site."""
         if not self.pk:
             return False
-        return self.telefones.exists() or self.emails.exists() or self.redes_sociais.exists()
+        return (
+            self.telefones.exists()
+            or self.emails.exists()
+            or self.redes_sociais.exists()
+            or self.sites.exists()
+        )
 
     def save(self, *args, **kwargs):
-        return _salvar_com_slug_unico(self, super().save, *args, **kwargs)
+        return salvar_com_slug_unico(self, super().save, *args, **kwargs)
 
     @transaction.atomic
     def anonimizar(self):
@@ -206,6 +199,7 @@ class Pessoa(EnderecavelMixin, AuditavelMixin, models.Model):
         self.telefones.all().delete()
         self.emails.all().delete()
         self.redes_sociais.all().delete()
+        self.sites.all().delete()
 
 
 class EntidadeManager(models.Manager):
@@ -234,11 +228,11 @@ class Entidade(EnderecavelMixin, AuditavelMixin, models.Model):
     ]
 
     slug_publico = models.CharField(
-        max_length=12,
+        max_length=8,
         unique=True,
         blank=True,
         editable=False,
-        help_text="Slug curto para URLs públicas. Gerado automaticamente no pre_save.",
+        help_text="Slug curto (8 chars) para URLs públicas. Gerado automaticamente no save().",
     )
 
     nome = models.CharField("nome", max_length=200)
@@ -248,9 +242,9 @@ class Entidade(EnderecavelMixin, AuditavelMixin, models.Model):
         "CNPJ", max_length=18, blank=True, default="", validators=[validate_cnpj_tamanho]
     )
 
-    email = models.EmailField("e-mail", max_length=254, blank=True, default="")
-    telefone = models.CharField("telefone", max_length=20, blank=True, default="")
-    site = models.URLField("site", max_length=255, blank=True, default="")
+    # Canais (telefones, emails, redes_sociais, sites) agora são modelos
+    # plurais compartilhados com Pessoa — ver ADR 0057. Os campos simples
+    # `email`, `telefone` e `site` foram removidos na migration 0004.
 
     observacoes = models.TextField("observações", blank=True)
     ativo = models.BooleanField("ativa", default=True)
@@ -290,7 +284,7 @@ class Entidade(EnderecavelMixin, AuditavelMixin, models.Model):
         return self.nome
 
     def save(self, *args, **kwargs):
-        return _salvar_com_slug_unico(self, super().save, *args, **kwargs)
+        return salvar_com_slug_unico(self, super().save, *args, **kwargs)
 
 
 class Vinculo(models.Model):
@@ -327,7 +321,8 @@ class Vinculo(models.Model):
 
 
 class Telefone(models.Model):
-    """Número de telefone de uma pessoa. Tipo distingue celular de fixo."""
+    """Número de telefone de uma pessoa OU de uma entidade. Tipo distingue
+    celular de fixo. Dono dual via FK nullable + XOR no clean (ADR 0057)."""
 
     TIPO_CELULAR = "celular"
     TIPO_FIXO = "fixo"
@@ -336,7 +331,12 @@ class Telefone(models.Model):
         (TIPO_FIXO, "Fixo"),
     ]
 
-    pessoa = models.ForeignKey(Pessoa, on_delete=models.CASCADE, related_name="telefones")
+    pessoa = models.ForeignKey(
+        Pessoa, on_delete=models.CASCADE, related_name="telefones", null=True, blank=True
+    )
+    entidade = models.ForeignKey(
+        "Entidade", on_delete=models.CASCADE, related_name="telefones", null=True, blank=True
+    )
     numero = models.CharField("número", max_length=20)
     tipo = models.CharField("tipo", max_length=10, choices=TIPO_CHOICES, default=TIPO_CELULAR)
     eh_whatsapp = models.BooleanField("é WhatsApp", default=False)
@@ -356,17 +356,35 @@ class Telefone(models.Model):
         indexes = [
             models.Index(fields=["numero"]),
             models.Index(fields=["pessoa"]),
+            models.Index(fields=["entidade"]),
         ]
         constraints = [
             models.UniqueConstraint(
                 fields=["pessoa", "numero"],
                 name="telefone_unico_por_pessoa",
+                condition=models.Q(pessoa__isnull=False),
                 violation_error_message="Esta pessoa já tem este número cadastrado.",
+            ),
+            models.UniqueConstraint(
+                fields=["entidade", "numero"],
+                name="telefone_unico_por_entidade",
+                condition=models.Q(entidade__isnull=False),
+                violation_error_message="Esta entidade já tem este número cadastrado.",
+            ),
+            models.CheckConstraint(
+                check=_CHECK_DONO_XOR,
+                name="telefone_dono_xor",
+                violation_error_message="Telefone precisa pertencer a uma pessoa OU a uma entidade, não ambas.",
             ),
         ]
 
     def __str__(self):
         return f"{self.numero_formatado} ({self.get_tipo_display()})"
+
+    @property
+    def dono(self):
+        """Retorna a Pessoa ou Entidade dona do canal — XOR garantido por clean."""
+        return self.pessoa or self.entidade
 
     @property
     def numero_formatado(self):
@@ -379,6 +397,7 @@ class Telefone(models.Model):
 
     def clean(self):
         super().clean()
+        _validar_xor_pessoa_entidade(self)
         digitos = somente_digitos(self.numero)
         if self.tipo == self.TIPO_CELULAR:
             if len(digitos) != 11:
@@ -400,10 +419,16 @@ class Telefone(models.Model):
             )
 
 
-class EmailPessoa(models.Model):
-    """E-mail de uma pessoa. Pessoa pode ter múltiplos."""
+class EmailContato(models.Model):
+    """E-mail de contato — pertence a uma Pessoa OU a uma Entidade (XOR,
+    ADR 0057). Renomeado de EmailPessoa para refletir o uso compartilhado."""
 
-    pessoa = models.ForeignKey(Pessoa, on_delete=models.CASCADE, related_name="emails")
+    pessoa = models.ForeignKey(
+        Pessoa, on_delete=models.CASCADE, related_name="emails", null=True, blank=True
+    )
+    entidade = models.ForeignKey(
+        "Entidade", on_delete=models.CASCADE, related_name="emails", null=True, blank=True
+    )
     endereco = models.EmailField("endereço", max_length=254)
     rotulo = models.CharField(
         "rótulo",
@@ -421,17 +446,38 @@ class EmailPessoa(models.Model):
         indexes = [
             models.Index(fields=["endereco"]),
             models.Index(fields=["pessoa"]),
+            models.Index(fields=["entidade"]),
         ]
         constraints = [
             models.UniqueConstraint(
                 fields=["pessoa", "endereco"],
                 name="email_unico_por_pessoa",
+                condition=models.Q(pessoa__isnull=False),
                 violation_error_message="Esta pessoa já tem este e-mail cadastrado.",
+            ),
+            models.UniqueConstraint(
+                fields=["entidade", "endereco"],
+                name="email_unico_por_entidade",
+                condition=models.Q(entidade__isnull=False),
+                violation_error_message="Esta entidade já tem este e-mail cadastrado.",
+            ),
+            models.CheckConstraint(
+                check=_CHECK_DONO_XOR,
+                name="email_dono_xor",
+                violation_error_message="E-mail precisa pertencer a uma pessoa OU a uma entidade, não ambas.",
             ),
         ]
 
     def __str__(self):
         return self.endereco
+
+    @property
+    def dono(self):
+        return self.pessoa or self.entidade
+
+    def clean(self):
+        super().clean()
+        _validar_xor_pessoa_entidade(self)
 
 
 class RedeSocial(models.Model):
@@ -450,7 +496,12 @@ class RedeSocial(models.Model):
         (PLATAFORMA_OUTRO, "Outro"),
     ]
 
-    pessoa = models.ForeignKey(Pessoa, on_delete=models.CASCADE, related_name="redes_sociais")
+    pessoa = models.ForeignKey(
+        Pessoa, on_delete=models.CASCADE, related_name="redes_sociais", null=True, blank=True
+    )
+    entidade = models.ForeignKey(
+        "Entidade", on_delete=models.CASCADE, related_name="redes_sociais", null=True, blank=True
+    )
     plataforma = models.CharField("plataforma", max_length=20, choices=PLATAFORMA_CHOICES)
     valor = models.CharField(
         "usuário ou URL",
@@ -473,22 +524,101 @@ class RedeSocial(models.Model):
         indexes = [
             models.Index(fields=["plataforma"]),
             models.Index(fields=["pessoa"]),
+            models.Index(fields=["entidade"]),
             models.Index(fields=["valor"]),
         ]
         constraints = [
             models.UniqueConstraint(
                 fields=["pessoa", "plataforma", "valor"],
                 name="rede_social_unica_por_pessoa",
+                condition=models.Q(pessoa__isnull=False),
                 violation_error_message="Esta pessoa já tem este perfil cadastrado nesta plataforma.",
+            ),
+            models.UniqueConstraint(
+                fields=["entidade", "plataforma", "valor"],
+                name="rede_social_unica_por_entidade",
+                condition=models.Q(entidade__isnull=False),
+                violation_error_message="Esta entidade já tem este perfil cadastrado nesta plataforma.",
+            ),
+            models.CheckConstraint(
+                check=_CHECK_DONO_XOR,
+                name="rede_social_dono_xor",
+                violation_error_message="Rede social precisa pertencer a uma pessoa OU a uma entidade, não ambas.",
             ),
         ]
 
     def __str__(self):
         return f"{self.get_plataforma_display()}: {self.valor}"
 
+    @property
+    def dono(self):
+        return self.pessoa or self.entidade
+
     def clean(self):
         super().clean()
+        _validar_xor_pessoa_entidade(self)
         if self.plataforma == self.PLATAFORMA_OUTRO and not self.rotulo:
             raise ValidationError(
                 {"rotulo": 'Quando a plataforma é "Outro", informe o rótulo (qual rede).'}
             )
+
+
+class Site(models.Model):
+    """Site/URL associado a uma pessoa ou a uma entidade (ADR 0057). Entidades
+    institucionais costumam ter múltiplos (site principal, página de projeto,
+    blog, canal de doação). Pessoa raramente mas pode ter (portfólio, blog)."""
+
+    pessoa = models.ForeignKey(
+        Pessoa, on_delete=models.CASCADE, related_name="sites", null=True, blank=True
+    )
+    entidade = models.ForeignKey(
+        "Entidade", on_delete=models.CASCADE, related_name="sites", null=True, blank=True
+    )
+    url = models.URLField("URL", max_length=500)
+    rotulo = models.CharField(
+        "rótulo",
+        max_length=50,
+        blank=True,
+        default="",
+        help_text='Opcional. Ex: "institucional", "projeto X", "blog".',
+    )
+    criado_em = models.DateTimeField("criado em", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "site"
+        verbose_name_plural = "sites"
+        ordering = ["criado_em"]
+        indexes = [
+            models.Index(fields=["pessoa"]),
+            models.Index(fields=["entidade"]),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["pessoa", "url"],
+                name="site_unico_por_pessoa",
+                condition=models.Q(pessoa__isnull=False),
+                violation_error_message="Esta pessoa já tem este site cadastrado.",
+            ),
+            models.UniqueConstraint(
+                fields=["entidade", "url"],
+                name="site_unico_por_entidade",
+                condition=models.Q(entidade__isnull=False),
+                violation_error_message="Esta entidade já tem este site cadastrado.",
+            ),
+            models.CheckConstraint(
+                check=_CHECK_DONO_XOR,
+                name="site_dono_xor",
+                violation_error_message="Site precisa pertencer a uma pessoa OU a uma entidade, não ambas.",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.rotulo + ': ' if self.rotulo else ''}{self.url}"
+
+    @property
+    def dono(self):
+        return self.pessoa or self.entidade
+
+    def clean(self):
+        super().clean()
+        _validar_xor_pessoa_entidade(self)

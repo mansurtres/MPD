@@ -1,0 +1,257 @@
+/* MPD — base do sistema.
+   Paleta, tipografia, barra de navegação, intro do protótipo.
+   Cada tela adiciona o que precisar a partir daqui. */
+
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&display=swap');
+
+:root {
+  /* Superfícies */
+  --bg: #ece8e0;
+  --paper: #f8f5ee;
+  --paper-2: #efeadc;
+  --paper-3: #e6dfca;
+
+  /* Tinta */
+  --ink: #1a1814;
+  --ink-soft: #46423b;
+  --ink-mute: #6b6357;
+
+  /* Réguas */
+  --rule: #d6cdb8;
+  --rule-strong: #b8ad94;
+
+  /* Acentos */
+  --navy: #1f3a5f;
+  --navy-deep: #15293f;
+  --navy-soft: #e8edf3;
+  --bordo: #8a2a2a;
+  --bordo-soft: #f3e3e3;
+  --tan: #6b4a2a;
+  --olive: #5a6b3a;
+  --amber: #b4751c;
+  --teal: #2a6f6a;
+  --plum: #6a4a8a;
+
+  /* Tipografia */
+  --sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --serif: 'Source Serif 4', Georgia, serif;
+  --mono: 'IBM Plex Mono', 'SF Mono', Menlo, monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+a { color: inherit; }
+button { font: inherit; cursor: pointer; }
+.demo-link { cursor: pointer; }
+.demo-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+/* ============================================================
+   Barra de aplicação (substitui a antiga barra de protótipo)
+   Papel sobre uma linha navy. Estrutura de cabeçalho de
+   documento oficial: marca à esquerda, navegação central,
+   identidade do operador à direita, com um filete navy no topo.
+   ============================================================ */
+.appbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--paper);
+  border-top: 3px solid var(--navy);
+  border-bottom: 1px solid var(--rule-strong);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.03);
+}
+.appbar-inner {
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 0 28px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 32px;
+  align-items: center;
+  min-height: 56px;
+}
+
+/* Marca */
+.appbar .brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  color: var(--ink);
+}
+.appbar .brand .mark {
+  width: 30px; height: 30px;
+  background: var(--navy);
+  color: var(--paper);
+  display: grid; place-items: center;
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+}
+.appbar .brand .name {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 0.01em;
+  color: var(--ink);
+}
+.appbar .brand .tag {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-mute);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-left: 4px;
+  padding-left: 10px;
+  border-left: 1px solid var(--rule-strong);
+}
+
+/* Navegação */
+.appbar nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  justify-self: center;
+}
+.appbar nav a {
+  text-decoration: none;
+  font-family: var(--sans);
+  font-size: 13.5px;
+  color: var(--ink-soft);
+  padding: 18px 14px;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color .12s, border-color .12s;
+  display: inline-flex; align-items: center; gap: 6px;
+  letter-spacing: 0.005em;
+}
+.appbar nav a:hover { color: var(--ink); }
+.appbar nav a.current {
+  color: var(--ink);
+  border-bottom-color: var(--navy);
+  font-weight: 600;
+}
+.appbar nav a .alert {
+  font-family: var(--mono);
+  font-size: 10px;
+  background: var(--bordo);
+  color: var(--paper);
+  padding: 1px 5px;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+}
+
+/* Identidade do operador */
+.appbar .me {
+  display: flex; align-items: center; gap: 14px;
+  font-family: var(--sans);
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}
+.appbar .me .who {
+  display: flex; align-items: center; gap: 8px;
+}
+.appbar .me .who .av {
+  width: 26px; height: 26px;
+  background: var(--navy-soft);
+  border: 1px solid var(--navy);
+  color: var(--navy);
+  display: grid; place-items: center;
+  font-family: var(--sans);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.appbar .me .who .name { font-weight: 500; color: var(--ink); }
+.appbar .me .who .role {
+  display: block;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-mute);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-top: 1px;
+}
+.appbar .me .sep { width: 1px; height: 22px; background: var(--rule-strong); }
+.appbar .me .meta {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-mute);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.appbar .me .meta .v {
+  display: inline-block;
+  color: var(--navy);
+  border: 1px solid var(--navy);
+  padding: 1px 6px;
+  margin-left: 4px;
+  font-weight: 600;
+}
+
+/* ============================================================
+   Intro do protótipo (acima de cada tela)
+   ============================================================ */
+.intro {
+  max-width: 1360px;
+  margin: 28px auto 22px;
+  padding: 0 28px;
+  font-family: var(--sans);
+}
+.intro .kicker {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  margin-bottom: 8px;
+}
+.intro h1 {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 30px;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  margin: 0 0 10px;
+  color: var(--ink);
+}
+.intro p {
+  font-family: var(--serif);
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--ink-soft);
+  max-width: 70ch;
+  margin: 0;
+}
+.intro .tags {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  margin-top: 14px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-mute);
+}
+.intro .tags span {
+  border: 1px solid var(--rule-strong);
+  padding: 3px 8px;
+  background: var(--paper);
+}
+
+/* Wrapper de mockup principal (deixa de ser usado na maioria) */
+.frame {
+  max-width: 1360px;
+  margin: 0 auto 60px;
+  padding: 0 28px;
+}
+
+/* ============================================================
+   Compatibilidade com a barra antiga (.proto-bar)
+   ============================================================ */
+.proto-bar { display: none; }

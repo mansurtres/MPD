@@ -1,124 +1,598 @@
 {% extends "layouts/app.html" %}
 
 {% block app_conteudo %}
-<div class="max-w-3xl">
-  <div class="flex items-center gap-3 mb-6">
-    <a href="{% url 'pessoas:entidade_lista' %}" class="text-sm text-slate-500 hover:text-slate-800">← Entidades</a>
-    <span class="text-slate-300">/</span>
-    <h1 class="text-xl font-semibold text-slate-900">{{ titulo }}</h1>
-  </div>
+<style>
+  /* Form de Entidade · mesma gramática do form de pessoa/demanda.
+     Estrutura simplificada: entidade tem campos diretos de contato
+     (sem formsets), e não exige canal mínimo. */
 
-  <form method="post" novalidate class="space-y-6" id="entidade-form">
+  .form-page { max-width: 920px; margin: 0 auto; }
+
+  .form-page .doc {
+    background: var(--surface-2);
+    box-shadow: var(--shadow-lg);
+    border-top: 6px solid var(--primary);
+  }
+
+  .form-page .form-head { padding: 32px 36px 24px; border-bottom: 1px solid var(--rule); }
+  .form-page .form-head h1 {
+    font-family: var(--font-display); font-weight: 600;
+    font-size: 36px; line-height: 1.1; letter-spacing: -0.025em;
+    color: var(--ink); margin: 0 0 8px;
+  }
+  .form-page .form-head .sub {
+    font-family: var(--font-serif); font-size: 15px;
+    line-height: 1.55; color: var(--ink-body);
+    margin: 0; max-width: 60ch; font-style: italic;
+  }
+  .form-page .form-head .sub strong { color: var(--ink); font-weight: 600; font-style: normal; }
+
+  /* Corpo */
+  .form-page .form-body { padding: 28px 36px 36px; }
+  .form-page .section { margin-bottom: 32px; padding-bottom: 28px; border-bottom: 1px solid var(--rule); }
+  .form-page .section:last-of-type { border-bottom: 0; padding-bottom: 0; margin-bottom: 0; }
+  .form-page .section-mark {
+    font-family: var(--font-mono); font-size: 10.5px;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--primary); font-weight: 700;
+    margin-bottom: 14px;
+    display: flex; align-items: baseline; gap: 12px;
+  }
+  .form-page .section-mark .num { color: var(--ink-mute); }
+  .form-page .section-mark .req {
+    margin-left: auto; color: var(--ink-mute);
+    font-weight: 500; letter-spacing: 0.04em; text-transform: none;
+    font-style: italic; font-family: var(--font-serif); font-size: 13px;
+  }
+  .form-page .section .helper {
+    font-family: var(--font-serif); font-style: italic;
+    font-size: 13px; color: var(--ink-mute);
+    margin: 0 0 14px; line-height: 1.5;
+  }
+
+  /* Field */
+  .form-page .field { margin-bottom: 16px; }
+  .form-page .field > label {
+    display: block;
+    font-family: var(--font-mono); font-size: 10.5px;
+    font-weight: 700; color: var(--ink-mute);
+    letter-spacing: 0.1em; text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .form-page .field > label .req { color: var(--danger-500); margin-left: 2px; }
+  .form-page .field > label .hint {
+    font-family: var(--font-serif); font-style: italic;
+    color: var(--ink-mute); font-weight: 400; font-size: 12px;
+    text-transform: none; letter-spacing: 0;
+    margin-left: 8px;
+  }
+  .form-page .field .help {
+    font-family: var(--font-serif); font-style: italic;
+    font-size: 12.5px; color: var(--ink-mute);
+    margin-top: 6px; line-height: 1.4;
+  }
+  .form-page .field .err {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--danger-600); margin-top: 4px;
+  }
+  .form-page .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .form-page .field-row.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+  @media (max-width: 720px) {
+    .form-page .field-row,
+    .form-page .field-row.cols-3 { grid-template-columns: 1fr; }
+  }
+
+  /* Inputs */
+  .form-page .field input[type=text],
+  .form-page .field input[type=email],
+  .form-page .field input[type=tel],
+  .form-page .field input[type=url],
+  .form-page .field textarea,
+  .form-page .field select {
+    width: 100%;
+    background: var(--surface-3) !important;
+    border: 1px solid var(--rule-strong) !important;
+    color: var(--ink) !important;
+    font-family: var(--font-mono) !important;
+    font-size: 13px !important;
+    padding: 9px 12px !important;
+    outline: 0;
+    border-radius: 0 !important;
+  }
+  .form-page .field input:focus,
+  .form-page .field textarea:focus,
+  .form-page .field select:focus {
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 3px rgba(31,58,95,0.10) !important;
+  }
+  .form-page .field textarea { min-height: 120px; resize: vertical; }
+
+  .form-page .field .status {
+    font-family: var(--font-mono); font-size: 10.5px;
+    margin-top: 4px; letter-spacing: 0.02em;
+  }
+  .form-page .field .status.ok { color: var(--success-600); }
+  .form-page .field .status.err { color: var(--danger-600); }
+  .form-page .field .status.mute { color: var(--ink-mute); font-style: italic; font-family: var(--font-serif); font-size: 11.5px; }
+
+  /* Formsets de canais (mesma estrutura do form de pessoa, ADR 0057) */
+  .form-page .formset { display: flex; flex-direction: column; gap: 10px; }
+  .form-page .formset-row {
+    background: var(--surface-3);
+    border: 1px solid var(--rule);
+    padding: 14px 16px;
+  }
+  .form-page .formset-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 4px;
+  }
+  .form-page .formset-head h3 {
+    font-family: var(--font-mono); font-size: 11px;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--ink-strong); font-weight: 700;
+    margin: 0;
+  }
+  .form-page .formset .add-row {
+    background: var(--surface-2);
+    border: 1px dashed var(--rule-strong);
+    color: var(--primary);
+    font-family: var(--font-mono); font-size: 10.5px;
+    font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+    padding: 6px 12px; cursor: pointer;
+    transition: background .12s, border-color .12s;
+  }
+  .form-page .formset .add-row:hover {
+    background: var(--surface-1);
+    border-color: var(--primary); border-style: solid;
+  }
+  .form-page .formset .remove-row {
+    background: none; border: 0; cursor: pointer;
+    color: var(--ink-mute);
+    font-family: var(--font-mono); font-size: 10.5px;
+    letter-spacing: 0.04em; text-transform: uppercase;
+    transition: color .12s;
+  }
+  .form-page .formset .remove-row:hover { color: var(--danger-600); }
+  .form-page .formset-row .mini { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.08em; }
+  .form-page .formset-row .row-grid { display: grid; gap: 10px; align-items: end; }
+  .form-page .formset-row.tel .row-grid { grid-template-columns: 2fr 1fr 1fr 2fr auto; }
+  .form-page .formset-row.email .row-grid { grid-template-columns: 3fr 2fr auto; }
+  .form-page .formset-row.rede .row-grid { grid-template-columns: 1.5fr 2.5fr 1.5fr auto; }
+  .form-page .formset-row.site .row-grid { grid-template-columns: 3fr 2fr auto; }
+  @media (max-width: 720px) {
+    .form-page .formset-row.tel .row-grid,
+    .form-page .formset-row.email .row-grid,
+    .form-page .formset-row.rede .row-grid,
+    .form-page .formset-row.site .row-grid { grid-template-columns: 1fr; }
+  }
+  .form-page .formset-row .check-inline {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--ink-soft); display: inline-flex; align-items: center; gap: 6px;
+    padding-bottom: 8px;
+  }
+  .form-page .formset-row .check-inline input { accent-color: var(--primary); }
+
+  /* Tags · chips */
+  .form-page .chips { display: flex; flex-wrap: wrap; gap: 5px; }
+  .form-page .chips .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--surface-3);
+    border: 1px solid var(--rule-strong);
+    padding: 5px 11px;
+    font-family: var(--font-mono); font-size: 11.5px;
+    color: var(--ink-soft); cursor: pointer;
+    letter-spacing: 0.04em; text-transform: uppercase;
+    font-weight: 600;
+    transition: background .12s, color .12s, border-color .12s;
+    margin: 0;
+  }
+  .form-page .chips .chip:hover { color: var(--ink); border-color: var(--ink); }
+  .form-page .chips .chip:has(input:checked) {
+    background: var(--primary); color: var(--primary-fg); border-color: var(--primary);
+  }
+  .form-page .chips .chip input { position: absolute; opacity: 0; pointer-events: none; width: 0; height: 0; }
+  .form-page .chips .chip.add {
+    background: transparent;
+    border-style: dashed;
+    color: var(--ink-mute);
+  }
+  .form-page .chips .chip.add:hover { color: var(--primary); border-color: var(--primary); border-style: solid; }
+
+  /* Popup nova tag · igual ao form de pessoa */
+  .form-page .popup-tag {
+    margin-top: 14px;
+    background: var(--surface-1);
+    border: 1px solid var(--rule);
+    padding: 14px 16px;
+  }
+  .form-page .popup-tag[hidden] { display: none; }
+  .form-page .popup-tag .grid { display: grid; grid-template-columns: 2fr 1fr; gap: 14px; align-items: end; }
+  .form-page .popup-tag .paleta { display: flex; flex-wrap: wrap; gap: 5px; }
+  .form-page .popup-tag .paleta button {
+    width: 22px; height: 22px;
+    border: 1px solid var(--rule-strong);
+    cursor: pointer; padding: 0; border-radius: 50%;
+  }
+  .form-page .popup-tag .paleta button.sel {
+    outline: 2px solid var(--primary); outline-offset: 2px;
+  }
+  .form-page .popup-tag .acts {
+    display: flex; gap: 8px; margin-top: 12px; align-items: center;
+  }
+  .form-page .popup-tag .btn {
+    font-family: var(--font-mono); font-size: 11.5px;
+    font-weight: 600; letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 8px 14px; cursor: pointer;
+    border: 1px solid var(--rule-strong);
+    background: var(--surface-3); color: var(--ink-strong);
+    transition: background .12s, color .12s, border-color .12s;
+  }
+  .form-page .popup-tag .btn.primary {
+    background: var(--primary); color: var(--primary-fg); border-color: var(--primary);
+  }
+  .form-page .popup-tag .btn.primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
+  .form-page .popup-tag .btn.ghost { background: transparent; border-color: transparent; color: var(--ink-mute); }
+  .form-page .popup-tag .btn.ghost:hover { color: var(--ink); }
+  .form-page .popup-tag .err {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--danger-600); margin-left: auto;
+  }
+
+  /* Rodapé sticky */
+  .form-page .form-foot {
+    position: sticky; bottom: 0;
+    background: var(--surface-2);
+    border-top: 1px solid var(--rule);
+    padding: 14px 36px;
+    display: flex; align-items: center; gap: 12px;
+    z-index: 5;
+  }
+  .form-page .form-foot .helper {
+    font-family: var(--font-serif); font-style: italic;
+    font-size: 12.5px; color: var(--ink-mute);
+    margin: 0;
+  }
+  .form-page .form-foot .right { margin-left: auto; display: flex; gap: 8px; }
+  .form-page .form-foot .btn {
+    background: var(--surface-3); color: var(--ink-strong);
+    border: 1px solid var(--rule-strong);
+    font-family: var(--font-mono); font-size: 11.5px;
+    font-weight: 600; letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 10px 18px; cursor: pointer; text-decoration: none;
+    display: inline-flex; align-items: center; gap: 8px;
+    transition: background .12s, color .12s, border-color .12s;
+  }
+  .form-page .form-foot .btn:hover { color: var(--ink); border-color: var(--ink); }
+  .form-page .form-foot .btn.primary {
+    background: var(--primary); color: var(--primary-fg); border-color: var(--primary);
+  }
+  .form-page .form-foot .btn.primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); color: var(--primary-fg); }
+  .form-page .form-foot .btn.ghost { background: transparent; border-color: transparent; color: var(--ink-mute); }
+  .form-page .form-foot .btn.ghost:hover { color: var(--ink); }
+</style>
+
+<div class="page-head" style="margin-bottom: 16px">
+  <div>
+    <div class="breadcrumb">
+      <a href="/" style="text-decoration:none;color:var(--ink-mute)">Início</a>
+      <span class="sep">/</span>
+      <a href="{% url 'pessoas:entidade_lista' %}" style="text-decoration:none;color:var(--ink-mute)">Entidades</a>
+      <span class="sep">/</span>
+      <span style="color:var(--primary);font-weight:var(--fw-semibold)">{% if form.instance.pk %}{{ form.instance.nome|truncatechars:40 }} · editar{% else %}Nova{% endif %}</span>
+    </div>
+  </div>
+</div>
+
+<div class="form-page">
+<article class="doc">
+
+  <header class="form-head">
+    <h1>{% if form.instance.pk %}Editar entidade{% else %}Nova entidade{% endif %}</h1>
+    <p class="sub">
+      {% if form.instance.pk %}
+        Ajuste os dados de <strong>{{ form.instance.nome }}</strong>. Alterações ficam registradas no histórico.
+      {% else %}
+        Cadastre uma organização — associação, ONG, empresa, escola, igreja, conselho, família ou grupo informal. <strong>Apenas nome e tipo</strong> são obrigatórios.
+      {% endif %}
+    </p>
+  </header>
+
+  {% include "_form_erros_resumo.html" with form=form formsets=formsets_contato %}
+
+  <form method="post" novalidate id="entidade-form">
     {% csrf_token %}
 
-    {% if form.non_field_errors %}
-    <div class="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-      {% for erro in form.non_field_errors %}{{ erro }}<br>{% endfor %}
-    </div>
-    {% endif %}
+    <div class="form-body">
 
-    <section class="bg-white border border-slate-200 rounded-xl p-6">
-      <h2 class="text-base font-semibold text-slate-900 mb-4">Identificação</h2>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div class="md:col-span-2">
-          <label class="block text-sm font-medium text-slate-700 mb-1">Nome *</label>
+      {# §01 Identificação #}
+      <section class="section">
+        <div class="section-mark"><span class="num">01</span> Identificação <span class="req">campos obrigatórios *</span></div>
+
+        <div class="field">
+          <label>Nome <span class="req">*</span></label>
           {{ form.nome }}
-          {% for e in form.nome.errors %}<p class="mt-1 text-xs text-red-600">{{ e }}</p>{% endfor %}
+          {% for e in form.nome.errors %}<p class="err">{{ e }}</p>{% endfor %}
         </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">Nome fantasia</label>
-          {{ form.nome_fantasia }}
+
+        <div class="field-row">
+          <div class="field">
+            <label>Tipo <span class="req">*</span></label>
+            {{ form.tipo }}
+            {% for e in form.tipo.errors %}<p class="err">{{ e }}</p>{% endfor %}
+          </div>
+          <div class="field">
+            <label>Nome fantasia <span class="hint">opcional</span></label>
+            {{ form.nome_fantasia }}
+            {% for e in form.nome_fantasia.errors %}<p class="err">{{ e }}</p>{% endfor %}
+          </div>
         </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">Tipo *</label>
-          {{ form.tipo }}
-          {% for e in form.tipo.errors %}<p class="mt-1 text-xs text-red-600">{{ e }}</p>{% endfor %}
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">CNPJ</label>
+
+        <div class="field">
+          <label>CNPJ <span class="hint">opcional · famílias e grupos informais não precisam</span></label>
           {{ form.cnpj }}
-          {% for e in form.cnpj.errors %}<p class="mt-1 text-xs text-red-600">{{ e }}</p>{% endfor %}
-          <p class="text-xs text-slate-400 mt-1">Opcional. Famílias e grupos informais não precisam.</p>
+          {% for e in form.cnpj.errors %}<p class="err">{{ e }}</p>{% endfor %}
         </div>
+      </section>
+
+      {# §02 Contatos · 4 formsets plurais (ADR 0057) #}
+      <section class="section">
+        <div class="section-mark"><span class="num">02</span> Contatos <span class="req">opcional · múltiplos permitidos</span></div>
+        <p class="helper">Use <strong>+ Adicionar</strong> em cada bloco para registrar múltiplos canais (telefones do presidente e da secretaria, e-mails de diferentes setores, redes sociais, sites institucional/projeto/doação).</p>
+
+        {# Telefones #}
+        {% with fs=formsets_contato.telefones %}
+        <input type="hidden" name="telefones-TOTAL_FORMS" value="{{ fs.total_form_count }}">
+        <input type="hidden" name="telefones-INITIAL_FORMS" value="{{ fs.initial_form_count }}">
+        <input type="hidden" name="telefones-MIN_NUM_FORMS" value="{{ fs.min_num }}">
+        <input type="hidden" name="telefones-MAX_NUM_FORMS" value="{{ fs.max_num }}">
+        <div class="formset" data-formset="telefones" style="margin-bottom:18px">
+          <div class="formset-head"><h3>Telefones</h3><button type="button" class="add-row">+ Adicionar telefone</button></div>
+          <p class="helper" style="margin: 0 0 4px">Celular: 11 dígitos com DDD (começa com 9). Fixo: 10 dígitos.</p>
+          <div class="rows-list">
+            {% for tform in fs %}
+            <div class="formset-row tel">
+              {% for hidden in tform.hidden_fields %}{{ hidden }}{% endfor %}
+              <div class="row-grid">
+                <div class="field" style="margin:0"><label class="mini">Número</label>{{ tform.numero }}{% for e in tform.numero.errors %}<p class="err">{{ e }}</p>{% endfor %}</div>
+                <div class="field" style="margin:0"><label class="mini">Tipo</label>{{ tform.tipo }}</div>
+                <label class="check-inline">{{ tform.eh_whatsapp }} WhatsApp</label>
+                <div class="field" style="margin:0"><label class="mini">Rótulo</label>{{ tform.rotulo }}</div>
+                <div>{% if tform.instance.pk %}<label class="check-inline" style="color:var(--danger-600)">{{ tform.DELETE }} remover</label>{% else %}<button type="button" class="remove-row">remover</button>{% endif %}</div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          <template class="row-template" data-prefix="telefones">
+            <div class="formset-row tel">
+              <div class="row-grid">
+                <div class="field" style="margin:0"><label class="mini">Número</label><input type="text" name="telefones-__INDEX__-numero" placeholder="(XX) XXXXX-XXXX"></div>
+                <div class="field" style="margin:0"><label class="mini">Tipo</label><select name="telefones-__INDEX__-tipo"><option value="celular" selected>Celular</option><option value="fixo">Fixo</option></select></div>
+                <label class="check-inline"><input type="checkbox" name="telefones-__INDEX__-eh_whatsapp"> WhatsApp</label>
+                <div class="field" style="margin:0"><label class="mini">Rótulo</label><input type="text" name="telefones-__INDEX__-rotulo" placeholder="Opcional"></div>
+                <div><button type="button" class="remove-row">remover</button></div>
+              </div>
+            </div>
+          </template>
+        </div>
+        {% endwith %}
+
+        {# E-mails #}
+        {% with fs=formsets_contato.emails %}
+        <input type="hidden" name="emails-TOTAL_FORMS" value="{{ fs.total_form_count }}">
+        <input type="hidden" name="emails-INITIAL_FORMS" value="{{ fs.initial_form_count }}">
+        <input type="hidden" name="emails-MIN_NUM_FORMS" value="{{ fs.min_num }}">
+        <input type="hidden" name="emails-MAX_NUM_FORMS" value="{{ fs.max_num }}">
+        <div class="formset" data-formset="emails" style="margin-bottom:18px">
+          <div class="formset-head"><h3>E-mails</h3><button type="button" class="add-row">+ Adicionar e-mail</button></div>
+          <div class="rows-list">
+            {% for eform in fs %}
+            <div class="formset-row email">
+              {% for hidden in eform.hidden_fields %}{{ hidden }}{% endfor %}
+              <div class="row-grid">
+                <div class="field" style="margin:0"><label class="mini">Endereço</label>{{ eform.endereco }}{% for e in eform.endereco.errors %}<p class="err">{{ e }}</p>{% endfor %}</div>
+                <div class="field" style="margin:0"><label class="mini">Rótulo</label>{{ eform.rotulo }}</div>
+                <div>{% if eform.instance.pk %}<label class="check-inline" style="color:var(--danger-600)">{{ eform.DELETE }} remover</label>{% else %}<button type="button" class="remove-row">remover</button>{% endif %}</div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          <template class="row-template" data-prefix="emails">
+            <div class="formset-row email">
+              <div class="row-grid">
+                <div class="field" style="margin:0"><label class="mini">Endereço</label><input type="email" name="emails-__INDEX__-endereco" placeholder="exemplo@dominio.com"></div>
+                <div class="field" style="margin:0"><label class="mini">Rótulo</label><input type="text" name="emails-__INDEX__-rotulo" placeholder='Ex: "direção"'></div>
+                <div><button type="button" class="remove-row">remover</button></div>
+              </div>
+            </div>
+          </template>
+        </div>
+        {% endwith %}
+
+        {# Redes sociais #}
+        {% with fs=formsets_contato.redes_sociais %}
+        <input type="hidden" name="redes_sociais-TOTAL_FORMS" value="{{ fs.total_form_count }}">
+        <input type="hidden" name="redes_sociais-INITIAL_FORMS" value="{{ fs.initial_form_count }}">
+        <input type="hidden" name="redes_sociais-MIN_NUM_FORMS" value="{{ fs.min_num }}">
+        <input type="hidden" name="redes_sociais-MAX_NUM_FORMS" value="{{ fs.max_num }}">
+        <div class="formset" data-formset="redes_sociais" style="margin-bottom:18px">
+          <div class="formset-head"><h3>Redes sociais</h3><button type="button" class="add-row">+ Adicionar rede</button></div>
+          <div class="rows-list">
+            {% for rform in fs %}
+            <div class="formset-row rede">
+              {% for hidden in rform.hidden_fields %}{{ hidden }}{% endfor %}
+              <div class="row-grid">
+                <div class="field" style="margin:0"><label class="mini">Plataforma</label>{{ rform.plataforma }}</div>
+                <div class="field" style="margin:0"><label class="mini">Usuário ou URL</label>{{ rform.valor }}{% for e in rform.valor.errors %}<p class="err">{{ e }}</p>{% endfor %}</div>
+                <div class="field" style="margin:0"><label class="mini">Rótulo</label>{{ rform.rotulo }}{% for e in rform.rotulo.errors %}<p class="err">{{ e }}</p>{% endfor %}</div>
+                <div>{% if rform.instance.pk %}<label class="check-inline" style="color:var(--danger-600)">{{ rform.DELETE }} remover</label>{% else %}<button type="button" class="remove-row">remover</button>{% endif %}</div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          <template class="row-template" data-prefix="redes_sociais">
+            <div class="formset-row rede">
+              <div class="row-grid">
+                <div class="field" style="margin:0"><label class="mini">Plataforma</label><select name="redes_sociais-__INDEX__-plataforma"><option value="instagram" selected>Instagram</option><option value="facebook">Facebook</option><option value="linkedin">LinkedIn</option><option value="x_twitter">X (Twitter)</option><option value="outro">Outro</option></select></div>
+                <div class="field" style="margin:0"><label class="mini">Usuário ou URL</label><input type="text" name="redes_sociais-__INDEX__-valor" placeholder="@usuario ou URL"></div>
+                <div class="field" style="margin:0"><label class="mini">Rótulo</label><input type="text" name="redes_sociais-__INDEX__-rotulo" placeholder='Obrigatório se "Outro"'></div>
+                <div><button type="button" class="remove-row">remover</button></div>
+              </div>
+            </div>
+          </template>
+        </div>
+        {% endwith %}
+
+        {# Sites #}
+        {% with fs=formsets_contato.sites %}
+        <input type="hidden" name="sites-TOTAL_FORMS" value="{{ fs.total_form_count }}">
+        <input type="hidden" name="sites-INITIAL_FORMS" value="{{ fs.initial_form_count }}">
+        <input type="hidden" name="sites-MIN_NUM_FORMS" value="{{ fs.min_num }}">
+        <input type="hidden" name="sites-MAX_NUM_FORMS" value="{{ fs.max_num }}">
+        <div class="formset" data-formset="sites">
+          <div class="formset-head"><h3>Sites</h3><button type="button" class="add-row">+ Adicionar site</button></div>
+          <div class="rows-list">
+            {% for sform in fs %}
+            <div class="formset-row site">
+              {% for hidden in sform.hidden_fields %}{{ hidden }}{% endfor %}
+              <div class="row-grid">
+                <div class="field" style="margin:0"><label class="mini">URL</label>{{ sform.url }}{% for e in sform.url.errors %}<p class="err">{{ e }}</p>{% endfor %}</div>
+                <div class="field" style="margin:0"><label class="mini">Rótulo</label>{{ sform.rotulo }}</div>
+                <div>{% if sform.instance.pk %}<label class="check-inline" style="color:var(--danger-600)">{{ sform.DELETE }} remover</label>{% else %}<button type="button" class="remove-row">remover</button>{% endif %}</div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          <template class="row-template" data-prefix="sites">
+            <div class="formset-row site">
+              <div class="row-grid">
+                <div class="field" style="margin:0"><label class="mini">URL</label><input type="url" name="sites-__INDEX__-url" placeholder="https://"></div>
+                <div class="field" style="margin:0"><label class="mini">Rótulo</label><input type="text" name="sites-__INDEX__-rotulo" placeholder='Ex: "institucional", "projeto X"'></div>
+                <div><button type="button" class="remove-row">remover</button></div>
+              </div>
+            </div>
+          </template>
+        </div>
+        {% endwith %}
+      </section>
+
+      {# §03 Endereço #}
+      <section class="section">
+        <div class="section-mark"><span class="num">03</span> Endereço <span class="req">opcional</span></div>
+
+        <div class="field-row cols-3">
+          <div class="field">
+            <label>CEP</label>
+            {{ form.cep }}
+            <p id="cep-status" class="status mute"></p>
+          </div>
+          <div class="field" style="grid-column: span 2">
+            <label>Logradouro</label>
+            {{ form.logradouro }}
+          </div>
+        </div>
+
+        <div class="field-row cols-3">
+          <div class="field">
+            <label>Número</label>
+            {{ form.numero }}
+          </div>
+          <div class="field" style="grid-column: span 2">
+            <label>Complemento</label>
+            {{ form.complemento }}
+          </div>
+        </div>
+
+        <div class="field-row cols-3">
+          <div class="field">
+            <label>Bairro</label>
+            {{ form.bairro }}
+            {% for e in form.bairro.errors %}<p class="err">{{ e }}</p>{% endfor %}
+          </div>
+          <div class="field">
+            <label>Cidade</label>
+            {{ form.cidade }}
+            {% for e in form.cidade.errors %}<p class="err">{{ e }}</p>{% endfor %}
+          </div>
+          <div class="field">
+            <label>UF</label>
+            {{ form.estado }}
+            {% for e in form.estado.errors %}<p class="err">{{ e }}</p>{% endfor %}
+          </div>
+        </div>
+      </section>
+
+      {# §04 Tags #}
+      <section class="section">
+        <div class="section-mark"><span class="num">04</span> Tags</div>
+        <p class="helper">Use tags para agrupar entidades por afinidade política, território ou área de atuação.</p>
+        <div class="chips" id="tags-checkboxes">
+          {% for choice in form.tags %}
+          <label class="chip">
+            {{ choice.tag }}
+            <span>{{ choice.choice_label }}</span>
+          </label>
+          {% endfor %}
+          {% if perms.pessoas.add_tag %}
+          <button type="button" class="chip add" id="abrir-nova-tag">+ Nova tag</button>
+          {% endif %}
+        </div>
+        {% if not form.tags.field.queryset.exists %}
+        <p class="helper" id="sem-tags-msg">Nenhuma tag cadastrada ainda. Use "+ Nova tag" para criar agora.</p>
+        {% endif %}
+
+        {% if perms.pessoas.add_tag %}
+        <div id="popup-nova-tag" class="popup-tag" hidden>
+          <div class="grid">
+            <div class="field">
+              <label>Nome da tag</label>
+              <input type="text" id="nova-tag-nome" placeholder="Ex.: Liderança, Bemfica, Cultura…">
+            </div>
+            <div class="field">
+              <label>Cor <span class="hint">opcional</span></label>
+              <div class="paleta" id="paleta-cores-tag">
+                <button type="button" data-cor="" style="background:var(--surface-1)" title="Sem cor"></button>
+                <button type="button" data-cor="#d50000" style="background:#d50000" title="Tomate"></button>
+                <button type="button" data-cor="#e67c73" style="background:#e67c73" title="Flamingo"></button>
+                <button type="button" data-cor="#f4511e" style="background:#f4511e" title="Tangerina"></button>
+                <button type="button" data-cor="#f6bf26" style="background:#f6bf26" title="Banana"></button>
+                <button type="button" data-cor="#33b679" style="background:#33b679" title="Sálvia"></button>
+                <button type="button" data-cor="#0b8043" style="background:#0b8043" title="Manjericão"></button>
+                <button type="button" data-cor="#039be5" style="background:#039be5" title="Pavão"></button>
+                <button type="button" data-cor="#3f51b5" style="background:#3f51b5" title="Mirtilo"></button>
+                <button type="button" data-cor="#7986cb" style="background:#7986cb" title="Lavanda"></button>
+                <button type="button" data-cor="#8e24aa" style="background:#8e24aa" title="Uva"></button>
+                <button type="button" data-cor="#616161" style="background:#616161" title="Grafite"></button>
+              </div>
+            </div>
+          </div>
+          <div class="acts">
+            <button type="button" id="confirmar-nova-tag" class="btn primary">Criar e selecionar</button>
+            <button type="button" id="cancelar-nova-tag" class="btn ghost">Cancelar</button>
+            <span id="erro-nova-tag" class="err" hidden></span>
+          </div>
+        </div>
+        {% endif %}
+      </section>
+
+      {# §05 Observações #}
+      <section class="section">
+        <div class="section-mark"><span class="num">05</span> Observações</div>
+        <div class="field">{{ form.observacoes }}</div>
+      </section>
+
+    </div>
+
+    <div class="form-foot">
+      <p class="helper">5 seções · apenas nome e tipo são obrigatórios</p>
+      <div class="right">
+        <a href="{% if form.instance.pk %}{% url 'pessoas:entidade_detalhe' form.instance.slug_publico %}{% else %}{% url 'pessoas:entidade_lista' %}{% endif %}" class="btn ghost">Cancelar</a>
+        <button type="submit" class="btn primary">{% if form.instance.pk %}Salvar alterações{% else %}Salvar entidade{% endif %} →</button>
       </div>
-    </section>
-
-    <section class="bg-white border border-slate-200 rounded-xl p-6">
-      <h2 class="text-base font-semibold text-slate-900 mb-4">Contato</h2>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">E-mail</label>
-          {{ form.email }}
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">Telefone</label>
-          {{ form.telefone }}
-        </div>
-        <div class="md:col-span-2">
-          <label class="block text-sm font-medium text-slate-700 mb-1">Site</label>
-          {{ form.site }}
-        </div>
-      </div>
-    </section>
-
-    <section class="bg-white border border-slate-200 rounded-xl p-6">
-      <h2 class="text-base font-semibold text-slate-900 mb-4">Endereço</h2>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">CEP</label>
-          {{ form.cep }}
-          <p id="cep-status" class="mt-1 text-xs text-slate-400"></p>
-        </div>
-        <div class="md:col-span-2">
-          <label class="block text-sm font-medium text-slate-700 mb-1">Logradouro</label>
-          {{ form.logradouro }}
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">Número</label>
-          {{ form.numero }}
-        </div>
-        <div class="md:col-span-2">
-          <label class="block text-sm font-medium text-slate-700 mb-1">Complemento</label>
-          {{ form.complemento }}
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">Bairro</label>
-          {{ form.bairro }}
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">Cidade</label>
-          {{ form.cidade }}
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">UF</label>
-          {{ form.estado }}
-        </div>
-      </div>
-    </section>
-
-    <section class="bg-white border border-slate-200 rounded-xl p-6">
-      <h2 class="text-base font-semibold text-slate-900 mb-4">Tags</h2>
-      <div class="flex flex-wrap gap-3">
-        {% for choice in form.tags %}
-        <label class="inline-flex items-center gap-2 text-sm">
-          {{ choice.tag }} <span>{{ choice.choice_label }}</span>
-        </label>
-        {% empty %}
-        <p class="text-sm text-slate-500">Nenhuma tag cadastrada.</p>
-        {% endfor %}
-      </div>
-    </section>
-
-    <section class="bg-white border border-slate-200 rounded-xl p-6">
-      <h2 class="text-base font-semibold text-slate-900 mb-4">Observações</h2>
-      {{ form.observacoes }}
-    </section>
-
-    <div class="flex gap-3">
-      <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-5 py-2 rounded-lg">Salvar</button>
-      <a href="{% if form.instance.pk %}{% url 'pessoas:entidade_detalhe' form.instance.slug_publico %}{% else %}{% url 'pessoas:entidade_lista' %}{% endif %}" class="text-sm text-slate-500 hover:text-slate-800 px-4 py-2">Cancelar</a>
     </div>
   </form>
+</article>
 </div>
 
 <script>
@@ -126,16 +600,62 @@
   const form = document.getElementById("entidade-form");
   if (!form) return;
 
+  // Máscara telefone (compartilhada com form de pessoa)
+  function mascaraTelefone(v) {
+    const d = (v || "").replace(/\D/g, "").slice(0, 11);
+    if (!d) return "";
+    if (d.length <= 2) return "(" + d;
+    if (d.length <= 6) return "(" + d.slice(0, 2) + ") " + d.slice(2);
+    if (d.length <= 10) return "(" + d.slice(0, 2) + ") " + d.slice(2, 6) + "-" + d.slice(6);
+    return "(" + d.slice(0, 2) + ") " + d.slice(2, 7) + "-" + d.slice(7);
+  }
+  form.querySelectorAll("input[name$='-numero']").forEach(el => {
+    if (el.value) el.value = mascaraTelefone(el.value);
+  });
+  form.addEventListener("input", ev => {
+    const t = ev.target;
+    if (t && t.matches && t.matches("input[name$='-numero']")) {
+      const m = mascaraTelefone(t.value);
+      if (m !== t.value) t.value = m;
+    }
+  });
+
+  // Formsets dinâmicos
+  form.querySelectorAll("[data-formset]").forEach(bloco => {
+    const prefix = bloco.dataset.formset;
+    const totalForms = form.querySelector(`input[name="${prefix}-TOTAL_FORMS"]`);
+    const lista = bloco.querySelector(".rows-list");
+    const tpl = bloco.querySelector(".row-template");
+    const addBtn = bloco.querySelector(".add-row");
+    if (!totalForms || !lista || !tpl) return;
+    addBtn?.addEventListener("click", () => {
+      const idx = parseInt(totalForms.value, 10);
+      const html = tpl.innerHTML.replaceAll("__INDEX__", String(idx));
+      const wrapper = document.createElement("div");
+      wrapper.innerHTML = html.trim();
+      lista.appendChild(wrapper.firstElementChild);
+      totalForms.value = idx + 1;
+    });
+    lista.addEventListener("click", ev => {
+      const btn = ev.target.closest(".remove-row");
+      if (!btn) return;
+      const row = btn.closest(".formset-row");
+      if (row) row.remove();
+    });
+  });
+
+  // Lookup CEP
   const cepInput = form.querySelector("input[name=cep]");
   const cepStatus = document.getElementById("cep-status");
-  if (cepInput) {
+  if (cepInput && cepStatus) {
     cepInput.addEventListener("blur", async () => {
       const cep = (cepInput.value || "").replace(/\D/g, "");
       if (cep.length !== 8) return;
       cepStatus.textContent = "Consultando…";
+      cepStatus.className = "status mute";
       try {
         const resp = await fetch(`{% url 'pessoas:api_cep' cep='CEPCEP' %}`.replace("CEPCEP", cep));
-        if (!resp.ok) { cepStatus.textContent = "CEP não encontrado."; return; }
+        if (!resp.ok) { cepStatus.textContent = "CEP não encontrado."; cepStatus.className = "status err"; return; }
         const data = await resp.json();
         const setIfEmpty = (name, val) => {
           const el = form.querySelector(`[name=${name}]`);
@@ -147,9 +667,90 @@
         setIfEmpty("estado", data.estado);
         cepInput.value = data.cep;
         cepStatus.textContent = "Endereço preenchido a partir do CEP.";
-      } catch { cepStatus.textContent = "Falha ao consultar CEP."; }
+        cepStatus.className = "status ok";
+      } catch { cepStatus.textContent = "Falha ao consultar CEP."; cepStatus.className = "status err"; }
     });
   }
+})();
+
+// Popup "+ Nova tag" · igual ao form de pessoa
+(function () {
+  const abrir = document.getElementById('abrir-nova-tag');
+  const popup = document.getElementById('popup-nova-tag');
+  const cancelar = document.getElementById('cancelar-nova-tag');
+  const confirmar = document.getElementById('confirmar-nova-tag');
+  const inputNome = document.getElementById('nova-tag-nome');
+  const erroBox = document.getElementById('erro-nova-tag');
+  const paleta = document.getElementById('paleta-cores-tag');
+  const container = document.getElementById('tags-checkboxes');
+  if (!abrir) return;
+
+  let corSelecionada = '';
+  paleta.querySelectorAll('button').forEach((b) => {
+    b.addEventListener('click', () => {
+      corSelecionada = b.dataset.cor;
+      paleta.querySelectorAll('button').forEach((x) => x.classList.remove('sel'));
+      b.classList.add('sel');
+    });
+  });
+
+  abrir.addEventListener('click', () => {
+    popup.hidden = false;
+    inputNome.focus();
+    erroBox.hidden = true;
+  });
+  cancelar.addEventListener('click', () => {
+    popup.hidden = true;
+    inputNome.value = '';
+    corSelecionada = '';
+    paleta.querySelectorAll('button').forEach((x) => x.classList.remove('sel'));
+  });
+
+  function mostrarErro(msg) { erroBox.textContent = msg; erroBox.hidden = false; }
+
+  function adicionarChip(tag) {
+    const semMsg = document.getElementById('sem-tags-msg');
+    if (semMsg) semMsg.remove();
+    const label = document.createElement('label');
+    label.className = 'chip';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.name = 'tags';
+    cb.value = tag.id;
+    cb.checked = true;
+    label.appendChild(cb);
+    label.appendChild(document.createTextNode(' ' + tag.nome));
+    container.insertBefore(label, abrir);
+  }
+
+  async function criar() {
+    const nome = inputNome.value.trim();
+    if (!nome) { mostrarErro('Informe o nome.'); return; }
+    erroBox.hidden = true;
+    const fd = new FormData();
+    fd.append('nome', nome);
+    fd.append('cor', corSelecionada);
+    const csrf = document.querySelector('input[name=csrfmiddlewaretoken]').value;
+    try {
+      const resp = await fetch('{% url "pessoas:tag_criar_ajax" %}', {
+        method: 'POST', headers: { 'X-CSRFToken': csrf }, body: fd,
+      });
+      const data = await resp.json();
+      if (!resp.ok) { mostrarErro(data.erro || 'Erro ao criar.'); return; }
+      adicionarChip(data);
+      popup.hidden = true;
+      inputNome.value = '';
+      corSelecionada = '';
+      paleta.querySelectorAll('button').forEach((x) => x.classList.remove('sel'));
+    } catch (e) {
+      mostrarErro('Erro de rede.');
+    }
+  }
+
+  confirmar.addEventListener('click', criar);
+  inputNome.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); criar(); }
+  });
 })();
 </script>
 {% endblock %}

@@ -1,0 +1,821 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>MPD · Encaminhamentos</title>
+<meta name="viewport" content="width=1400">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  body { background: var(--bg); }
+  .page { max-width: 1360px; margin: 32px auto 80px; padding: 0 28px; }
+
+  /* === Cabeçalho do documento === */
+  .page-head {
+    background: var(--paper);
+    border-top: 6px solid var(--navy);
+    padding: 26px 32px 22px;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.04), 0 16px 40px -24px rgba(60,50,30,0.22);
+  }
+  .page-head .breadcrumb {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 14px;
+  }
+  .page-head .breadcrumb .here { color: var(--navy); font-weight: 600; }
+  .page-head .breadcrumb .sep { color: var(--rule-strong); }
+  .page-head .row1 {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 24px;
+    align-items: end;
+    margin-bottom: 18px;
+  }
+  .page-head h1 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 38px;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    margin: 0;
+    color: var(--ink);
+  }
+  .page-head h1 .total {
+    font-family: var(--mono);
+    font-size: 16px;
+    color: var(--ink-mute);
+    margin-left: 12px;
+    vertical-align: 4px;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+  }
+  .page-head h1 .urg {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--bordo);
+    margin-left: 12px;
+    vertical-align: 6px;
+    border-left: 1px solid var(--rule-strong);
+    padding-left: 14px;
+    font-weight: 500;
+  }
+  .page-head .actions { display: flex; gap: 8px; }
+
+  .btn {
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 16px;
+    border: 1px solid var(--rule-strong);
+    background: var(--paper);
+    color: var(--ink);
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn:hover { background: #fff; border-color: var(--ink); }
+  .btn.primary { background: var(--navy); border-color: var(--navy); color: #fff; }
+  .btn.primary:hover { background: var(--navy-deep); }
+  .btn.ghost { background: transparent; }
+
+  /* Stats em linha */
+  .stat-ruler {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border-top: 1px solid var(--rule);
+    padding-top: 14px;
+  }
+  .stat-ruler .cell {
+    padding-right: 18px;
+    border-right: 1px solid var(--rule);
+  }
+  .stat-ruler .cell:last-child { border-right: 0; }
+  .stat-ruler .k {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-bottom: 5px;
+  }
+  .stat-ruler .v {
+    font-family: var(--serif);
+    font-size: 26px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.005em;
+    line-height: 1;
+  }
+  .stat-ruler .v.warn { color: var(--bordo); }
+  .stat-ruler .v.ok { color: var(--olive); }
+  .stat-ruler .sub {
+    margin-top: 4px;
+    font-family: var(--sans);
+    font-size: 11px;
+    color: var(--ink-mute);
+  }
+
+  /* Tabs */
+  .views {
+    background: var(--paper);
+    border-left: 1px solid var(--rule);
+    border-right: 1px solid var(--rule);
+    display: flex; gap: 0;
+    padding-top: 14px;
+  }
+  .views .v {
+    background: transparent; border: 0;
+    padding: 10px 18px 12px;
+    font-family: var(--sans);
+    font-size: 13px;
+    color: var(--ink-mute);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .views .v:hover { color: var(--ink); }
+  .views .v.on {
+    color: var(--ink); font-weight: 600;
+    border-bottom-color: var(--navy);
+  }
+  .views .v.urg.on { border-bottom-color: var(--bordo); color: var(--bordo); }
+  .views .v .ct {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-mute);
+    background: var(--paper-2);
+    padding: 1px 6px;
+    letter-spacing: 0.02em;
+  }
+  .views .v.on .ct { background: var(--navy); color: #fff; }
+  .views .v.urg.on .ct { background: var(--bordo); color: #fff; }
+  .views .add {
+    margin-left: auto;
+    background: transparent;
+    border: 0;
+    padding: 10px 18px;
+    color: var(--ink-mute);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  /* Filtros por órgão */
+  .filter-row {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-top: 2px solid var(--ink);
+    padding: 14px 20px;
+    display: flex; gap: 6px; flex-wrap: wrap;
+    align-items: center;
+  }
+  .filter-row .lbl {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-right: 6px;
+  }
+  .chip {
+    background: transparent;
+    border: 1px solid var(--rule-strong);
+    color: var(--ink-soft);
+    font-family: var(--sans);
+    font-size: 12.5px;
+    padding: 5px 11px;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .chip:hover { background: var(--paper-2); border-color: var(--ink); }
+  .chip.on {
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+    font-weight: 500;
+  }
+  .chip .num {
+    font-family: var(--mono);
+    font-size: 10px;
+    opacity: 0.65;
+    margin-left: 2px;
+  }
+
+  /* Toolbar */
+  .toolbar {
+    background: var(--paper-2);
+    border-left: 1px solid var(--rule);
+    border-right: 1px solid var(--rule);
+    padding: 12px 16px;
+    display: grid;
+    grid-template-columns: 1fr auto auto auto;
+    gap: 8px;
+    align-items: center;
+  }
+  .toolbar .search {
+    display: flex; align-items: center; gap: 10px;
+    border: 1px solid var(--rule-strong);
+    padding: 6px 12px;
+    background: var(--paper);
+  }
+  .toolbar .search input {
+    flex: 1; border: 0; outline: 0; background: transparent;
+    font-family: var(--sans);
+    font-size: 13px;
+    color: var(--ink);
+    padding: 4px 0;
+    min-width: 220px;
+  }
+  .toolbar .search input::placeholder { color: var(--ink-mute); font-style: italic; }
+  .toolbar .search .pre { font-family: var(--mono); font-size: 13px; color: var(--ink-mute); }
+  .toolbar .search .k {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    color: var(--ink-mute);
+    text-transform: uppercase;
+    border: 1px solid var(--rule-strong);
+    padding: 1px 5px;
+  }
+  .toolbar select {
+    background: var(--paper);
+    border: 1px solid var(--rule-strong);
+    font-family: var(--sans);
+    font-size: 13px;
+    color: var(--ink);
+    padding: 7px 10px;
+  }
+  .toolbar .count {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-mute);
+    letter-spacing: 0.04em;
+    padding: 0 8px;
+  }
+
+  /* === Tabela === */
+  .ledger {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    overflow: hidden;
+    box-shadow: 0 2px 12px -8px rgba(60,50,30,0.18);
+  }
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    text-align: left;
+    background: var(--navy);
+    color: var(--paper);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-weight: 600;
+    padding: 14px 18px;
+    white-space: nowrap;
+  }
+
+  tbody tr.group-row {
+    background: var(--paper-2);
+    border-top: 2px solid var(--navy);
+    border-bottom: 1px solid var(--rule-strong);
+  }
+  tbody tr.group-row td {
+    padding: 12px 18px;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink);
+    font-weight: 600;
+  }
+  tbody tr.group-row .ct {
+    color: var(--ink-mute);
+    font-weight: 500;
+    margin-left: 8px;
+  }
+  tbody tr.group-row .meta {
+    color: var(--ink-mute);
+    font-weight: 400;
+    margin-left: 14px;
+    text-transform: none;
+    letter-spacing: 0;
+    font-family: var(--serif);
+    font-size: 13px;
+    font-style: italic;
+  }
+  tbody tr.group-row.urg { border-top-color: var(--bordo); }
+  tbody tr.group-row.urg td { color: var(--bordo); }
+  tbody tr.group-row.urg .ct { color: var(--bordo); opacity: 0.6; }
+
+  tbody tr:not(.group-row) {
+    border-bottom: 1px solid var(--rule);
+    transition: background .08s;
+  }
+  tbody tr:not(.group-row):hover { background: var(--paper-2); cursor: pointer; }
+  tbody td {
+    padding: 20px 18px;
+    vertical-align: top;
+    font-family: var(--sans);
+    font-size: 14px;
+    color: var(--ink);
+  }
+
+  td.col-of {
+    font-family: var(--mono);
+    font-size: 13.5px;
+    color: var(--bordo);
+    font-weight: 600;
+    white-space: nowrap;
+    padding-top: 22px;
+    width: 140px;
+    letter-spacing: 0.04em;
+  }
+  td.col-of .tipo {
+    display: block;
+    margin-top: 5px;
+    color: var(--ink-mute);
+    font-family: var(--sans);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  td.col-dest {
+    min-width: 240px;
+  }
+  td.col-dest .orgao {
+    font-family: var(--serif);
+    font-size: 16.5px;
+    color: var(--ink);
+    font-weight: 500;
+    line-height: 1.3;
+    margin-bottom: 5px;
+  }
+  td.col-dest .pessoa {
+    font-family: var(--sans);
+    font-size: 13px;
+    color: var(--ink-mute);
+    line-height: 1.4;
+  }
+  td.col-dest .pessoa .role {
+    color: var(--ink-soft);
+    font-weight: 500;
+  }
+
+  td.col-demanda {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--navy);
+    white-space: nowrap;
+    font-weight: 600;
+  }
+  td.col-demanda .y { color: var(--ink-mute); font-weight: 400; }
+  td.col-demanda .ttl {
+    display: block;
+    font-family: var(--serif);
+    font-size: 13.5px;
+    color: var(--ink-soft);
+    margin-top: 5px;
+    font-weight: 400;
+    line-height: 1.4;
+    max-width: 240px;
+  }
+
+  td.col-enviado {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--ink-soft);
+    white-space: nowrap;
+  }
+  td.col-enviado .by {
+    display: block;
+    margin-top: 5px;
+    font-family: var(--sans);
+    font-size: 12px;
+    color: var(--ink-mute);
+  }
+
+  td.col-prazo {
+    font-family: var(--mono);
+    font-size: 13.5px;
+    color: var(--ink-soft);
+    white-space: nowrap;
+    text-align: right;
+    width: 130px;
+  }
+  td.col-prazo.warn { color: var(--bordo); font-weight: 600; }
+  td.col-prazo.late { color: var(--bordo); font-weight: 700; }
+  td.col-prazo .sub {
+    display: block;
+    font-family: var(--sans);
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--ink-mute);
+    margin-top: 4px;
+  }
+  td.col-prazo.warn .sub, td.col-prazo.late .sub { color: var(--bordo); }
+  td.col-prazo .late-mark {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 9px;
+    background: var(--bordo);
+    color: var(--paper);
+    padding: 0 5px;
+    margin-right: 6px;
+    vertical-align: 1px;
+    letter-spacing: 0.06em;
+  }
+
+  /* Status como carimbo */
+  td.col-status { white-space: nowrap; }
+  .stamp-s {
+    display: inline-block;
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 4px 10px 5px;
+    border: 1.5px solid currentColor;
+  }
+  .stamp-s.s-enviado { color: var(--navy); }
+  .stamp-s.s-vencido { color: var(--bordo); }
+  .stamp-s.s-sat { color: var(--olive); }
+  .stamp-s.s-insat { color: var(--tan); }
+  .stamp-s.s-sem-resp { color: var(--ink-mute); }
+
+  td.col-resposta {
+    font-family: var(--sans);
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+  td.col-resposta .when {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink-mute);
+    display: block;
+    margin-top: 4px;
+  }
+  td.col-resposta .resp-snippet {
+    display: block;
+    margin-top: 6px;
+    font-family: var(--serif);
+    font-size: 13.5px;
+    font-style: italic;
+    color: var(--ink-soft);
+    line-height: 1.45;
+    max-width: 220px;
+  }
+
+  /* Rodapé */
+  .ledger-foot {
+    padding: 14px 18px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-top: 2px solid var(--navy);
+    background: var(--paper-2);
+    font-family: var(--sans);
+    font-size: 12.5px;
+    color: var(--ink-soft);
+  }
+  .ledger-foot .pages { display: flex; gap: 4px; }
+  .ledger-foot .pages a, .ledger-foot .pages button {
+    background: var(--paper); border: 1px solid var(--rule-strong);
+    padding: 4px 11px;
+    font-family: var(--sans);
+    font-size: 12px;
+    color: var(--ink);
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .ledger-foot .pages .on { background: var(--navy); color: var(--paper); border-color: var(--navy); }
+  .ledger-foot .pages button:disabled { opacity: 0.4; }
+</style>
+</head>
+<body>
+
+<header class="appbar">
+  <div class="appbar-inner">
+    <a class="brand" href="home.html">
+      <span class="mark">M</span>
+      <span class="name">MPD</span>
+      <span class="tag">Pedro Trés · 11ª Legislatura</span>
+    </a>
+    <nav>
+      <a href="home.html">Início</a>
+      <a href="05-inbox.html">Entrada <span class="alert">7</span></a>
+      <a href="04-lista.html">Demandas</a>
+      <a href="pessoas.html">Pessoas</a>
+      <a href="entidades.html">Entidades</a>
+      <a href="encaminhamentos.html" class="current">Encaminhamentos</a>
+      <a href="pendencias.html">Pendências <span class="alert">3</span></a>
+    </nav>
+    <div class="me">
+      <div class="who">
+        <span class="av">MC</span>
+        <span>
+          <span class="name">Mariana Costa</span>
+          <span class="role">Gabinete · resp.</span>
+        </span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="page">
+
+  <header class="page-head">
+    <div class="breadcrumb">
+      <span class="here">ENCAMINHAMENTOS</span>
+      <span class="sep">/</span>
+      <span>OFÍCIOS, REQUERIMENTOS, INDICAÇÕES</span>
+      <span class="sep">/</span>
+      <span>MAI 2026</span>
+    </div>
+    <div class="row1">
+      <h1>Encaminhamentos <span class="total">42 enviados em 2026</span> <span class="urg">1 vencido</span></h1>
+      <div class="actions">
+        <button class="btn ghost">Exportar CSV</button>
+        <button class="btn ghost">Imprimir relatório</button>
+        <button class="btn primary">+ Novo ofício</button>
+      </div>
+    </div>
+
+    <div class="stat-ruler">
+      <div class="cell">
+        <div class="k">Aguardando resposta</div>
+        <div class="v">11</div>
+        <div class="sub">3 de Mariana · 4 de Bia · 4 de Lucas</div>
+      </div>
+      <div class="cell">
+        <div class="k">Prazo vencido</div>
+        <div class="v warn">1</div>
+        <div class="sub">Of. 0118 → SEDU · há 3 dias</div>
+      </div>
+      <div class="cell">
+        <div class="k">Respondidos no mês</div>
+        <div class="v ok">9</div>
+        <div class="sub">7 satisfatórios · 2 insatisfatórios</div>
+      </div>
+      <div class="cell">
+        <div class="k">Tempo médio</div>
+        <div class="v">11 d</div>
+        <div class="sub">resposta · últimos 90 dias</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Tabs -->
+  <div class="views">
+    <button class="v on">Todos <span class="ct">42</span></button>
+    <button class="v">Meus <span class="ct">9</span></button>
+    <button class="v urg on">Vencidos <span class="ct">1</span></button>
+    <button class="v">Aguardando <span class="ct">11</span></button>
+    <button class="v">Respondidos <span class="ct">28</span></button>
+    <button class="v">Sem resposta (encerrados) <span class="ct">2</span></button>
+    <button class="add">+ Salvar visão atual</button>
+  </div>
+
+  <!-- Filtros por órgão -->
+  <div class="filter-row">
+    <span class="lbl">Órgão</span>
+    <button class="chip on">Tudo <span class="num">42</span></button>
+    <button class="chip">SEMOB <span class="num">9</span></button>
+    <button class="chip">SEMUS <span class="num">8</span></button>
+    <button class="chip">SEDU <span class="num">7</span></button>
+    <button class="chip">EDP-ES <span class="num">5</span></button>
+    <button class="chip">SEMSE <span class="num">4</span></button>
+    <button class="chip">DETRAN-ES <span class="num">3</span></button>
+    <button class="chip">CESAN <span class="num">3</span></button>
+    <button class="chip">Outros <span class="num">3</span></button>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="search">
+      <span class="pre">⌕</span>
+      <input type="text" placeholder="Buscar por número, órgão, contato, demanda relacionada…">
+      <span class="k">Ctrl K</span>
+    </div>
+    <select>
+      <option>Tipo: todos</option>
+      <option>Ofício solicitação</option>
+      <option>Requerimento de informação</option>
+      <option>Indicação</option>
+      <option>Ligação</option>
+      <option>E-mail formal</option>
+      <option>Presencial</option>
+    </select>
+    <select>
+      <option>Responsável: todos</option>
+      <option>Mariana Costa</option>
+      <option>Lucas Almeida</option>
+      <option>Bia Ferreira</option>
+    </select>
+    <span class="count">42 resultados</span>
+  </div>
+
+  <!-- Tabela -->
+  <div class="ledger">
+    <table>
+      <thead>
+        <tr>
+          <th>Documento</th>
+          <th>Destinatário</th>
+          <th>Demanda relacionada</th>
+          <th>Enviado</th>
+          <th>Status</th>
+          <th>Resposta</th>
+          <th style="text-align:right">Prazo</th>
+        </tr>
+      </thead>
+      <tbody>
+
+        <!-- Grupo: vencidos -->
+        <tr class="group-row urg">
+          <td colspan="7">▼ Prazo vencido <span class="ct">1 item</span><span class="meta">requer escalonamento ou ofício de cobrança</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-of">OF · 0118/2026<span class="tipo">Requerimento informação</span></td>
+          <td class="col-dest">
+            <div class="orgao">SEDU — Secretaria de Educação</div>
+            <div class="pessoa"><span class="role">Diretor de Operações</span> · Carlos Wagner</div>
+          </td>
+          <td class="col-demanda"><span class="y">MPD-2026-</span>00328<span class="ttl">Atendimento médico — fila SUS há 14 meses (encaminhamento via SEDU)</span></td>
+          <td class="col-enviado">22/04/26<span class="by">Mariana Costa</span></td>
+          <td class="col-status"><span class="stamp-s s-vencido">Prazo vencido</span></td>
+          <td class="col-resposta">—<span class="when">aguardando há 25 dias</span></td>
+          <td class="col-prazo late"><span class="late-mark">VENC</span>14/05/26<span class="sub">vencido há 3 dias</span></td>
+        </tr>
+
+        <!-- Grupo: prazo próximo -->
+        <tr class="group-row">
+          <td colspan="7">▼ Prazo próximo (próximos 7 dias) <span class="ct">3 itens</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-of">OF · 0138/2026<span class="tipo">Ofício solicitação</span></td>
+          <td class="col-dest">
+            <div class="orgao">SEDU — Secretaria de Educação</div>
+            <div class="pessoa"><span class="role">Diretora de Educação Infantil</span> · Marta Pacheco</div>
+          </td>
+          <td class="col-demanda"><span class="y">MPD-2026-</span>00341<span class="ttl">Vagas em creche pública — Bento Ferreira</span></td>
+          <td class="col-enviado">04/05/26<span class="by">Bia Ferreira</span></td>
+          <td class="col-status"><span class="stamp-s s-enviado">Enviado</span></td>
+          <td class="col-resposta">—<span class="when">aguardando há 13 dias</span></td>
+          <td class="col-prazo warn">18/05/26<span class="sub">amanhã · 11:00</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-of">OF · 0144/2026<span class="tipo">Ofício solicitação</span></td>
+          <td class="col-dest">
+            <div class="orgao">SEMOB — Secretaria de Mobilidade</div>
+            <div class="pessoa"><span class="role">Gerência de Transporte Coletivo</span> · Andréa Brito</div>
+          </td>
+          <td class="col-demanda"><span class="y">MPD-2026-</span>00339<span class="ttl">Linha 502 — reforço no horário escolar</span></td>
+          <td class="col-enviado">06/05/26<span class="by">Lucas Almeida</span></td>
+          <td class="col-status"><span class="stamp-s s-enviado">Enviado</span></td>
+          <td class="col-resposta">—<span class="when">aguardando há 11 dias</span></td>
+          <td class="col-prazo warn">20/05/26<span class="sub">em 3 dias</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-of">OF · 0145/2026<span class="tipo">Requerimento informação</span></td>
+          <td class="col-dest">
+            <div class="orgao">SEMSE — Secretaria de Serviços</div>
+            <div class="pessoa"><span class="role">Diretor de Limpeza Urbana</span> · José Eduardo Souza</div>
+          </td>
+          <td class="col-demanda"><span class="y">MPD-2026-</span>00336<span class="ttl">Coleta seletiva em Jardim Camburi — frequência</span></td>
+          <td class="col-enviado">07/05/26<span class="by">Bia Ferreira</span></td>
+          <td class="col-status"><span class="stamp-s s-enviado">Enviado</span></td>
+          <td class="col-resposta">—<span class="when">aguardando há 10 dias</span></td>
+          <td class="col-prazo warn">21/05/26<span class="sub">em 4 dias</span></td>
+        </tr>
+
+        <!-- Grupo: aguardando -->
+        <tr class="group-row">
+          <td colspan="7">▼ Aguardando resposta (dentro do prazo) <span class="ct">7 itens</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-of">OF · 0149/2026<span class="tipo">Ofício solicitação</span></td>
+          <td class="col-dest">
+            <div class="orgao">SEMUS — Secretaria de Saúde</div>
+            <div class="pessoa"><span class="role">Coord. Acessibilidade</span> · Vânia Pereira</div>
+          </td>
+          <td class="col-demanda"><span class="y">MPD-2026-</span>00333<span class="ttl">Acessibilidade na rampa da UBS Maruípe</span></td>
+          <td class="col-enviado">15/05/26<span class="by">Mariana Costa</span></td>
+          <td class="col-status"><span class="stamp-s s-enviado">Enviado</span></td>
+          <td class="col-resposta">—<span class="when">há 2 dias</span></td>
+          <td class="col-prazo">29/05/26<span class="sub">em 12 dias</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-of">OF · 0148/2026<span class="tipo">Ofício solicitação</span></td>
+          <td class="col-dest">
+            <div class="orgao">CESAN — Companhia de Saneamento</div>
+            <div class="pessoa"><span class="role">Atendimento Vitória</span></div>
+          </td>
+          <td class="col-demanda"><span class="y">MPD-2026-</span>00315<span class="ttl">Vazamento de esgoto — Rua dos Coqueiros, 304</span></td>
+          <td class="col-enviado">13/05/26<span class="by">Bia Ferreira</span></td>
+          <td class="col-status"><span class="stamp-s s-enviado">Enviado</span></td>
+          <td class="col-resposta">—<span class="when">há 4 dias</span></td>
+          <td class="col-prazo">27/05/26<span class="sub">em 10 dias</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-of">OF · 0147/2026<span class="tipo">Indicação</span></td>
+          <td class="col-dest">
+            <div class="orgao">SEMSE — Praças e Jardins</div>
+            <div class="pessoa"><span class="role">Diretora</span> · Cláudia Marques</div>
+          </td>
+          <td class="col-demanda"><span class="y">MPD-2026-</span>00334<span class="ttl">Quadra esportiva São Pedro — cobertura</span></td>
+          <td class="col-enviado">11/05/26<span class="by">Mariana Costa</span></td>
+          <td class="col-status"><span class="stamp-s s-enviado">Enviado</span></td>
+          <td class="col-resposta">—<span class="when">há 6 dias</span></td>
+          <td class="col-prazo">25/05/26<span class="sub">em 8 dias</span></td>
+        </tr>
+
+        <!-- Grupo: respondidos recentemente -->
+        <tr class="group-row">
+          <td colspan="7">▼ Respondidos nos últimos 30 dias <span class="ct">9 itens</span><span class="meta">7 satisfatórios · 2 insatisfatórios</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-of">OF · 0142/2026<span class="tipo">Ofício solicitação</span></td>
+          <td class="col-dest">
+            <div class="orgao">SEMOB — Secretaria de Mobilidade</div>
+            <div class="pessoa"><span class="role">Dir. Operações</span> · Edmilson Rocha</div>
+          </td>
+          <td class="col-demanda"><span class="y">MPD-2026-</span>00342<span class="ttl">Iluminação Antônio Ataíde — trecho Praça Costa Pereira</span></td>
+          <td class="col-enviado">05/05/26<span class="by">Mariana Costa</span></td>
+          <td class="col-status"><span class="stamp-s s-sat">Satisfatório</span></td>
+          <td class="col-resposta">Resp. 14/05<span class="when">9 dias úteis</span><span class="resp-snippet">"Vistoria identificou 9 pontos. Fila de manutenção corretiva, execução até 12/06."</span></td>
+          <td class="col-prazo">19/05/26<span class="sub">cumprido</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-of">OF · 0140/2026<span class="tipo">Ofício solicitação</span></td>
+          <td class="col-dest">
+            <div class="orgao">SEDU — Secretaria de Educação</div>
+            <div class="pessoa"><span class="role">Manutenção Predial</span> · Roberto Lemos</div>
+          </td>
+          <td class="col-demanda"><span class="y">MPD-2026-</span>00329<span class="ttl">Reforma do CMEI Maruípe — apoio à reabertura</span></td>
+          <td class="col-enviado">28/04/26<span class="by">Pedro Trés</span></td>
+          <td class="col-status"><span class="stamp-s s-sat">Satisfatório</span></td>
+          <td class="col-resposta">Resp. 11/05<span class="when">9 dias úteis</span><span class="resp-snippet">"Reabertura confirmada para 12/05/2026. Obras concluídas pela SEMOBRA."</span></td>
+          <td class="col-prazo">12/05/26<span class="sub">cumprido</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-of">OF · 0137/2026<span class="tipo">Indicação</span></td>
+          <td class="col-dest">
+            <div class="orgao">EDP-ES — Distribuidora de Energia</div>
+            <div class="pessoa"><span class="role">Atendimento Vereador</span> · Renato Pessanha</div>
+          </td>
+          <td class="col-demanda"><span class="y">MPD-2026-</span>00309<span class="ttl">Substituição de lâmpadas — Rua das Acácias</span></td>
+          <td class="col-enviado">14/04/26<span class="by">Lucas Almeida</span></td>
+          <td class="col-status"><span class="stamp-s s-insat">Insatisfatório</span></td>
+          <td class="col-resposta">Resp. 28/04<span class="when">10 dias úteis</span><span class="resp-snippet">"Iluminação pública não é de responsabilidade da EDP. Direcionar à SEMOB."</span></td>
+          <td class="col-prazo">28/04/26<span class="sub">cumprido</span></td>
+        </tr>
+
+        <tr>
+          <td class="col-of">OF · 0135/2026<span class="tipo">Requerimento informação</span></td>
+          <td class="col-dest">
+            <div class="orgao">DETRAN-ES</div>
+            <div class="pessoa"><span class="role">Diretoria de Trânsito</span> · Maria Helena Quintão</div>
+          </td>
+          <td class="col-demanda"><span class="y">MPD-2026-</span>00321<span class="ttl">Reforço na ronda — Av. Beira-Mar à noite</span></td>
+          <td class="col-enviado">07/04/26<span class="by">Mariana Costa</span></td>
+          <td class="col-status"><span class="stamp-s s-sat">Satisfatório</span></td>
+          <td class="col-resposta">Resp. 18/04<span class="when">7 dias úteis</span><span class="resp-snippet">"Convênio com PM aumentou 30% das rondas no centro entre 19h e 23h."</span></td>
+          <td class="col-prazo">21/04/26<span class="sub">cumprido</span></td>
+        </tr>
+
+      </tbody>
+    </table>
+
+    <div class="ledger-foot">
+      <div>Mostrando <strong style="color:var(--ink)">11</strong> de <strong style="color:var(--ink)">42</strong> encaminhamentos · agrupados por urgência</div>
+      <div class="pages">
+        <button disabled>← Anterior</button>
+        <a class="on" href="#">1</a>
+        <a href="#">2</a>
+        <a href="#">3</a>
+        <a href="#">…</a>
+        <button>Próxima →</button>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+</body>
+</html>

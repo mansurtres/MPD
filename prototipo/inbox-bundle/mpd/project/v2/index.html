@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>MPD v2 · Índice navegável</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  body { background: var(--surface-0); padding: 56px 32px; }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+
+  .head { margin-bottom: 36px; }
+  .head .kicker {
+    font-family: var(--font-mono); font-size: 11px;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ink-mute); font-weight: 700; margin-bottom: 14px;
+  }
+  .head h1 {
+    font-family: var(--font-display); font-weight: 600;
+    font-size: 42px; line-height: 1.1; letter-spacing: -0.025em;
+    color: var(--ink); margin: 0 0 12px;
+  }
+  .head .lede {
+    font-family: var(--font-serif); font-size: 17px;
+    line-height: 1.6; color: var(--ink-body); margin: 0;
+    max-width: 64ch; font-style: italic;
+  }
+  .head .lede strong { color: var(--ink); font-weight: 600; font-style: normal; }
+
+  .group {
+    margin-bottom: 40px;
+  }
+  .group h2 {
+    font-family: var(--font-mono); font-size: 11px;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--primary); font-weight: 700;
+    margin: 0 0 14px; padding-bottom: 8px;
+    border-bottom: 2px solid var(--ink-200);
+  }
+  .group .nav {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;
+  }
+  .nav a {
+    background: var(--surface-2); border: 1px solid var(--rule);
+    padding: 16px 20px; text-decoration: none; color: inherit;
+    display: grid; grid-template-columns: 1fr auto; gap: 8px;
+    align-items: baseline;
+  }
+  .nav a:hover { border-color: var(--ink); background: var(--surface-3); }
+  .nav a .ttl {
+    font-family: var(--font-display); font-weight: 600;
+    font-size: 18px; color: var(--ink);
+    letter-spacing: -0.01em; line-height: 1.2;
+  }
+  .nav a .ttl .desc {
+    display: block;
+    font-family: var(--font-serif); font-style: italic;
+    font-size: 13.5px; color: var(--ink-mute); margin-top: 3px;
+    letter-spacing: 0;
+  }
+  .nav a .route {
+    font-family: var(--font-mono); font-size: 10.5px;
+    color: var(--ink-mute); letter-spacing: 0.04em;
+    text-transform: uppercase; font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .note {
+    margin-top: 36px; padding: 16px 20px;
+    background: var(--info-50); border-left: 3px solid var(--info-500);
+    font-family: var(--font-serif); font-size: 14px;
+    color: var(--info-700); line-height: 1.55;
+  }
+  .note strong { color: var(--ink); font-weight: 600; }
+  .note kbd {
+    font-family: var(--font-mono); font-size: 11px;
+    background: var(--surface-3); border: 1px solid var(--rule-strong);
+    padding: 1px 6px; color: var(--ink-soft);
+    letter-spacing: 0.04em;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="head">
+    <div class="kicker">MPD · Protótipo navegável · v2</div>
+    <h1>Índice das telas</h1>
+    <p class="lede">Cada link abre a tela real. Os menus do topo de cada página apontam entre si — você pode <strong>navegar como um usuário</strong> entre Início, Inbox, Pendências, Demandas e Análise. Use esta página como menu mestre quando se perder.</p>
+  </header>
+
+  <div class="group">
+    <h2>Sistema</h2>
+    <div class="nav">
+      <a href="design-system.html"><span class="ttl">Design System<span class="desc">Paleta, tipografia, status, componentes</span></span><span class="route">design-system</span></a>
+      <a href="login.html"><span class="ttl">Login<span class="desc">3 estados: padrão · erro · bloqueada</span></span><span class="route">/entrar</span></a>
+    </div>
+  </div>
+
+  <div class="group">
+    <h2>Dia a dia</h2>
+    <div class="nav">
+      <a href="home.html"><span class="ttl">Início<span class="desc">Composer + painel abaixo</span></span><span class="route">/</span></a>
+      <a href="inbox.html"><span class="ttl">Inbox<span class="desc">Captura GTD, triagem em lote</span></span><span class="route">/inbox</span></a>
+      <a href="pendencias.html"><span class="ttl">Pendências<span class="desc">Devolutivas, reuniões, prazos</span></span><span class="route">/pendencias</span></a>
+      <a href="analise.html"><span class="ttl">Análise<span class="desc">Painel operacional, filtros, drill-down</span></span><span class="route">/analise</span></a>
+    </div>
+  </div>
+
+  <div class="group">
+    <h2>Demandas</h2>
+    <div class="nav">
+      <a href="lista-demandas.html"><span class="ttl">Lista de demandas<span class="desc">Filtros, bulk actions, paginação</span></span><span class="route">/demandas</span></a>
+      <a href="detalhe-demanda.html"><span class="ttl">Detalhe da demanda<span class="desc">Cabeçalho + timeline + aside completo</span></span><span class="route">/demanda/:id</span></a>
+      <a href="nova-demanda.html"><span class="ttl">Nova demanda<span class="desc">Formulário · 5 seções · formset dinâmico</span></span><span class="route">/demanda/nova</span></a>
+    </div>
+  </div>
+
+  <div class="group">
+    <h2>Lab (experimentos)</h2>
+    <div class="nav">
+      <a href="lab/tipografia.html"><span class="ttl">Tipografia<span class="desc">Comparação Funnel · Source Serif · Geist Mono (decidido)</span></span><span class="route">/lab/tipografia</span></a>
+      <a href="lab/cores-tag.html"><span class="ttl">Cores de tag<span class="desc">14 cores · paleta atual + Google Calendar</span></span><span class="route">/lab/cores-tag</span></a>
+    </div>
+  </div>
+
+  <div class="note">
+    <strong>Como testar.</strong> Comece em <a href="login.html">Login</a>, clique <kbd>Entrar</kbd> para ir à <a href="lista-demandas.html">Lista de demandas</a>, clique numa linha para abrir <a href="detalhe-demanda.html">o detalhe</a>. Os menus do topo (Inbox, Pendências, Demandas, Análise) conectam tudo. O composer da <a href="home.html">Home</a> e o FAB <kbd>+</kbd> em outras telas simulam a captura.
+  </div>
+
+</div>
+</body>
+</html>

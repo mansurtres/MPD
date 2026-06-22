@@ -17,6 +17,7 @@ caracteriza Pessoa/Entidade. Decisão registrada em ADR 0042 (supersede
 parcialmente ADR 0039 para o domínio de demandas).
 """
 
+import random
 import uuid
 from datetime import timedelta
 
@@ -24,10 +25,28 @@ from django.conf import settings
 from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelation
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
-from django.db import models, transaction
+from django.db import IntegrityError, models, transaction
 from django.utils import timezone
 
 from core.mixins import AuditavelMixin
+from core.utils import gerar_slug_publico
+
+
+def _q_demanda_visivel_para(user):
+    """Predicado Q de visibilidade need-to-know (ADR 0059).
+
+    Admin → None (vê tudo). Chefe de Gabinete → todas as ATIVAS (sem
+    histórico concluído/arquivado). Assessor → as próprias (responsável
+    ou autor), ativas + o próprio histórico. Usado por
+    DemandaQuerySet.visiveis_para e por Demanda.q_visivel_para.
+    """
+    from core.permissoes import eh_admin, eh_cg_plus
+
+    if eh_admin(user):
+        return None
+    if eh_cg_plus(user):
+        return models.Q(status__in=Demanda.STATUS_ATIVOS)
+    return models.Q(responsavel=user) | models.Q(criado_por=user)
 
 
 class DemandaQuerySet(models.QuerySet):
@@ -36,11 +55,10 @@ class DemandaQuerySet(models.QuerySet):
         Restritas só aparecem para: responsável, ADM, CG ou superuser.
         Centraliza a regra que antes vivia em `_filtrar_visiveis` (views).
         """
-        from core.permissoes import eh_cg_plus
-
-        if eh_cg_plus(user):
+        q = _q_demanda_visivel_para(user)
+        if q is None:
             return self
-        return self.filter(models.Q(restrito=False) | models.Q(responsavel=user))
+        return self.filter(q)
 
 
 class DemandaManager(models.Manager.from_queryset(DemandaQuerySet)):
@@ -104,6 +122,14 @@ class Demanda(AuditavelMixin, models.Model):
         (STATUS_CONCLUIDA, "Concluída"),
         (STATUS_ARQUIVADO, "Arquivado"),
     ]
+    # Ativos = tudo menos concluída/arquivada. Base da visibilidade do
+    # Chefe de Gabinete (vê só ativas) — ADR 0059.
+    STATUS_ATIVOS = [
+        STATUS_NOVO,
+        STATUS_EM_ANDAMENTO,
+        STATUS_AGUARDANDO_TERCEIROS,
+        STATUS_AGUARDANDO_PESSOA,
+    ]
 
     RESULTADO_PENDENTE = "pendente"
     RESULTADO_ATENDIDO = "atendido"
@@ -127,17 +153,15 @@ class Demanda(AuditavelMixin, models.Model):
         ("urgente", "Urgente"),
     ]
 
-    COORDENACAO_GABINETE = "gabinete"
-    COORDENACAO_JURIDICO = "juridico"
-    COORDENACAO_COMUNICACAO = "comunicacao"
-    COORDENACAO_CHOICES = [
-        (COORDENACAO_GABINETE, "Gabinete"),
-        (COORDENACAO_JURIDICO, "Jurídico"),
-        (COORDENACAO_COMUNICACAO, "Comunicação"),
-    ]
-
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     numero = models.CharField("número", max_length=20, unique=True, blank=True)
+    slug_publico = models.CharField(
+        max_length=8,
+        unique=True,
+        blank=True,
+        editable=False,
+        help_text="Slug curto (8 chars) para URLs públicas. Gerado automaticamente no save().",
+    )
     titulo = models.CharField("título", max_length=200)
     descricao = models.TextField("descrição")
     origem = models.CharField(max_length=15, choices=ORIGEM_CHOICES, default=ORIGEM_RESPONSIVA)
@@ -156,10 +180,6 @@ class Demanda(AuditavelMixin, models.Model):
         blank=True,
         related_name="demandas_responsavel",
     )
-    coordenacao_responsavel = models.CharField(
-        "coordenação responsável", max_length=15, choices=COORDENACAO_CHOICES
-    )
-    restrito = models.BooleanField("restrita", default=False)
     prazo = models.DateField(null=True, blank=True)
     observacoes_arquivamento = models.TextField(
         "observações de arquivamento", blank=True, default=""
@@ -195,7 +215,6 @@ class Demanda(AuditavelMixin, models.Model):
             models.Index(fields=["responsavel"]),
             models.Index(fields=["status"]),
             models.Index(fields=["resultado"]),
-            models.Index(fields=["status", "coordenacao_responsavel"]),
             models.Index(fields=["responsavel", "status"]),
             models.Index(fields=["resultado", "criado_em"]),
             models.Index(fields=["criado_em"]),
@@ -207,7 +226,6 @@ class Demanda(AuditavelMixin, models.Model):
                 "pode_arquivar_sem_responder",
                 "Pode arquivar demanda não concluída (com justificativa)",
             ),
-            ("pode_marcar_restrita", "Pode marcar/desmarcar demanda como restrita"),
             ("pode_atribuir_responsavel", "Pode atribuir/reatribuir responsável"),
             ("pode_reabrir_demanda", "Pode reabrir demanda concluída"),
             ("pode_excluir_demanda", "Pode excluir demanda definitivamente"),
@@ -271,75 +289,80 @@ class Demanda(AuditavelMixin, models.Model):
             )
 
     def save(self, *args, **kwargs):
-        if not self.numero:
-            self.numero = self.gerar_numero()
         if self.status == self.STATUS_ARQUIVADO and not self.arquivado_em:
             self.arquivado_em = timezone.now()
-        super().save(*args, **kwargs)
+        if self.numero and self.slug_publico:
+            super().save(*args, **kwargs)
+            return
+        # Registro novo: gera número (D-AAMM-NNNNN) e slug_publico, tenta
+        # INSERT em savepoint. Em colisão (UNIQUE de numero OU slug),
+        # regenera o campo vazio/colidido até 10 vezes.
+        # Padrão idêntico ao slug_publico de Pessoa/Entidade (ADR 0051).
+        ultima_excecao = None
+        for _ in range(10):
+            if not self.numero:
+                self.numero = self.gerar_numero()
+            if not self.slug_publico:
+                self.slug_publico = gerar_slug_publico()
+            try:
+                with transaction.atomic():
+                    super().save(*args, **kwargs)
+                return
+            except IntegrityError as exc:
+                ultima_excecao = exc
+                # Regenera o campo que colidiu na próxima tentativa.
+                msg = str(exc).lower()
+                if "slug_publico" in msg:
+                    self.slug_publico = ""
+                if "numero" in msg or "slug_publico" not in msg:
+                    self.numero = ""
+                continue
+        raise ultima_excecao  # 10 colisões consecutivas — improvável no espaço combinado
 
     @classmethod
-    @transaction.atomic
     def gerar_numero(cls):
-        """Formato MPD-AAAA-NNNNN. Reinicia a cada ano. Thread-safe."""
-        ano = timezone.now().year
-        prefixo = f"MPD-{ano}-"
-        # select_for_update bloqueia concorrência em ambientes com banco real;
-        # SQLite (testes) ignora silenciosamente — sequência ainda é correta
-        # porque pytest-django usa transação por teste.
-        ultima = (
-            cls.objects.select_for_update()
-            .filter(numero__startswith=prefixo)
-            .order_by("-numero")
-            .first()
-        )
-        if ultima:
-            seq = int(ultima.numero.rsplit("-", 1)[1]) + 1
-        else:
-            seq = 1
-        return f"{prefixo}{seq:05d}"
+        """Formato D-AAMM-NNNNN (ADR 0056).
+
+        - `AA` = ano em 2 dígitos, `MM` = mês em 2 dígitos (ordenação cronológica como string).
+        - `NNNNN` = aleatório uniforme em [10000, 99999] (sempre 5 dígitos visualmente).
+        Colisão é tratada no `save()` por retry em savepoint.
+        """
+        agora = timezone.now()
+        sufixo = random.randint(10000, 99999)
+        return f"D-{agora.strftime('%y%m')}-{sufixo}"
 
     def tem_partes(self):
         """Demanda não-anônima precisa ter ao menos uma parte vinculada."""
         return self.demanda_pessoas.exists() or self.demanda_entidades.exists()
 
     def pode_ser_visto_por(self, user):
-        """Visibilidade segue ADR/permissoes.md §3.3 + edge case 5.1."""
-        from core.permissoes import eh_cg_plus
+        """Visibilidade need-to-know (ADR 0059): Admin tudo; CG só ativas;
+        Assessor só as próprias (responsável ou autor)."""
+        from core.permissoes import eh_admin, eh_cg_plus
 
-        if not self.restrito:
+        if eh_admin(user):
             return True
-        if self.responsavel_id == user.id:
-            return True
-        return eh_cg_plus(user)
+        if eh_cg_plus(user):
+            return self.status in Demanda.STATUS_ATIVOS
+        return self.responsavel_id == user.id or self.criado_por_id == user.id
+
+    @classmethod
+    def q_visivel_para(cls, user):
+        """Q predicate de visibilidade — para uso em queries externas (como
+        PessoaDetailView / EntidadeDetailView) que não passam pelo manager.
+        Retorna None se CG+."""
+        return _q_demanda_visivel_para(user)
+
+    def get_absolute_url(self):
+        from django.urls import reverse
+
+        return reverse("demandas:demanda_detalhe", kwargs={"slug": self.slug_publico})
 
 
 class DemandaPessoa(models.Model):
-    PAPEL_SOLICITANTE = "solicitante"
-    PAPEL_AFETADA = "afetada"
-    PAPEL_TESTEMUNHA = "testemunha"
-    PAPEL_REPRESENTANTE = "representante"
-    PAPEL_OUTRO = "outro"
-    PAPEL_CHOICES = [
-        (PAPEL_SOLICITANTE, "Solicitante"),
-        (PAPEL_AFETADA, "Afetada"),
-        (PAPEL_TESTEMUNHA, "Testemunha"),
-        (PAPEL_REPRESENTANTE, "Representante"),
-        (PAPEL_OUTRO, "Outro"),
-    ]
-
     demanda = models.ForeignKey(Demanda, on_delete=models.CASCADE, related_name="demanda_pessoas")
     pessoa = models.ForeignKey(
         "pessoas.Pessoa", on_delete=models.PROTECT, related_name="demanda_pessoas"
-    )
-    papel = models.CharField(
-        max_length=20, choices=PAPEL_CHOICES, blank=True, default=PAPEL_SOLICITANTE
-    )
-    papel_outro = models.CharField(
-        "papel (outro)",
-        max_length=100,
-        blank=True,
-        default="",
-        help_text="Preencha apenas se papel = 'Outro'.",
     )
     criado_em = models.DateTimeField(auto_now_add=True)
 
@@ -358,47 +381,14 @@ class DemandaPessoa(models.Model):
             models.Index(fields=["pessoa"]),
         ]
 
-    def clean(self):
-        super().clean()
-        if self.papel == self.PAPEL_OUTRO and not self.papel_outro:
-            raise ValidationError({"papel_outro": "Especifique o papel quando escolher 'Outro'."})
-
-    @property
-    def papel_display(self):
-        """Texto a exibir: papel_outro quando 'Outro', senão o display do choice."""
-        if self.papel == self.PAPEL_OUTRO and self.papel_outro:
-            return self.papel_outro
-        return self.get_papel_display()
-
     def __str__(self):
-        return f"{self.pessoa.nome_exibicao} ({self.papel_display})"
+        return self.pessoa.nome_exibicao
 
 
 class DemandaEntidade(models.Model):
-    PAPEL_REPRESENTADA = "representada"
-    PAPEL_AFETADA = "afetada"
-    PAPEL_PARCEIRA = "parceira"
-    PAPEL_OUTRO = "outro"
-    PAPEL_CHOICES = [
-        (PAPEL_REPRESENTADA, "Representada"),
-        (PAPEL_AFETADA, "Afetada"),
-        (PAPEL_PARCEIRA, "Parceira"),
-        (PAPEL_OUTRO, "Outro"),
-    ]
-
     demanda = models.ForeignKey(Demanda, on_delete=models.CASCADE, related_name="demanda_entidades")
     entidade = models.ForeignKey(
         "pessoas.Entidade", on_delete=models.PROTECT, related_name="demanda_entidades"
-    )
-    papel = models.CharField(
-        max_length=20, choices=PAPEL_CHOICES, blank=True, default=PAPEL_REPRESENTADA
-    )
-    papel_outro = models.CharField(
-        "papel (outro)",
-        max_length=100,
-        blank=True,
-        default="",
-        help_text="Preencha apenas se papel = 'Outro'.",
     )
     criado_em = models.DateTimeField(auto_now_add=True)
 
@@ -417,19 +407,8 @@ class DemandaEntidade(models.Model):
             models.Index(fields=["entidade"]),
         ]
 
-    def clean(self):
-        super().clean()
-        if self.papel == self.PAPEL_OUTRO and not self.papel_outro:
-            raise ValidationError({"papel_outro": "Especifique o papel quando escolher 'Outro'."})
-
-    @property
-    def papel_display(self):
-        if self.papel == self.PAPEL_OUTRO and self.papel_outro:
-            return self.papel_outro
-        return self.get_papel_display()
-
     def __str__(self):
-        return f"{self.entidade.nome} ({self.papel_display})"
+        return self.entidade.nome
 
 
 class Interacao(models.Model):
@@ -632,19 +611,12 @@ class Anexo(models.Model):
     """
 
     TAMANHO_MAXIMO_BYTES = 25 * 1024 * 1024  # 25 MB
-    MIME_WHITELIST = {
-        "application/pdf",
-        "image/jpeg",
-        "image/png",
-        "image/gif",
-        "image/webp",
-        "application/msword",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        "application/vnd.ms-excel",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "text/plain",
-        "text/csv",
-    }
+    # Whitelist de MIMEs removida (ADR 0056) — anexo aceita qualquer arquivo
+    # até TAMANHO_MAXIMO_BYTES. A defesa anti-XSS é feita na entrega via
+    # `AnexoDownloadView`: Content-Disposition: attachment força o browser a
+    # baixar (não executar/exibir inline), e X-Content-Type-Options: nosniff
+    # impede o browser de "adivinhar" um tipo executável. Em produção, o
+    # Nginx deve estar configurado com os mesmos headers para /media/.
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
@@ -682,8 +654,6 @@ class Anexo(models.Model):
                     "arquivo": f"Arquivo excede o limite de {self.TAMANHO_MAXIMO_BYTES // (1024*1024)} MB."
                 }
             )
-        if self.mime_type and self.mime_type not in self.MIME_WHITELIST:
-            raise ValidationError({"arquivo": f"Tipo de arquivo não permitido: {self.mime_type}."})
 
 
 class ItemInbox(models.Model):

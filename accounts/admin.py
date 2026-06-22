@@ -6,14 +6,14 @@ from .models import Usuario
 
 @admin.register(Usuario)
 class UsuarioAdmin(UserAdmin):
-    list_display = ["email", "nome_completo", "cargo", "coordenacao", "is_staff", "is_active"]
-    list_filter = ["is_staff", "is_active", "coordenacao"]
+    list_display = ["email", "nome_completo", "cargo", "is_staff", "is_active"]
+    list_filter = ["is_staff", "is_active"]
     search_fields = ["email", "nome_completo"]
     ordering = ["email"]
 
     fieldsets = (
         (None, {"fields": ("email", "password")}),
-        ("Informações pessoais", {"fields": ("nome_completo", "cargo", "coordenacao")}),
+        ("Informações pessoais", {"fields": ("nome_completo", "cargo")}),
         (
             "Permissões",
             {

@@ -671,6 +671,8 @@ Grupos criados junto com os models que protegem têm conteúdo real e testável 
 **Data:** 2026-05-08
 **Status:** Aceito (supersede ADR 0002)
 
+**Errata (2026-06-21):** a padronização vale para `accounts`, `pessoas` e `core`. O app `demandas` (`Demanda`, `Interacao`, `Encaminhamento`, `Anexo`, `ItemInbox`) usa **deliberadamente `UUIDField` como PK** — IDs não-sequenciais que não vazam volume, decididos junto com os models da Fase 3. A URL pública curta é resolvida por `slug_publico` (ADR 0038), não pela PK. Exceção registrada; sem intenção de migrar a PK de demandas para BigAutoField.
+
 ### Contexto
 
 ADR 0002 prescreveu `UUIDField` como PK em todos os models. Na Fase 1, o model `accounts.Usuario` foi implementado com a default do Django (`BigAutoField`) sem que o desvio fosse questionado. A Fase 2 agora introduz quatro novos models (`Pessoa`, `Entidade`, `Vinculo`, `Tag`) e exige uma decisão antes de criar as primeiras migrations: seguir o doc (UUID nos novos, mas Usuario seguiria com BigAutoField — schema misto), retroceder o Usuario para UUID (drop+recreate, perde a base de dev), ou padronizar todo o schema com BigAutoField.
@@ -1193,6 +1195,14 @@ O problema real era a **URL pública**, não a PK em si. Trocar PK por UUID reso
 - ADR 0002 (UUID universal) fica registrada como ideia inicial, mas a abordagem que vigora é `BigAutoField` + slug separado, conforme esta ADR e ADR 0025.
 - Fase 3 deve aplicar o mesmo padrão a `Demanda` (a primeira coisa que será compartilhada via URL).
 
+### Errata 2026-06-21 — slug padronizado em 8 caracteres e estendido à Demanda
+
+Decisão de produto do proprietário: o identificador público passa a ter **8 caracteres hex** em todo o sistema (era 12 em `Pessoa`/`Entidade`; `Demanda` usava o UUID completo na URL). 16^8 ≈ 4,3 bilhões de combinações — amplo para a escala de um mandato municipal, e URLs ainda mais curtas.
+
+- `Demanda` ganha `slug_publico` (8 chars, unique). Só as URLs **navegadas** migram para slug — `/demandas/<slug>/` (detalhe) e `/demandas/<slug>/editar/`. As rotas de ação (estado, concluir, arquivar, reabrir, interações, encaminhamentos, anexos, inbox) permanecem em `<uuid:pk>`, pois são endpoints de POST, não links públicos. A PK interna da Demanda continua sendo o `UUIDField` (ADR 0056 mantida).
+- A geração de slug foi **consolidada em `core/utils.py`** (`SLUG_LENGTH = 8`, `gerar_slug_publico()`, `salvar_com_slug_unico()`), eliminando a cópia que vivia em `pessoas/models.py`. `Pessoa`, `Entidade` e `Demanda` usam a mesma função (mantém o retry em `IntegrityError` da ADR 0051). Em `Demanda.save()`, número (D-AAMM-NNNNN) e slug são gerados juntos no mesmo laço de retry.
+- Sem produção: migrations regeram os slugs de `Pessoa`/`Entidade` para 8 chars (RunPython antes do `AlterField` 12→8) e fizeram backfill de `Demanda` (add nullable → backfill → alter unique).
+
 ---
 
 ## ADR 0039 — Drop do campo `categoria` em Tag (supersede ADR 0005 parcialmente; revisita ADR 0006)
@@ -1437,6 +1447,18 @@ Verificação manual da Fase 3 (2026-05-16) revelou três problemas distintos:
 - `criar_dados_teste` regera demandas com devolutiva como Interacao.
 - Trabalho de docs: `fluxos-de-estado.md` §1 (diagrama, transições, regras codificadas) e `modelo-de-dados.md` (campos removidos da Demanda, novo tipo de Interacao) atualizados.
 - ADR 0041 e ADR 0042 não são afetadas. Esta ADR supersede parcialmente as regras do §1.3 de `fluxos-de-estado.md` (não a ADR original que definiu a separação status × resultado, que continua válida e é fortalecida).
+
+### Errata (2026-05-31) — vocabulário "ação" descartado
+
+A decisão original (item 5 e Consequências) propôs o rótulo **"Concluir ação"** para o CTA de demandas proativas. Em uso, isso se mostrou incorreto: proativa **continua sendo demanda** — o que muda é apenas a ausência de devolutiva, não a categoria do objeto. Chamar uma de "ação" e outra de "demanda" rompe a coerência conceitual e sugere falsamente que se trata de duas entidades distintas.
+
+Vocabulário corrigido:
+- **Botão CTA**: "Concluir demanda →" em ambos os casos.
+- **Drawer header**: "Concluir demanda" (sem variar por origem).
+- **Sub-rótulo (helper)** abaixo do CTA é o que diferencia: *"com devolutiva ao demandante"* (responsiva) vs *"origem proativa · sem devolutiva"* (proativa).
+- Nome interno `ConcluirAcaoForm` (se ainda existir) deve ser unificado em `ConcluirDemandaForm` quando essa parte do código for tocada — não vale tocar só por isso.
+
+O fluxo de validação no `Demanda.clean()` continua bifurcado por origem como esta ADR estabeleceu — a correção é só semântica de UX.
 
 ---
 
@@ -1889,6 +1911,7 @@ Campos do `LogEntry`:
 ## ADR 0054 — Remoção do campo `papel` em `DemandaPessoa` e `DemandaEntidade`
 
 **Data:** 2026-05-17 (decisão; execução prevista para Fase 7 / `v1.0`)
+**Status:** ✅ Executado (2026-06-21, branch `feature/teste-claude-design`) — migration `demandas/0009_drop_papel.py`; model, forms, templates, JS, seed e testes limpos. Ver DT-013.
 
 ### Contexto
 
@@ -1929,6 +1952,290 @@ Se a figura de **contraparte** se materializar como caso recorrente no uso da v1
 
 - Espelho operacional: `DT-013` (`docs/debito-tecnico.md`).
 - Execução rastreada no critério §4.6.3 da Fase 7 (`roadmap.md`).
+
+---
+
+## ADR 0055 — Elevação dos gates de `/analise` (CG+) e `/auditoria` (ADM)
+
+**Data:** 2026-05-27
+
+### Contexto
+
+A Fase 6 (`v0.7`) abriu `/analise` para CO+ (Coordenador, Chefe de Gabinete, Administrador) e `/auditoria` para CG+ (Chefe de Gabinete, Administrador). A racional original era operacional: coordenadores teriam o painel para acompanhar a carga da própria coordenação, e o Chefe de Gabinete teria acesso direto ao log de alterações.
+
+Revisão de produto (2026-05-27) identificou que:
+
+- **`/analise` é uma visão agregada do mandato inteiro** — cruza coordenações, temas, top-pessoas, carga por assessor. A informação útil ao Coordenador da própria coordenação já está nas listas `/demandas/` filtradas (incluindo o quick filter "da minha coordenação"). O painel agregado é ferramenta de gestão, não de operação.
+- **`/auditoria` carrega risco de leitura sensível** — quem viu o quê, quando, por quem. Concentrar a porta de entrada em um único papel (Administrador) reduz a superfície de leitura do log e converge com a regra "ADM responde pela governança do sistema".
+
+### Decisão
+
+- `/analise` passa de CO+ para **CG+** (Administrador e Chefe de Gabinete).
+- `/auditoria` passa de CG+ para **ADM** apenas.
+
+Codificado em `core/views.py`:
+- `AnaliseView.test_func` consome `eh_cg_plus(user)`.
+- `AuditoriaListView.test_func` consome novo helper `eh_admin(user)` em [core/permissoes.py](../core/permissoes.py).
+
+Topbar (`templates/layouts/app.html`) e card de Configurações (`core/templates/core/configuracoes.html`) gated por `papel_cg_plus` (Análise) e `papel_eh_admin` (Auditoria).
+
+Matriz documentada em [`docs/permissoes.md`](permissoes.md) §3.12 e §3.13.
+
+### Consequências
+
+- Coordenadores deixam de ver `Análise` na topbar e recebem 403 ao acessar `/analise` direto. As listas filtradas (`/demandas/?coordenacao=X`) continuam cobrindo a operação diária.
+- Chefe de Gabinete deixa de ver `Auditoria` na topbar e recebe 403 ao acessar `/auditoria` direto. Se houver necessidade de consulta pontual ao log, ADM faz a consulta e compartilha.
+- `eh_co_plus` permanece em `core/permissoes.py` — ainda gera **exportação CSV** e **remoção de anexos alheios** (`pessoas/views.py`, `demandas/views.py`, `demandas/models.py`).
+- ADR 0049 (filtro `visiveis_para` no painel) fica como **defesa em profundidade**. O caso observável (Coord vendo restritas filtradas no painel) desaparece, mas o `manager` permanece aplicado — se algum dia o gate for reaberto, o filtro não precisa ser reintroduzido. Os 3 testes que cobriam o caso CO+restrita no painel foram removidos da suíte porque a premissa (CO acessando `/analise`) não é mais alcançável.
+- ADR 0048 (centralização de checagem de papel) cresce com `eh_admin(user)` — único lugar autorizado a checar o grupo "Administrador" pelo nome, fora migrations.
+
+### Referências
+
+- Helpers: [core/permissoes.py](../core/permissoes.py) (`eh_admin`, `eh_cg_plus`, `eh_co_plus`).
+- Doc: [docs/permissoes.md](permissoes.md) §3.12, §3.13.
+- Testes: `core/tests.py::test_eh_admin_chefe_nao_e_admin`, `demandas/tests.py::test_auditoria_bloqueia_chefe`, `test_analise_acessivel_a_chefe`, `test_analise_bloqueia_coordenador`.
+
+---
+
+## ADR 0056 — Novo formato de número da demanda (`D-AAMM-NNNNN`)
+
+**Data:** 2026-05-27
+**Status:** Aceito (supersede ADR de origem implícita em [`docs/modelo-de-dados.md`](modelo-de-dados.md) §11 e [`roadmap.md`](../roadmap.md) §Fase 3 para o formato `MPD-AAAA-NNNNN`)
+
+### Contexto
+
+O formato original `MPD-AAAA-NNNNN` (13 caracteres, sequencial reiniciado por ano) tem dois problemas práticos identificados em uso:
+
+1. **Tamanho.** 13 chars ocupam espaço relevante em colunas de lista, breadcrumb, header de detalhe e em qualquer texto onde o número apareça inline.
+2. **Vazamento de volume.** Sendo sequencial, o número revela quantas demandas o mandato recebeu no ano. `MPD-2026-00042` deixa explícito que houve só 42 demandas até aquele ponto — informação operacional que não deveria ser inferível de um identificador opaco.
+
+A revisão de produto (2026-05-27, Pedro) concluiu que o identificador da demanda é dado opaco — ninguém calcula a data ou o volume a partir dele — então não há ganho em manter o ano completo nem o sequencial visível.
+
+### Decisão
+
+Novo formato: **`D-AAMM-NNNNN`** (12 caracteres).
+
+- **Prefixo `D-`** identifica como demanda em conversa/email/busca. Mantido curto (1 letra) para preservar o ganho de tamanho.
+- **`AAMM`** — ano em 2 dígitos + mês em 2 dígitos (ex.: `2605` para mai/2026). Escolha de `AAMM` (e não `MMAA`) preserva ordenação cronológica como string: `2605` < `2612` < `2701`.
+- **`NNNNN`** — 5 dígitos **aleatórios** uniformes no intervalo `10000–99999` (sempre 5 dígitos visualmente, nunca começa com zero). 90.000 combinações por mês tornam colisão estatisticamente desprezível mesmo em volumes altos.
+- **Geração** com retry defensivo em caso de colisão: tenta `INSERT`, captura `IntegrityError` em savepoint, regenera o sequencial e retenta (max 10 tentativas — se estourar, propaga). Mesmo padrão de [ADR 0051](#adr-0051--robustez-do-slug_publico-toctou).
+
+### Alternativas consideradas
+
+- **Manter `MPD-AAAA-NNNNN` sequencial.** Tamanho e vazamento de volume permanecem.
+- **`AAMM-NNNNN` sem prefixo (11 chars).** Mais curto, mas perde fast-path da busca global e fica ambíguo em conversa ("demanda 2605-72918" pode soar como CEP ou data).
+- **`MMAA` em vez de `AAMM`.** Mais natural visualmente para usuário BR (acostumado a DD/MM), mas quebra ordenação cronológica como string. Como o número é identificador opaco, o usuário não calcula data a partir dele — ordenação correta vence.
+- **Sequencial mascarado (hash do sequencial).** Esconde volume mas mantém complexidade interna sequencial e exige tabela de mapeamento. Aleatório uniforme é mais simples.
+- **5 dígitos aleatórios sempre permitindo `00000`.** Visualmente inconsistente (`D-2605-00342` parece um número "menos legítimo"). Restringir a `10000–99999` perde 10% do espaço, mas espaço residual continua >> volume esperado.
+
+### Justificativa
+
+Identificador opaco deve ser **curto, identificável, imprevisível e ordenável cronologicamente**. `D-AAMM-NNNNN` entrega os quatro com mudança mínima na camada de código (basta reescrever `Demanda.gerar_numero()` e atualizar fast-path da busca).
+
+Sem produção ainda — data migration renumera as demandas existentes (decisão de produto: exercitar o caminho que será usado se um dia for necessário trocar o formato em produção).
+
+### Consequências
+
+- [demandas/models.py](../demandas/models.py): `gerar_numero()` reescrito — `random.randint(10000, 99999)`, loop com retry sob `transaction.atomic` + savepoint, sem `select_for_update`. Coluna `numero` permanece `VARCHAR(20)` (cabe 12 chars folgado).
+- [core/views.py](../core/views.py) — fast-path da busca global passa a reconhecer o novo formato (`busca_global` continua usando `icontains`, mas o comentário/lookup-prioritário atualiza para `D-AAMM-NNNNN`).
+- [demandas/tests.py](../demandas/tests.py) — testes que afirmavam formato antigo ou sequência sequencial são atualizados/substituídos: `test_gera_numero_no_save` verifica regex `D-\d{4}-\d{5}`; `test_numeros_sequenciais` deixa de existir (substituído por `test_numero_aleatorio_unico`).
+- Data migration `0008_renumerar_demandas_formato_d_aamm_nnnnn` renumera todas as demandas existentes para o novo formato (ano+mês derivados de `criado_em`, sequencial sorteado). Idempotente: se o número já está no formato novo, pula.
+- [docs/modelo-de-dados.md](modelo-de-dados.md) §11 e [docs/briefing-prototipo-frontend.md](briefing-prototipo-frontend.md) atualizados.
+- Placeholder da busca em [templates/layouts/app.html](../templates/layouts/app.html) atualizado.
+- Protótipos em `prototipo/project/` **não** são atualizados — são mockups históricos, não fonte de verdade.
+
+### Referências
+
+- [demandas/models.py](../demandas/models.py) — `Demanda.gerar_numero()`.
+- [demandas/migrations/0008_renumerar_demandas_formato_d_aamm_nnnnn.py](../demandas/migrations/0008_renumerar_demandas_formato_d_aamm_nnnnn.py) — data migration de renumeração.
+- ADR 0051 — padrão de retry com savepoint para colisão de campo único.
+
+---
+
+## ADR 0058 — Anexos sem whitelist de MIME; defesa anti-XSS na entrega
+
+**Data:** 2026-05-27 (Fase 7 em curso)
+**Nota (2026-06-21):** renumerada de 0056 → 0058 — havia duas ADRs com o número 0056 (a outra é o formato de número da demanda, acima). 0057 já estava ocupada (canais compartilhados).
+
+### Contexto
+
+Desde a Fase 3 (`v0.4.0`), o model `Anexo` valida o `mime_type` contra uma whitelist fechada (PDF, imagens, Word, Excel, txt, CSV). A motivação original era **defesa contra XSS**: se o sistema aceitar `.html` ou `.svg` com `<script>`, e outro usuário do gabinete clicar pra abrir, o JS roda **na origem do MPD** — pode roubar a sessão, fazer requests autenticadas como ele.
+
+No uso real, a whitelist criou atrito repetido:
+
+- Áudio do WhatsApp (`.ogg`, `.m4a`) — comum no fluxo "demanda chegou por áudio" — rejeitado.
+- ZIPs de planilhas e documentos — rejeitado.
+- `.html` salvo de página oficial (decisão judicial, ofício escaneado em HTML) — rejeitado.
+- RTF, PowerPoint, `.eml` (e-mail exportado) — rejeitado.
+
+A whitelist é uma **defesa fraca** contra XSS no fundo, porque:
+
+- Pode ser contornada renomeando o arquivo (`malicioso.html` → `malicioso.pdf` com `Content-Type: application/pdf` no upload manual via curl).
+- Não cobre `.svg` (que estava fora) mas seria útil para diagramas.
+- Bloqueia tipos legítimos pra defender contra um vetor que tem mitigação melhor.
+
+### Decisão
+
+Remover a `MIME_WHITELIST` do `Anexo.clean()`. Anexo aceita **qualquer arquivo** até o limite de 25 MB. A defesa anti-XSS migra para **a camada de entrega**:
+
+1. **`AnexoDownloadView`** ([demandas/views.py](../demandas/views.py)) — nova view dedicada que serve o arquivo via `FileResponse(as_attachment=True)`. Headers de segurança no response:
+   - `Content-Disposition: attachment; filename="..."` — força o browser a **baixar**, não executar/exibir inline. `.html` malicioso vira download de arquivo, não código rodando na origem.
+   - `X-Content-Type-Options: nosniff` — impede o browser de "adivinhar" um content-type executável diferente do declarado (defesa contra MIME-sniffing attacks).
+   - `Content-Security-Policy: default-src 'none'` — defesa em profundidade. Caso o browser ignore os headers acima (versão muito antiga), o CSP bloqueia execução de scripts/iframes a partir do arquivo servido.
+
+2. **Permissão** na view de download replica a regra do detalhe:
+   - Anexo de Demanda → `pode_ser_visto_por(user)` (respeita ADR 0049 — visibilidade restrita).
+   - Anexo de Encaminhamento → herda da Demanda.
+   - Anexo de Pessoa/Entidade → exige `view_pessoa`/`view_entidade`.
+
+3. **Templates** que antes usavam `{{ anexo.arquivo.url }}` direto (acesso público ao `MEDIA_URL`) agora usam `{% url 'demandas:anexo_baixar' anexo.pk %}` (passa pela view com defesas).
+
+4. **Em produção (Fase 7 / deploy)**, o Nginx deve ser configurado para:
+   - Servir `/media/` **interno** (`internal;`) — só acessível por `X-Accel-Redirect` da view Django, não exposto direto.
+   - Aplicar os mesmos 3 headers de segurança no response.
+   - Anotação fica registrada em [docs/deploy.md](../docs/deploy.md) (a criar na Fase 7).
+
+### Consequências
+
+- Anexo aceita qualquer tipo: áudio do WhatsApp, ZIP, RAR, RTF, PPT, HTML, SVG, vídeo, etc.
+- PDFs e imagens perdem preview inline no browser — trade-off aceito para segurança consistente (toda entrega força download). Alternativa futura: liberar inline apenas para `application/pdf` e `image/*` se o trade-off incomodar muito, mas com revisão de risco.
+- 1 teste reescrito: `test_criar_demanda_com_anexo_invalido_rejeita_tudo` (verificava rejeição de `.exe`) vira `test_anexo_download_forca_attachment_e_nosniff` (cobre o caminho positivo: anexa `.html` malicioso, verifica que o download força attachment + nosniff + CSP).
+- `_processar_anexos_iniciais` em `DemandaCreateView` perdeu a checagem de whitelist — mantém apenas o limite de tamanho.
+- Migration **não é necessária** (a coluna `mime_type` continua existindo; só a validação no `clean()` foi removida).
+
+### Referências
+
+- Risco original: ADR 0029 (auditlog/LGPD) mencionava controle de acesso a anexos mas não definia política de MIME.
+- Defesa em profundidade: combinação de `Content-Disposition`, `X-Content-Type-Options: nosniff` e `Content-Security-Policy` é a recomendação corrente da OWASP para arquivos servidos a partir do mesmo domínio da aplicação.
+
+---
+
+## ADR 0057 — Canais de contato compartilhados por Pessoa e Entidade
+
+**Status:** aceita · 2026-06-01 · supersede [ADR 0035](#adr-0035) (Telefone como entidade própria) e [ADR 0037](#adr-0037) (EmailPessoa/RedeSocial plurais) **na parte do dono do canal** — os canais continuam plurais e auditados, só passam a aceitar Entidade como dono além de Pessoa.
+
+### Contexto
+
+A entidade hoje carrega 3 campos simples — `email`, `telefone`, `site` (1 cada) — herdados do schema original quando a Entidade era pensada como "pessoa jurídica monolítica". Pessoa, por outro lado, já tem múltiplos canais como modelos próprios (Telefone, EmailPessoa, RedeSocial) com formsets dinâmicos no form e UniqueConstraint por dono.
+
+Casos reais que tornam essa assimetria insustentável:
+- Uma **associação** tem o telefone do presidente, da secretaria e do WhatsApp coletivo.
+- Uma **escola** tem o e-mail da direção e da coordenação pedagógica.
+- Uma **igreja** tem site institucional, site de doação, página de eventos.
+- Uma **família** pode ter o WhatsApp da matriarca + Instagram coletivo.
+
+Forçar o assessor a escolher "o" telefone/email/site da entidade é perda de informação. Pior: leva o usuário a duplicar entidades pra registrar contatos diferentes.
+
+### Decisão
+
+**Generalizar Telefone, EmailContato (renomeado de EmailPessoa) e RedeSocial para aceitarem Pessoa OU Entidade como dono. Criar um novo modelo Site, plural pelos dois lados.**
+
+1. **Rename**: `EmailPessoa` → `EmailContato` — nome reflete que serve aos dois donos. `Telefone` e `RedeSocial` já tinham nomes neutros, sem rename.
+2. **FK dual** (XOR exclusivo) nos 3 models existentes + Site novo:
+   - `pessoa = ForeignKey(Pessoa, null=True, blank=True, ...)`
+   - `entidade = ForeignKey(Entidade, null=True, blank=True, ...)`
+   - `clean()` valida que **exatamente um** dos dois está preenchido (XOR).
+3. **UniqueConstraints duplicadas** (uma por dono): `(pessoa, numero)` *e* `(entidade, numero)`, com `condition=Q(pessoa__isnull=False)` e similar para evitar conflito com nulos.
+4. **Novo model `Site`** com campos `url` (URLField), `rotulo` (CharField opcional), `pessoa` (FK nullable), `entidade` (FK nullable), mesma regra XOR.
+5. **Campos `Entidade.email`, `Entidade.telefone`, `Entidade.site` removidos** — data migration copia o conteúdo pros novos models antes do drop.
+6. **`Pessoa.tem_meio_de_contato()`** ganha `or self.sites.exists()` (Site agora também conta como canal).
+7. **`Pessoa.anonimizar()`** limpa também os Sites da pessoa.
+8. **Auditlog** estendido (ADR 0029 atualizada): registrar `EmailContato` (renomeado) e o novo `Site`. `Telefone` e `RedeSocial` continuam registrados.
+
+### Alternativas consideradas e descartadas
+
+- **Modelos paralelos novos** (`TelefoneEntidade`, `EmailEntidade`, `RedeSocialEntidade`, `SiteEntidade`): 4 classes quase idênticas. Manutenção dupla pra sempre. Recusada.
+- **GenericForeignKey** (content_type + object_id): mais flexível, mas perde cascade automático, complica querysets e Admin. Não justificado pra um caso de 2 donos conhecidos.
+- **Classe abstrata `CanalDeContato`** com herança em models concretos: ainda gera múltiplas tabelas. Sem ganho em relação a paralelos.
+- **Manter Entidade com `email`/`telefone`/`site` simples**: trava a entidade em "1 canal de cada". Recusada — o caso real do mandato exige múltiplos.
+
+### Justificativa
+
+- **Uma fonte de verdade por tipo de canal.** Um telefone é um telefone, venha de uma pessoa física ou de uma associação. Mesma validação Anatel, mesma máscara, mesmo tratamento de WhatsApp.
+- **DRY**: forms, validações, signals, máscaras e templates de canais ficam no singular. Adicionar um novo tipo de "parte" futuramente (ex: outro mandato, gabinete vizinho) requer só uma migration com mais um FK opcional.
+- **Migration barata aqui**: o branch é pré-produção, sem dados em risco. Data migration de 3 campos simples pra 3 records é trivial.
+- **XOR explícito > GenericFK**: o `clean()` deixa a regra visível no código. Admin, querysets e shell continuam usando FK normal, com filtros simples (`pessoa__isnull=False`).
+
+### Consequências
+
+- Migration `pessoas/0004_canais_compartilhados.py`:
+  - `RenameModel("EmailPessoa", "EmailContato")`.
+  - `AlterField` em Telefone/EmailContato/RedeSocial: `pessoa` vira nullable.
+  - `AddField` em Telefone/EmailContato/RedeSocial: `entidade` (FK nullable Entidade).
+  - `RemoveConstraint` + `AddConstraint` das UniqueConstraints (agora separadas por dono).
+  - `CreateModel("Site", ...)` com 2 FKs nullable.
+  - **Data migration** (RunPython): para cada Entidade com `email` preenchido, cria `EmailContato(entidade=ent, endereco=email)`. Idem para `telefone` → `Telefone(entidade=ent, numero=tel, tipo=celular)`. Idem para `site` → `Site(entidade=ent, url=site)`.
+  - `RemoveField` em Entidade: `email`, `telefone`, `site`.
+- `pessoas/forms.py`: `EmailPessoaForm`/`FormSet` → `EmailContatoForm`/`FormSet`. Criar `SiteForm`/`FormSet`. Adicionar `_EntidadeFormMixin` espelhando o de Pessoa (4 formsets: telefones, emails, redes_sociais, sites).
+- `pessoas/views.py`: `EntidadeCreateView`/`UpdateView` herdam do novo mixin. `PessoaCreateView`/`UpdateView` ganham Site no FORMSETS.
+- `pessoas/admin.py`: inline de `EmailContato` substitui `EmailPessoa`; adicionar inline de `Site`. Admin de Entidade ganha os 4 inlines.
+- `pessoas/signals.py`: `pre_save` de `EmailContato` (era EmailPessoa). Adicionar normalização pra Site (`url` strip).
+- `pessoas/apps.py`: `auditlog.register(EmailContato)` (rename) + `auditlog.register(Site)` (novo).
+- `pessoas/tests.py`: renomear imports e usos; novos testes cobrindo o XOR.
+- `pessoas/management/commands/criar_dados_teste.py`: renomear; adicionar uns Sites pra entidades exemplo.
+- Templates:
+  - `templates/pessoas/form.html`: §02 ganha bloco "Sites" como 4º formset.
+  - `templates/pessoas/entidades/form.html`: §02 Contato substitui campos simples pelos 4 formsets (mesma estrutura de Pessoa).
+  - `templates/pessoas/detalhe.html`: bloco de Sites na seção de Contatos.
+  - `templates/pessoas/entidades/detalhe.html`: substitui exibição dos 3 campos simples pelos 4 plurais.
+- Drawer `_drawer_criar_parte.html`: bloco Pessoa já tem 3 canais + endereço; adicionar Site. Bloco Entidade ganha 4 canais (idêntico ao de Pessoa).
+- ADR 0035 e ADR 0037 ficam parcialmente supersededas (seguem válidas pra Pessoa; agora Entidade compartilha o mesmo modelo).
+- DT-010 (UniqueConstraint por pessoa) ganha versão entidade — ambos preservados.
+
+### Referências
+
+- ADR 0035: Telefone como entidade plural (Pessoa).
+- ADR 0037: EmailPessoa e RedeSocial plurais (Pessoa).
+- ADR 0029: auditlog/LGPD — registro de canais.
+
+---
+
+## ADR 0059 — Inversão para acesso *need-to-know*; remoção de Coordenação; papéis v1 = Admin / Chefe de Gabinete / Assessor
+
+**Data:** 2026-06-22
+**Status:** Aceito (supersede ADR 0041 e ADR 0007; inverte o princípio "colaborativo por default" da `permissoes.md`; mantém ADR 0024/0048 — Groups+Permissions nativos)
+
+### Contexto
+
+Sessão de produto (revisão estratégica + brainstorm). O modelo vigente é **aberto por default**: todo usuário logado vê todas as demandas não-restritas, a lista completa de pessoas/entidades, e Coordenador+ exporta CSV. A única trava é o flag `restrito` por demanda. O dono (Admin) decidiu inverter: o risco de **exfiltração da base inteira** é incomparavelmente maior que o de um vazamento pontual; cada usuário deve ver só o que precisa para operar **agora**.
+
+Em paralelo, o campo **Coordenação** (time: gabinete/jurídico/comunicação — ADR 0041) nunca cumpriu seu propósito (visibilidade por coordenação jamais foi implementada; a regra de restrita usa responsável + CG + ADM, não coordenação) e virou ruído. Sai da v1. O papel "Coordenador", que existia como "dono de um time", perde a razão de ser sem o campo.
+
+### Decisão
+
+**1. Princípio: privilégio mínimo / *need-to-know*.** Supersede "default: visibilidade total entre perfis logados".
+
+**2. Papéis v1 = Admin, Chefe de Gabinete, Assessor.** Remove o grupo "Coordenador" (data migration; membros migram para Assessor ou o Admin reatribui).
+
+**3. Remoção de campos que perderam função** (espelha o drop de `papel`, ADR 0054; migrations `RemoveField`):
+- **Coordenação (time):** drop de `Usuario.coordenacao`, `Demanda.coordenacao_responsavel`, `COORDENACAO_CHOICES`, o índice `(status, coordenacao_responsavel)`, o filtro "da minha coordenação" e as métricas "por coordenação".
+- **`restrito` (supersede ADR 0007):** drop de `Demanda.restrito`, da permissão `pode_marcar_restrita`, do ícone de cadeado e da ação marcar/desmarcar. No modelo need-to-know o flag perdeu função — Assessor só vê as suas, CG todas as ativas, Admin tudo —, então a visibilidade é **inteiramente por papel**, sem exceção "sigilosa".
+
+**4. Visibilidade por papel:**
+- **Admin:** vê tudo (demandas, pessoas, entidades, histórico, auditoria); **único que exporta**.
+- **Chefe de Gabinete:** todas as demandas e pendências **ativas**; **sem** lista geral de pessoas/entidades, **sem** histórico concluído, **sem** auditoria, **sem** export, **sem** `/analise`. Dados de uma parte só no contexto de demanda ativa.
+- **Assessor:** demandas onde é **responsável ou autor**. Ativas com contexto completo (inclui os dados das partes daquela demanda). **Histórico próprio** (concluídas/arquivadas) em **leitura**, com os dados das partes **mascarados** — o **nome** da parte aparece (é o caso dele), mas **sem link para a ficha e sem dados de contato**. Sem listas gerais; sem export.
+
+**5. Exclusivo do Admin:** exportação (qualquer lista), `/auditoria`, `/analise`, configuração (tags, temas, usuários).
+
+**6. Busca cega:** o Assessor cadastra/vincula pessoa por uma busca que só confirma "existe registro compatível — vincular?" sem exibir ficha nem permitir navegação (preserva a deduplicação sem expor a base). Ficha completa só no contexto da demanda ativa.
+
+**7. Encaminhamentos, interações, anexos:** herdam a visibilidade da demanda à qual pertencem (Assessor só os das suas demandas; CG os das ativas; Admin todos).
+
+**8. Continuidade (risco criado):** com só o Admin enxergando tudo, a memória do mandato depende de um único login → **backup testado + procedimento de recuperação da conta Admin** viram **críticos** (Fase 7).
+
+### Consequências
+
+- **Visibilidade centralizada:** a regra vive no manager (`Demanda.objects.visiveis_para` + predicado Q) e em helpers de `core/permissoes.py`, estendidos para os 3 papéis e para o histórico próprio do Assessor. Nenhuma checagem de papel fora desses pontos (ADR 0024/0048).
+- **Frontend:** as listas `/pessoas/` e `/entidades/` deixam de existir para CG e Assessor; o autocomplete que exibe ficha vira **busca cega**; os botões de exportar / `/analise` / `/auditoria` / configurações aparecem só para o Admin; demandas/encaminhamentos/pendências filtram por papel.
+- **`permissoes.md` reescrita** como v2 (fonte de verdade operacional).
+
+### Alternativas consideradas
+
+- **Manter "colaborativo por default":** rejeitado — oposto do que o dono quer; risco de exfiltração da base inteira.
+- **Apenas Admin + Assessor:** rejeitado — uma camada de gestão operacional (CG) que vê demandas/pendências ativas sem navegar a base é útil.
+- **Manter os 4 papéis:** rejeitado — sem o campo Coordenação, "Coordenador" fica oco.
+- **Esconder também o histórico próprio do Assessor:** rejeitado — o próprio rastro é fatia mínima da base (risco quase nulo) e escondê-lo prejudica recontato/consulta/relatório; **mascarar os dados das partes** no histórico já endereça o risco real.
 
 ---
 

@@ -1,76 +1,392 @@
 {% extends "layouts/app.html" %}
 
 {% block app_conteudo %}
-<div class="flex items-center justify-between mb-2">
-  <h1 class="text-xl font-semibold text-slate-900">Inbox</h1>
-  <a href="{% url 'demandas:inbox_capturar' %}" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2 rounded-lg">
-    Nova captura
-  </a>
-</div>
-<p class="text-sm text-slate-500 mb-6">Itens capturados rapidamente, aguardando triagem. Processar transforma em demanda estruturada; descartar registra motivo.</p>
+<style>
+  /* Inbox · fiel ao prototipo v2/inbox.html. Adaptações documentadas no
+     CSS abaixo. O conteúdo vive direto sobre o papel cru do .app-conteudo;
+     header e blocos seguem o padrão "documento" (surface-2, filete navy). */
 
-<div class="flex flex-wrap gap-2 mb-4 text-sm">
-  <a href="?status=pendente" class="px-3 py-1 rounded border {% if status_atual == 'pendente' %}bg-slate-800 text-white border-slate-800{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-100{% endif %}">Pendentes</a>
-  <a href="?status=processado" class="px-3 py-1 rounded border {% if status_atual == 'processado' %}bg-slate-800 text-white border-slate-800{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-100{% endif %}">Processados</a>
-  <a href="?status=descartado" class="px-3 py-1 rounded border {% if status_atual == 'descartado' %}bg-slate-800 text-white border-slate-800{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-100{% endif %}">Descartados</a>
-  <a href="?status=todos" class="px-3 py-1 rounded border {% if status_atual == 'todos' %}bg-slate-800 text-white border-slate-800{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-100{% endif %}">Todos</a>
+  /* HEADER · filete navy 6px + título display + sub italic serif */
+  .ibx-head {
+    border-top: 6px solid var(--primary);
+    background: var(--surface-2);
+    padding: 24px 32px 22px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .ibx-head h1 {
+    font-family: var(--font-display); font-weight: 600;
+    font-size: 34px; line-height: 1.1; letter-spacing: -0.025em;
+    color: var(--ink); margin: 0;
+  }
+  .ibx-head h1 .count {
+    font-family: var(--font-mono); font-size: 14px;
+    color: var(--ink-mute); font-weight: 400; margin-left: 12px;
+    vertical-align: 4px;
+  }
+  .ibx-head .sub {
+    font-family: var(--font-serif); font-style: italic;
+    font-size: 14.5px; color: var(--ink-mute);
+    margin: 6px 0 0; max-width: 60ch; line-height: 1.5;
+  }
+  .ibx-head .sub a { color: var(--primary); font-style: normal; font-weight: 600; text-decoration: none; }
+  .ibx-head .sub a:hover { text-decoration: underline; }
+  .ibx-head .sub strong { color: var(--ink); font-style: normal; font-weight: 600; }
+  .ibx-head .sub kbd {
+    font-family: var(--font-mono); font-size: 10.5px;
+    background: var(--surface-1); border: 1px solid var(--rule-strong);
+    padding: 1px 6px; color: var(--ink-soft);
+    letter-spacing: 0.04em; font-style: normal;
+  }
+
+  /* FILTERS · chips de status, alinhados com a borda da .ibx-head */
+  .ibx-filters {
+    background: var(--surface-1);
+    border: 1px solid var(--rule); border-top: 0;
+    padding: 12px 32px;
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  }
+  .ibx-filters .lbl {
+    font-family: var(--font-mono);
+    font-size: 10.5px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--ink-mute);
+    font-weight: 700; margin-right: 6px;
+  }
+  .ibx-filters .chip {
+    background: var(--surface-3); border: 1px solid var(--rule-strong);
+    color: var(--ink-soft);
+    font-family: var(--font-mono); font-size: 11px;
+    padding: 4px 11px;
+    letter-spacing: 0.04em; text-transform: uppercase; font-weight: 600;
+    text-decoration: none;
+    display: inline-flex; align-items: center; gap: 4px;
+    transition: background .12s, color .12s, border-color .12s;
+  }
+  .ibx-filters .chip:hover { color: var(--ink); border-color: var(--ink); }
+  .ibx-filters .chip.on {
+    background: var(--ink-800);
+    color: var(--surface-2);
+    border-color: var(--ink-800);
+  }
+  .ibx-filters .chip .ct { opacity: 0.6; }
+
+  /* QUICK CAPTURE · banner colado abaixo dos filtros */
+  .ibx-quick {
+    background: var(--surface-2);
+    border: 1px solid var(--rule); border-top: 0;
+    padding: 18px 32px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .ibx-quick .ic {
+    width: 40px; height: 40px;
+    background: var(--primary); color: var(--primary-fg);
+    display: grid; place-items: center;
+    font-family: var(--font-mono); font-size: 22px; font-weight: 700;
+    flex: none; cursor: pointer;
+  }
+  .ibx-quick input {
+    flex: 1; outline: 0;
+    background: var(--surface-3);
+    border: 1px solid var(--rule-strong);
+    padding: 11px 14px;
+    font-family: var(--font-serif); font-size: 15px;
+    color: var(--ink);
+  }
+  .ibx-quick input::placeholder { color: var(--ink-mute); font-style: italic; }
+  .ibx-quick input:focus { border-color: var(--primary); }
+  .ibx-quick .kbd {
+    font-family: var(--font-mono); font-size: 10.5px;
+    background: var(--surface-3); border: 1px solid var(--rule-strong);
+    padding: 4px 8px; color: var(--ink-soft);
+    letter-spacing: 0.04em;
+    flex: none;
+  }
+  .ibx-quick button.submit {
+    background: var(--primary); color: var(--primary-fg);
+    border: 1px solid var(--primary);
+    font-family: var(--font-mono); font-size: 11.5px; font-weight: 600;
+    padding: 10px 18px;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    cursor: pointer;
+  }
+  .ibx-quick button.submit:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
+
+  /* LISTA · grid 110 / 1fr / 180 */
+  .ibx-list {
+    background: var(--surface-2);
+    border: 1px solid var(--rule); border-top: 0;
+  }
+  .ibx-item {
+    padding: 18px 32px;
+    border-bottom: 1px solid var(--rule);
+    display: grid;
+    grid-template-columns: 110px 1fr 180px;
+    gap: 24px;
+    align-items: start;
+    transition: background .12s;
+  }
+  .ibx-item:last-child { border-bottom: 0; }
+  .ibx-item:hover { background: var(--surface-3); }
+
+  /* Coluna esquerda · quando + quem */
+  .ibx-item .when {
+    font-family: var(--font-mono);
+    font-size: 11px; color: var(--ink-mute);
+    letter-spacing: 0.02em;
+  }
+  .ibx-item .when .d {
+    display: block; font-weight: 700;
+    color: var(--ink-strong); font-size: 13px;
+    letter-spacing: 0.04em;
+  }
+  .ibx-item .when .h {
+    display: block;
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--ink-mute); margin-top: 2px;
+  }
+  .ibx-item .when .by {
+    display: flex; align-items: center; gap: 6px;
+    margin-top: 8px; padding-top: 8px;
+    border-top: 1px solid var(--rule);
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--ink-mute); letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .ibx-item .when .av {
+    width: 18px; height: 18px;
+    background: var(--navy-100); color: var(--navy-700);
+    border-radius: var(--radius-full);
+    display: grid; place-items: center;
+    font-family: var(--font-mono); font-size: 8px; font-weight: 700;
+    flex: none;
+  }
+
+  /* Centro · texto e source */
+  .ibx-item .content .source {
+    font-family: var(--font-mono); font-size: 9.5px;
+    color: var(--ink-mute); letter-spacing: 0.14em;
+    text-transform: uppercase; font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .ibx-item .content .source .ic {
+    display: inline-block; width: 6px; height: 6px;
+    background: currentColor; margin-right: 6px;
+    vertical-align: 1px;
+  }
+  .ibx-item .content p {
+    font-family: var(--font-serif);
+    font-size: 16px; line-height: 1.5;
+    color: var(--ink); margin: 0;
+    white-space: pre-line;
+  }
+  .ibx-item .content p strong { font-weight: 600; }
+  .ibx-item .content .processado-link {
+    margin-top: 8px;
+    font-family: var(--font-mono); font-size: 10.5px;
+    color: var(--ink-mute); letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .ibx-item .content .processado-link a { color: var(--primary); text-decoration: none; font-weight: 600; }
+  .ibx-item .content .processado-link a:hover { text-decoration: underline; }
+  .ibx-item .content .descartado-motivo {
+    margin-top: 8px; padding: 8px 12px;
+    background: var(--surface-1); border-left: 2px solid var(--rule-strong);
+    font-family: var(--font-serif); font-style: italic;
+    font-size: 13px; color: var(--ink-mute); line-height: 1.5;
+  }
+  .ibx-item .content .descartado-motivo strong {
+    font-family: var(--font-mono); font-size: 10px;
+    font-style: normal; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--ink-mute); margin-right: 6px;
+  }
+
+  /* Idade indicador */
+  .age {
+    display: inline-block;
+    font-family: var(--font-mono); font-size: 9.5px;
+    padding: 1px 7px; letter-spacing: 0.08em; text-transform: uppercase;
+    font-weight: 700;
+    margin-left: 8px;
+    vertical-align: 1px;
+  }
+  .age.amber { background: var(--warning-100); color: var(--warning-700); border: 1.5px solid var(--warning-500); }
+  .age.red   { background: var(--danger-50); color: var(--danger-700); border: 1.5px solid var(--danger-500); }
+
+  /* Direita · ações */
+  .ibx-item .acts { display: flex; flex-direction: column; gap: 6px; }
+  .ibx-item .acts .btn-sm {
+    background: var(--surface-3);
+    border: 1px solid var(--rule-strong);
+    color: var(--ink-soft);
+    font-family: var(--font-mono); font-size: 10.5px;
+    font-weight: 600; padding: 7px 12px;
+    letter-spacing: 0.04em; text-transform: uppercase;
+    cursor: pointer; text-align: center;
+    text-decoration: none; display: inline-block;
+    transition: background .12s, color .12s, border-color .12s;
+  }
+  .ibx-item .acts .btn-sm:hover { color: var(--ink); border-color: var(--ink); }
+  .ibx-item .acts .btn-sm.primary {
+    background: var(--primary); color: var(--primary-fg); border-color: var(--primary);
+  }
+  .ibx-item .acts .btn-sm.primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); color: var(--primary-fg); }
+  .ibx-item .acts .btn-sm.danger { color: var(--danger-600); border-color: var(--danger-100); }
+  .ibx-item .acts .btn-sm.danger:hover { background: var(--danger-50); color: var(--danger-700); border-color: var(--danger-500); }
+  .ibx-item .acts details { position: relative; }
+  .ibx-item .acts details summary { list-style: none; cursor: pointer; }
+  .ibx-item .acts details summary::-webkit-details-marker { display: none; }
+  .ibx-item .acts .descartar-form {
+    margin-top: 6px;
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    padding: 10px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .ibx-item .acts .descartar-form textarea {
+    width: 100%; outline: 0;
+    background: var(--surface-3); border: 1px solid var(--rule-strong);
+    font-family: var(--font-mono); font-size: 11px;
+    padding: 6px 8px; resize: vertical;
+    color: var(--ink);
+  }
+  .ibx-item .acts .descartar-form textarea:focus { border-color: var(--danger-500); }
+
+  /* Estado vazio */
+  .ibx-empty {
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    border-top: 6px solid var(--success-500);
+    padding: 60px 30px;
+    text-align: center;
+    margin-top: 36px;
+  }
+  .ibx-empty .ic {
+    width: 60px; height: 60px;
+    border: 1.5px dashed var(--rule-strong);
+    margin: 0 auto 18px;
+    display: grid; place-items: center;
+    font-family: var(--font-mono); font-size: 26px; color: var(--success-500);
+    font-weight: 700;
+  }
+  .ibx-empty h3 {
+    font-family: var(--font-display); font-weight: 600;
+    font-size: 24px; color: var(--ink); margin: 0 0 8px;
+    letter-spacing: -0.015em;
+  }
+  .ibx-empty p {
+    font-family: var(--font-serif); font-size: 14.5px;
+    color: var(--ink-body); margin: 0; max-width: 50ch;
+    margin-left: auto; margin-right: auto; line-height: 1.55;
+    font-style: italic;
+  }
+  .ibx-empty p strong { color: var(--ink); font-weight: 600; font-style: normal; }
+  .ibx-empty p kbd {
+    font-family: var(--font-mono); font-size: 11px;
+    background: var(--surface-1); border: 1px solid var(--rule-strong);
+    padding: 1px 6px; color: var(--ink-soft);
+    letter-spacing: 0.04em; font-style: normal;
+    margin: 0 2px;
+  }
+
+  /* Paginação */
+  .ibx-pag {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 16px;
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--ink-mute); letter-spacing: 0.04em;
+  }
+  .ibx-pag a {
+    color: var(--primary); text-decoration: none;
+    border: 1px solid var(--rule-strong); padding: 6px 12px;
+    letter-spacing: 0.04em; text-transform: uppercase; font-weight: 600;
+    transition: background .12s, color .12s, border-color .12s;
+  }
+  .ibx-pag a:hover { background: var(--primary); color: var(--primary-fg); border-color: var(--primary); }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .ibx-head, .ibx-filters, .ibx-quick, .ibx-item { padding-left: 20px; padding-right: 20px; }
+    .ibx-item { grid-template-columns: 1fr; }
+    .ibx-item .when { display: flex; align-items: center; gap: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--rule); }
+    .ibx-item .when .d, .ibx-item .when .h { display: inline; }
+    .ibx-item .when .by { margin-top: 0; padding-top: 0; border-top: 0; margin-left: auto; }
+    .ibx-item .acts { flex-direction: row; flex-wrap: wrap; }
+    .ibx-item .acts .btn-sm { flex: 1 1 auto; }
+    .ibx-quick .kbd { display: none; }
+  }
+</style>
+
+<header class="ibx-head">
+  <h1>Inbox <span class="count">{{ count_pendentes }} pendente{{ count_pendentes|pluralize:"s" }} · {{ count_processados }} processada{{ count_processados|pluralize:"s" }} · {{ count_descartados }} descartada{{ count_descartados|pluralize:"s" }}</span></h1>
+  <p class="sub">Anote agora, decida depois. Itens entram aqui sem ferir o foco do trabalho atual; <strong>processar</strong> vira demanda, encaminhamento ou tarefa em uma demanda existente. Para itens com hora marcada, vá direto a <a href="{% url 'demandas:minhas_pendencias' %}">Pendências</a>. Capture rápido com <kbd>Ctrl K</kbd>.</p>
+</header>
+
+<div class="ibx-filters">
+  <span class="lbl">Status</span>
+  <a href="?status=pendente" class="chip {% if status_atual == 'pendente' %}on{% endif %}">Pendentes <span class="ct">{{ count_pendentes }}</span></a>
+  <a href="?status=processado" class="chip {% if status_atual == 'processado' %}on{% endif %}">Processadas <span class="ct">{{ count_processados }}</span></a>
+  <a href="?status=descartado" class="chip {% if status_atual == 'descartado' %}on{% endif %}">Descartadas <span class="ct">{{ count_descartados }}</span></a>
+  <a href="?status=todos" class="chip {% if status_atual == 'todos' %}on{% endif %}">Todas <span class="ct">{{ count_total }}</span></a>
 </div>
 
-<div class="space-y-3">
+<form method="post" action="{% url 'demandas:inbox_capturar' %}" class="ibx-quick">
+  {% csrf_token %}
+  <label class="ic" for="ibx-quick-input" title="Anotar — clique e escreva">+</label>
+  <input type="text" id="ibx-quick-input" name="conteudo" placeholder="Anote algo rápido — o que ouviu, o que pensar depois, o nome de alguém para registrar…" required>
+  <button type="submit" class="submit">Capturar →</button>
+</form>
+
+<div class="ibx-list">
   {% for item in itens %}
-  <div class="bg-white border border-slate-200 rounded-xl p-4">
-    <div class="flex items-start justify-between gap-3">
-      <div class="flex-1">
-        <p class="text-sm text-slate-900 whitespace-pre-line">{{ item.conteudo }}</p>
-        <div class="flex flex-wrap items-center gap-2 mt-2 text-xs text-slate-500">
-          <span>{{ item.criado_em|date:"d/m/Y H:i" }}</span>
-          <span>·</span>
-          <span>por {{ item.autor.nome_completo|default:item.autor.email }}</span>
-          {% if item.status == 'pendente' %}
-            {% if item.criado_em.date <= limite_30d %}
-              <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-700">Pendente há +30d</span>
-            {% elif item.criado_em.date <= limite_7d %}
-              <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700">Pendente há +7d</span>
-            {% endif %}
-          {% elif item.status == 'processado' %}
-            <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-800">Processado</span>
-            {% if item.demanda_gerada %}<span>→ <a href="{% url 'demandas:demanda_detalhe' item.demanda_gerada.pk %}" class="hover:underline">{{ item.demanda_gerada.numero }}</a></span>{% endif %}
-          {% elif item.status == 'descartado' %}
-            <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-slate-200 text-slate-700">Descartado</span>
-          {% endif %}
-        </div>
-        {% if item.status == 'descartado' and item.motivo_descarte %}
-          <p class="text-xs text-slate-500 mt-2 italic">Motivo: {{ item.motivo_descarte }}</p>
-        {% endif %}
+  <div class="ibx-item">
+    <div class="when">
+      <span class="d">{{ item.criado_em|date:"d M" }}</span>
+      <span class="h">{{ item.criado_em|date:"H:i" }}</span>
+      <div class="by">
+        <span class="av">{{ item.autor.nome_completo|default:item.autor.email|slice:":2"|upper }}</span>
+        <span>{{ item.autor.nome_completo|default:item.autor.email|truncatechars:14 }}</span>
       </div>
+    </div>
+
+    <div class="content">
+      <div class="source"><span class="ic"></span>Captura rápida</div>
+      <p>{{ item.conteudo }}{% if item.status == 'pendente' %}{% if item.criado_em.date <= limite_30d %} <span class="age red">+30 dias</span>{% elif item.criado_em.date <= limite_7d %} <span class="age amber">+7 dias</span>{% endif %}{% endif %}</p>
+      {% if item.status == 'processado' and item.demanda_gerada %}
+      <div class="processado-link">→ virou demanda <a href="{% url 'demandas:demanda_detalhe' item.demanda_gerada.slug_publico %}">{{ item.demanda_gerada.numero }}</a></div>
+      {% endif %}
+      {% if item.status == 'descartado' and item.motivo_descarte %}
+      <div class="descartado-motivo"><strong>Descartada</strong> {{ item.motivo_descarte }}</div>
+      {% endif %}
+    </div>
+
+    <div class="acts">
       {% if item.status == 'pendente' %}
-      <div class="flex flex-col gap-2 shrink-0">
-        <a href="{% url 'demandas:inbox_processar' item.pk %}" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg text-center">Processar</a>
-        <details>
-          <summary class="cursor-pointer text-xs text-red-600 hover:text-red-700 text-center">Descartar</summary>
-          <form method="post" action="{% url 'demandas:inbox_descartar' item.pk %}" class="mt-2 space-y-2">
-            {% csrf_token %}
-            <textarea name="motivo_descarte" rows="2" placeholder="Motivo" class="w-44 rounded border border-slate-300 px-2 py-1 text-xs"></textarea>
-            <button type="submit" class="bg-red-600 hover:bg-red-700 text-white text-xs font-medium px-3 py-1 rounded w-full">Descartar</button>
-          </form>
-        </details>
-      </div>
+      <a href="{% url 'demandas:inbox_processar' item.pk %}" class="btn-sm primary">Processar →</a>
+      <details>
+        <summary class="btn-sm danger">Descartar</summary>
+        <form method="post" action="{% url 'demandas:inbox_descartar' item.pk %}" class="descartar-form">
+          {% csrf_token %}
+          <textarea name="motivo_descarte" rows="2" placeholder="Motivo do descarte…" required></textarea>
+          <button type="submit" class="btn-sm danger">Confirmar descarte</button>
+        </form>
+      </details>
       {% endif %}
     </div>
   </div>
   {% empty %}
-  <div class="bg-white border border-slate-200 rounded-xl p-12 text-center text-sm text-slate-500">
-    Nenhum item no inbox.
+  <div class="ibx-empty">
+    <div class="ic">✓</div>
+    <h3>Quando a inbox estiver limpa, ela aparece assim.</h3>
+    <p>Capture novos itens com <kbd>Ctrl K</kbd> a qualquer momento — o foco do trabalho atual fica preservado. <strong>Processar</strong> não significa resolver: significa decidir se aquilo virou demanda, virou encaminhamento, ou se foi conversa fiada.</p>
   </div>
   {% endfor %}
 </div>
 
 {% if is_paginated %}
-<div class="flex items-center justify-between mt-4 text-sm text-slate-600">
+<div class="ibx-pag">
   <span>Página {{ page_obj.number }} de {{ paginator.num_pages }}</span>
-  <div class="flex gap-2">
-    {% if page_obj.has_previous %}<a href="?{% if status_atual %}status={{ status_atual }}&{% endif %}page={{ page_obj.previous_page_number }}" class="px-3 py-1 rounded border border-slate-300 hover:bg-slate-100">Anterior</a>{% endif %}
-    {% if page_obj.has_next %}<a href="?{% if status_atual %}status={{ status_atual }}&{% endif %}page={{ page_obj.next_page_number }}" class="px-3 py-1 rounded border border-slate-300 hover:bg-slate-100">Próxima</a>{% endif %}
+  <div style="display:flex;gap:8px">
+    {% if page_obj.has_previous %}<a href="?{% if status_atual %}status={{ status_atual }}&{% endif %}page={{ page_obj.previous_page_number }}">← Anterior</a>{% endif %}
+    {% if page_obj.has_next %}<a href="?{% if status_atual %}status={{ status_atual }}&{% endif %}page={{ page_obj.next_page_number }}">Próxima →</a>{% endif %}
   </div>
 </div>
 {% endif %}

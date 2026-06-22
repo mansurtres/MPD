@@ -7,7 +7,7 @@ from django.urls import reverse
 from core.utils import validate_cpf
 from pessoas.deduplicacao import buscar_similares
 from pessoas.models import (
-    EmailPessoa,
+    EmailContato,
     Entidade,
     Pessoa,
     RedeSocial,
@@ -51,13 +51,13 @@ def usuario_assessor(db):
 
 
 @pytest.fixture
-def usuario_coordenador(db):
+def usuario_chefe(db):
     u = Usuario.objects.create_user(
-        email="coord@test.com",
+        email="chefe@test.com",
         password="senha12345",  # pragma: allowlist secret
-        nome_completo="Coordenador",
+        nome_completo="Chefe de Gabinete",
     )
-    grupo = Group.objects.filter(name="Coordenador").first()
+    grupo = Group.objects.filter(name="Chefe de Gabinete").first()
     if grupo:
         u.groups.add(grupo)
     return u
@@ -73,7 +73,7 @@ def pessoa_basica(db, usuario_admin):
         estado="ES",
         criado_por=usuario_admin,
     )
-    EmailPessoa.objects.create(pessoa=p, endereco="maria@example.com")
+    EmailContato.objects.create(pessoa=p, endereco="maria@example.com")
     return p
 
 
@@ -134,7 +134,7 @@ def test_pessoa_anonimizada_apaga_canais(db, usuario_admin):
         criado_por=usuario_admin,
     )
     Telefone.objects.create(pessoa=p, numero="27999990000", tipo="celular")
-    EmailPessoa.objects.create(pessoa=p, endereco="x@y.com")
+    EmailContato.objects.create(pessoa=p, endereco="x@y.com")
     RedeSocial.objects.create(pessoa=p, plataforma="instagram", valor="maria")
     p.anonimizar()
     assert str(p) == "[Pessoa Removida]"
@@ -153,7 +153,7 @@ def test_pessoa_tem_meio_de_contato_so_email(db, usuario_admin):
         criado_por=usuario_admin,
     )
     assert not p.tem_meio_de_contato()
-    EmailPessoa.objects.create(pessoa=p, endereco="sem@tel.com")
+    EmailContato.objects.create(pessoa=p, endereco="sem@tel.com")
     assert p.tem_meio_de_contato()
 
 
@@ -350,16 +350,27 @@ def test_lista_pessoas_redireciona_anonimo(client, db):
     assert "/entrar/" in response["Location"]
 
 
-def test_assessor_acessa_lista_pessoas(client, usuario_assessor):
+def test_assessor_nao_acessa_lista_pessoas(client, usuario_assessor):
+    """Navegar o acervo é exclusivo do Admin (ADR 0059 — need-to-know)."""
     client.force_login(usuario_assessor)
-    response = client.get(reverse("pessoas:pessoa_lista"))
-    assert response.status_code == 200
+    assert client.get(reverse("pessoas:pessoa_lista")).status_code == 403
+
+
+def test_admin_acessa_lista_pessoas(client, usuario_admin):
+    client.force_login(usuario_admin)
+    assert client.get(reverse("pessoas:pessoa_lista")).status_code == 200
+
+
+def test_assessor_nao_acessa_lista_entidades(client, usuario_assessor):
+    client.force_login(usuario_assessor)
+    assert client.get(reverse("pessoas:entidade_lista")).status_code == 403
 
 
 def _management_forms_vazios():
-    """Retorna dict com os management forms de telefones/emails/redes vazios."""
+    """Retorna dict com os management forms dos 4 formsets de canal vazios.
+    Sites adicionado pela ADR 0057."""
     out = {}
-    for prefix in ("telefones", "emails", "redes_sociais"):
+    for prefix in ("telefones", "emails", "redes_sociais", "sites"):
         out[f"{prefix}-TOTAL_FORMS"] = "0"
         out[f"{prefix}-INITIAL_FORMS"] = "0"
         out[f"{prefix}-MIN_NUM_FORMS"] = "0"
@@ -511,11 +522,11 @@ def test_telefone_numero_formatado_fixo(db, pessoa_basica):
     assert t.numero_formatado == "(27) 3333-4444"
 
 
-# --- EmailPessoa ---
+# --- EmailContato ---
 
 
 def test_email_normaliza_lowercase_no_save(db, pessoa_basica):
-    e = EmailPessoa.objects.create(pessoa=pessoa_basica, endereco="  Outro@Example.COM  ")
+    e = EmailContato.objects.create(pessoa=pessoa_basica, endereco="  Outro@Example.COM  ")
     assert e.endereco == "outro@example.com"
 
 
@@ -523,7 +534,7 @@ def test_email_unico_por_pessoa(db, pessoa_basica):
     from django.db import IntegrityError
 
     with pytest.raises(IntegrityError):
-        EmailPessoa.objects.create(pessoa=pessoa_basica, endereco="MARIA@example.com")
+        EmailContato.objects.create(pessoa=pessoa_basica, endereco="MARIA@example.com")
 
 
 def test_telefone_unico_por_pessoa(db, pessoa_basica):
@@ -582,23 +593,11 @@ def test_assessor_nao_desativa_pessoa(client, usuario_assessor, pessoa_basica):
     assert pessoa_basica.ativo  # continuou ativa
 
 
-def test_coord_desativa_pessoa(client, usuario_coordenador, pessoa_basica):
-    client.force_login(usuario_coordenador)
+def test_chefe_desativa_pessoa(client, usuario_chefe, pessoa_basica):
+    client.force_login(usuario_chefe)
     client.post(reverse("pessoas:pessoa_toggle_ativo", kwargs={"slug": pessoa_basica.slug_publico}))
     pessoa_basica.refresh_from_db()
     assert not pessoa_basica.ativo
-
-
-def test_coord_nao_reativa_pessoa(client, usuario_coordenador, pessoa_basica):
-    pessoa_basica.ativo = False
-    pessoa_basica.save()
-    client.force_login(usuario_coordenador)
-    response = client.post(
-        reverse("pessoas:pessoa_toggle_ativo", kwargs={"slug": pessoa_basica.slug_publico})
-    )
-    assert response.status_code == 403
-    pessoa_basica.refresh_from_db()
-    assert not pessoa_basica.ativo  # CO não pode reativar
 
 
 def test_admin_reativa_pessoa(client, usuario_admin, pessoa_basica):
@@ -616,36 +615,51 @@ def test_assessor_nao_cria_tag(client, usuario_assessor):
     assert response.status_code == 403
 
 
-def test_coord_cria_tag(client, usuario_coordenador):
-    client.force_login(usuario_coordenador)
-    response = client.post(reverse("pessoas:tag_nova"), {"nome": "Saúde", "ativo": "on"})
-    assert response.status_code == 302
-    assert Tag.objects.filter(nome="Saúde").exists()
-
-
 # --- Lista: filtros e soft delete ---
 
 
-def test_lista_padrao_oculta_inativos(client, usuario_assessor, pessoa_basica):
+def test_lista_padrao_oculta_inativos(client, usuario_admin, pessoa_basica):
     pessoa_basica.ativo = False
     pessoa_basica.save()
-    client.force_login(usuario_assessor)
+    client.force_login(usuario_admin)
     response = client.get(reverse("pessoas:pessoa_lista"))
     assert pessoa_basica not in response.context["pessoas"]
 
 
-def test_lista_inativos_mostra_tudo(client, usuario_assessor, pessoa_basica):
+def test_lista_inativos_mostra_tudo(client, usuario_admin, pessoa_basica):
     pessoa_basica.ativo = False
     pessoa_basica.save()
-    client.force_login(usuario_assessor)
+    client.force_login(usuario_admin)
     response = client.get(reverse("pessoas:pessoa_lista") + "?inativos=1")
     assert pessoa_basica in response.context["pessoas"]
 
 
-def test_lista_busca_por_nome(client, usuario_assessor, pessoa_basica):
-    client.force_login(usuario_assessor)
+def test_lista_busca_por_nome(client, usuario_admin, pessoa_basica):
+    client.force_login(usuario_admin)
     response = client.get(reverse("pessoas:pessoa_lista") + "?q=Maria")
     assert pessoa_basica in response.context["pessoas"]
+
+
+def test_busca_cega_nao_vaza_ficha_para_assessor(client, usuario_assessor, pessoa_basica):
+    """Busca cega (ADR 0059): o assessor vê o nome para vincular, mas não a
+    localização (bairro/cidade) — sem expor a ficha."""
+    import json
+
+    client.force_login(usuario_assessor)
+    resp = client.get(reverse("pessoas:pessoa_buscar_json"), {"q": "Maria"})
+    blob = json.dumps(resp.json(), ensure_ascii=False)
+    assert "Maria" in blob  # nome para vincular
+    assert "Centro" not in blob  # bairro não vaza
+    assert "Vitória" not in blob  # cidade não vaza
+
+
+def test_busca_admin_mostra_localizacao(client, usuario_admin, pessoa_basica):
+    import json
+
+    client.force_login(usuario_admin)
+    resp = client.get(reverse("pessoas:pessoa_buscar_json"), {"q": "Maria"})
+    blob = json.dumps(resp.json(), ensure_ascii=False)
+    assert "Centro" in blob  # admin vê o detalhe para desambiguar
 
 
 # --- Endpoints auxiliares ---
@@ -700,7 +714,8 @@ def test_cep_endpoint_sem_permissao_403(client, db):
 
 def test_grupos_padrao_existem(db):
     nomes = set(Group.objects.values_list("name", flat=True))
-    assert {"Administrador", "Chefe de Gabinete", "Coordenador", "Assessor"} <= nomes
+    assert {"Administrador", "Chefe de Gabinete", "Assessor"} <= nomes
+    assert "Coordenador" not in nomes  # removido na ADR 0059
 
 
 def test_grupo_assessor_tem_view_pessoa(db):
@@ -713,13 +728,13 @@ def test_grupo_assessor_nao_tem_add_tag(db):
     assert not grupo.permissions.filter(codename="add_tag").exists()
 
 
-def test_grupo_coordenador_tem_pode_desativar_pessoa(db):
-    grupo = Group.objects.get(name="Coordenador")
+def test_grupo_chefe_tem_pode_desativar_pessoa(db):
+    grupo = Group.objects.get(name="Chefe de Gabinete")
     assert grupo.permissions.filter(codename="pode_desativar_pessoa").exists()
 
 
-def test_grupo_coordenador_nao_tem_pode_reativar_pessoa(db):
-    grupo = Group.objects.get(name="Coordenador")
+def test_grupo_assessor_nao_tem_pode_reativar_pessoa(db):
+    grupo = Group.objects.get(name="Assessor")
     assert not grupo.permissions.filter(codename="pode_reativar_pessoa").exists()
 
 
@@ -783,7 +798,7 @@ def test_export_csv_pessoas_nao_tem_n_mais_1(client, usuario_admin):
             criado_por=usuario_admin,
         )
         Telefone.objects.create(pessoa=p, numero="27999999999", tipo="celular")
-        EmailPessoa.objects.create(pessoa=p, endereco=f"p{i}@t.com")
+        EmailContato.objects.create(pessoa=p, endereco=f"p{i}@t.com")
     client.force_login(usuario_admin)
     with CaptureQueriesContext(connection) as captured:
         resp = client.get(reverse("pessoas:pessoa_export_csv"))
@@ -801,8 +816,8 @@ def test_export_csv_pessoas_nao_tem_n_mais_1(client, usuario_admin):
 def test_slug_publico_retenta_em_colisao(db, usuario_admin, monkeypatch):
     """Simula colisão de slug: primeiro uuid colide com pessoa já criada;
     segundo uuid é único e o save sucede. Sem o retry, IntegrityError
-    vazaria para o caller."""
-    from pessoas import models as pessoas_models
+    vazaria para o caller. Geração consolidada em core.utils (8 chars)."""
+    from core import utils as core_utils
 
     # Cria a primeira pessoa normalmente.
     p1 = Pessoa.objects.create(
@@ -815,13 +830,14 @@ def test_slug_publico_retenta_em_colisao(db, usuario_admin, monkeypatch):
     slug_existente = p1.slug_publico
 
     # Sequência forçada: primeiro retorno = slug já usado, segundo = slug novo.
-    sequencia = iter([slug_existente + "00000000", "ffffffffffff00000000"])
+    # gerar_slug_publico() usa uuid4().hex[:8], então o hex precisa ter >= 8 chars.
+    sequencia = iter([slug_existente + "00000000", "ffffffff00000000"])
 
     class FakeUUID:
         def __init__(self, hex_str):
             self.hex = hex_str
 
-    monkeypatch.setattr(pessoas_models.uuid, "uuid4", lambda: FakeUUID(next(sequencia)))
+    monkeypatch.setattr(core_utils.uuid, "uuid4", lambda: FakeUUID(next(sequencia)))
 
     p2 = Pessoa.objects.create(
         nome="Segunda",
@@ -831,5 +847,5 @@ def test_slug_publico_retenta_em_colisao(db, usuario_admin, monkeypatch):
         criado_por=usuario_admin,
     )
     # Retry funcionou: usou o segundo slug.
-    assert p2.slug_publico == "ffffffffffff"
+    assert p2.slug_publico == "ffffffff"
     assert p2.slug_publico != p1.slug_publico

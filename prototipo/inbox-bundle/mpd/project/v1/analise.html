@@ -1,0 +1,1020 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>MPD · Análise institucional</title>
+<meta name="viewport" content="width=1400">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  body { background: var(--bg); }
+  .page { max-width: 1280px; margin: 32px auto 80px; padding: 0 28px; }
+
+  /* Documento de prestação de contas, não dashboard */
+  .doc { background: var(--paper); box-shadow: 0 1px 0 rgba(0,0,0,0.04), 0 16px 40px -24px rgba(60,50,30,0.22); }
+
+  .doc-head {
+    border-top: 6px solid var(--navy);
+    padding: 32px 48px 28px;
+    border-bottom: 2px solid var(--navy);
+    background: linear-gradient(180deg, var(--paper), var(--paper-2));
+    text-align: center;
+  }
+  .doc-head .super {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-bottom: 14px;
+  }
+  .doc-head h1 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 44px;
+    line-height: 1.1;
+    letter-spacing: -0.015em;
+    margin: 0 0 6px;
+    color: var(--ink);
+  }
+  .doc-head .sub {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 17px;
+    color: var(--ink-soft);
+    margin: 0;
+  }
+  .doc-head .periodo {
+    margin-top: 18px;
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--navy);
+    border: 1px solid var(--navy);
+    padding: 5px 14px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+  .doc-head .meta-line {
+    margin-top: 16px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-mute);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  /* Period selector */
+  .period-bar {
+    background: var(--paper-2);
+    border-bottom: 1px solid var(--rule);
+    padding: 12px 32px;
+    display: flex; align-items: center; gap: 16px;
+    flex-wrap: wrap;
+  }
+  .period-bar .lbl {
+    font-family: var(--mono); font-size: 10px;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-mute);
+  }
+  .period-segment {
+    display: flex; border: 1px solid var(--navy);
+  }
+  .period-segment label {
+    padding: 5px 14px; font-family: var(--sans);
+    font-size: 12.5px; color: var(--navy); cursor: pointer;
+    border-right: 1px solid var(--navy); background: var(--paper);
+  }
+  .period-segment label:last-child { border-right: 0; }
+  .period-segment label.on { background: var(--navy); color: var(--paper); font-weight: 600; }
+  .period-segment input { display: none; }
+  .period-bar .actions {
+    margin-left: auto; display: flex; gap: 6px;
+  }
+  .btn-ghost {
+    background: transparent; border: 1px solid var(--rule-strong);
+    padding: 6px 12px; font-family: var(--sans); font-size: 12px;
+    color: var(--ink-soft); cursor: pointer;
+  }
+  .btn-ghost:hover { color: var(--ink); border-color: var(--ink); }
+
+  /* Body — relatório como documento */
+  .doc-body { padding: 40px 48px 56px; max-width: 920px; margin: 0 auto; }
+
+  /* Sumário */
+  .sumario {
+    background: var(--paper-2);
+    border: 1px solid var(--rule);
+    padding: 18px 22px;
+    margin-bottom: 40px;
+  }
+  .sumario h2 {
+    font-family: var(--mono); font-size: 10px;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--navy); margin: 0 0 10px;
+    font-weight: 700;
+  }
+  .sumario ol {
+    margin: 0; padding-left: 0;
+    list-style: none;
+    columns: 2;
+    column-gap: 28px;
+    font-family: var(--serif);
+    font-size: 14px;
+    color: var(--ink);
+  }
+  .sumario li {
+    padding: 3px 0;
+    border-bottom: 1px dotted var(--rule);
+    display: flex; justify-content: space-between;
+  }
+  .sumario li::before {
+    content: "§ "; font-family: var(--mono); font-size: 11px;
+    color: var(--navy); margin-right: 6px; font-weight: 600;
+  }
+  .sumario li .pg {
+    font-family: var(--mono); font-size: 11px;
+    color: var(--ink-mute); letter-spacing: 0.04em;
+  }
+  .sumario li a { color: var(--ink); text-decoration: none; }
+  .sumario li a:hover { color: var(--navy); text-decoration: underline; text-underline-offset: 3px; }
+
+  /* Seções */
+  .secao { margin-bottom: 48px; }
+  .secao .num {
+    font-family: var(--mono); font-size: 11px;
+    letter-spacing: 0.14em; color: var(--navy);
+    font-weight: 700; margin-bottom: 6px;
+    text-transform: uppercase;
+  }
+  .secao h2 {
+    font-family: var(--serif); font-weight: 500;
+    font-size: 26px; line-height: 1.2;
+    letter-spacing: -0.01em; margin: 0 0 16px;
+    color: var(--ink); padding-bottom: 12px;
+    border-bottom: 1px solid var(--ink);
+  }
+
+  /* Texto de relatório */
+  .prose {
+    font-family: var(--serif);
+    font-size: 16px;
+    line-height: 1.7;
+    color: var(--ink-soft);
+    margin: 0 0 18px;
+    text-wrap: pretty;
+    max-width: 68ch;
+  }
+  .prose strong { color: var(--ink); font-weight: 600; }
+  .prose em { font-style: italic; }
+
+  /* Cards de número em texto, não dashboard */
+  .key-numbers {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    border: 1px solid var(--ink);
+    margin: 24px 0;
+  }
+  .key-numbers .n {
+    padding: 18px 22px;
+    border-right: 1px solid var(--rule-strong);
+  }
+  .key-numbers .n:last-child { border-right: 0; }
+  .key-numbers .n .k {
+    font-family: var(--mono); font-size: 10px;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-mute); margin-bottom: 6px;
+  }
+  .key-numbers .n .v {
+    font-family: var(--serif); font-size: 38px;
+    color: var(--ink); letter-spacing: -0.015em;
+    line-height: 1; font-weight: 500;
+  }
+  .key-numbers .n .sub {
+    font-family: var(--serif); font-size: 13px;
+    font-style: italic; color: var(--ink-mute);
+    margin-top: 6px; line-height: 1.4;
+  }
+
+  /* Tabelas de relatório */
+  table.report {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0 24px;
+    font-family: var(--sans);
+    font-size: 13.5px;
+  }
+  table.report thead th {
+    text-align: left;
+    background: var(--paper-2);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 600;
+    padding: 10px 14px;
+    border-bottom: 2px solid var(--ink);
+  }
+  table.report tbody td {
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--rule);
+    color: var(--ink);
+    vertical-align: middle;
+  }
+  table.report tbody tr:last-child td { border-bottom: 0; }
+  table.report .tema {
+    font-family: var(--serif);
+    font-size: 14.5px;
+    font-weight: 500;
+  }
+  table.report .num-c {
+    font-family: var(--mono); text-align: right;
+    color: var(--ink-soft);
+  }
+  table.report .num-c.big {
+    font-family: var(--serif); font-size: 17px;
+    color: var(--ink); font-weight: 500;
+  }
+  table.report .pct {
+    font-family: var(--mono); font-size: 11px;
+    color: var(--ink-mute);
+    margin-left: 4px;
+  }
+  table.report .bar-cell { width: 200px; }
+  table.report .bar {
+    position: relative;
+    background: var(--paper-2);
+    height: 10px;
+    border: 1px solid var(--rule);
+  }
+  table.report .bar .fill {
+    height: 100%;
+    background: var(--navy);
+  }
+  table.report .bar .fill.olive { background: var(--olive); }
+  table.report .bar .fill.tan { background: var(--tan); }
+  table.report .bar .fill.bordo { background: var(--bordo); }
+  table.report tfoot td {
+    padding: 11px 14px;
+    border-top: 2px solid var(--ink);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    font-weight: 600;
+  }
+
+  /* Lista de bairros ranqueada */
+  .rank-list {
+    border-top: 1px solid var(--rule);
+    margin: 16px 0 24px;
+  }
+  .rank-list .row {
+    display: grid;
+    grid-template-columns: 24px 1fr 80px 220px 60px;
+    gap: 14px;
+    align-items: center;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--rule);
+    font-family: var(--sans);
+    font-size: 13px;
+  }
+  .rank-list .row .rk {
+    font-family: var(--mono);
+    color: var(--ink-mute);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+  }
+  .rank-list .row .nome {
+    font-family: var(--serif);
+    font-size: 14.5px;
+    color: var(--ink);
+    font-weight: 500;
+  }
+  .rank-list .row .n {
+    font-family: var(--mono);
+    text-align: right;
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+  .rank-list .row .bar {
+    background: var(--paper-2);
+    height: 10px;
+    border: 1px solid var(--rule);
+  }
+  .rank-list .row .bar .fill { background: var(--navy); height: 100%; }
+  .rank-list .row .pct {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-mute);
+    text-align: right;
+  }
+
+  /* Texto rodapé do documento (legenda) */
+  .legend {
+    font-family: var(--serif);
+    font-size: 12.5px;
+    font-style: italic;
+    color: var(--ink-mute);
+    margin: 8px 0 24px;
+    line-height: 1.5;
+    border-left: 3px solid var(--rule-strong);
+    padding: 4px 14px;
+  }
+
+  /* Comentário longo */
+  .commentary {
+    background: var(--paper-2);
+    border-left: 4px solid var(--navy);
+    padding: 18px 24px;
+    margin: 24px 0;
+  }
+  .commentary .lbl {
+    font-family: var(--mono); font-size: 10px;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--navy); font-weight: 700; margin-bottom: 8px;
+  }
+  .commentary p {
+    font-family: var(--serif);
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--ink);
+    margin: 0;
+    font-style: italic;
+  }
+
+  /* Rodapé do documento */
+  .doc-foot {
+    padding: 18px 48px 28px;
+    border-top: 2px solid var(--navy);
+    background: var(--paper-2);
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-mute);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    display: flex; justify-content: space-between;
+    flex-wrap: wrap; gap: 14px;
+  }
+  .doc-foot .v { color: var(--navy); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<header class="appbar">
+  <div class="appbar-inner">
+    <a class="brand" href="home.html">
+      <span class="mark">M</span>
+      <span class="name">MPD</span>
+      <span class="tag">Pedro Trés · 11ª Legislatura</span>
+    </a>
+    <nav>
+      <a href="home.html">Início</a>
+      <a href="05-inbox.html">Entrada <span class="alert">7</span></a>
+      <a href="04-lista.html">Demandas</a>
+      <a href="pessoas.html">Pessoas</a>
+      <a href="entidades.html">Entidades</a>
+      <a href="encaminhamentos.html">Encaminhamentos</a>
+      <a href="pendencias.html">Pendências <span class="alert">3</span></a>
+    </nav>
+    <div class="me">
+      <div class="who">
+        <span class="av">MC</span>
+        <span>
+          <span class="name">Mariana Costa</span>
+          <span class="role">Gabinete · resp.</span>
+        </span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="page">
+  <article class="doc">
+
+    <header class="doc-head">
+      <div class="super">Mandato Pedro Trés · Vereador · 11ª Legislatura · Vitória/ES</div>
+      <h1>Relatório institucional</h1>
+      <p class="sub">do trabalho do mandato no atendimento ao cidadão</p>
+      <div class="periodo">1º Quadrimestre · janeiro–abril 2026</div>
+      <div class="meta-line">Gerado em 17/05/2026 · documento §III/2026</div>
+    </header>
+
+    <!-- Seletor de período -->
+    <div class="period-bar">
+      <span class="lbl">Período</span>
+      <div class="period-segment">
+        <label><input type="radio" name="per">30 dias</label>
+        <label><input type="radio" name="per">90 dias</label>
+        <label class="on"><input type="radio" name="per" checked>Quadrimestre</label>
+        <label><input type="radio" name="per">Ano</label>
+        <label><input type="radio" name="per">Personalizado</label>
+      </div>
+      <span class="lbl">Recorte</span>
+      <select style="font-family:var(--sans);font-size:12.5px;padding:5px 10px;border:1px solid var(--rule-strong);background:var(--paper)">
+        <option>Todo o mandato</option>
+        <option>Minha coordenação (Gabinete)</option>
+        <option>Por responsável</option>
+      </select>
+      <div class="actions">
+        <button class="btn-ghost">Imprimir</button>
+        <button class="btn-ghost">Exportar PDF</button>
+        <button class="btn-ghost">Compartilhar</button>
+      </div>
+    </div>
+
+    <div class="doc-body">
+
+      <!-- Sumário -->
+      <div class="sumario">
+        <h2>Sumário</h2>
+        <ol>
+          <li><a href="#resumo">Resumo executivo</a><span class="pg">§01</span></li>
+          <li><a href="#volume">Volume e ritmo</a><span class="pg">§02</span></li>
+          <li><a href="#temas">Por tema</a><span class="pg">§03</span></li>
+          <li><a href="#bairros">Por bairro</a><span class="pg">§04</span></li>
+          <li><a href="#canais">Canais de entrada</a><span class="pg">§05</span></li>
+          <li><a href="#resultados">Resultado das demandas</a><span class="pg">§06</span></li>
+          <li><a href="#orgaos">Encaminhamentos por órgão</a><span class="pg">§07</span></li>
+          <li><a href="#demandantes">Pessoas e entidades</a><span class="pg">§08</span></li>
+        </ol>
+      </div>
+
+      <!-- §01 Resumo -->
+      <section class="secao" id="resumo">
+        <div class="num">§ 01</div>
+        <h2>Resumo executivo</h2>
+        <p class="prose">
+          No primeiro quadrimestre de 2026 o mandato registrou <strong>342 demandas</strong> — 28% acima do mesmo período em 2025. Do total, <strong>251 foram responsivas</strong> (cidadão chegou) e <strong>91 proativas</strong> (mandato iniciou). A taxa de devolutiva ao demandante foi de <strong>89%</strong> nas demandas concluídas. O tempo médio de atendimento ficou em <strong>17 dias</strong>; nas demandas com órgão externo, o tempo médio de resposta a ofícios foi de <strong>11 dias úteis</strong>.
+        </p>
+        <p class="prose">
+          O bairro com maior volume continua sendo o <strong>Centro</strong> (49 demandas, 14%), seguido por Maruípe (38), Jardim Camburi (31) e Bento Ferreira (24). Em <em>temas</em>, a coleta &amp; saneamento subiu para o terceiro lugar, atrás de mobilidade e saúde — provavelmente reflexo das chuvas de fevereiro.
+        </p>
+
+        <div class="key-numbers">
+          <div class="n">
+            <div class="k">Demandas registradas</div>
+            <div class="v">342</div>
+            <div class="sub">+28% sobre 2025/Q1</div>
+          </div>
+          <div class="n">
+            <div class="k">Taxa de devolutiva</div>
+            <div class="v">89<span style="font-size:24px">%</span></div>
+            <div class="sub">de 217 concluídas</div>
+          </div>
+          <div class="n">
+            <div class="k">Tempo médio</div>
+            <div class="v">17 <span style="font-size:24px">d</span></div>
+            <div class="sub">do registro ao desfecho</div>
+          </div>
+        </div>
+
+        <div class="commentary">
+          <div class="lbl">Notas do relator</div>
+          <p>
+            "O crescimento de 28% é saudável e indica boca-a-boca crescente nos bairros, mas exige atenção: a equipe está no limite do que consegue triar sem perda de qualidade. Recomendo discutir a contratação de mais um(a) assessor(a) de gabinete a partir de junho."
+          </p>
+        </div>
+      </section>
+
+      <!-- §02 Volume -->
+      <section class="secao" id="volume">
+        <div class="num">§ 02</div>
+        <h2>Volume e ritmo</h2>
+        <p class="prose">
+          O ritmo de entrada cresceu de forma constante entre janeiro e abril, com aceleração marcada em fevereiro (chuvas) e abril (início do ano letivo). A média móvel ficou em 86 demandas/mês, contra 67 no mesmo período de 2025.
+        </p>
+
+        <table class="report">
+          <thead>
+            <tr>
+              <th>Mês</th>
+              <th>Demandas abertas</th>
+              <th>Concluídas no mês</th>
+              <th>Em aberto ao fim</th>
+              <th class="bar-cell">Comparado a 2025</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="tema">Janeiro</td>
+              <td class="num-c big">72</td>
+              <td class="num-c">58 <span class="pct">81%</span></td>
+              <td class="num-c">14</td>
+              <td><div class="bar"><div class="fill" style="width:72%"></div></div></td>
+            </tr>
+            <tr>
+              <td class="tema">Fevereiro</td>
+              <td class="num-c big">98</td>
+              <td class="num-c">61 <span class="pct">62%</span></td>
+              <td class="num-c">37</td>
+              <td><div class="bar"><div class="fill" style="width:98%"></div></div></td>
+            </tr>
+            <tr>
+              <td class="tema">Março</td>
+              <td class="num-c big">81</td>
+              <td class="num-c">59 <span class="pct">73%</span></td>
+              <td class="num-c">22</td>
+              <td><div class="bar"><div class="fill" style="width:81%"></div></div></td>
+            </tr>
+            <tr>
+              <td class="tema">Abril</td>
+              <td class="num-c big">91</td>
+              <td class="num-c">39 <span class="pct">43%</span></td>
+              <td class="num-c">52</td>
+              <td><div class="bar"><div class="fill" style="width:91%"></div></div></td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr>
+              <td>Total · quadrimestre</td>
+              <td class="num-c">342</td>
+              <td class="num-c">217</td>
+              <td class="num-c">125</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+
+        <p class="legend">Em fevereiro, 41% das demandas foram relacionadas a alagamento, esgoto e desabrigados — pico relacionado à chuva forte da semana de 12/02. As demandas em aberto ao fim do mês são as que ainda exigem nova interação no mês seguinte; não significam atraso.</p>
+      </section>
+
+      <!-- §03 Temas -->
+      <section class="secao" id="temas">
+        <div class="num">§ 03</div>
+        <h2>Por tema</h2>
+        <p class="prose">
+          A distribuição temática mantém o perfil histórico do mandato: <strong>mobilidade e saúde</strong> dominam. Em 2026 cresceu a participação de "Educação infantil" (vagas em CMEI) e "Coleta seletiva" — esta última por uma articulação proativa com a SEMSE.
+        </p>
+
+        <table class="report">
+          <thead>
+            <tr>
+              <th>Tema</th>
+              <th class="num-c" style="text-align:right">Demandas</th>
+              <th class="num-c" style="text-align:right">Atendidas</th>
+              <th class="num-c" style="text-align:right">Tempo médio</th>
+              <th class="bar-cell">Distribuição</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="tema">Mobilidade urbana</td>
+              <td class="num-c big">68</td>
+              <td class="num-c">52 <span class="pct">77%</span></td>
+              <td class="num-c">14 d</td>
+              <td><div class="bar"><div class="fill" style="width:99%"></div></div></td>
+            </tr>
+            <tr>
+              <td class="tema">Saúde</td>
+              <td class="num-c big">54</td>
+              <td class="num-c">38 <span class="pct">70%</span></td>
+              <td class="num-c">22 d</td>
+              <td><div class="bar"><div class="fill" style="width:79%"></div></div></td>
+            </tr>
+            <tr>
+              <td class="tema">Coleta &amp; saneamento</td>
+              <td class="num-c big">42</td>
+              <td class="num-c">31 <span class="pct">74%</span></td>
+              <td class="num-c">11 d</td>
+              <td><div class="bar"><div class="fill" style="width:61%"></div></div></td>
+            </tr>
+            <tr>
+              <td class="tema">Educação</td>
+              <td class="num-c big">38</td>
+              <td class="num-c">27 <span class="pct">71%</span></td>
+              <td class="num-c">19 d</td>
+              <td><div class="bar"><div class="fill" style="width:55%"></div></div></td>
+            </tr>
+            <tr>
+              <td class="tema">Segurança pública</td>
+              <td class="num-c big">31</td>
+              <td class="num-c">14 <span class="pct">45%</span></td>
+              <td class="num-c">28 d</td>
+              <td><div class="bar"><div class="fill olive" style="width:45%"></div></div></td>
+            </tr>
+            <tr>
+              <td class="tema">Urbanismo &amp; obras</td>
+              <td class="num-c big">29</td>
+              <td class="num-c">22 <span class="pct">76%</span></td>
+              <td class="num-c">17 d</td>
+              <td><div class="bar"><div class="fill" style="width:42%"></div></div></td>
+            </tr>
+            <tr>
+              <td class="tema">Cultura</td>
+              <td class="num-c big">22</td>
+              <td class="num-c">18 <span class="pct">82%</span></td>
+              <td class="num-c">9 d</td>
+              <td><div class="bar"><div class="fill" style="width:32%"></div></div></td>
+            </tr>
+            <tr>
+              <td class="tema">Meio ambiente</td>
+              <td class="num-c big">19</td>
+              <td class="num-c">11 <span class="pct">58%</span></td>
+              <td class="num-c">25 d</td>
+              <td><div class="bar"><div class="fill" style="width:28%"></div></div></td>
+            </tr>
+            <tr>
+              <td class="tema">Direitos sociais</td>
+              <td class="num-c big">15</td>
+              <td class="num-c">9 <span class="pct">60%</span></td>
+              <td class="num-c">31 d</td>
+              <td><div class="bar"><div class="fill" style="width:22%"></div></div></td>
+            </tr>
+            <tr style="color:var(--ink-mute)">
+              <td class="tema" style="font-style:italic">Outros / sem tema</td>
+              <td class="num-c big">24</td>
+              <td class="num-c">15 <span class="pct">63%</span></td>
+              <td class="num-c">18 d</td>
+              <td><div class="bar"><div class="fill" style="width:35%;opacity:0.5"></div></div></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p class="legend">"Tempo médio" considera o intervalo entre registro inicial e demanda concluída ou devolutiva final. Demandas em aberto não entram no cálculo.</p>
+      </section>
+
+      <!-- §04 Bairros -->
+      <section class="secao" id="bairros">
+        <div class="num">§ 04</div>
+        <h2>Por bairro</h2>
+        <p class="prose">
+          Concentração geográfica continua no centro-norte da cidade. Praia do Canto aparece com volume baixo (5), reflexo de classe média menos dependente de mediação parlamentar. <strong>São Pedro</strong> apareceu com volume alto pela primeira vez no quadrimestre — possivelmente efeito da rede que o Pe. Antônio articula desde o cadastro em fev/2024.
+        </p>
+
+        <div class="rank-list">
+          <div class="row">
+            <span class="rk">01</span>
+            <span class="nome">Centro</span>
+            <span class="n">49</span>
+            <div class="bar"><div class="fill" style="width:100%"></div></div>
+            <span class="pct">14%</span>
+          </div>
+          <div class="row">
+            <span class="rk">02</span>
+            <span class="nome">Maruípe</span>
+            <span class="n">38</span>
+            <div class="bar"><div class="fill" style="width:78%"></div></div>
+            <span class="pct">11%</span>
+          </div>
+          <div class="row">
+            <span class="rk">03</span>
+            <span class="nome">Jardim Camburi</span>
+            <span class="n">31</span>
+            <div class="bar"><div class="fill" style="width:63%"></div></div>
+            <span class="pct">9%</span>
+          </div>
+          <div class="row">
+            <span class="rk">04</span>
+            <span class="nome">São Pedro</span>
+            <span class="n">28</span>
+            <div class="bar"><div class="fill" style="width:57%"></div></div>
+            <span class="pct">8%</span>
+          </div>
+          <div class="row">
+            <span class="rk">05</span>
+            <span class="nome">Bento Ferreira</span>
+            <span class="n">24</span>
+            <div class="bar"><div class="fill" style="width:49%"></div></div>
+            <span class="pct">7%</span>
+          </div>
+          <div class="row">
+            <span class="rk">06</span>
+            <span class="nome">Jucutuquara</span>
+            <span class="n">19</span>
+            <div class="bar"><div class="fill" style="width:39%"></div></div>
+            <span class="pct">6%</span>
+          </div>
+          <div class="row">
+            <span class="rk">07</span>
+            <span class="nome">Goiabeiras</span>
+            <span class="n">17</span>
+            <div class="bar"><div class="fill" style="width:35%"></div></div>
+            <span class="pct">5%</span>
+          </div>
+          <div class="row">
+            <span class="rk">08</span>
+            <span class="nome">Itararé</span>
+            <span class="n">14</span>
+            <div class="bar"><div class="fill" style="width:29%"></div></div>
+            <span class="pct">4%</span>
+          </div>
+          <div class="row">
+            <span class="rk">09</span>
+            <span class="nome">Outros 28 bairros</span>
+            <span class="n">122</span>
+            <div class="bar"><div class="fill" style="width:50%;opacity:0.5"></div></div>
+            <span class="pct">36%</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- §05 Canais -->
+      <section class="secao" id="canais">
+        <div class="num">§ 05</div>
+        <h2>Canais de entrada</h2>
+        <p class="prose">
+          O WhatsApp segue como canal majoritário, alimentado pelo número público do mandato e pelos celulares pessoais da equipe. O atendimento <em>presencial</em> tem menor volume mas o maior tempo médio de tratamento — são geralmente os casos mais complexos (saúde individual, direito social).
+        </p>
+
+        <table class="report">
+          <thead>
+            <tr>
+              <th>Canal</th>
+              <th class="num-c" style="text-align:right">Demandas</th>
+              <th class="num-c" style="text-align:right">% do total</th>
+              <th class="num-c" style="text-align:right">Tempo médio até 1ª resposta</th>
+              <th class="bar-cell">Volume</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="tema">WhatsApp</td>
+              <td class="num-c big">187</td>
+              <td class="num-c">55%</td>
+              <td class="num-c">2 horas</td>
+              <td><div class="bar"><div class="fill" style="width:100%"></div></div></td>
+            </tr>
+            <tr>
+              <td class="tema">Presencial</td>
+              <td class="num-c big">62</td>
+              <td class="num-c">18%</td>
+              <td class="num-c">imediato</td>
+              <td><div class="bar"><div class="fill" style="width:33%"></div></div></td>
+            </tr>
+            <tr>
+              <td class="tema">Telefone</td>
+              <td class="num-c big">38</td>
+              <td class="num-c">11%</td>
+              <td class="num-c">4 horas</td>
+              <td><div class="bar"><div class="fill" style="width:20%"></div></div></td>
+            </tr>
+            <tr>
+              <td class="tema">Redes sociais (DM)</td>
+              <td class="num-c big">27</td>
+              <td class="num-c">8%</td>
+              <td class="num-c">6 horas</td>
+              <td><div class="bar"><div class="fill" style="width:14%"></div></div></td>
+            </tr>
+            <tr>
+              <td class="tema">E-mail</td>
+              <td class="num-c big">14</td>
+              <td class="num-c">4%</td>
+              <td class="num-c">8 horas</td>
+              <td><div class="bar"><div class="fill" style="width:7%"></div></div></td>
+            </tr>
+            <tr>
+              <td class="tema">Indicação interna</td>
+              <td class="num-c big">11</td>
+              <td class="num-c">3%</td>
+              <td class="num-c">imediato</td>
+              <td><div class="bar"><div class="fill" style="width:6%"></div></div></td>
+            </tr>
+            <tr>
+              <td class="tema">Ofício recebido</td>
+              <td class="num-c big">3</td>
+              <td class="num-c">1%</td>
+              <td class="num-c">1 dia</td>
+              <td><div class="bar"><div class="fill" style="width:2%"></div></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- §06 Resultados -->
+      <section class="secao" id="resultados">
+        <div class="num">§ 06</div>
+        <h2>Resultado das demandas concluídas</h2>
+        <p class="prose">
+          Das 217 demandas concluídas no quadrimestre, <strong>72% foram atendidas</strong> (no todo ou em parte). A taxa de "não atendido" e "inviável" agregada (22%) é compatível com o histórico — são casos onde a competência é federal/estadual, ou onde a solicitação esbarra em norma legal. <strong>Toda demanda "inviável" recebeu devolutiva explicando o motivo</strong>; este é o indicador que mais importa.
+        </p>
+
+        <table class="report">
+          <thead>
+            <tr>
+              <th>Resultado</th>
+              <th class="num-c" style="text-align:right">Demandas</th>
+              <th class="num-c" style="text-align:right">% do concluído</th>
+              <th class="bar-cell">Distribuição</th>
+              <th>Comentário</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="tema">Atendido</td>
+              <td class="num-c big">128</td>
+              <td class="num-c">59%</td>
+              <td><div class="bar"><div class="fill olive" style="width:100%"></div></div></td>
+              <td style="font-family:var(--serif);font-size:13px;color:var(--ink-soft);font-style:italic">cidadão obteve o que pediu</td>
+            </tr>
+            <tr>
+              <td class="tema">Atendido parcialmente</td>
+              <td class="num-c big">29</td>
+              <td class="num-c">13%</td>
+              <td><div class="bar"><div class="fill olive" style="width:23%"></div></div></td>
+              <td style="font-family:var(--serif);font-size:13px;color:var(--ink-soft);font-style:italic">solução incompleta mas registrada</td>
+            </tr>
+            <tr>
+              <td class="tema">Não atendido</td>
+              <td class="num-c big">31</td>
+              <td class="num-c">14%</td>
+              <td><div class="bar"><div class="fill bordo" style="width:24%"></div></div></td>
+              <td style="font-family:var(--serif);font-size:13px;color:var(--ink-soft);font-style:italic">resposta negativa do órgão competente</td>
+            </tr>
+            <tr>
+              <td class="tema">Inviável</td>
+              <td class="num-c big">17</td>
+              <td class="num-c">8%</td>
+              <td><div class="bar"><div class="fill tan" style="width:13%"></div></div></td>
+              <td style="font-family:var(--serif);font-size:13px;color:var(--ink-soft);font-style:italic">norma ou competência impedem</td>
+            </tr>
+            <tr>
+              <td class="tema">Não se aplica</td>
+              <td class="num-c big">12</td>
+              <td class="num-c">6%</td>
+              <td><div class="bar"><div class="fill" style="width:9%;opacity:0.4"></div></div></td>
+              <td style="font-family:var(--serif);font-size:13px;color:var(--ink-soft);font-style:italic">demanda proativa sem desfecho mensurável</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr>
+              <td>Total concluído</td>
+              <td class="num-c">217</td>
+              <td class="num-c">100%</td>
+              <td></td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </section>
+
+      <!-- §07 Encaminhamentos -->
+      <section class="secao" id="orgaos">
+        <div class="num">§ 07</div>
+        <h2>Encaminhamentos por órgão</h2>
+        <p class="prose">
+          Foram enviados <strong>97 documentos formais</strong> (ofícios, requerimentos, indicações) no quadrimestre. A SEMOB segue como destinatário principal — reflexo do volume em mobilidade. O tempo médio de resposta é <strong>11 dias úteis</strong> no agregado; SEMUS e CESAN ficam abaixo da média (mais ágeis), SEDU acima (e com casos vencidos persistentes).
+        </p>
+
+        <table class="report">
+          <thead>
+            <tr>
+              <th>Órgão</th>
+              <th class="num-c" style="text-align:right">Enviados</th>
+              <th class="num-c" style="text-align:right">Respondidos</th>
+              <th class="num-c" style="text-align:right">Tempo médio</th>
+              <th class="num-c" style="text-align:right">Sat. da resposta</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="tema">SEMOB · Mobilidade</td>
+              <td class="num-c big">21</td>
+              <td class="num-c">18 <span class="pct">86%</span></td>
+              <td class="num-c">9 d</td>
+              <td class="num-c" style="color:var(--olive)">94% sat.</td>
+            </tr>
+            <tr>
+              <td class="tema">SEMUS · Saúde</td>
+              <td class="num-c big">18</td>
+              <td class="num-c">17 <span class="pct">94%</span></td>
+              <td class="num-c">7 d</td>
+              <td class="num-c" style="color:var(--olive)">88% sat.</td>
+            </tr>
+            <tr>
+              <td class="tema">SEDU · Educação</td>
+              <td class="num-c big">14</td>
+              <td class="num-c">9 <span class="pct">64%</span></td>
+              <td class="num-c">19 d</td>
+              <td class="num-c" style="color:var(--amber)">67% sat.</td>
+            </tr>
+            <tr>
+              <td class="tema">EDP-ES</td>
+              <td class="num-c big">11</td>
+              <td class="num-c">10 <span class="pct">91%</span></td>
+              <td class="num-c">8 d</td>
+              <td class="num-c" style="color:var(--bordo)">40% sat.</td>
+            </tr>
+            <tr>
+              <td class="tema">SEMSE · Serviços</td>
+              <td class="num-c big">9</td>
+              <td class="num-c">7 <span class="pct">78%</span></td>
+              <td class="num-c">12 d</td>
+              <td class="num-c" style="color:var(--olive)">86% sat.</td>
+            </tr>
+            <tr>
+              <td class="tema">CESAN · Saneamento</td>
+              <td class="num-c big">8</td>
+              <td class="num-c">8 <span class="pct">100%</span></td>
+              <td class="num-c">6 d</td>
+              <td class="num-c" style="color:var(--olive)">75% sat.</td>
+            </tr>
+            <tr>
+              <td class="tema">DETRAN-ES</td>
+              <td class="num-c big">7</td>
+              <td class="num-c">6 <span class="pct">86%</span></td>
+              <td class="num-c">14 d</td>
+              <td class="num-c" style="color:var(--olive)">83% sat.</td>
+            </tr>
+            <tr>
+              <td class="tema">Outros 9 órgãos</td>
+              <td class="num-c big">9</td>
+              <td class="num-c">7 <span class="pct">78%</span></td>
+              <td class="num-c">15 d</td>
+              <td class="num-c" style="color:var(--ink-mute)">—</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr>
+              <td>Total · quadrimestre</td>
+              <td class="num-c">97</td>
+              <td class="num-c">82 (85%)</td>
+              <td class="num-c">11 d</td>
+              <td class="num-c">81% sat.</td>
+            </tr>
+          </tfoot>
+        </table>
+
+        <p class="legend">A satisfação da resposta é classificação subjetiva do assessor responsável: indica se a resposta resolveu a demanda ou foi evasiva/insuficiente. EDP-ES tem alta resposta mas baixa satisfação — respondem rapidamente passando responsabilidade para a SEMOB (iluminação pública).</p>
+
+        <div class="commentary">
+          <div class="lbl">Recomendação ao próximo quadrimestre</div>
+          <p>
+            "Há um padrão na SEDU: prazos cumpridos formalmente, mas com respostas evasivas em 33% dos casos. Convém marcar reunião direta com o Secretário Carlos Wagner no segundo quadrimestre, levando casos exemplares (especialmente vagas em CMEI)."
+          </p>
+        </div>
+      </section>
+
+      <!-- §08 Demandantes -->
+      <section class="secao" id="demandantes">
+        <div class="num">§ 08</div>
+        <h2>Pessoas e entidades mais ativas</h2>
+        <p class="prose">
+          Lideranças recorrentes não são problema — pelo contrário, são amplificadoras de demandas reais do bairro. A lista abaixo serve para identificar quem vale priorizar em reuniões e quem está se tornando contato confiável. Pessoas com mais de 3 demandas em 6 meses são automaticamente sugeridas como candidatas à tag "Líder local".
+        </p>
+
+        <table class="report">
+          <thead>
+            <tr>
+              <th>Pessoa / Entidade</th>
+              <th>Bairro / Tipo</th>
+              <th class="num-c" style="text-align:right">Demandas no Q1</th>
+              <th class="num-c" style="text-align:right">Histórico total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="tema"><a href="pessoa.html" style="color:var(--ink);text-decoration:none">Sebastiana Oliveira</a></td>
+              <td style="font-family:var(--sans);font-size:12.5px;color:var(--ink-soft)">Centro · Líder local</td>
+              <td class="num-c big">4</td>
+              <td class="num-c">8</td>
+            </tr>
+            <tr>
+              <td class="tema"><a href="#" style="color:var(--ink);text-decoration:none">Assoc. Moradores Centro</a></td>
+              <td style="font-family:var(--sans);font-size:12.5px;color:var(--ink-soft)">Centro · Associação</td>
+              <td class="num-c big">5</td>
+              <td class="num-c">12</td>
+            </tr>
+            <tr>
+              <td class="tema"><a href="#" style="color:var(--ink);text-decoration:none">Marta Vieira</a></td>
+              <td style="font-family:var(--sans);font-size:12.5px;color:var(--ink-soft)">Jucutuquara · Conselheira</td>
+              <td class="num-c big">3</td>
+              <td class="num-c">5</td>
+            </tr>
+            <tr>
+              <td class="tema"><a href="#" style="color:var(--ink);text-decoration:none">Joana Lopes Pereira</a></td>
+              <td style="font-family:var(--sans);font-size:12.5px;color:var(--ink-soft)">Bento Ferreira · Líder local</td>
+              <td class="num-c big">3</td>
+              <td class="num-c">5</td>
+            </tr>
+            <tr>
+              <td class="tema"><a href="#" style="color:var(--ink);text-decoration:none">Coletivo Bicicletada Vitória</a></td>
+              <td style="font-family:var(--sans);font-size:12.5px;color:var(--ink-soft)">Atuação cidade · Coletivo</td>
+              <td class="num-c big">3</td>
+              <td class="num-c">5</td>
+            </tr>
+            <tr>
+              <td class="tema"><a href="#" style="color:var(--ink);text-decoration:none">Padre Antônio Souza</a></td>
+              <td style="font-family:var(--sans);font-size:12.5px;color:var(--ink-soft)">São Pedro · Líder local</td>
+              <td class="num-c big">3</td>
+              <td class="num-c">6</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+    </div>
+
+    <footer class="doc-foot">
+      <span>Documento §III/2026 · primeiro quadrimestre</span>
+      <span>Gerado em 17/05/2026 às 09:14 por <span class="v">Mariana Costa</span></span>
+      <span>MPD v0.3 · maio 2026</span>
+    </footer>
+
+  </article>
+</main>
+
+</body>
+</html>

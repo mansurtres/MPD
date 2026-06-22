@@ -1,44 +1,139 @@
 {% extends "layouts/app.html" %}
 
 {% block app_conteudo %}
-<h1 class="text-xl font-semibold text-slate-900 mb-6">Configurações</h1>
+<style>
+  /* ════════════════════════════════════════════════════════════════
+     CONFIGURAÇÕES · grid de cards de acesso às áreas do sistema.
+     Tokens e .page-head vêm de static/css/components.css.
+     ════════════════════════════════════════════════════════════════ */
 
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  .config-page .intro {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: var(--text-base);
+    color: var(--ink-soft);
+    margin: 0 0 32px;
+    max-width: 60ch;
+    line-height: var(--lh-relaxed);
+  }
 
-  {% if perms.pessoas.view_tag %}
-  <a href="{% url 'pessoas:tag_lista' %}" class="block bg-white border border-slate-200 rounded-xl p-6 hover:border-slate-400 transition-colors">
-    <h2 class="text-base font-semibold text-slate-900 mb-1">Tags</h2>
-    <p class="text-sm text-slate-500">Etiquetas para caracterizar pessoas e entidades (Líder local, Microempresa, Gestante).</p>
-  </a>
-  {% endif %}
+  .config-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+  @media (max-width: 960px) {
+    .config-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 560px) {
+    .config-grid { grid-template-columns: 1fr; }
+  }
 
-  {% if perms.demandas.view_tema %}
-  <a href="{% url 'demandas:tema_lista' %}" class="block bg-white border border-slate-200 rounded-xl p-6 hover:border-slate-400 transition-colors">
-    <h2 class="text-base font-semibold text-slate-900 mb-1">Temas</h2>
-    <p class="text-sm text-slate-500">Categorias de demanda (Saúde, Educação, Mobilidade).</p>
-  </a>
-  {% endif %}
+  .config-card {
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    padding: 20px 22px 22px;
+    text-decoration: none;
+    color: inherit;
+    display: block;
+    transition: border-color .12s, background .12s;
+  }
+  .config-card:hover {
+    border-color: var(--ink);
+    background: var(--surface-3);
+  }
 
-  {% if request.user.is_staff %}
-  <a href="{% url 'accounts:usuarios_lista' %}" class="block bg-white border border-slate-200 rounded-xl p-6 hover:border-slate-400 transition-colors">
-    <h2 class="text-base font-semibold text-slate-900 mb-1">Usuários</h2>
-    <p class="text-sm text-slate-500">Gerenciar a equipe — criar, editar, desativar contas, atribuir coordenação.</p>
-  </a>
-  {% endif %}
+  .config-card .card-title {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--ink);
+    margin: 0 0 8px;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+  }
 
-  {% if papel_cg_plus %}
-  <a href="{% url 'core:auditoria' %}" class="block bg-white border border-slate-200 rounded-xl p-6 hover:border-slate-400 transition-colors">
-    <h2 class="text-base font-semibold text-slate-900 mb-1">Auditoria</h2>
-    <p class="text-sm text-slate-500">Histórico imutável de alterações no sistema (quem mudou o quê e quando).</p>
-  </a>
-  {% endif %}
+  .config-card .card-desc {
+    font-family: var(--font-serif);
+    font-size: 13.5px;
+    color: var(--ink-soft);
+    line-height: 1.5;
+    margin: 0;
+  }
 
-  {% if papel_co_plus %}
-  <a href="{% url 'core:analise' %}" class="block bg-white border border-slate-200 rounded-xl p-6 hover:border-slate-400 transition-colors">
-    <h2 class="text-base font-semibold text-slate-900 mb-1">Painel de análise</h2>
-    <p class="text-sm text-slate-500">Visão consolidada do mandato em números — demandas por tema, top pessoas, carga por assessor.</p>
-  </a>
-  {% endif %}
+  .config-card .card-arrow {
+    display: block;
+    margin-top: 16px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    transition: color .12s;
+  }
+  .config-card:hover .card-arrow {
+    color: var(--primary);
+  }
+</style>
+
+<div class="config-page">
+
+  <div class="page-head">
+    <div>
+      <div class="breadcrumb">
+        <a href="/" style="text-decoration:none;color:var(--ink-mute)">Início</a>
+        <span class="sep">/</span>
+        <span style="color:var(--primary);font-weight:var(--fw-semibold)">Configurações</span>
+      </div>
+      <h1>Configurações</h1>
+    </div>
+  </div>
+
+  <p class="intro">Categorização, equipe, auditoria e análise do mandato.</p>
+
+  <div class="config-grid">
+
+    {% if perms.pessoas.view_tag %}
+    <a href="{% url 'pessoas:tag_lista' %}" class="config-card">
+      <p class="card-title">Tags</p>
+      <p class="card-desc">Etiquetas para caracterizar pessoas e entidades (Líder local, Microempresa, Gestante).</p>
+      <span class="card-arrow">Gerenciar tags →</span>
+    </a>
+    {% endif %}
+
+    {% if perms.demandas.view_tema %}
+    <a href="{% url 'demandas:tema_lista' %}" class="config-card">
+      <p class="card-title">Temas</p>
+      <p class="card-desc">Categorias de demanda (Saúde, Educação, Mobilidade).</p>
+      <span class="card-arrow">Gerenciar temas →</span>
+    </a>
+    {% endif %}
+
+    {% if request.user.is_staff %}
+    <a href="{% url 'accounts:usuarios_lista' %}" class="config-card">
+      <p class="card-title">Usuários</p>
+      <p class="card-desc">Gerenciar a equipe — criar, editar, desativar contas, atribuir coordenação.</p>
+      <span class="card-arrow">Gerenciar usuários →</span>
+    </a>
+    {% endif %}
+
+    {% if papel_eh_admin %}
+    <a href="{% url 'core:auditoria' %}" class="config-card">
+      <p class="card-title">Auditoria</p>
+      <p class="card-desc">Histórico imutável de alterações no sistema (quem mudou o quê e quando).</p>
+      <span class="card-arrow">Ver log de auditoria →</span>
+    </a>
+    {% endif %}
+
+    {% if papel_cg_plus %}
+    <a href="{% url 'core:analise' %}" class="config-card">
+      <p class="card-title">Painel de análise</p>
+      <p class="card-desc">Visão consolidada do mandato em números — demandas por tema, top pessoas, carga por assessor.</p>
+      <span class="card-arrow">Abrir painel →</span>
+    </a>
+    {% endif %}
+
+  </div>
 
 </div>
 {% endblock %}

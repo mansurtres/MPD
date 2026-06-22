@@ -1,0 +1,10 @@
+{% if form.is_bound and not form.is_valid %}
+<div class="form-err">
+  <span class="lbl">Não foi possível salvar — corrija os pontos abaixo</span>
+  <ul>
+    {% for erro in form.non_field_errors %}<li>{{ erro }}</li>{% endfor %}
+    {% for campo in form %}{% if campo.errors %}<li><strong>{{ campo.label }}:</strong> {{ campo.errors|join:" · " }}</li>{% endif %}{% endfor %}
+    {% if formsets %}{% for chave, fs in formsets.items %}{% if fs.non_form_errors %}{% for erro in fs.non_form_errors %}<li><strong>{{ chave|capfirst }}:</strong> {{ erro }}</li>{% endfor %}{% endif %}{% endfor %}{% endif %}
+  </ul>
+</div>
+{% endif %}

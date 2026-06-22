@@ -1,88 +1,213 @@
-{% extends "layouts/public.html" %}
+{% extends "base.html" %}
 
-{% block public_conteudo %}
-<div class="max-w-sm mx-auto">
-  <div class="mb-8 text-center">
-    <h1 class="text-2xl font-bold text-slate-900">{{ NOME_DO_MANDATO }}</h1>
-    <p class="mt-1 text-sm text-slate-500">Acesso restrito à equipe do mandato</p>
-  </div>
+{% block titulo %}Acesse o MPD · {{ NOME_DO_MANDATO }}{% endblock %}
 
-  <form method="post" novalidate class="bg-white shadow-sm border border-slate-200 rounded-xl p-8 space-y-5">
-    {% csrf_token %}
+{% block conteudo %}
+<style>
+  .login-page { min-height: 100vh; display: grid; place-items: center; padding: 40px 20px; }
+  .login-frame { width: 100%; max-width: 440px; }
+  .pre {
+    text-align: center; font-family: var(--font-mono); font-size: 10px;
+    letter-spacing: 0.18em; color: var(--ink-mute);
+    margin-bottom: 16px; text-transform: uppercase;
+  }
+  .login-card {
+    background: var(--surface-2);
+    border-top: 6px solid var(--primary);
+    padding: 40px 44px 32px;
+    box-shadow: var(--shadow-lg);
+  }
+  .login-card .head { text-align: center; margin-bottom: 32px; padding-bottom: 22px; border-bottom: 1px solid var(--rule); }
+  .login-card .mark {
+    width: 56px; height: 56px;
+    background: var(--primary); color: var(--primary-fg);
+    display: grid; place-items: center;
+    font-family: var(--font-mono); font-weight: 700; font-size: 24px;
+    letter-spacing: 0.04em; margin: 0 auto 14px;
+  }
+  .login-card h1 {
+    font-family: var(--font-display); font-weight: 600;
+    font-size: 28px; line-height: 1.15; letter-spacing: -0.02em;
+    margin: 0 0 4px; color: var(--ink);
+  }
+  .login-card .sub {
+    font-family: var(--font-serif); font-style: italic;
+    font-size: 14px; color: var(--ink-mute); margin: 0;
+  }
+  .login-card .mandato {
+    margin-top: 14px; display: inline-block;
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--primary); border: 1.5px solid var(--primary);
+    padding: 3px 10px; letter-spacing: 0.1em;
+    text-transform: uppercase; font-weight: 700;
+  }
+  .field { margin-bottom: 18px; }
+  .field label {
+    display: block; font-family: var(--font-mono);
+    font-size: 10.5px; font-weight: 700; color: var(--ink-mute);
+    letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 6px;
+  }
+  .field input {
+    width: 100%; background: var(--surface-3);
+    border: 1px solid var(--rule-strong); color: var(--ink);
+    font-family: var(--font-mono); font-size: 14px;
+    padding: 11px 14px; outline: 0;
+  }
+  .field input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(31,58,95,0.10);
+  }
+  .field input.error { border-color: var(--danger-500); }
+  .field input:disabled { opacity: 0.6; cursor: not-allowed; }
+  .field .meta { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px; }
+  .field .meta a {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--primary); text-decoration: none; letter-spacing: 0.04em;
+  }
+  .field .meta a:hover { text-decoration: underline; }
+  .options {
+    display: flex; align-items: center; justify-content: space-between;
+    margin: -4px 0 22px; font-family: var(--font-mono);
+    font-size: 12px; color: var(--ink-soft); letter-spacing: 0.02em;
+  }
+  .options label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+  .options input { accent-color: var(--primary); }
+  .submit {
+    width: 100%; background: var(--primary); color: var(--primary-fg);
+    border: 1px solid var(--primary); font-family: var(--font-mono);
+    font-size: 13px; font-weight: 600; padding: 13px 20px;
+    cursor: pointer; letter-spacing: 0.06em; text-transform: uppercase;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .submit:hover { background: var(--primary-hover); }
+  .submit:disabled { opacity: 0.5; cursor: not-allowed; }
+  .submit .arr { font-family: var(--font-mono); opacity: 0.7; }
+  .err {
+    background: var(--danger-50);
+    border-left: 3px solid var(--danger-500);
+    padding: 12px 14px; margin-bottom: 18px;
+    font-family: var(--font-serif); font-size: 13.5px;
+    line-height: 1.45; color: var(--danger-700);
+  }
+  .err.warn { background: var(--warning-50); border-left-color: var(--warning-500); color: var(--warning-700); }
+  .err .lbl {
+    font-family: var(--font-mono); font-size: 10px;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--danger-600); font-weight: 700; margin-bottom: 3px;
+  }
+  .err.warn .lbl { color: var(--warning-600); }
+  .err strong { color: var(--ink); font-weight: 600; }
+  .card-foot {
+    margin-top: 24px; padding-top: 16px;
+    border-top: 1px solid var(--rule); text-align: center;
+    font-family: var(--font-serif); font-size: 12.5px;
+    color: var(--ink-mute); line-height: 1.5; font-style: italic;
+  }
+  .card-foot strong { color: var(--ink-soft); font-weight: 600; font-style: normal; }
+  .card-foot .v {
+    margin-top: 8px; font-family: var(--font-mono);
+    font-size: 9.5px; color: var(--ink-mute);
+    letter-spacing: 0.08em; text-transform: uppercase; font-style: normal;
+  }
+  .post {
+    margin-top: 14px; text-align: center;
+    font-family: var(--font-mono); font-size: 9.5px;
+    color: var(--ink-mute); letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .post a { color: var(--ink-soft); text-decoration: none; }
+  .post a:hover { color: var(--primary); }
+</style>
 
-    <div>
-      <label for="{{ form.username.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-1">E-mail</label>
-      <input
-        type="email"
-        name="{{ form.username.html_name }}"
-        id="{{ form.username.id_for_label }}"
-        value="{{ form.username.value|default:'' }}"
-        autocomplete="email"
-        autofocus
-        placeholder="seu@email.com"
-        class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 {% if form.username.errors %}border-red-400{% endif %}"
-      >
-      {% for erro in form.username.errors %}
-        <p class="mt-1 text-xs text-red-600">{{ erro }}</p>
-      {% endfor %}
-    </div>
+<div class="login-page">
+  <div class="login-frame">
+    <div class="pre">MPD · Mandato Parlamentar Digital · Acesso Restrito</div>
 
-    <div x-data="{ visivel: false }">
-      <label for="{{ form.password.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-1">Senha</label>
-      <div class="relative">
-        <input
-          x-bind:type="visivel ? 'text' : 'password'"
-          type="password"
-          name="{{ form.password.html_name }}"
-          id="{{ form.password.id_for_label }}"
-          autocomplete="current-password"
-          class="w-full rounded-lg border border-slate-300 px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 {% if form.password.errors %}border-red-400{% endif %}"
-        >
-        <button
-          type="button"
-          @click="visivel = !visivel"
-          x-bind:aria-label="visivel ? 'Ocultar senha' : 'Mostrar senha'"
-          x-bind:aria-pressed="visivel.toString()"
-          tabindex="-1"
-          class="absolute inset-y-0 right-0 flex items-center px-3 text-slate-400 hover:text-slate-600 focus:outline-none focus:text-slate-700"
-        >
-          <svg x-show="!visivel" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-5 h-5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.644C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .644C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-          </svg>
-          <svg x-show="visivel" style="display: none;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-5 h-5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88" />
-          </svg>
-        </button>
+    <div class="login-card">
+      <div class="head">
+        <div class="mark">M</div>
+        <h1>Acesse o MPD</h1>
+        <p class="sub">plataforma de gestão do gabinete</p>
+        <div class="mandato">{{ NOME_CURTO_DO_MANDATO|default:NOME_DO_MANDATO }}</div>
       </div>
-      {% for erro in form.password.errors %}
-        <p class="mt-1 text-xs text-red-600">{{ erro }}</p>
-      {% endfor %}
+
+      {% if conta_bloqueada %}
+      <div class="err warn">
+        <div class="lbl">Conta temporariamente bloqueada</div>
+        <strong>5 tentativas mal-sucedidas.</strong> Tente novamente em alguns minutos, ou redefina sua senha.
+      </div>
+      {% elif form.non_field_errors %}
+      <div class="err">
+        <div class="lbl">Não foi possível entrar</div>
+        {% for erro in form.non_field_errors %}<strong>{{ erro }}</strong>{% endfor %}
+      </div>
+      {% endif %}
+
+      <form method="post" novalidate>
+        {% csrf_token %}
+
+        <div class="field">
+          <label for="{{ form.username.id_for_label }}">E-mail institucional</label>
+          <input
+            type="email"
+            name="{{ form.username.html_name }}"
+            id="{{ form.username.id_for_label }}"
+            value="{{ form.username.value|default:'' }}"
+            autocomplete="email"
+            autofocus
+            placeholder="seu.nome@gabinete.demo.gov.br"
+            {% if form.username.errors or form.non_field_errors %}class="error"{% endif %}
+            {% if conta_bloqueada %}disabled{% endif %}
+          >
+          {% for erro in form.username.errors %}
+            <p style="margin-top:6px;font-family:var(--font-mono);font-size:11px;color:var(--danger-600)">{{ erro }}</p>
+          {% endfor %}
+        </div>
+
+        <div class="field">
+          <div class="meta">
+            <label for="{{ form.password.id_for_label }}">Senha</label>
+            <a href="#">Esqueci minha senha</a>
+          </div>
+          <input
+            type="password"
+            name="{{ form.password.html_name }}"
+            id="{{ form.password.id_for_label }}"
+            autocomplete="current-password"
+            {% if form.password.errors or form.non_field_errors %}class="error"{% endif %}
+            {% if conta_bloqueada %}disabled{% endif %}
+          >
+          {% for erro in form.password.errors %}
+            <p style="margin-top:6px;font-family:var(--font-mono);font-size:11px;color:var(--danger-600)">{{ erro }}</p>
+          {% endfor %}
+        </div>
+
+        <div class="options">
+          <label>
+            <input
+              type="checkbox"
+              name="{{ form.lembrar.html_name }}"
+              id="{{ form.lembrar.id_for_label }}"
+              {% if form.lembrar.value %}checked{% endif %}
+            >
+            Lembrar-me por 30 dias
+          </label>
+        </div>
+
+        <button type="submit" class="submit" {% if conta_bloqueada %}disabled{% endif %}>
+          Entrar <span class="arr">→</span>
+        </button>
+      </form>
+
+      <div class="card-foot">
+        Acesso restrito à equipe do mandato.<br>
+        <strong>Suporte:</strong> mpd@suporte.dev
+        <div class="v">v0.7.3 · 2026</div>
+      </div>
     </div>
 
-    {% if form.non_field_errors %}
-    <div class="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-      {% for erro in form.non_field_errors %}{{ erro }}{% endfor %}
+    <div class="post">
+      Sistema apartidário · LGPD-aware
     </div>
-    {% endif %}
-
-    <div class="flex items-center gap-2">
-      <input
-        type="checkbox"
-        name="{{ form.lembrar.html_name }}"
-        id="{{ form.lembrar.id_for_label }}"
-        class="rounded border-slate-300 text-slate-700"
-        {% if form.lembrar.value %}checked{% endif %}
-      >
-      <label for="{{ form.lembrar.id_for_label }}" class="text-sm text-slate-600">Lembrar por 30 dias</label>
-    </div>
-
-    <button
-      type="submit"
-      class="w-full bg-slate-800 hover:bg-slate-700 text-white font-medium text-sm py-2.5 rounded-lg transition-colors"
-    >
-      Entrar
-    </button>
-  </form>
+  </div>
 </div>
 {% endblock %}

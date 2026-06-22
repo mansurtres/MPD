@@ -4,6 +4,7 @@ Cobre os 22 critérios de aceite do roadmap §4.3.3 com casos diretos.
 Para cada bloco, comentário aponta o critério.
 """
 
+import re
 from datetime import timedelta
 
 import pytest
@@ -49,23 +50,8 @@ def chefe(db):
         email="chefe@test.com",
         password="senha12345",  # pragma: allowlist secret
         nome_completo="Chefe",
-        coordenacao="gabinete",
     )
     g = Group.objects.filter(name="Chefe de Gabinete").first()
-    if g:
-        u.groups.add(g)
-    return u
-
-
-@pytest.fixture
-def coord_juridico(db):
-    u = Usuario.objects.create_user(
-        email="coord@test.com",
-        password="senha12345",  # pragma: allowlist secret
-        nome_completo="Coord Jurídico",
-        coordenacao="juridico",
-    )
-    g = Group.objects.filter(name="Coordenador").first()
     if g:
         u.groups.add(g)
     return u
@@ -77,7 +63,6 @@ def assessor(db):
         email="assessor@test.com",
         password="senha12345",  # pragma: allowlist secret
         nome_completo="Assessor",
-        coordenacao="comunicacao",
     )
     g = Group.objects.filter(name="Assessor").first()
     if g:
@@ -103,14 +88,13 @@ def demanda(db, admin_user, pessoa):
         titulo="Demanda teste",
         descricao="Descrição teste",
         canal_entrada="whatsapp",
-        coordenacao_responsavel="gabinete",
         criado_por=admin_user,
     )
-    DemandaPessoa.objects.create(demanda=d, pessoa=pessoa, papel="solicitante")
+    DemandaPessoa.objects.create(demanda=d, pessoa=pessoa)
     return d
 
 
-# --- Geração de número (critério: implícito no schema MPD-AAAA-NNNNN) ---
+# --- Geração de número (formato D-AAMM-NNNNN, ADR 0056) ---
 
 
 def test_gera_numero_no_save(db, admin_user, pessoa):
@@ -118,19 +102,19 @@ def test_gera_numero_no_save(db, admin_user, pessoa):
         titulo="X",
         descricao="Y",
         canal_entrada="presencial",
-        coordenacao_responsavel="gabinete",
         criado_por=admin_user,
     )
-    assert d.numero.startswith(f"MPD-{timezone.now().year}-")
-    assert len(d.numero.rsplit("-", 1)[1]) == 5
+    agora = timezone.now()
+    assert d.numero.startswith(f"D-{agora.strftime('%y%m')}-")
+    assert re.fullmatch(r"D-\d{4}-\d{5}", d.numero)
 
 
-def test_numeros_sequenciais(db, admin_user):
+def test_numero_aleatorio_e_unico(db, admin_user):
+    """Duas demandas no mesmo mês têm sufixos diferentes (retry cobre colisão)."""
     a = Demanda.objects.create(
         titulo="A",
         descricao="X",
         canal_entrada="presencial",
-        coordenacao_responsavel="gabinete",
         criado_por=admin_user,
         anonimo=True,
     )
@@ -138,13 +122,13 @@ def test_numeros_sequenciais(db, admin_user):
         titulo="B",
         descricao="X",
         canal_entrada="presencial",
-        coordenacao_responsavel="gabinete",
         criado_por=admin_user,
         anonimo=True,
     )
-    sa = int(a.numero.rsplit("-", 1)[1])
-    sb = int(b.numero.rsplit("-", 1)[1])
-    assert sb == sa + 1
+    assert a.numero != b.numero
+    # 5 dígitos: 10000–99999
+    assert 10000 <= int(a.numero.rsplit("-", 1)[1]) <= 99999
+    assert 10000 <= int(b.numero.rsplit("-", 1)[1]) <= 99999
 
 
 # --- Critérios 1-3: criar com partes / anônima / só entidade ---
@@ -160,12 +144,11 @@ def test_criar_demanda_com_entidade_funciona(db, admin_user, entidade):
         titulo="Só entidade",
         descricao="X",
         canal_entrada="oficio",
-        coordenacao_responsavel="juridico",
         criado_por=admin_user,
     )
     from demandas.models import DemandaEntidade
 
-    DemandaEntidade.objects.create(demanda=d, entidade=entidade, papel="representada")
+    DemandaEntidade.objects.create(demanda=d, entidade=entidade)
     assert d.tem_partes()
 
 
@@ -174,7 +157,6 @@ def test_criar_demanda_anonima_funciona(db, admin_user):
         titulo="Anônima",
         descricao="X",
         canal_entrada="presencial",
-        coordenacao_responsavel="gabinete",
         criado_por=admin_user,
         anonimo=True,
     )
@@ -238,7 +220,6 @@ def test_proativa_concluida_sem_devolutiva_funciona(db, admin_user):
         descricao="Reconhecimento",
         origem=Demanda.ORIGEM_PROATIVA,
         canal_entrada="presencial",
-        coordenacao_responsavel="comunicacao",
         anonimo=True,
         criado_por=admin_user,
     )
@@ -255,7 +236,6 @@ def test_proativa_concluida_com_resultado_pendente_bloqueada(db, admin_user):
         descricao="Reconhecimento",
         origem=Demanda.ORIGEM_PROATIVA,
         canal_entrada="presencial",
-        coordenacao_responsavel="comunicacao",
         anonimo=True,
         criado_por=admin_user,
     )
@@ -293,8 +273,8 @@ def test_mudanca_resultado_gera_interacao(db, demanda, admin_user):
     demanda.resultado = Demanda.RESULTADO_ATENDIDO_PARCIALMENTE
     demanda.save()
     assert demanda.interacoes.count() == inicial + 1
-    nova = demanda.interacoes.order_by("-criado_em").first()
-    assert nova.tipo == Interacao.TIPO_MUDANCA_RESULTADO
+    nova = demanda.interacoes.filter(tipo=Interacao.TIPO_MUDANCA_RESULTADO).first()
+    assert nova is not None
     assert nova.automatica
 
 
@@ -306,8 +286,8 @@ def test_mudanca_status_gera_interacao(db, demanda):
     demanda.status = Demanda.STATUS_EM_ANDAMENTO
     demanda.save()
     assert demanda.interacoes.count() == inicial + 1
-    nova = demanda.interacoes.order_by("-criado_em").first()
-    assert nova.tipo == Interacao.TIPO_MUDANCA_STATUS
+    nova = demanda.interacoes.filter(tipo=Interacao.TIPO_MUDANCA_STATUS).first()
+    assert nova is not None
     assert nova.automatica
 
 
@@ -319,8 +299,8 @@ def test_mudanca_responsavel_gera_interacao(db, demanda, chefe):
     demanda.responsavel = chefe
     demanda.save()
     assert demanda.interacoes.count() == inicial + 1
-    nova = demanda.interacoes.order_by("-criado_em").first()
-    assert nova.tipo == Interacao.TIPO_MUDANCA_RESPONSAVEL
+    nova = demanda.interacoes.filter(tipo=Interacao.TIPO_MUDANCA_RESPONSAVEL).first()
+    assert nova is not None
 
 
 # --- Critério 9-10: interação realizada / agendada ---
@@ -660,35 +640,102 @@ def test_pessoa_acessa_demandas_via_related_manager(db, demanda, pessoa):
     assert demanda in pessoa.demandas.all()
 
 
-# --- Critério 22: demanda restrita ---
+# --- Visibilidade need-to-know por papel (ADR 0059) ---
 
 
-def test_demanda_restrita_invisivel_para_co_de_outra_coord(db, admin_user, pessoa, coord_juridico):
-    d = Demanda.objects.create(
-        titulo="Restrita",
-        descricao="Sigilo",
+def _mk_demanda(autor, responsavel=None, status=Demanda.STATUS_NOVO, titulo="D"):
+    return Demanda.objects.create(
+        titulo=titulo,
+        descricao="X",
         canal_entrada="email",
-        coordenacao_responsavel="comunicacao",
-        restrito=True,
-        criado_por=admin_user,
-        responsavel=admin_user,
+        criado_por=autor,
+        responsavel=responsavel,
+        status=status,
     )
-    DemandaPessoa.objects.create(demanda=d, pessoa=pessoa)
-    assert not d.pode_ser_visto_por(coord_juridico)
 
 
-def test_demanda_restrita_visivel_para_responsavel(db, admin_user, pessoa, assessor):
-    d = Demanda.objects.create(
-        titulo="Restrita",
-        descricao="Sigilo",
-        canal_entrada="email",
-        coordenacao_responsavel="comunicacao",
-        restrito=True,
-        criado_por=admin_user,
-        responsavel=assessor,
-    )
+def test_visibilidade_admin_ve_tudo(db, admin_user, assessor):
+    ativa = _mk_demanda(assessor, responsavel=assessor)
+    concluida = _mk_demanda(assessor, responsavel=assessor, status=Demanda.STATUS_CONCLUIDA)
+    vis = set(Demanda.objects.visiveis_para(admin_user))
+    assert ativa in vis and concluida in vis
+    assert ativa.pode_ser_visto_por(admin_user)
+    assert concluida.pode_ser_visto_por(admin_user)
+
+
+def test_visibilidade_cg_ve_ativas_nao_concluidas(db, admin_user, chefe, assessor):
+    ativa = _mk_demanda(assessor, responsavel=assessor)
+    concluida = _mk_demanda(assessor, responsavel=assessor, status=Demanda.STATUS_CONCLUIDA)
+    vis = set(Demanda.objects.visiveis_para(chefe))
+    assert ativa in vis
+    assert concluida not in vis
+    assert ativa.pode_ser_visto_por(chefe)
+    assert not concluida.pode_ser_visto_por(chefe)
+
+
+def test_visibilidade_assessor_so_as_proprias(db, admin_user, assessor):
+    minha_resp = _mk_demanda(admin_user, responsavel=assessor)
+    minha_autor = _mk_demanda(assessor, responsavel=admin_user)
+    de_outro = _mk_demanda(admin_user, responsavel=admin_user)
+    vis = set(Demanda.objects.visiveis_para(assessor))
+    assert minha_resp in vis  # responsável
+    assert minha_autor in vis  # autor
+    assert de_outro not in vis
+    assert not de_outro.pode_ser_visto_por(assessor)
+
+
+def test_visibilidade_assessor_ve_propria_concluida(db, admin_user, assessor):
+    minha = _mk_demanda(admin_user, responsavel=assessor, status=Demanda.STATUS_CONCLUIDA)
+    assert minha in set(Demanda.objects.visiveis_para(assessor))
+    assert minha.pode_ser_visto_por(assessor)
+
+
+def test_assessor_historico_mascara_ficha_da_parte(client, admin_user, assessor, pessoa):
+    """No histórico próprio (concluída), a parte aparece só com nome —
+    sem link para a ficha (ADR 0059)."""
+    d = _mk_demanda(admin_user, responsavel=assessor, status=Demanda.STATUS_CONCLUIDA)
     DemandaPessoa.objects.create(demanda=d, pessoa=pessoa)
-    assert d.pode_ser_visto_por(assessor)
+    client.force_login(assessor)
+    resp = client.get(reverse("demandas:demanda_detalhe", args=[d.slug_publico]))
+    assert resp.status_code == 200
+    body = resp.content.decode()
+    assert pessoa.nome_exibicao in body  # nome aparece
+    assert pessoa.slug_publico not in body  # mas sem link para a ficha
+
+
+def test_assessor_ativa_mostra_ficha_da_parte(client, admin_user, assessor, pessoa):
+    """Na demanda ATIVA do assessor, a parte tem link para a ficha."""
+    d = _mk_demanda(admin_user, responsavel=assessor, status=Demanda.STATUS_EM_ANDAMENTO)
+    DemandaPessoa.objects.create(demanda=d, pessoa=pessoa)
+    client.force_login(assessor)
+    resp = client.get(reverse("demandas:demanda_detalhe", args=[d.slug_publico]))
+    assert resp.status_code == 200
+    assert pessoa.slug_publico in resp.content.decode()  # link presente
+
+
+def test_assessor_nao_ve_ficha_de_pessoa_sem_demanda_sua(client, assessor, pessoa):
+    """Sem demanda visível ligada (e não foi quem cadastrou), o assessor
+    não abre a ficha (ADR 0059 — sem navegação pelo acervo)."""
+    client.force_login(assessor)
+    resp = client.get(reverse("pessoas:pessoa_detalhe", args=[pessoa.slug_publico]))
+    assert resp.status_code == 403
+
+
+def test_assessor_ve_ficha_no_contexto_de_demanda_sua(client, admin_user, assessor, pessoa):
+    d = _mk_demanda(admin_user, responsavel=assessor)
+    DemandaPessoa.objects.create(demanda=d, pessoa=pessoa)
+    client.force_login(assessor)
+    resp = client.get(reverse("pessoas:pessoa_detalhe", args=[pessoa.slug_publico]))
+    assert resp.status_code == 200
+
+
+def test_assessor_ve_ficha_de_pessoa_que_cadastrou(client, assessor):
+    from pessoas.models import Pessoa
+
+    p = Pessoa.objects.create(nome="Nova", sobrenome="Pessoa", criado_por=assessor)
+    client.force_login(assessor)
+    resp = client.get(reverse("pessoas:pessoa_detalhe", args=[p.slug_publico]))
+    assert resp.status_code == 200
 
 
 # --- Permissões via grupos ---
@@ -704,10 +751,6 @@ def test_assessor_nao_arquiva_demanda(db, assessor):
 
 def test_chefe_arquiva_sem_responder(db, chefe):
     assert chefe.has_perm("demandas.pode_arquivar_sem_responder")
-
-
-def test_coordenador_nao_pode_arquivar_sem_responder(db, coord_juridico):
-    assert not coord_juridico.has_perm("demandas.pode_arquivar_sem_responder")
 
 
 # --- Arquivamento ---
@@ -747,7 +790,7 @@ def test_view_lista_demandas_redireciona_anonimo(client):
 
 
 def test_view_detalhe_protegido_por_login(client, demanda):
-    resp = client.get(reverse("demandas:demanda_detalhe", args=[demanda.pk]))
+    resp = client.get(reverse("demandas:demanda_detalhe", args=[demanda.slug_publico]))
     assert resp.status_code == 302
 
 
@@ -775,7 +818,6 @@ def test_view_lista_renderiza_demanda_sem_responsavel(client, admin_user):
         titulo="Sem responsável",
         descricao="X",
         canal_entrada="presencial",
-        coordenacao_responsavel="gabinete",
         criado_por=admin_user,
         anonimo=True,
     )
@@ -791,25 +833,6 @@ def test_pessoa_detalhe_lista_demandas_vinculadas(client, demanda, pessoa, admin
     resp = client.get(reverse("pessoas:pessoa_detalhe", args=[pessoa.slug_publico]))
     assert resp.status_code == 200
     assert demanda.numero.encode() in resp.content
-
-
-def test_pessoa_detalhe_oculta_demanda_restrita_de_outra_coord(
-    client, admin_user, pessoa, coord_juridico
-):
-    d = Demanda.objects.create(
-        titulo="Restrita comunicacao",
-        descricao="X",
-        canal_entrada="email",
-        coordenacao_responsavel="comunicacao",
-        restrito=True,
-        criado_por=admin_user,
-        responsavel=admin_user,
-    )
-    DemandaPessoa.objects.create(demanda=d, pessoa=pessoa)
-    client.force_login(coord_juridico)
-    resp = client.get(reverse("pessoas:pessoa_detalhe", args=[pessoa.slug_publico]))
-    assert resp.status_code == 200
-    assert d.numero.encode() not in resp.content
 
 
 # --- Filtro de tipos da Interacao manual (impede Interações órfãs) ---
@@ -866,7 +889,6 @@ def test_criar_demanda_com_anexo_inicial(client, admin_user, pessoa):
             "descricao": "Teste anexo",
             "origem": Demanda.ORIGEM_RESPONSIVA,
             "canal_entrada": "presencial",
-            "coordenacao_responsavel": "gabinete",
             "prioridade": "normal",
             # Inline formsets vazios (mas com management form):
             "dp-TOTAL_FORMS": "1",
@@ -874,7 +896,6 @@ def test_criar_demanda_com_anexo_inicial(client, admin_user, pessoa):
             "dp-MIN_NUM_FORMS": "0",
             "dp-MAX_NUM_FORMS": "1000",
             "dp-0-pessoa": pessoa.pk,
-            "dp-0-papel": "solicitante",
             "dp-0-observacao": "",
             "de-TOTAL_FORMS": "0",
             "de-INITIAL_FORMS": "0",
@@ -892,61 +913,56 @@ def test_criar_demanda_com_anexo_inicial(client, admin_user, pessoa):
     assert anexos.first().nome_original == "contrato.pdf"
 
 
-def test_criar_demanda_com_anexo_invalido_rejeita_tudo(client, admin_user, pessoa):
-    """Se algum anexo falha validação (mime fora da whitelist), a transação
-    rola atrás — nem a Demanda é criada."""
+def test_anexo_download_forca_attachment_e_nosniff(db, demanda, admin_user, client):
+    """Defesa anti-XSS (ADR 0056): anexos aceitam qualquer tipo, mas a entrega
+    via AnexoDownloadView força Content-Disposition: attachment +
+    X-Content-Type-Options: nosniff + CSP. Um .html malicioso vira download,
+    não código executando na origem do MPD."""
+    from django.contrib.contenttypes.models import ContentType
     from django.core.files.uploadedfile import SimpleUploadedFile
 
+    ct = ContentType.objects.get_for_model(Demanda)
+    html_malicioso = SimpleUploadedFile(
+        "ataque.html",
+        b"<script>alert('XSS')</script>",
+        content_type="text/html",
+    )
+    anexo = Anexo.objects.create(
+        content_type=ct,
+        object_id=demanda.pk,
+        arquivo=html_malicioso,
+        nome_original="ataque.html",
+        tamanho_bytes=html_malicioso.size,
+        mime_type="text/html",
+        enviado_por=admin_user,
+    )
+    anexo.full_clean()  # sem whitelist, agora passa
+
     client.force_login(admin_user)
-    exe = SimpleUploadedFile(
-        "malicioso.exe", b"MZ binary garbage", content_type="application/x-msdownload"
-    )
-    titulo = "Não pode salvar"
-    resp = client.post(
-        reverse("demandas:demanda_nova"),
-        {
-            "titulo": titulo,
-            "descricao": "Teste anexo inválido",
-            "origem": Demanda.ORIGEM_RESPONSIVA,
-            "canal_entrada": "presencial",
-            "coordenacao_responsavel": "gabinete",
-            "prioridade": "normal",
-            "dp-TOTAL_FORMS": "1",
-            "dp-INITIAL_FORMS": "0",
-            "dp-MIN_NUM_FORMS": "0",
-            "dp-MAX_NUM_FORMS": "1000",
-            "dp-0-pessoa": pessoa.pk,
-            "dp-0-papel": "solicitante",
-            "dp-0-observacao": "",
-            "de-TOTAL_FORMS": "0",
-            "de-INITIAL_FORMS": "0",
-            "de-MIN_NUM_FORMS": "0",
-            "de-MAX_NUM_FORMS": "1000",
-            "arquivos": exe,
-        },
-        follow=False,
-    )
-    # Form inválido renderiza 200 com erro no topo.
+    resp = client.get(reverse("demandas:anexo_baixar", args=[anexo.pk]))
     assert resp.status_code == 200
-    assert not Demanda.objects.filter(titulo=titulo).exists()
+    cd = resp["Content-Disposition"]
+    assert cd.startswith("attachment"), f"esperado attachment, veio: {cd}"
+    assert "ataque.html" in cd
+    assert resp["X-Content-Type-Options"] == "nosniff"
+    assert "default-src 'none'" in resp["Content-Security-Policy"]
 
 
 # --- Fase 4 — Visões Transversais (ADR 0046) ---
 
 
 @pytest.fixture
-def demanda_restrita_juridico(db, admin_user, pessoa):
-    """Demanda restrita à coordenação Jurídico — não visível para outros."""
+def demanda_de_terceiro(db, admin_user, pessoa):
+    """Demanda que o assessor não criou nem é responsável — invisível a ele
+    no modelo need-to-know (ADR 0059)."""
     d = Demanda.objects.create(
-        titulo="Restrita Juridico",
+        titulo="De terceiro",
         descricao="X",
         canal_entrada="oficio",
-        coordenacao_responsavel="juridico",
         criado_por=admin_user,
         responsavel=admin_user,
-        restrito=True,
     )
-    DemandaPessoa.objects.create(demanda=d, pessoa=pessoa, papel="solicitante")
+    DemandaPessoa.objects.create(demanda=d, pessoa=pessoa)
     return d
 
 
@@ -966,12 +982,11 @@ def test_encaminhamento_lista_acessivel_a_admin(client, admin_user, demanda):
 
 
 def test_encaminhamento_lista_respeita_visibilidade_da_demanda(
-    client, admin_user, assessor, demanda_restrita_juridico
+    client, admin_user, assessor, demanda_de_terceiro
 ):
-    """Assessor de outra coordenação não vê encaminhamentos de demanda
-    restrita à coordenação Jurídico."""
+    """Assessor não vê encaminhamentos de demanda que não é dele (ADR 0059)."""
     Encaminhamento.objects.create(
-        demanda=demanda_restrita_juridico,
+        demanda=demanda_de_terceiro,
         destinatario_orgao="Procuradoria-Geral",
         tipo_documento="oficio",
         data_envio=timezone.now().date(),
@@ -1032,7 +1047,6 @@ def test_demandas_quick_filter_com_encaminhamento_aberto(client, admin_user, dem
         titulo="Sem encaminhamento",
         descricao="X",
         canal_entrada="presencial",
-        coordenacao_responsavel="gabinete",
         criado_por=admin_user,
         anonimo=True,
     )
@@ -1097,14 +1111,12 @@ def test_processar_inbox_cria_demanda_e_marca_processado(client, admin_user, pes
             "descricao": "Buraco grande na esquina.",
             "origem": Demanda.ORIGEM_RESPONSIVA,
             "canal_entrada": "presencial",
-            "coordenacao_responsavel": "gabinete",
             "prioridade": "normal",
             "dp-TOTAL_FORMS": "1",
             "dp-INITIAL_FORMS": "0",
             "dp-MIN_NUM_FORMS": "0",
             "dp-MAX_NUM_FORMS": "1000",
             "dp-0-pessoa": pessoa.pk,
-            "dp-0-papel": "solicitante",
             "dp-0-observacao": "",
             "de-TOTAL_FORMS": "0",
             "de-INITIAL_FORMS": "0",
@@ -1239,12 +1251,12 @@ def test_context_processor_conta_pendencias_vencidas(client, admin_user, demanda
 # --- Fase 6 — Segurança, Visualização, Exportação (ADR 0047) ---
 
 
-def test_export_csv_demandas_acessivel_a_coordenador(client, coord_juridico, demanda):
-    client.force_login(coord_juridico)
+def test_export_csv_demandas_acessivel_a_admin(client, admin_user, demanda):
+    client.force_login(admin_user)
     resp = client.get(reverse("demandas:demanda_export_csv"))
     assert resp.status_code == 200
     assert resp["Content-Type"].startswith("text/csv")
-    assert b"\xef\xbb\xbf" in resp.content[:5]  # BOM
+    assert b"\xef\xbb\xbf" in resp.content[:5]  # BOM (Excel BR)
     assert b";" in resp.content  # separador BR
     assert demanda.numero.encode() in resp.content
 
@@ -1255,28 +1267,36 @@ def test_export_csv_bloqueia_assessor(client, assessor, demanda):
     assert resp.status_code == 403
 
 
+def test_export_csv_bloqueia_chefe(client, chefe, demanda):
+    """Export é exclusivo do Admin (ADR 0059) — CG não exporta."""
+    client.force_login(chefe)
+    resp = client.get(reverse("demandas:demanda_export_csv"))
+    assert resp.status_code == 403
+
+
 def test_export_csv_respeita_filtros_da_querystring(client, admin_user, pessoa):
+    """CSV exportado respeita filtros da querystring — filtra por status."""
     Demanda.objects.create(
-        titulo="Demanda gabinete",
+        titulo="Demanda nova",
         descricao="X",
         canal_entrada="presencial",
-        coordenacao_responsavel="gabinete",
         criado_por=admin_user,
         anonimo=True,
+        status=Demanda.STATUS_NOVO,
     )
     Demanda.objects.create(
-        titulo="Demanda juridico",
+        titulo="Demanda em andamento",
         descricao="Y",
         canal_entrada="oficio",
-        coordenacao_responsavel="juridico",
         criado_por=admin_user,
         anonimo=True,
+        status=Demanda.STATUS_EM_ANDAMENTO,
     )
     client.force_login(admin_user)
-    resp = client.get(reverse("demandas:demanda_export_csv") + "?coord=juridico")
+    resp = client.get(reverse("demandas:demanda_export_csv") + "?status=em_andamento")
     assert resp.status_code == 200
-    assert b"Demanda juridico" in resp.content
-    assert b"Demanda gabinete" not in resp.content
+    assert b"Demanda em andamento" in resp.content
+    assert b"Demanda nova" not in resp.content
 
 
 def test_auditoria_acessivel_a_admin(client, admin_user, demanda):
@@ -1286,14 +1306,14 @@ def test_auditoria_acessivel_a_admin(client, admin_user, demanda):
     assert resp.status_code == 200
 
 
-def test_auditoria_bloqueia_coordenador(client, coord_juridico):
-    client.force_login(coord_juridico)
+def test_auditoria_bloqueia_chefe(client, chefe):
+    client.force_login(chefe)
     resp = client.get(reverse("core:auditoria"))
     assert resp.status_code == 403
 
 
-def test_analise_acessivel_a_coordenador(client, coord_juridico, demanda):
-    client.force_login(coord_juridico)
+def test_analise_acessivel_a_admin_com_metricas(client, admin_user, demanda):
+    client.force_login(admin_user)
     resp = client.get(reverse("core:analise"))
     assert resp.status_code == 200
     # Métricas no contexto
@@ -1301,6 +1321,13 @@ def test_analise_acessivel_a_coordenador(client, coord_juridico, demanda):
     assert "por_mes" in resp.context
     assert "top_pessoas" in resp.context
     assert "carga_assessores" in resp.context
+
+
+def test_analise_bloqueia_chefe(client, chefe):
+    """Análise é exclusiva do Admin (ADR 0059) — CG não acessa."""
+    client.force_login(chefe)
+    resp = client.get(reverse("core:analise"))
+    assert resp.status_code == 403
 
 
 def test_analise_bloqueia_assessor(client, assessor):
@@ -1320,7 +1347,6 @@ def test_verificar_integridade_detecta_devolutiva_faltando(db, admin_user, pesso
         titulo="Sem devolutiva",
         descricao="X",
         canal_entrada="presencial",
-        coordenacao_responsavel="gabinete",
         origem=Demanda.ORIGEM_RESPONSIVA,
         resultado=Demanda.RESULTADO_ATENDIDO,
         criado_por=admin_user,
@@ -1328,7 +1354,7 @@ def test_verificar_integridade_detecta_devolutiva_faltando(db, admin_user, pesso
     )
     # Bypass clean() pra simular drift de dados:
     d.save()
-    DemandaPessoa.objects.create(demanda=d, pessoa=pessoa, papel="solicitante")
+    DemandaPessoa.objects.create(demanda=d, pessoa=pessoa)
     Demanda.objects.filter(pk=d.pk).update(status=Demanda.STATUS_CONCLUIDA)
 
     out = StringIO()
@@ -1391,56 +1417,6 @@ def test_entidade_buscar_json_retorna_resultados(client, admin_user):
 
 
 # --- Papel com choices + Outro (Fase 6.1) ---
-
-
-def test_demanda_pessoa_papel_outro_exige_descricao(db, admin_user, pessoa):
-    """DemandaPessoa.clean() bloqueia papel='outro' sem papel_outro."""
-    d = Demanda.objects.create(
-        titulo="Teste",
-        descricao="X",
-        canal_entrada="presencial",
-        coordenacao_responsavel="gabinete",
-        criado_por=admin_user,
-        anonimo=True,
-    )
-    dp = DemandaPessoa(demanda=d, pessoa=pessoa, papel=DemandaPessoa.PAPEL_OUTRO, papel_outro="")
-    with pytest.raises(ValidationError):
-        dp.full_clean()
-
-
-def test_demanda_pessoa_papel_outro_com_descricao_funciona(db, admin_user, pessoa):
-    d = Demanda.objects.create(
-        titulo="Teste",
-        descricao="X",
-        canal_entrada="presencial",
-        coordenacao_responsavel="gabinete",
-        criado_por=admin_user,
-        anonimo=True,
-    )
-    dp = DemandaPessoa(
-        demanda=d,
-        pessoa=pessoa,
-        papel=DemandaPessoa.PAPEL_OUTRO,
-        papel_outro="Advogado",
-    )
-    dp.full_clean()  # não levanta
-    dp.save()
-    assert dp.papel_display == "Advogado"
-
-
-def test_demanda_pessoa_papel_choice_padrao_usa_display(db, admin_user, pessoa):
-    d = Demanda.objects.create(
-        titulo="Teste",
-        descricao="X",
-        canal_entrada="presencial",
-        coordenacao_responsavel="gabinete",
-        criado_por=admin_user,
-        anonimo=True,
-    )
-    dp = DemandaPessoa.objects.create(
-        demanda=d, pessoa=pessoa, papel=DemandaPessoa.PAPEL_SOLICITANTE
-    )
-    assert dp.papel_display == "Solicitante"
 
 
 # --- Criar Tema via AJAX (popup no form de Demanda) ---
@@ -1521,102 +1497,16 @@ def test_auditlog_registra_descarte_de_inbox(db, admin_user):
     assert logs.filter(action=LogEntry.Action.UPDATE).exists()
 
 
-# --- /analise filtra demandas restritas (ADR 0049) ---
+# --- /analise reflete a visibilidade do viewer (ADR 0049/0059) ---
 
 
-def test_analise_oculta_demandas_restritas_para_coord(
-    client, coord_juridico, admin_user, demanda_restrita_juridico
-):
-    """Coordenador da Jurídico NÃO responsável da restrita não vê seu count
-    em por_mes. Pela regra, só responsável + ADM/CG enxerga restrita."""
-    # Demanda pública pra comparar.
-    Demanda.objects.create(
-        titulo="Pública",
-        descricao="X",
-        canal_entrada="presencial",
-        coordenacao_responsavel="comunicacao",
-        criado_por=admin_user,
-        anonimo=True,
-    )
-    client.force_login(coord_juridico)
-    resp = client.get(reverse("core:analise"))
-    assert resp.status_code == 200
-    por_mes = resp.context["por_mes"]
-    total_visivel = sum(m["total"] for m in por_mes)
-    # Só a pública entra — restrita oculta para coord não-responsável.
-    assert total_visivel == 1
-
-
-def test_analise_top_pessoas_oculta_partes_de_restrita(
-    client, coord_juridico, demanda_restrita_juridico
-):
-    """top_pessoas não revela nome de quem aparece só em demanda restrita."""
-    client.force_login(coord_juridico)
-    resp = client.get(reverse("core:analise"))
-    nomes_visiveis = {p["nome"] for p in resp.context["top_pessoas"]}
-    pessoa_restrita = demanda_restrita_juridico.demanda_pessoas.first().pessoa
-    assert pessoa_restrita.nome not in nomes_visiveis
-
-
-def test_analise_admin_ve_demanda_restrita(client, admin_user, demanda_restrita_juridico):
-    """Sanity: admin continua vendo demanda restrita no painel."""
+def test_analise_admin_ve_todas_as_demandas(client, admin_user, demanda_de_terceiro):
+    """Sanity: admin vê as demandas no painel (visibilidade total)."""
     client.force_login(admin_user)
     resp = client.get(reverse("core:analise"))
     por_mes = resp.context["por_mes"]
     total_admin = sum(m["total"] for m in por_mes)
-    assert total_admin >= 1  # ao menos a restrita
-
-
-def test_analise_responsavel_de_restrita_ve_no_painel(client, admin_user, pessoa, coord_juridico):
-    """Coordenador responsável de uma demanda restrita VÊ a demanda no painel
-    (regra: responsável + ADM/CG enxergam)."""
-    d = Demanda.objects.create(
-        titulo="Restrita do coord",
-        descricao="X",
-        canal_entrada="oficio",
-        coordenacao_responsavel="juridico",
-        criado_por=admin_user,
-        responsavel=coord_juridico,
-        restrito=True,
-    )
-    DemandaPessoa.objects.create(demanda=d, pessoa=pessoa, papel="solicitante")
-    client.force_login(coord_juridico)
-    resp = client.get(reverse("core:analise"))
-    por_mes = resp.context["por_mes"]
-    total = sum(m["total"] for m in por_mes)
-    assert total >= 1
-
-
-# --- Export CSV respeita visibilidade restrita (Tarefa 1.4 do roteiro v0.7.2) ---
-
-
-def test_export_csv_oculta_demanda_restrita_de_coord(client, coord_juridico, admin_user):
-    """Coordenador NÃO consegue exportar demanda restrita de outra coord via CSV.
-    Confirma que _filtrar_visiveis aplicado no get_queryset cobre o fluxo
-    de export."""
-    publica = Demanda.objects.create(
-        titulo="Publica",
-        descricao="X",
-        canal_entrada="presencial",
-        coordenacao_responsavel="comunicacao",
-        criado_por=admin_user,
-        anonimo=True,
-    )
-    restrita = Demanda.objects.create(
-        titulo="SegredoMaximo",
-        descricao="X",
-        canal_entrada="presencial",
-        coordenacao_responsavel="juridico",
-        criado_por=admin_user,
-        anonimo=True,
-        restrito=True,
-    )
-    client.force_login(coord_juridico)
-    resp = client.get(reverse("demandas:demanda_export_csv"))
-    assert resp.status_code == 200
-    assert publica.numero.encode() in resp.content
-    assert restrita.numero.encode() not in resp.content
-    assert b"SegredoMaximo" not in resp.content
+    assert total_admin >= 1
 
 
 # --- Conclusão limpa: devolutiva não dispara avanço de status (Tarefa 2.1) ---
@@ -1681,7 +1571,6 @@ def test_processar_inbox_ja_processado_redireciona_para_demanda(client, admin_us
         titulo="Já criada",
         descricao="X",
         canal_entrada="presencial",
-        coordenacao_responsavel="gabinete",
         criado_por=admin_user,
         anonimo=True,
     )
@@ -1693,7 +1582,7 @@ def test_processar_inbox_ja_processado_redireciona_para_demanda(client, admin_us
     client.force_login(admin_user)
     resp = client.get(reverse("demandas:inbox_processar", args=[item.pk]))
     assert resp.status_code == 302
-    assert reverse("demandas:demanda_detalhe", args=[demanda.pk]) in resp.url
+    assert reverse("demandas:demanda_detalhe", args=[demanda.slug_publico]) in resp.url
 
 
 def test_analise_carga_assessores_nao_tem_n_mais_1(client, admin_user):
@@ -2001,7 +1890,7 @@ def test_entidades_quick_filter_com_demanda_aberta(client, admin_user, entidade,
     vinculada a demanda aberta aparece; entidade sem demanda não."""
     from demandas.models import DemandaEntidade
 
-    DemandaEntidade.objects.create(demanda=demanda, entidade=entidade, papel="solicitante")
+    DemandaEntidade.objects.create(demanda=demanda, entidade=entidade)
     outra = Entidade.objects.create(nome="Sem demanda", tipo="associacao", criado_por=admin_user)
     client.force_login(admin_user)
     resp = client.get(reverse("pessoas:entidade_lista") + "?filtro=com_demanda_aberta")
@@ -2063,11 +1952,13 @@ def test_inbox_lista_marca_envelhecimento_amber_e_red(client, admin_user):
     resp = client.get(reverse("demandas:inbox_lista"))
     assert resp.status_code == 200
     body = resp.content
-    # Badges renderizadas com classes Tailwind amber/red
-    assert b"bg-amber-100" in body
-    assert b"Pendente h\xc3\xa1 +7d" in body
-    assert b"bg-red-100" in body
-    assert b"Pendente h\xc3\xa1 +30d" in body
+    # Badges de idade · classes `.age amber` (+7d) e `.age red` (+30d).
+    # Template foi refeito para o design system v2; a regressão antiga
+    # checava classes Tailwind, que não existem mais aqui.
+    assert b'class="age amber"' in body
+    assert b"+7 dias" in body
+    assert b'class="age red"' in body
+    assert b"+30 dias" in body
 
 
 # --- /minhas-pendencias/: marcar realizada (Tarefa 2.3 v0.7.3) ---

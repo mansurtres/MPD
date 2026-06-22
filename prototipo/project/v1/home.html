@@ -1,0 +1,1073 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>MPD · Início</title>
+<meta name="viewport" content="width=1400">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  body { background: var(--bg); }
+
+  .page {
+    max-width: 1360px;
+    margin: 32px auto 80px;
+    padding: 0 28px;
+  }
+
+  /* === Documento do dia === */
+  .doc {
+    background: var(--paper);
+    box-shadow: 0 1px 0 rgba(0,0,0,0.04), 0 16px 40px -24px rgba(60,50,30,0.22);
+  }
+
+  .doc-head {
+    border-top: 6px solid var(--navy);
+    padding: 28px 36px 24px;
+    border-bottom: 1px solid var(--rule);
+    background: linear-gradient(180deg, var(--paper), var(--paper-2));
+  }
+  .doc-head .breadcrumb {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-bottom: 14px;
+  }
+  .doc-head .breadcrumb .here { color: var(--navy); font-weight: 600; }
+  .doc-head .breadcrumb .sep { color: var(--rule-strong); margin: 0 8px; }
+  .doc-head .row1 {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 32px;
+    align-items: end;
+  }
+  .doc-head h1 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 40px;
+    line-height: 1.05;
+    letter-spacing: -0.015em;
+    margin: 0;
+    color: var(--ink);
+  }
+  .doc-head h1 .who {
+    font-style: italic;
+    color: var(--navy);
+  }
+  .doc-head .date-block {
+    text-align: right;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink-mute);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .doc-head .date-block .d {
+    font-family: var(--serif);
+    font-size: 32px;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+    text-transform: none;
+    display: block;
+    line-height: 1;
+    font-weight: 500;
+  }
+  .doc-head .date-block .y {
+    color: var(--ink-mute);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    margin-top: 4px;
+  }
+  .doc-head .greeting {
+    margin-top: 18px;
+    font-family: var(--serif);
+    font-size: 16px;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    max-width: 78ch;
+  }
+  .doc-head .greeting strong { color: var(--ink); font-weight: 600; }
+  .doc-head .greeting .warn { color: var(--bordo); font-weight: 600; }
+
+  /* Régua de estatísticas */
+  .stat-ruler {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    background: var(--paper);
+    border-bottom: 1px solid var(--rule);
+  }
+  .stat-ruler .cell {
+    padding: 18px 24px;
+    border-right: 1px solid var(--rule);
+    text-decoration: none;
+    color: inherit;
+    display: block;
+    transition: background .12s;
+  }
+  .stat-ruler .cell:last-child { border-right: 0; }
+  .stat-ruler .cell:hover { background: var(--paper-2); }
+  .stat-ruler .k {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-bottom: 6px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .stat-ruler .k .arr { color: var(--rule-strong); margin-left: auto; }
+  .stat-ruler .cell:hover .k .arr { color: var(--navy); }
+  .stat-ruler .v {
+    font-family: var(--serif);
+    font-size: 30px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.015em;
+    line-height: 1;
+  }
+  .stat-ruler .v.warn { color: var(--bordo); }
+  .stat-ruler .v.ok { color: var(--olive); }
+  .stat-ruler .sub {
+    font-family: var(--serif);
+    font-size: 13px;
+    color: var(--ink-mute);
+    margin-top: 6px;
+    font-style: italic;
+  }
+  .stat-ruler .sub strong { color: var(--ink-soft); font-style: normal; font-weight: 600; }
+
+  /* Captura rápida — faixa navy */
+  .capture {
+    background: var(--navy);
+    color: var(--paper);
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    gap: 14px;
+    align-items: center;
+    padding: 14px 36px;
+  }
+  .capture .lbl {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.6);
+  }
+  .capture .field {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.18);
+    padding: 7px 14px;
+  }
+  .capture input {
+    background: transparent;
+    border: 0; outline: 0;
+    color: var(--paper);
+    font-family: var(--serif);
+    font-size: 16px;
+    width: 100%;
+  }
+  .capture input::placeholder { color: rgba(255,255,255,0.5); font-style: italic; }
+  .capture .k {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: rgba(255,255,255,0.7);
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 2px 7px;
+    letter-spacing: 0.06em;
+  }
+  .capture .btn-cap {
+    background: var(--paper);
+    color: var(--navy);
+    border: 1px solid var(--paper);
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 13px;
+    padding: 8px 18px;
+    cursor: pointer;
+  }
+  .capture .btn-cap:hover { background: #fff; }
+
+  /* === Corpo: duas colunas === */
+  .doc-body {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+  }
+  .body-main { padding: 32px 36px 40px; border-right: 1px solid var(--rule); }
+  .body-side { padding: 32px 28px 40px; background: var(--paper-2); }
+
+  /* Section headers (mesmo padrão das outras telas) */
+  .section-head {
+    display: flex; align-items: baseline; gap: 12px;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--navy);
+  }
+  .section-head h2 {
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--navy);
+    margin: 0;
+  }
+  .section-head .count {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-mute);
+    letter-spacing: 0.04em;
+  }
+  .section-head .lede {
+    font-family: var(--serif);
+    font-size: 13.5px;
+    color: var(--ink-mute);
+    font-style: italic;
+    margin-left: 6px;
+  }
+  .section-head .all {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-mute);
+    text-decoration: none;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .section-head .all:hover { color: var(--navy); }
+
+  .section { margin-bottom: 36px; }
+  .section:last-child { margin-bottom: 0; }
+
+  /* === Agenda do dia: linha do tempo do dia === */
+  .agenda { border-top: 1px solid var(--rule); }
+  .agenda .item {
+    display: grid;
+    grid-template-columns: 90px 1fr auto;
+    gap: 20px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--rule);
+    align-items: start;
+  }
+  .agenda .item .time {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-mute);
+    text-align: right;
+    padding-top: 2px;
+  }
+  .agenda .item .time .h {
+    display: block;
+    font-family: var(--serif);
+    font-size: 22px;
+    color: var(--ink);
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    line-height: 1;
+  }
+  .agenda .item .time .m {
+    display: block;
+    margin-top: 3px;
+    letter-spacing: 0.04em;
+  }
+  .agenda .item .time .dur {
+    display: block;
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid var(--rule);
+    font-family: var(--mono);
+    font-size: 9.5px;
+    color: var(--ink-mute);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .agenda .item .body { padding-top: 2px; }
+  .agenda .item .body .type {
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+    display: flex; align-items: center; gap: 10px;
+    color: var(--ink-mute);
+  }
+  .agenda .item .body .type .mark {
+    display: inline-block;
+    width: 8px; height: 8px;
+    background: currentColor;
+  }
+  .agenda .item.devolutiva .body .type { color: var(--bordo); }
+  .agenda .item.reuniao .body .type { color: var(--navy); }
+  .agenda .item.visita .body .type { color: var(--tan); }
+  .agenda .item.deadline .body .type { color: var(--amber); }
+
+  .agenda .item .body .ttl {
+    font-family: var(--serif);
+    font-size: 16px;
+    color: var(--ink);
+    line-height: 1.3;
+    margin: 0 0 4px;
+    font-weight: 500;
+  }
+  .agenda .item .body .ttl a {
+    color: var(--ink);
+    text-decoration: none;
+  }
+  .agenda .item .body .ttl a:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .agenda .item .body .sub {
+    font-family: var(--serif);
+    font-size: 13.5px;
+    color: var(--ink-soft);
+    line-height: 1.5;
+    margin: 0;
+  }
+  .agenda .item .body .meta {
+    margin-top: 6px;
+    font-family: var(--sans);
+    font-size: 11.5px;
+    color: var(--ink-mute);
+  }
+  .agenda .item .body .meta .demanda {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--navy);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+  .agenda .item .body .meta .sep { color: var(--rule-strong); margin: 0 6px; }
+
+  .agenda .item .actions {
+    display: flex; gap: 4px;
+    align-items: start;
+  }
+  .agenda .item .actions .b {
+    background: transparent;
+    border: 1px solid var(--rule-strong);
+    font-family: var(--sans);
+    font-size: 11px;
+    padding: 4px 10px;
+    color: var(--ink-soft);
+    cursor: pointer;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+  }
+  .agenda .item .actions .b:hover { background: var(--paper-2); border-color: var(--ink); color: var(--ink); }
+  .agenda .item .actions .b.primary {
+    background: var(--navy);
+    border-color: var(--navy);
+    color: var(--paper);
+    font-weight: 500;
+  }
+  .agenda .item .actions .b.primary:hover { background: var(--navy-deep); }
+
+  /* "Agora" — marker discreto */
+  .agenda .now-marker {
+    display: grid;
+    grid-template-columns: 90px 1fr;
+    gap: 20px;
+    padding: 6px 0;
+    align-items: center;
+  }
+  .agenda .now-marker .label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--bordo);
+    text-align: right;
+    font-weight: 700;
+  }
+  .agenda .now-marker .rule {
+    height: 1px;
+    background: var(--bordo);
+    position: relative;
+  }
+  .agenda .now-marker .rule::before {
+    content: "";
+    position: absolute;
+    left: 0; top: -3px;
+    width: 7px; height: 7px;
+    background: var(--bordo);
+  }
+
+  /* === Atividade recente da equipe === */
+  .feed .it {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 18px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--rule);
+    align-items: start;
+  }
+  .feed .it:last-child { border-bottom: 0; }
+  .feed .it .t {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-mute);
+    text-align: right;
+    padding-top: 2px;
+  }
+  .feed .it .t .a {
+    display: block;
+    font-family: var(--sans);
+    font-size: 11px;
+    color: var(--ink-soft);
+    font-weight: 500;
+    margin-top: 2px;
+  }
+  .feed .it .body p {
+    font-family: var(--serif);
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    margin: 0;
+  }
+  .feed .it .body p .demanda {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--navy);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  .feed .it .body p strong { color: var(--ink); font-weight: 600; }
+  .feed .it .body p .ent { font-style: italic; color: var(--ink); }
+  .feed .it .body .type {
+    font-family: var(--sans);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-bottom: 4px;
+    display: inline-block;
+  }
+  .feed .it.encaminhamento .body .type { color: var(--bordo); }
+  .feed .it.retorno .body .type { color: var(--olive); }
+  .feed .it.devolutiva .body .type { color: var(--olive); }
+  .feed .it.contato .body .type { color: var(--navy); }
+  .feed .it.interna .body .type { color: var(--tan); }
+
+  /* === Sidebar blocks === */
+  .side-block {
+    margin-bottom: 28px;
+    padding-bottom: 22px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .side-block:last-child { border-bottom: 0; margin-bottom: 0; padding-bottom: 0; }
+  .side-block h3 {
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--navy);
+    margin: 0 0 12px;
+    display: flex; align-items: baseline; justify-content: space-between;
+  }
+  .side-block h3 .all {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-mute);
+    text-decoration: none;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+  .side-block h3 .all:hover { color: var(--navy); }
+  .side-block h3 .badge {
+    background: var(--bordo); color: var(--paper);
+    font-family: var(--mono); font-size: 9.5px;
+    padding: 1px 6px;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+    margin-left: 6px;
+  }
+
+  /* Inbox preview na sidebar */
+  .inbox-mini .it {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    padding: 10px 12px;
+    margin-bottom: 6px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+    align-items: start;
+  }
+  .inbox-mini .it .body p {
+    font-family: var(--serif);
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--ink-soft);
+    margin: 0 0 4px;
+    text-wrap: pretty;
+  }
+  .inbox-mini .it .body .who {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    color: var(--ink-mute);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .inbox-mini .it .lk {
+    font-family: var(--mono);
+    font-size: 9px;
+    background: var(--navy);
+    color: var(--paper);
+    padding: 1px 5px;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+    align-self: start;
+  }
+  .inbox-mini .it.alert { border-left: 3px solid var(--bordo); padding-left: 9px; }
+  .inbox-mini .triage-btn {
+    display: block;
+    margin-top: 6px;
+    background: var(--paper);
+    border: 1px solid var(--navy);
+    color: var(--navy);
+    text-align: center;
+    padding: 8px;
+    font-family: var(--sans);
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+    letter-spacing: 0.02em;
+  }
+  .inbox-mini .triage-btn:hover { background: var(--navy); color: var(--paper); }
+
+  /* Minhas demandas na sidebar */
+  .my-demandas .it {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 10px;
+    padding: 9px 0;
+    border-top: 1px dotted var(--rule);
+    align-items: center;
+  }
+  .my-demandas .it:first-of-type { border-top: 0; }
+  .my-demandas .it .num {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--navy);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  .my-demandas .it .ttl {
+    font-family: var(--serif);
+    font-size: 13px;
+    color: var(--ink);
+    line-height: 1.3;
+  }
+  .my-demandas .it .ttl a { color: var(--ink); text-decoration: none; }
+  .my-demandas .it .ttl a:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .my-demandas .it .pz {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-mute);
+    text-align: right;
+    white-space: nowrap;
+    letter-spacing: 0.04em;
+  }
+  .my-demandas .it .pz.warn { color: var(--bordo); font-weight: 600; }
+  .my-demandas .it .pz.late { color: var(--bordo); font-weight: 700; }
+  .my-demandas .it .pz.late::before {
+    content: "VENC";
+    background: var(--bordo);
+    color: var(--paper);
+    font-family: var(--mono);
+    font-size: 8px;
+    padding: 0 4px;
+    margin-right: 4px;
+    letter-spacing: 0.06em;
+    vertical-align: 1px;
+  }
+
+  /* Encaminhamentos na sidebar */
+  .enc-card {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    padding: 10px 12px;
+    margin-bottom: 6px;
+  }
+  .enc-card .top {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 4px;
+  }
+  .enc-card .num {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--bordo);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .enc-card .stp {
+    font-family: var(--sans);
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 1px 6px 2px;
+    border: 1.5px solid currentColor;
+  }
+  .enc-card .stp.sent { color: var(--navy); }
+  .enc-card .stp.late { color: var(--bordo); }
+  .enc-card .stp.ok { color: var(--olive); }
+  .enc-card .destino {
+    font-family: var(--serif);
+    font-size: 13px;
+    color: var(--ink);
+    margin: 0;
+    font-weight: 500;
+    line-height: 1.3;
+  }
+  .enc-card .meta {
+    margin-top: 5px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-mute);
+    letter-spacing: 0.04em;
+  }
+  .enc-card .meta .label {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .enc-card .meta.warn { color: var(--bordo); font-weight: 600; }
+
+  /* Atalhos */
+  .shortcuts {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    padding: 14px;
+  }
+  .shortcuts .row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 5px 0;
+    font-family: var(--sans);
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+  .shortcuts .row .what { flex: 1; }
+  .shortcuts kbd {
+    background: var(--paper-2);
+    border: 1px solid var(--rule-strong);
+    padding: 1px 6px;
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+</style>
+</head>
+<body>
+
+<header class="appbar">
+  <div class="appbar-inner">
+    <a class="brand" href="home.html">
+      <span class="mark">M</span>
+      <span class="name">MPD</span>
+      <span class="tag">Pedro Trés · 11ª Legislatura</span>
+    </a>
+    <nav>
+      <a href="home.html" class="current">Início</a>
+      <a href="05-inbox.html">Entrada <span class="alert">7</span></a>
+      <a href="04-lista.html">Demandas</a>
+      <a href="pessoas.html">Pessoas</a>
+      <a href="entidades.html">Entidades</a>
+      <a href="encaminhamentos.html">Encaminhamentos</a>
+      <a href="pendencias.html">Pendências <span class="alert">3</span></a>
+    </nav>
+    <div class="me">
+      <div class="who">
+        <span class="av">MC</span>
+        <span>
+          <span class="name">Mariana Costa</span>
+          <span class="role">Gabinete · resp.</span>
+        </span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="page">
+  <article class="doc">
+
+    <!-- Cabeçalho do dia -->
+    <header class="doc-head">
+      <div class="breadcrumb">
+        <span class="here">EXPEDIENTE</span>
+        <span class="sep">/</span>
+        <span>SEMANA 20</span>
+        <span class="sep">/</span>
+        <span>DOMINGO</span>
+      </div>
+      <div class="row1">
+        <h1>Bom dia, <span class="who">Mariana</span>.</h1>
+        <div class="date-block">
+          <span class="d">17 maio</span>
+          <span class="y">domingo · 2026</span>
+        </div>
+      </div>
+      <p class="greeting">
+        Você tem <span class="warn">3 demandas vencidas</span> aguardando ação e <strong>1 devolutiva agendada para hoje às 14h30</strong> — Sebastiana, sobre a iluminação da Antônio Ataíde. Lucas já triou 2 itens da entrada esta manhã; ainda restam 7 para a sua revisão.
+      </p>
+    </header>
+
+    <!-- Estatísticas -->
+    <div class="stat-ruler">
+      <a class="cell" href="04-lista.html">
+        <div class="k">Vencidas <span class="arr">→</span></div>
+        <div class="v warn">3</div>
+        <div class="sub">a mais antiga <strong>vencida há 7 dias</strong></div>
+      </a>
+      <a class="cell" href="04-lista.html">
+        <div class="k">Devolutivas hoje <span class="arr">→</span></div>
+        <div class="v">1</div>
+        <div class="sub">próxima às <strong>14h30</strong></div>
+      </a>
+      <a class="cell" href="05-inbox.html">
+        <div class="k">Por triar <span class="arr">→</span></div>
+        <div class="v warn">7</div>
+        <div class="sub"><strong>2 podem virar uma só</strong> (#00342)</div>
+      </a>
+      <a class="cell" href="#">
+        <div class="k">Ofícios sem resposta <span class="arr">→</span></div>
+        <div class="v">4</div>
+        <div class="sub"><strong>1 com prazo vencido</strong></div>
+      </a>
+    </div>
+
+    <!-- Captura rápida -->
+    <div class="capture">
+      <div class="lbl">Capturar</div>
+      <div class="field">
+        <input type="text" placeholder="Anote algo que apareceu de manhã — quem, onde, o quê. Triagem depois.">
+      </div>
+      <span class="k">Ctrl K</span>
+      <button class="btn-cap">Capturar</button>
+    </div>
+
+    <!-- Corpo -->
+    <div class="doc-body">
+
+      <!-- Main col -->
+      <section class="body-main">
+
+        <!-- Agenda do dia -->
+        <div class="section">
+          <div class="section-head">
+            <h2>Agenda do dia</h2>
+            <span class="count">5 marcações</span>
+            <span class="lede">o que está datado para hoje</span>
+            <a class="all" href="#">Ver semana →</a>
+          </div>
+
+          <div class="agenda">
+
+            <div class="item deadline">
+              <div class="time">
+                <span class="h">11:00</span>
+                <span class="m">manhã</span>
+                <span class="dur">Prazo</span>
+              </div>
+              <div class="body">
+                <div class="type"><span class="mark"></span>Prazo de resposta de ofício</div>
+                <p class="ttl"><a href="#">Of. 0138/2026 → SEDU · resposta esperada</a></p>
+                <p class="sub">Vence o prazo de 14 dias úteis para a Secretaria de Educação responder o ofício sobre a creche de Bento Ferreira. Se não retornar até hoje, escalar.</p>
+                <div class="meta">
+                  <span class="demanda">MPD-2026-00341</span>
+                  <span class="sep">·</span>
+                  <span>Bia Ferreira · resp.</span>
+                </div>
+              </div>
+              <div class="actions">
+                <button class="b">Adiar</button>
+                <button class="b primary">Abrir ofício</button>
+              </div>
+            </div>
+
+            <div class="item visita">
+              <div class="time">
+                <span class="h">13:30</span>
+                <span class="m">tarde</span>
+                <span class="dur">40 min</span>
+              </div>
+              <div class="body">
+                <div class="type"><span class="mark"></span>Visita ao local · com Pedro</div>
+                <p class="ttl"><a href="01-prontuario.html">Vistoria conjunta — Rua Antônio Ataíde, trecho da Costa Pereira</a></p>
+                <p class="sub">Conferir se a SEMOB iniciou o reparo dos 9 postes inoperantes. Pedro vai junto para conversar com comerciantes locais.</p>
+                <div class="meta">
+                  <span class="demanda">MPD-2026-00342</span>
+                  <span class="sep">·</span>
+                  <span>Centro · Vitória</span>
+                </div>
+              </div>
+              <div class="actions">
+                <button class="b">Adiar</button>
+                <button class="b primary">Abrir caso</button>
+              </div>
+            </div>
+
+            <!-- Now marker -->
+            <div class="now-marker">
+              <span class="label">Agora · 14:08</span>
+              <span class="rule"></span>
+            </div>
+
+            <div class="item devolutiva">
+              <div class="time">
+                <span class="h">14:30</span>
+                <span class="m">tarde</span>
+                <span class="dur">15 min</span>
+              </div>
+              <div class="body">
+                <div class="type"><span class="mark"></span>Devolutiva ao demandante · responsiva</div>
+                <p class="ttl"><a href="01-prontuario.html">Retornar a Sebastiana — cronograma da SEMOB confirmado para 12/06</a></p>
+                <p class="sub">Combinar visita conjunta ao local se o reparo não tiver iniciado até a próxima reunião da associação. Devolutiva por WhatsApp, conforme canal preferido da líder.</p>
+                <div class="meta">
+                  <span class="demanda">MPD-2026-00342</span>
+                  <span class="sep">·</span>
+                  <span>via WhatsApp</span>
+                  <span class="sep">·</span>
+                  <span>Sebastiana Oliveira</span>
+                </div>
+              </div>
+              <div class="actions">
+                <button class="b">Adiar</button>
+                <button class="b primary">Registrar devolutiva</button>
+              </div>
+            </div>
+
+            <div class="item reuniao">
+              <div class="time">
+                <span class="h">16:00</span>
+                <span class="m">tarde</span>
+                <span class="dur">1h</span>
+              </div>
+              <div class="body">
+                <div class="type"><span class="mark"></span>Reunião · com entidade</div>
+                <p class="ttl"><a href="#">Assoc. Moradores do Centro — pauta mensal</a></p>
+                <p class="sub">Sebastiana confirmou. Pauta inclui iluminação (Antônio Ataíde), bancos da Costa Pereira (inviabilizado, explicar) e novo pedido sobre poda de árvores na Sete de Setembro.</p>
+                <div class="meta">
+                  <span>Sebastiana Oliveira</span>
+                  <span class="sep">·</span>
+                  <span>+ 4 lideranças confirmadas</span>
+                </div>
+              </div>
+              <div class="actions">
+                <button class="b">Adiar</button>
+                <button class="b primary">Abrir entidade</button>
+              </div>
+            </div>
+
+            <div class="item reuniao">
+              <div class="time">
+                <span class="h">18:00</span>
+                <span class="m">noite</span>
+                <span class="dur">30 min</span>
+              </div>
+              <div class="body">
+                <div class="type"><span class="mark"></span>Contato interno · gabinete</div>
+                <p class="ttl"><a href="#">Alinhamento da semana com Pedro</a></p>
+                <p class="sub">Revisão das vencidas, devolutivas pendentes da semana, pauta da sessão de quarta. Mariana prepara o memorando.</p>
+                <div class="meta">
+                  <span>Pedro Trés</span>
+                  <span class="sep">·</span>
+                  <span>Bia, Lucas</span>
+                </div>
+              </div>
+              <div class="actions">
+                <button class="b">Adiar</button>
+                <button class="b primary">Abrir nota</button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Atividade recente da equipe -->
+        <div class="section">
+          <div class="section-head">
+            <h2>Atividade da equipe</h2>
+            <span class="count">últimas 24h</span>
+            <a class="all" href="#">Ver tudo →</a>
+          </div>
+
+          <div class="feed">
+
+            <div class="it retorno">
+              <div class="t">14 MAI<br>11:08<span class="a">Mariana C.</span></div>
+              <div class="body">
+                <div class="type">● Retorno externo recebido</div>
+                <p>Resposta da SEMOB recebida na <span class="demanda">MPD-2026-00342</span>. <strong>Edmilson Rocha</strong> confirma vistoria de 09/05 e previsão de execução até <strong>12/06/2026</strong>.</p>
+              </div>
+            </div>
+
+            <div class="it contato">
+              <div class="t">16 MAI<br>17:42<span class="a">Lucas A.</span></div>
+              <div class="body">
+                <div class="type">● Contato com pessoa</div>
+                <p><span class="ent">Coletivo Bicicletada Vitória</span> enviou fotos da ciclofaixa Beira-Mar com sinalização apagada. Anexadas na <span class="demanda">MPD-2026-00337</span>.</p>
+              </div>
+            </div>
+
+            <div class="it devolutiva">
+              <div class="t">15 MAI<br>15:20<span class="a">Bia F.</span></div>
+              <div class="body">
+                <div class="type">● Devolutiva registrada</div>
+                <p>Devolutiva à <span class="ent">Conselho de Pais CMEI Maruípe</span> registrada na <span class="demanda">MPD-2026-00329</span>. <strong>Demanda concluída</strong> · resultado atendido.</p>
+              </div>
+            </div>
+
+            <div class="it encaminhamento">
+              <div class="t">15 MAI<br>10:14<span class="a">Mariana C.</span></div>
+              <div class="body">
+                <div class="type">● Encaminhamento externo enviado</div>
+                <p>Of. <strong>0149/2026</strong> à <strong>Secretaria de Saúde (SEMUS)</strong> sobre acessibilidade da UBS Maruípe — <span class="demanda">MPD-2026-00333</span>. Prazo de resposta: 29/05.</p>
+              </div>
+            </div>
+
+            <div class="it interna">
+              <div class="t">14 MAI<br>17:42<span class="a">Pedro T.</span></div>
+              <div class="body">
+                <div class="type">● Anotação interna</div>
+                <p>Pedro registrou na <span class="demanda">MPD-2026-00342</span>: <em>"Sebastiana é demanda recorrente. Priorizar retorno."</em></p>
+              </div>
+            </div>
+
+            <div class="it contato">
+              <div class="t">14 MAI<br>09:00<span class="a">Bia F.</span></div>
+              <div class="body">
+                <div class="type">● Reunião · com entidade</div>
+                <p>Reunião com <span class="ent">Conselho Escolar EMEF Aristóbulo</span>. Pauta: festa junina, doação de equipamento de som. Demanda criada — <span class="demanda">MPD-2026-00335</span>.</p>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </section>
+
+      <!-- Sidebar -->
+      <aside class="body-side">
+
+        <!-- Inbox mini -->
+        <div class="side-block">
+          <h3>Entrada pendente <span class="badge">7</span><a class="all" href="05-inbox.html">Triar →</a></h3>
+
+          <div class="inbox-mini">
+            <div class="it alert">
+              <div class="body">
+                <p>Família do Sr. Antônio — atendimento na UPA São Pedro foi suspenso, sem motivo.</p>
+                <span class="who">Mariana · 08:55</span>
+              </div>
+              <span class="lk">urg.</span>
+            </div>
+            <div class="it">
+              <div class="body">
+                <p>Sebastiana ligou — 11 vizinhos endossam a iluminação. Pediu para registrar a manifestação.</p>
+                <span class="who">Lucas · 09:12</span>
+              </div>
+              <span class="lk">↳ #00342</span>
+            </div>
+            <div class="it">
+              <div class="body">
+                <p>Pais da EMEF Aristóbulo — doação de 3 caixas de som para festa junina.</p>
+                <span class="who">Bia · 07:02</span>
+              </div>
+              <span class="lk">↳ #00335</span>
+            </div>
+            <a class="triage-btn" href="05-inbox.html">Triar todas as 7 →</a>
+          </div>
+        </div>
+
+        <!-- Minhas demandas -->
+        <div class="side-block">
+          <h3>Minhas demandas <span style="font-family:var(--mono);font-size:10px;color:var(--ink-mute);font-weight:500;letter-spacing:0.04em">23</span><a class="all" href="04-lista.html">Ver todas →</a></h3>
+          <div class="my-demandas">
+            <div class="it">
+              <span class="num">00342</span>
+              <div class="ttl"><a href="01-prontuario.html">Iluminação Antônio Ataíde</a></div>
+              <span class="pz warn">28/05</span>
+            </div>
+            <div class="it">
+              <span class="num">00328</span>
+              <div class="ttl"><a href="#">Atendimento médico — fila SUS 14 meses</a></div>
+              <span class="pz late">13/05</span>
+            </div>
+            <div class="it">
+              <span class="num">00334</span>
+              <div class="ttl"><a href="#">Quadra São Pedro — cobertura</a></div>
+              <span class="pz">20/06</span>
+            </div>
+            <div class="it">
+              <span class="num">00321</span>
+              <div class="ttl"><a href="#">Ronda PM Beira-Mar (concluída ◐)</a></div>
+              <span class="pz">07/05</span>
+            </div>
+            <div class="it">
+              <span class="num">00318</span>
+              <div class="ttl"><a href="#">Praça Costa Pereira (inviável ⊘)</a></div>
+              <span class="pz">02/05</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Meus encaminhamentos -->
+        <div class="side-block">
+          <h3>Meus ofícios em aberto <span style="font-family:var(--mono);font-size:10px;color:var(--ink-mute);font-weight:500;letter-spacing:0.04em">4</span><a class="all" href="#">Ver todos →</a></h3>
+
+          <div class="enc-card">
+            <div class="top">
+              <span class="num">OF 0138/2026</span>
+              <span class="stp late">VENCE HOJE</span>
+            </div>
+            <p class="destino">SEDU · creche Bento Ferreira</p>
+            <div class="meta warn"><span class="label">Prazo</span> · expira hoje, 11:00</div>
+          </div>
+
+          <div class="enc-card">
+            <div class="top">
+              <span class="num">OF 0149/2026</span>
+              <span class="stp sent">Enviado</span>
+            </div>
+            <p class="destino">SEMUS · acessibilidade UBS Maruípe</p>
+            <div class="meta"><span class="label">Prazo</span> · 29/05 · em 12 dias</div>
+          </div>
+
+          <div class="enc-card">
+            <div class="top">
+              <span class="num">OF 0144/2026</span>
+              <span class="stp sent">Enviado</span>
+            </div>
+            <p class="destino">SEMOB · linha 502 horário escolar</p>
+            <div class="meta warn"><span class="label">Prazo</span> · 20/05 · em 3 dias</div>
+          </div>
+        </div>
+
+        <!-- Atalhos -->
+        <div class="side-block">
+          <h3>Atalhos</h3>
+          <div class="shortcuts">
+            <div class="row"><span class="what">Captura rápida</span><kbd>Ctrl</kbd><kbd>K</kbd></div>
+            <div class="row"><span class="what">Nova demanda</span><kbd>Ctrl</kbd><kbd>N</kbd></div>
+            <div class="row"><span class="what">Buscar demanda</span><kbd>Ctrl</kbd><kbd>/</kbd></div>
+            <div class="row"><span class="what">Próxima pendência</span><kbd>J</kbd></div>
+            <div class="row"><span class="what">Ajuda</span><kbd>?</kbd></div>
+          </div>
+        </div>
+
+      </aside>
+
+    </div>
+
+  </article>
+</main>
+
+</body>
+</html>

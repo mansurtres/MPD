@@ -10,4 +10,5 @@ urlpatterns = [
     path("healthz/", views.healthz, name="healthz"),
     path("auditoria/", views.AuditoriaListView.as_view(), name="auditoria"),
     path("analise/", views.AnaliseView.as_view(), name="analise"),
+    path("buscar.json", views.buscar_global_json, name="buscar_global"),
 ]

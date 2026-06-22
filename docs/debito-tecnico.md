@@ -33,6 +33,7 @@ Quando um item for resolvido, mover para a seção **Resolvidos** no fim com a r
 
 ### DT-011 — Gestão de usuários ainda usa `is_staff`, não Groups (arquitetural)
 
+**Status:** ✅ **Resolvido** (Fase 7) — permissão custom `accounts.gerenciar_usuarios` criada (migration `0005`) e atribuída ao grupo Administrador (migration `0006`). `StaffRequiredMixin` substituído por `GerenciarUsuariosMixin(PermissionRequiredMixin)` nas 4 views; `UsuarioCreateForm`/`UsuarioUpdateForm` deixaram de expor `is_staff` (e a mitigação tática ADR 0040 ficou obsoleta). Promoção a staff/superuser fica só no Django Admin.
 **Prioridade:** Alta antes de produção, Média antes de Fase 4
 **Sintoma:** [accounts/views.py:13-19](accounts/views.py#L13-L19) define `StaffRequiredMixin` que gata as views de gestão de usuário em `request.user.is_staff`. [accounts/forms.py:36](accounts/forms.py#L36) e [:63](accounts/forms.py#L63) incluem `is_staff` como campo editável em `UsuarioCreateForm` e `UsuarioUpdateForm`.
 **Por que é cheiro:** o app `pessoas` migrou para `PermissionRequiredMixin` + Django Groups (ADR 0024) na Fase 2. O app `accounts` ficou para trás — ainda usa o flag binário `is_staff`. Resultado: qualquer staff promove qualquer outro a staff via formulário. Em equipe pequena confiável (caso atual), risco baixo. Mas viola o modelo de permissões granular adotado e gera dois sistemas convivendo no mesmo projeto. Mitigação tática (commit `c216150`, ADR 0040) bloqueia self-edit de `is_staff` no form custom; o `/admin/auth/user/` continua aceitando.
@@ -45,6 +46,7 @@ Quando um item for resolvido, mover para a seção **Resolvidos** no fim com a r
 
 ### DT-013 — Campo `papel` em `DemandaPessoa`/`DemandaEntidade` é ornamental
 
+**Status:** ✅ **Resolvido** (Fase 7) — drop dos 4 campos via `demandas/migrations/0009_drop_papel.py`; `DemandaPessoaForm`/`DemandaEntidadeForm`, `templates/demandas/form.html`, `templates/demandas/detalhe.html` e o IIFE de papel em `static/js/autocomplete.js` removidos; testes de papel limpos. ADR 0054.
 **Prioridade:** Média
 **Sintoma:** `DemandaPessoa.papel` (5 choices + `papel_outro`) e `DemandaEntidade.papel` (4 choices + `papel_outro`) aparecem no form de demanda, na tela de processar inbox e no detalhe, mas zero leitores no código: nenhuma view filtra, nenhum signal consulta, nenhuma regra de negócio depende. Em uso real, `solicitante`/`representada` (os defaults) cobrem ~100% dos registros.
 **Por que é cheiro:** o usuário escolhe num seletor de 5 valores em todo cadastro sem que a escolha afete nada — custo de UX sem retorno operacional. Vocabulário ("testemunha", "representada") herdado mais de processo judicial do que de mandato parlamentar; gera atrito sem ganho informacional.
@@ -82,6 +84,18 @@ Quando um item for resolvido, mover para a seção **Resolvidos** no fim com a r
 **Por que é cheiro:** teste de view virou teste de classe CSS. A intenção (item +7d marcado como envelhecido, +30d como atrasado) sumiu na assertion.
 **Proposta:** adicionar `data-envelhecimento="amber|red|fresh"` no `<tr>` do template e mudar o assert para `b'data-envelhecimento="amber"' in body`. Âncora estável contra refactor visual.
 **Gatilho:** próxima vez que o template `/inbox/lista.html` for tocado (oportunista) ou **higiene da Fase 7**.
+
+---
+
+## Permissões (need-to-know, ADR 0059)
+
+### DT-018 — Matriz fina de permissões de grupo ainda reflete o modelo antigo
+
+**Prioridade:** Média
+**Sintoma:** A ADR 0059 inverteu o acesso para need-to-know e travou as garantias críticas (visibilidade, export, listas, `/analise`/`/auditoria`/configurações) na **view/manager**. Mas as permissões custom atribuídas aos grupos nas data migrations (`pessoas/0002_grupos_padrao`, `demandas/0002_grupos_padrao_demandas`) ainda refletem o modelo colaborativo: o **Chefe de Gabinete** carrega `pode_anonimizar_pessoa`, `add_tag`/`change_tag` etc., que a `permissoes.md` v2 reserva ao **Admin** (§3.1, §3.7).
+**Por que é cheiro:** a defesa real (view/manager) está correta, mas a matriz de grupos é a "configuração padrão" que a doc promete. Há divergência entre o que o grupo *tem* e o que a matriz *diz*. Hoje é inofensivo (as views barram), mas confunde quem ler os grupos.
+**Proposta:** data migration que realinha as permissões dos 3 grupos à matriz da `permissoes.md` v2 (tags/temas e anonimizar → só Admin; desativar/reativar → Admin+CG). Cobrir com testes de `grupo.permissions`.
+**Gatilho:** antes de produção (Fase 7) ou quando a gestão de permissões por grupo for revisada.
 
 ---
 

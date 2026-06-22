@@ -1,302 +1,170 @@
-# MPD — Matriz de Permissões
+# MPD — Matriz de Permissões (v2 · need-to-know)
 
-Documento consolidado das regras de acesso e permissão do sistema. Define quem pode ver, criar, editar e excluir cada entidade.
+Documento consolidado das regras de acesso e visibilidade do sistema. Define quem vê, cria, edita e exclui cada entidade — e, sobretudo, **o que cada papel NÃO vê**.
 
-> **Princípio:** o sistema é colaborativo, não compartimentalizado. O default é dar acesso. Restrições existem para demandas sensíveis específicas, não como regra geral.
+> **Princípio (ADR 0059): privilégio mínimo / need-to-know.** Cada usuário vê apenas o que precisa para operar **agora**. Inverte o princípio anterior ("colaborativo por default"). Motivo: o risco de exfiltração da base inteira é incomparavelmente maior que o de um vazamento pontual. Reduzir a superfície de leitura é a defesa principal.
 
-> **Sobre este documento:** define a **configuração padrão** dos grupos criados na Fase 1 via data migration. O sistema usa Django Groups + Permissions nativos — o ADM pode criar novos grupos e ajustar permissões sem alterar código. Esta matriz não é regra hardcoded; é o ponto de partida. Ver ADR 0022.
+> **Sobre este documento:** descreve a **configuração padrão** dos grupos (Django Groups + Permissions nativos, ADR 0022/0024). O Admin pode ajustar sem mexer em código, mas a matriz abaixo é a regra que o sistema entrega de fábrica e que a implementação garante em três camadas (template, view, manager/QuerySet).
 
 ---
 
 ## 1. Perfis
 
-Quatro perfis, atribuídos via Django Group. Cada usuário pertence a exatamente um.
+Três perfis na v1, atribuídos via Django Group. Cada usuário pertence a exatamente um. **Não há mais "Coordenador" nem campo de "coordenação" (time)** — removidos na ADR 0059 (o papel ficaria oco sem o conceito de time).
 
 | Perfil | Quem é | Quantidade típica |
 |---|---|---|
 | **Administrador** (`ADM`) | Pedro (vereador, dono do sistema) | 1 |
-| **Chefe de Gabinete** (`CG`) | Coordenação política geral do mandato | 1 |
-| **Coordenador** (`CO`) | Coord. Jurídico ou Coord. de Comunicação | 2 |
-| **Assessor** (`AS`) | Demais assessores parlamentares | 4-10 |
+| **Chefe de Gabinete** (`CG`) | Coordenação política geral — camada de gestão operacional | 1 |
+| **Assessor** (`AS`) | Demais assessores parlamentares | 4–10 |
 
-**Sub-tipos de Coordenador:** o sistema não tem grupos separados para Coord Jurídico vs Coord Comunicação. A distinção aparece pelo campo `coordenacao_responsavel` que cada um assume nas demandas. Um Coordenador Jurídico é simplesmente um usuário com perfil `CO` que predominantemente opera demandas com `coordenacao_responsavel='juridico'`. Isso evita inflar grupos sem necessidade — se mudar o coordenador, basta reatribuir as demandas.
+> Papéis futuros (módulos jurídico/comunicação, gestão por equipe) voltam quando houver módulos que os justifiquem — não como filtro de visibilidade genérico.
 
 ---
 
 ## 2. Princípios gerais
 
-**Default: visibilidade total entre perfis logados.** Demandas, pessoas, entidades, interações e encaminhamentos são visíveis a todos os usuários autenticados, exceto quando explicitamente restritos.
+1. **Need-to-know.** Visibilidade é a exceção concedida, não o default. A regra de demanda é por **envolvimento** (ver §3.3); pessoas/entidades só aparecem **no contexto de uma demanda** que o usuário pode ver.
 
-**Restrição é exceção, marcada explicitamente.** O campo `restrito` em `Demanda` é boolean único. Quando `TRUE`, a demanda é visível apenas para: responsável atribuído, Chefe de Gabinete e Administrador.
+2. **Dado de parte é vinculado ao contexto.** A ficha de uma pessoa/entidade (contato, endereço, vínculos) só é acessível a CG e Assessor **enquanto operam uma demanda ativa** ligada a ela. Fora disso, não há navegação pela base. Só o Admin navega o acervo.
 
-**Soft delete > hard delete.** Apenas Administrador pode excluir definitivamente. Coordenadores podem desativar (soft delete via `ativo=FALSE`). Assessores não excluem nem desativam.
+3. **Exportar é exclusivo do Admin.** Nenhum botão de exportação (CSV) aparece para CG ou Assessor, em nenhuma lista. (Quem vê uma tela fotografa uma tela — mas o risco sistêmico de exfiltração da base é o que se elimina.) Cada export do Admin é registrado em auditoria (ADR 0053).
 
-**Auditoria é universal.** Toda criação, edição e exclusão em entidades críticas é registrada via `django-auditlog`. Ninguém escapa do log.
+4. **`/auditoria`, `/analise` e Configurações são exclusivos do Admin.** Governança e visão agregada ficam numa única pessoa responsável.
+
+5. **O flag `restrito` foi removido (ADR 0059, supersede ADR 0007).** No modelo need-to-know ele perdeu função — o Assessor já só vê as suas, o CG vê todas as ativas e o Admin vê tudo. Não há mais demanda "sigilosa" como exceção: a visibilidade é **inteiramente por papel**.
+
+6. **Soft delete > hard delete.** Só o Admin exclui definitivamente. Desativar (soft delete) é ação de gestão (Admin/CG). Assessor não exclui nem desativa.
+
+7. **Auditoria é universal no registro.** Toda criação/edição/exclusão em entidades críticas é logada (`django-auditlog`) — independentemente de quem pode *ler* o log.
 
 ---
 
 ## 3. Matriz por entidade
 
+Colunas: **ADM** (Administrador), **CG** (Chefe de Gabinete), **AS** (Assessor).
+
 ### 3.1 Pessoas
 
-| Ação | ADM | CG | CO | AS |
-|---|---|---|---|---|
-| Listar | ✅ | ✅ | ✅ | ✅ |
-| Ver detalhe | ✅ | ✅ | ✅ | ✅ |
-| Criar | ✅ | ✅ | ✅ | ✅ |
-| Editar | ✅ | ✅ | ✅ | ✅ |
-| Desativar (soft delete) | ✅ | ✅ | ✅ | ❌ |
-| Reativar desativada | ✅ | ✅ | ❌ | ❌ |
-| Excluir definitivamente | ✅ | ❌ | ❌ | ❌ |
-| Anonimizar (LGPD) | ✅ | ✅ | ✅ | ❌ |
-| Adicionar tag | ✅ | ✅ | ✅ | ✅ |
-| Adicionar vínculo com entidade | ✅ | ✅ | ✅ | ✅ |
-| Exportar lista para CSV | ✅ | ✅ | ✅ | ❌ |
-| Fazer upload de anexo | ✅ | ✅ | ✅ | ✅ |
-| Excluir anexo | ✅ | ✅ | ✅ (próprios) | ❌ |
+| Ação | ADM | CG | AS |
+|---|---|---|---|
+| Listar / navegar a base (`/pessoas/`) | ✅ | ❌ | ❌ |
+| Ver ficha completa (contato, endereço, vínculos) | ✅ | ✅ só no contexto de demanda ativa | ✅ só no contexto de demanda ativa dele |
+| **Busca cega** (verificar existência ao cadastrar) | ✅ | ✅ | ✅ |
+| Criar (cadastro mínimo ao abrir demanda) | ✅ | ✅ | ✅ |
+| Editar | ✅ | ✅ (no contexto) | ✅ (no contexto) |
+| Desativar / Reativar | ✅ | ✅ | ❌ |
+| Excluir definitivamente · Anonimizar (LGPD) | ✅ | ❌ | ❌ |
+| Exportar lista | ✅ | ❌ | ❌ |
 
 ### 3.2 Entidades
 
-| Ação | ADM | CG | CO | AS |
-|---|---|---|---|---|
-| Listar | ✅ | ✅ | ✅ | ✅ |
-| Ver detalhe | ✅ | ✅ | ✅ | ✅ |
-| Criar | ✅ | ✅ | ✅ | ✅ |
-| Editar | ✅ | ✅ | ✅ | ✅ |
-| Desativar | ✅ | ✅ | ✅ | ❌ |
-| Excluir definitivamente | ✅ | ❌ | ❌ | ❌ |
-| Exportar | ✅ | ✅ | ✅ | ❌ |
-| Fazer upload de anexo | ✅ | ✅ | ✅ | ✅ |
-| Excluir anexo | ✅ | ✅ | ✅ (próprios) | ❌ |
+Igual a Pessoas (§3.1): lista/navegação e export só ADM; ficha só no contexto de demanda visível; busca cega para cadastrar.
 
-### 3.3 Demandas
+### 3.3 Demandas — o núcleo do need-to-know
 
-Permissões com nuances. A coordenação importa.
+**Regra de visibilidade do Assessor:** vê uma demanda se é **responsável OU autor** dela.
+- **Ativas** (status ≠ concluída/arquivada): contexto completo — incluindo os dados das partes daquela demanda.
+- **Histórico próprio** (concluídas/arquivadas que ele tocou): **somente leitura**, com as partes **mascaradas** — o **nome** da parte aparece, mas **sem link para a ficha e sem dados de contato**.
 
-| Ação | ADM | CG | CO | AS |
-|---|---|---|---|---|
-| Listar demandas não-restritas | ✅ | ✅ | ✅ | ✅ (próprias + da coord) |
-| Listar demandas restritas | ✅ | ✅ | ❌ | ✅ se for o responsável |
-| Ver detalhe não-restrito | ✅ | ✅ | ✅ | ✅ |
-| Ver detalhe restrito | ✅ | ✅ | ❌ | ✅ se for o responsável |
-| Criar demanda | ✅ | ✅ | ✅ (própria coord) | ✅ |
-| Editar demanda atribuída a si | ✅ | ✅ | ✅ | ✅ |
-| Editar demanda atribuída a outro | ✅ | ✅ | ✅ (própria coord) | ❌ |
-| Vincular / desvincular partes (pessoas e entidades) | ✅ | ✅ | ✅ (própria coord) | ✅ (atribuídas) |
-| Atribuir/reatribuir responsável | ✅ | ✅ | ✅ (própria coord) | ❌ |
-| Mudar coordenação responsável | ✅ | ✅ | ❌ | ❌ |
-| Atualizar `resultado` da demanda | ✅ | ✅ | ✅ | ✅ (atribuídas) |
-| Marcar como respondida | ✅ | ✅ | ✅ | ✅ (atribuídas) |
-| Arquivar demanda respondida | ✅ | ✅ | ✅ | ❌ |
-| Arquivar demanda não-respondida (com justificativa) | ✅ | ✅ | ❌ | ❌ |
-| Marcar/desmarcar como restrita | ✅ | ✅ | ❌ | ❌ |
-| Excluir demanda definitivamente | ✅ | ❌ | ❌ | ❌ |
-| Exportar lista | ✅ | ✅ | ✅ | ❌ |
+**Chefe de Gabinete:** vê **todas as demandas ativas** (visão de gestão), com os dados das partes no contexto. **Não** vê o histórico concluído/arquivado.
 
-**Regra "AS de outra coordenação":** um Assessor da Comunicação não vê demandas da Jurídica (e vice-versa) por padrão, exceto se atribuído pessoalmente a ele. Isso reduz ruído na lista "minhas demandas" e respeita a divisão funcional.
+**Admin:** vê todas, ativas e históricas.
 
-### 3.4 Interações
+| Ação | ADM | CG | AS |
+|---|---|---|---|
+| Listar demandas ativas | ✅ todas | ✅ todas | ✅ só as dele (responsável/autor) |
+| Listar/ver demandas concluídas/arquivadas | ✅ todas | ❌ | ✅ só as próprias (leitura, partes mascaradas) |
+| Criar demanda | ✅ | ✅ | ✅ |
+| Editar demanda atribuída a si | ✅ | ✅ | ✅ |
+| Editar demanda de outro | ✅ | ✅ (ativas) | ❌ |
+| Atribuir/reatribuir responsável | ✅ | ✅ | ❌ |
+| Atualizar `resultado` / concluir (com devolutiva) | ✅ | ✅ | ✅ (nas dele) |
+| Arquivar | ✅ | ✅ | ❌ |
+| Excluir definitivamente | ✅ | ❌ | ❌ |
+| Exportar lista | ✅ | ❌ | ❌ |
 
-A interação herda a permissão da demanda à qual pertence. Se o usuário pode ver a demanda, pode ver as interações.
+### 3.4 Interações, 3.5 Encaminhamentos, 3.6 Anexos
 
-| Ação | ADM | CG | CO | AS |
-|---|---|---|---|---|
-| Ver timeline da demanda | ✅ | ✅ | ✅ | ✅ (se pode ver demanda) |
-| Adicionar interação manual | ✅ | ✅ | ✅ | ✅ (se pode editar demanda) |
-| Editar interação **própria** dentro de 24h | ✅ | ✅ | ✅ | ✅ |
-| Editar interação alheia | ✅ | ✅ | ❌ | ❌ |
-| Cancelar interação agendada própria | ✅ | ✅ | ✅ | ✅ |
-| Cancelar interação agendada alheia | ✅ | ✅ | ✅ (própria coord) | ❌ |
-| Marcar agendada como realizada | ✅ | ✅ | ✅ | ✅ (se for autor) |
+Todos **herdam a visibilidade da demanda** à qual pertencem. Se o usuário pode ver/editar a demanda, pode ver/agir nas interações, encaminhamentos e anexos dela; senão, não.
+- A lista transversal `/encaminhamentos/` aplica a mesma regra de demandas: Assessor vê só os das suas; CG os das ativas; Admin todos.
+- Edição de interação própria em 24h; automáticas imutáveis (regra no model, inalterada).
+- Excluir encaminhamento / anexo alheio: Admin (e CG nas ativas). Assessor não exclui.
+- Exportar `/encaminhamentos/`: só Admin.
 
-**Janela de edição de 24h:** após criada, uma interação `realizada` pode ser editada pelo autor por 24h (correção de erros de digitação). Depois disso, fica imutável (apenas ADM/CG podem editar). Esta regra é codificada no model.
+### 3.7 Tags e Temas (configuração)
 
-**Interações automáticas** (geradas por mudanças na demanda): nunca são editáveis por ninguém. São registros do sistema.
-
-### 3.5 Encaminhamentos
-
-| Ação | ADM | CG | CO | AS |
-|---|---|---|---|---|
-| Ver | ✅ | ✅ | ✅ | ✅ (se pode ver demanda) |
-| Criar | ✅ | ✅ | ✅ | ✅ (em demandas atribuídas) |
-| Editar | ✅ | ✅ | ✅ | ✅ (em demandas atribuídas) |
-| Registrar resposta | ✅ | ✅ | ✅ | ✅ (em demandas atribuídas) |
-| Excluir | ✅ | ✅ | ❌ | ❌ |
-
-### 3.6 Anexos
-
-Permissão de visualização segue a entidade à qual o anexo pertence (demanda, pessoa, entidade ou encaminhamento). Upload segue a permissão de edição da entidade.
-
-| Ação | ADM | CG | CO | AS |
-|---|---|---|---|---|
-| Visualizar | ✅ | ✅ | ✅ | ✅ (se pode ver o objeto pai) |
-| Upload em demanda | ✅ | ✅ | ✅ | ✅ (em demandas atribuídas) |
-| Upload em pessoa / entidade | ✅ | ✅ | ✅ | ✅ |
-| Upload em encaminhamento | ✅ | ✅ | ✅ | ✅ (em demandas atribuídas) |
-| Editar descrição | ✅ | ✅ | ✅ | ✅ (próprios) |
-| Excluir | ✅ | ✅ | ✅ (próprios ou da coord) | ❌ |
-
-### 3.7 Tags
-
-| Ação | ADM | CG | CO | AS |
-|---|---|---|---|---|
-| Listar | ✅ | ✅ | ✅ | ✅ |
-| Atribuir tag a pessoa/entidade/demanda | ✅ | ✅ | ✅ | ✅ |
-| Criar nova tag | ✅ | ✅ | ✅ | ❌ |
-| Editar tag (nome, cor, descrição) | ✅ | ✅ | ✅ | ❌ |
-| Mesclar duas tags (v0.6) | ✅ | ✅ | ❌ | ❌ |
-| Inativar tag | ✅ | ✅ | ❌ | ❌ |
+| Ação | ADM | CG | AS |
+|---|---|---|---|
+| Atribuir tag/tema a registro | ✅ | ✅ | ✅ (no contexto) |
+| Criar / editar / arquivar tag ou tema | ✅ | ❌ | ❌ |
 
 ### 3.8 Inbox
 
-| Ação | ADM | CG | CO | AS |
-|---|---|---|---|---|
-| Capturar item (Ctrl+K, FAB, página) | ✅ | ✅ | ✅ | ✅ |
-| Listar pendentes | ✅ | ✅ | ✅ | ✅ |
-| Listar processados/descartados | ✅ | ✅ | ✅ | ✅ (próprios) |
-| Processar item (converter em demanda) | ✅ | ✅ | ✅ | ✅ |
-| Descartar item | ✅ | ✅ | ✅ | ✅ (próprios) |
+| Ação | ADM | CG | AS |
+|---|---|---|---|
+| Capturar (Ctrl+K, FAB, página) | ✅ | ✅ | ✅ |
+| Listar / processar / descartar os **próprios** itens | ✅ | ✅ | ✅ |
+| Ver itens de outros | ✅ | ❌ | ❌ |
 
-### 3.9 Solicitações LGPD
+### 3.9 Usuários · Configurações · Auditoria · Análise
 
-| Ação | ADM | CG | CO | AS |
-|---|---|---|---|---|
-| Submeter (público, sem login) | — | — | — | — |
-| Listar solicitações | ✅ | ✅ | ✅ | ❌ |
-| Tratar (responder, atender, negar) | ✅ | ✅ | ✅ | ❌ |
-| Gerar relatório PDF de pessoa | ✅ | ✅ | ✅ (Jurídico) | ❌ |
-
-### 3.10 Usuários
-
-| Ação | ADM | CG | CO | AS |
-|---|---|---|---|---|
-| Listar usuários | ✅ | ✅ | ❌ | ❌ |
-| Criar usuário | ✅ | ❌ | ❌ | ❌ |
-| Editar usuário (exceto próprio perfil/senha) | ✅ | ❌ | ❌ | ❌ |
-| Desativar usuário | ✅ | ❌ | ❌ | ❌ |
-| Forçar troca de senha | ✅ | ❌ | ❌ | ❌ |
-| Editar próprio perfil | ✅ | ✅ | ✅ | ✅ |
-| Trocar própria senha | ✅ | ✅ | ✅ | ✅ |
-
-### 3.11 Configurações Gerais
-
-| Ação | ADM | CG | CO | AS |
-|---|---|---|---|---|
-| Ver configurações gerais | ✅ | ✅ | ❌ | ❌ |
-| Editar configurações gerais | ✅ | ❌ | ❌ | ❌ |
-| Acessar Django Admin | ✅ | ❌ | ❌ | ❌ |
-
-### 3.12 Auditoria
-
-| Ação | ADM | CG | CO | AS |
-|---|---|---|---|---|
-| Ver log de auditoria | ✅ | ✅ | ❌ | ❌ |
-| Exportar log | ✅ | ✅ | ❌ | ❌ |
+| Ação | ADM | CG | AS |
+|---|---|---|---|
+| Gerir usuários (criar/editar/desativar) | ✅ | ❌ | ❌ |
+| Editar próprio perfil / trocar senha | ✅ | ✅ | ✅ |
+| Configurações (tags, temas, usuários) | ✅ | ❌ | ❌ |
+| `/auditoria` | ✅ | ❌ | ❌ |
+| `/analise` (métricas agregadas) | ✅ | ❌ | ❌ |
 
 ---
 
-## 4. Implementação técnica
+## 4. Busca cega (cadastro sem navegar a base)
 
-**Decoradores e Mixins do Django:**
+Para CG e Assessor cadastrarem/vincularem uma pessoa numa demanda **sem** poder navegar o acervo:
 
-- `@login_required` em todas as views autenticadas.
-- `@permission_required` ou `UserPassesTestMixin` para checagens de perfil.
-- Helpers customizados em `core/permissions.py`:
-  - `is_admin(user)` → True se grupo Administrador.
-  - `is_cg_or_above(user)` → True se ADM ou CG.
-  - `is_co_or_above(user)` → True se ADM, CG ou CO.
-  - `pode_ver_demanda(user, demanda)` → considera `restrito`, `responsavel`, coordenação.
-  - `pode_editar_demanda(user, demanda)` → considera atribuição e coordenação.
+1. O usuário digita telefone / CPF / nome.
+2. O sistema responde apenas: **"já existe um registro compatível — vincular?"** — sem exibir a ficha, sem listar, sem permitir navegação.
+3. Se existe, ele **vincula sem ver**. A ficha completa só aparece depois, no contexto da demanda ativa.
+4. Se não existe, ele cria com **cadastro mínimo**.
 
-**No model:**
-
-- `Demanda.objects.visiveis_para(user)` — manager method que retorna QuerySet filtrado conforme as regras de visibilidade do user.
-- `Pessoa.objects.ativas()` — filtra por `ativo=True`.
-
-**Em templates:**
-
-- `{% if user|tem_grupo:'Administrador' %}` (template tag customizado).
-- Botões de ação só aparecem se a permissão existe; clicar mesmo assim resulta em 403 server-side (defesa em profundidade).
+Preserva a deduplicação (ponto forte do MPD) sem expor a base. Substitui, para não-Admin, o autocomplete atual que exibe a ficha.
 
 ---
 
-## 5. Edge cases e regras especiais
+## 5. Implementação técnica
 
-### 5.1 Coordenador da própria coordenação
+Três camadas (defesa em profundidade) — falhar em uma não compromete a segurança:
 
-Quando se diz "Coord. Jurídico edita demandas da própria coordenação", a verificação é:
+1. **Template:** botões/links que o papel não pode usar não aparecem (export, `/analise`, `/auditoria`, listas de pessoas/entidades para não-Admin).
+2. **View:** `PermissionRequiredMixin` / `UserPassesTestMixin` + helpers de `core/permissoes.py` (`eh_admin`, `eh_cg_plus`, …) — **única** fonte de checagem de papel (ADR 0024/0048).
+3. **Model/QuerySet:** `Demanda.objects.visiveis_para(user)` (+ predicado Q reutilizável) centraliza a regra de visibilidade — vale para ORM, Admin, shell e API futura. Estendido na ADR 0059 para os 3 papéis e para o histórico-próprio-mascarado do Assessor.
 
-```python
-def pode_editar_demanda(user, demanda):
-    if user.groups.filter(name='Administrador').exists():
-        return True
-    if user.groups.filter(name='Chefe de Gabinete').exists():
-        return True
-    if user.groups.filter(name='Coordenador').exists():
-        return _coordenacao_do_usuario(user) == demanda.coordenacao_responsavel
-    if user.groups.filter(name='Assessor').exists():
-        return demanda.responsavel_id == user.id
-    return False
-```
-
-A função `_coordenacao_do_usuario(user)` infere a coordenação a partir do histórico. Em v1.x, isso pode virar campo explícito no perfil do usuário (`User.coordenacao`).
-
-### 5.2 Demanda anônima (sem partes identificadas)
-
-Demanda com `anonimo=TRUE` é visível por todos que poderiam ver demandas não-restritas. Não há regra adicional.
-
-### 5.3 Demanda com múltiplas partes
-
-Quando uma demanda tem várias pessoas e entidades vinculadas, as regras de visibilidade continuam se aplicando apenas sobre a demanda em si (via `restrito` e coordenação), não sobre as partes individualmente.
-
-### 5.4 Pessoa anonimizada por LGPD
-
-Pessoa com `anonimizado=TRUE` aparece em listagens com nome `"[Pessoa Removida]"`. Demandas vinculadas continuam visíveis (sem nome da pessoa), porque demandas têm valor histórico/estatístico próprio.
-
-### 5.5 Usuário desativado
-
-Usuário com `is_active=FALSE` não consegue logar. Suas atribuições anteriores em demandas permanecem (FK preservada). Demandas atribuídas a usuário desativado aparecem na lista como "responsável inativo" — sinal para reatribuir.
-
-### 5.6 Perfis em transição
-
-Quando um usuário muda de grupo (ex: Assessor é promovido a Coordenador), as demandas já atribuídas a ele permanecem. A nova lista "demandas da minha coordenação" passa a incluir mais demandas automaticamente.
+O **mascaramento** de partes no histórico do Assessor é responsabilidade da camada de apresentação (nome sim; ficha/contato não) sobre demandas que o manager já liberou como "próprias concluídas".
 
 ---
 
-## 6. Visibilidade pública
+## 6. Continuidade (risco do modelo)
 
-Apenas duas rotas públicas (sem login):
-
-- `/privacidade` — aviso de privacidade.
-- `/privacidade/solicitar` — formulário de solicitação LGPD (com rate limiting via `django-ratelimit`).
-- `/healthz` — JSON de status do sistema (não-listado).
-
-Nenhuma outra rota é acessível sem autenticação. Tentativas redirecionam para `/entrar?next=<url>`.
+Concentrar a visão total no Admin cria dependência de um único login. Por isso, são **críticos** (Fase 7):
+- **Backup testado** (restore verificado), com dados no Brasil (LGPD).
+- **Procedimento de recuperação da conta Admin** documentado.
 
 ---
 
-## 7. Auditoria de acessos
+## 7. Edge cases
 
-Todos os logins, falhas de login e logouts são registrados em log dedicado (`django-axes` ou similar, configurado em Fase 5):
-
-- Login bem-sucedido: usuário, IP, timestamp.
-- Login falho: email tentado, IP, timestamp.
-- Após 5 falhas em 10 minutos: rate limiting de 15 minutos para o IP.
-
-Acessos a recursos individuais (visualização de pessoa, demanda, interação) **não são logados** por padrão — geraria volume gigante. Se necessário, ativável via configuração.
+- **Demanda anônima** (`anonimo=True`): segue a regra normal de visibilidade da demanda; não há parte para mascarar.
+- **Pessoa anonimizada (LGPD)**: aparece como "[Pessoa removida]" onde quer que seja referenciada.
+- **Responsável desativado**: a demanda continua existindo; aparece para o Admin/CG para reatribuição.
+- **Assessor promovido/rebaixado**: muda de grupo; as demandas já atribuídas permanecem; a lista passa a refletir o novo papel.
 
 ---
 
-## 8. Princípio de defesa em profundidade
+## 8. Visibilidade pública
 
-Todas as verificações de permissão são feitas em **três camadas**:
-
-1. **Template:** botões e links que o usuário não pode usar não aparecem.
-2. **View:** decorator/mixin verifica permissão antes de processar.
-3. **Model/QuerySet:** managers customizados garantem que mesmo um acesso direto (Django Admin, shell, API futura) respeite as regras.
-
-Falhar em qualquer camada não compromete a segurança — as outras seguram.
+Sem login: `/healthz` (status, não-listado) e, na Fase 8, as rotas de privacidade/LGPD. Todo o resto redireciona para `/entrar?next=<url>`.
 
 ---
 
-*Atualizado quando regras mudam. Versão atual: planejamento, pré-Fase 1.*
+*Versão 2 (need-to-know) — ADR 0059, 2026-06-22. Supersede a v1 (colaborativo por default). Atualizar quando as regras mudarem (nova ADR).*

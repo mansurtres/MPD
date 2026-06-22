@@ -25,27 +25,10 @@ class UsuarioManager(BaseUserManager):
 class Usuario(AbstractUser):
     objects = UsuarioManager()
 
-    COORDENACAO_GABINETE = "gabinete"
-    COORDENACAO_JURIDICO = "juridico"
-    COORDENACAO_COMUNICACAO = "comunicacao"
-    COORDENACAO_CHOICES = [
-        (COORDENACAO_GABINETE, "Gabinete"),
-        (COORDENACAO_JURIDICO, "Jurídico"),
-        (COORDENACAO_COMUNICACAO, "Comunicação"),
-    ]
-
     username = models.CharField(max_length=150, unique=True, blank=True)
     email = models.EmailField("e-mail", unique=True)
     nome_completo = models.CharField("nome completo", max_length=200, blank=True)
     cargo = models.CharField("cargo", max_length=100, blank=True)
-    coordenacao = models.CharField(
-        "coordenação",
-        max_length=15,
-        choices=COORDENACAO_CHOICES,
-        blank=True,
-        default="",
-        help_text="Define escopo de visibilidade de demandas (ADR 0041).",
-    )
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
@@ -53,6 +36,9 @@ class Usuario(AbstractUser):
     class Meta:
         verbose_name = "usuário"
         verbose_name_plural = "usuários"
+        permissions = [
+            ("gerenciar_usuarios", "Pode gerenciar usuários da equipe"),
+        ]
 
     def __str__(self):
         return self.nome_completo or self.email

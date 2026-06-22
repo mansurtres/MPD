@@ -1,117 +1,240 @@
 {% extends "layouts/app.html" %}
 
 {% block app_conteudo %}
-<div class="flex items-center justify-between mb-2">
-  <h1 class="text-xl font-semibold text-slate-900">Encaminhamentos</h1>
-  {% if pode_exportar %}
-  <a href="{% url 'demandas:encaminhamento_export_csv' %}?{{ request.GET.urlencode }}" class="text-sm text-slate-700 hover:text-slate-900 underline">
-    Exportar CSV
-  </a>
-  {% endif %}
-</div>
-<p class="text-sm text-slate-500 mb-6">Leitura agregada dos encaminhamentos de todas as demandas. Clique numa linha para abrir a demanda associada — a edição acontece sempre lá.</p>
+<style>
+  /* ════════════════════════════════════════════════════════════════
+     LISTA DE ENCAMINHAMENTOS · colunas específicas. A estrutura
+     compartilhada (.quick-filters, .active-filters, .filtros-adv,
+     .ledger, .ledger-foot, .empty-state e a base de .badge) vive em
+     static/css/components.css, seção "LISTAS (ledger)".
+     ════════════════════════════════════════════════════════════════ */
 
-<div class="flex flex-wrap gap-2 mb-4 text-sm">
+  .lista-page td.col-demanda {
+    min-width: 220px;
+  }
+  .lista-page td.col-demanda .num {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--primary);
+    font-weight: var(--fw-semibold);
+    font-variant-numeric: tabular-nums;
+  }
+  .lista-page td.col-demanda .titulo {
+    display: block;
+    font-family: var(--font-sans);
+    font-size: 12px;
+    color: var(--ink-mute);
+    margin-top: 3px;
+    max-width: 240px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .lista-page td.col-demanda a { text-decoration: none; color: inherit; }
+  .lista-page td.col-demanda a:hover .num { text-decoration: underline; }
+
+  .lista-page td.col-encam { min-width: 260px; }
+  .lista-page td.col-encam .destino {
+    font-family: var(--font-sans);
+    font-size: 13.5px;
+    color: var(--ink);
+    font-weight: var(--fw-medium);
+  }
+  .lista-page td.col-encam .destino a { color: inherit; text-decoration: none; }
+  .lista-page td.col-encam .destino a:hover { color: var(--primary); }
+  .lista-page td.col-encam .sub {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--ink-mute);
+    margin-top: 3px;
+    display: block;
+  }
+
+  .lista-page td.col-when {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    white-space: nowrap;
+    text-align: right;
+    width: 120px;
+    font-variant-numeric: tabular-nums;
+  }
+  .lista-page td.col-when.warn { color: var(--warning-600); font-weight: var(--fw-semibold); }
+  .lista-page td.col-when.late { color: var(--danger-600); font-weight: var(--fw-bold); }
+  .lista-page td.col-when .venc {
+    display: block;
+    font-family: var(--font-sans);
+    font-size: 11px;
+    margin-top: 2px;
+  }
+  .lista-page td.col-when.late .venc { color: var(--danger-600); }
+  .lista-page td.col-when.warn .venc { color: var(--warning-600); }
+
+  /* Badges de status específicos de Encaminhamento */
+  .lista-page .badge.enc-enviado      { background: var(--info-50);    color: var(--info-700);    border-color: rgba(37,99,235,0.25); }
+  .lista-page .badge.enc-vencido      { background: var(--danger-50);  color: var(--danger-700);  border-color: rgba(185,28,28,0.25); }
+  .lista-page .badge.enc-resp-sat     { background: var(--rs-atend-bg); color: var(--rs-atend-fg); border-color: rgba(52,64,34,0.35); }
+  .lista-page .badge.enc-resp-insat   { background: var(--warning-50); color: var(--warning-700); border-color: rgba(180,83,9,0.3); }
+  .lista-page .badge.enc-sem-resposta { background: var(--surface-1);  color: var(--ink-soft);    border-color: var(--rule-strong); }
+</style>
+
+<div class="lista-page">
+
+<div class="page-head">
+  <div>
+    <div class="breadcrumb">
+      <a href="/" style="text-decoration:none;color:var(--ink-mute)">Início</a>
+      <span class="sep">/</span>
+      <span style="color:var(--primary);font-weight:var(--fw-semibold)">Encaminhamentos</span>
+    </div>
+    <h1>Encaminhamentos
+      {% if paginator %}
+      <span class="count"><strong>{{ paginator.count }}</strong> no total</span>
+      {% endif %}
+    </h1>
+  </div>
+  <div class="head-actions">
+    {% if pode_exportar %}
+    <a href="{% url 'demandas:encaminhamento_export_csv' %}?{{ request.GET.urlencode }}" class="btn secondary">Exportar CSV <span class="arr">↓</span></a>
+    {% endif %}
+  </div>
+</div>
+
+{# Quick filters (chips horizontais) #}
+<div class="quick-filters">
+  <span class="lbl">Visões</span>
   {% with f=filtro %}
-  <a href="?" class="px-3 py-1 rounded border {% if not f %}bg-slate-800 text-white border-slate-800{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-100{% endif %}">Todos</a>
-  <a href="?filtro=aguardando" class="px-3 py-1 rounded border {% if f == 'aguardando' %}bg-slate-800 text-white border-slate-800{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-100{% endif %}">Aguardando resposta</a>
-  <a href="?filtro=vencidos" class="px-3 py-1 rounded border {% if f == 'vencidos' %}bg-slate-800 text-white border-slate-800{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-100{% endif %}">Prazo vencido</a>
-  <a href="?filtro=respondidos_semana" class="px-3 py-1 rounded border {% if f == 'respondidos_semana' %}bg-slate-800 text-white border-slate-800{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-100{% endif %}">Respondidos esta semana</a>
+  <a href="?" class="chip {% if not f %}on{% endif %}">Todos</a>
+  <a href="?filtro=aguardando" class="chip {% if f == 'aguardando' %}on{% endif %}">Aguardando resposta</a>
+  <a href="?filtro=vencidos" class="chip alert {% if f == 'vencidos' %}on{% endif %}">Prazo vencido</a>
+  <a href="?filtro=respondidos_semana" class="chip {% if f == 'respondidos_semana' %}on{% endif %}">Respondidos esta semana</a>
   {% endwith %}
+  <button type="button" class="chip" id="toggle-filtros-adv" style="margin-left:auto;text-transform:none;font-family:var(--font-sans);font-weight:500">Filtros avançados ↓</button>
 </div>
 
-<form method="get" class="bg-white border border-slate-200 rounded-xl p-4 mb-4 flex flex-wrap items-end gap-3">
-  <div class="flex-1 min-w-[220px]">
-    <label class="block text-xs font-medium text-slate-600 mb-1">Buscar</label>
-    <input type="text" name="q" value="{{ q }}" placeholder="Órgão, número de doc, número da demanda..." class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400">
-  </div>
-  <div class="min-w-[160px]">
-    <label class="block text-xs font-medium text-slate-600 mb-1">Status</label>
-    <select name="status" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
-      <option value="">Todos</option>
-      {% for v, label in status_choices %}<option value="{{ v }}" {% if status_atual == v %}selected{% endif %}>{{ label }}</option>{% endfor %}
-    </select>
-  </div>
-  <div class="min-w-[200px]">
-    <label class="block text-xs font-medium text-slate-600 mb-1">Órgão</label>
-    <input type="text" name="orgao" value="{{ orgao_atual }}" list="lista-orgaos" placeholder="Ex.: Sesa" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
-    <datalist id="lista-orgaos">
-      {% for o in orgaos_distintos %}<option value="{{ o }}">{% endfor %}
-    </datalist>
-  </div>
-  <div class="min-w-[160px]">
-    <label class="block text-xs font-medium text-slate-600 mb-1">Tipo de documento</label>
-    <select name="tipo" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
-      <option value="">Todos</option>
-      {% for v, label in tipo_choices %}<option value="{{ v }}" {% if tipo_atual == v %}selected{% endif %}>{{ label }}</option>{% endfor %}
-    </select>
-  </div>
-  <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2 rounded-lg">Filtrar</button>
-</form>
+{# Filtros ativos (chips removíveis) #}
+{% if q or status_atual or orgao_atual or tipo_atual %}
+<div class="active-filters">
+  <span class="lbl">Filtros ativos</span>
+  {% if q %}<a class="fc" href="?">Busca: "{{ q }}" <span class="x">×</span></a>{% endif %}
+  {% if status_atual %}<a class="fc" href="?">Status: {{ status_atual }} <span class="x">×</span></a>{% endif %}
+  {% if orgao_atual %}<a class="fc" href="?">Órgão: {{ orgao_atual }} <span class="x">×</span></a>{% endif %}
+  {% if tipo_atual %}<a class="fc" href="?">Tipo: {{ tipo_atual }} <span class="x">×</span></a>{% endif %}
+  <a class="clear" href="?">Limpar tudo</a>
+</div>
+{% endif %}
 
-<div class="bg-white border border-slate-200 rounded-xl overflow-hidden">
-  {% if encaminhamentos %}
-  <table class="w-full text-sm">
+{# Filtros avançados (collapsible) #}
+<div class="filtros-adv" id="filtros-adv" {% if not q and not status_atual and not orgao_atual and not tipo_atual %}hidden{% endif %}>
+  <form method="get">
+    <div>
+      <label>Buscar</label>
+      <input type="text" name="q" value="{{ q }}" placeholder="Órgão, número de doc, número da demanda…">
+    </div>
+    <div>
+      <label>Status</label>
+      <select name="status">
+        <option value="">Todos</option>
+        {% for v, label in status_choices %}<option value="{{ v }}" {% if status_atual == v %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label>Órgão</label>
+      <input type="text" name="orgao" value="{{ orgao_atual }}" list="lista-orgaos" placeholder="Ex.: Sesa">
+      <datalist id="lista-orgaos">
+        {% for o in orgaos_distintos %}<option value="{{ o }}">{% endfor %}
+      </datalist>
+    </div>
+    <div>
+      <label>Tipo de documento</label>
+      <select name="tipo">
+        <option value="">Todos</option>
+        {% for v, label in tipo_choices %}<option value="{{ v }}" {% if tipo_atual == v %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn primary">Aplicar</button>
+  </form>
+</div>
+
+{# Tabela / Ledger ou Empty state #}
+{% if encaminhamentos %}
+<div class="ledger">
+  <table>
     <thead>
-      <tr class="border-b border-slate-200 bg-slate-50">
-        <th class="text-left px-4 py-3 font-medium text-slate-600">Demanda</th>
-        <th class="text-left px-4 py-3 font-medium text-slate-600">Encaminhamento</th>
-        <th class="text-left px-4 py-3 font-medium text-slate-600">Enviado</th>
-        <th class="text-left px-4 py-3 font-medium text-slate-600">Prazo</th>
-        <th class="text-left px-4 py-3 font-medium text-slate-600">Status</th>
+      <tr>
+        <th>Demanda</th>
+        <th>Encaminhamento</th>
+        <th>Enviado</th>
+        <th class="sorted" style="text-align:right">Prazo <span class="sort">↓</span></th>
+        <th>Status</th>
       </tr>
     </thead>
-    <tbody class="divide-y divide-slate-100">
+    <tbody>
       {% for e in encaminhamentos %}
-      <tr class="hover:bg-slate-50">
-        <td class="px-4 py-3 text-slate-600">
-          <a href="{% url 'demandas:demanda_detalhe' e.demanda.pk %}" class="hover:underline">
-            <span class="font-mono text-xs">{{ e.demanda.numero }}</span>
-            <div class="text-xs text-slate-500 mt-0.5 truncate max-w-[280px]">{{ e.demanda.titulo }}</div>
+      <tr onclick="window.location='{% url 'demandas:demanda_detalhe' e.demanda.slug_publico %}'">
+        <td class="col-demanda">
+          <a href="{% url 'demandas:demanda_detalhe' e.demanda.slug_publico %}" onclick="event.stopPropagation()">
+            <span class="num">{{ e.demanda.numero }}</span>
+            <span class="titulo">{{ e.demanda.titulo }}</span>
           </a>
         </td>
-        <td class="px-4 py-3">
-          <a href="{% url 'demandas:demanda_detalhe' e.demanda.pk %}" class="font-medium text-slate-900 hover:underline">
-            {{ e.get_tipo_documento_display }} → {{ e.destinatario_orgao }}
-          </a>
-          {% if e.numero_documento %}<div class="text-xs text-slate-500 mt-0.5">Nº {{ e.numero_documento }}</div>{% endif %}
-          {% if e.destinatario_pessoa %}<div class="text-xs text-slate-500">Contato: {{ e.destinatario_pessoa }}</div>{% endif %}
+        <td class="col-encam">
+          <span class="destino">
+            <a href="{% url 'demandas:demanda_detalhe' e.demanda.slug_publico %}" onclick="event.stopPropagation()">{{ e.get_tipo_documento_display }} → {{ e.destinatario_orgao }}</a>
+          </span>
+          {% if e.numero_documento %}<span class="sub">Nº {{ e.numero_documento }}</span>{% endif %}
+          {% if e.destinatario_pessoa %}<span class="sub">Contato: {{ e.destinatario_pessoa }}</span>{% endif %}
         </td>
-        <td class="px-4 py-3 text-slate-600 text-xs">{{ e.data_envio|date:"d/m/Y" }}</td>
-        <td class="px-4 py-3 text-xs">
+        <td style="font-family:var(--font-mono);font-size:12.5px;color:var(--ink-soft);white-space:nowrap">
+          {{ e.data_envio|date:"d/m/Y" }}
+        </td>
+        <td class="col-when{% if e.prazo_resposta and e.status == 'enviado' and e.prazo_resposta < hoje %} late{% endif %}">
           {% if e.prazo_resposta %}
+            {{ e.prazo_resposta|date:"d/m/Y" }}
             {% if e.status == 'enviado' and e.prazo_resposta < hoje %}
-              <span class="text-red-700 font-medium">{{ e.prazo_resposta|date:"d/m/Y" }} (vencido)</span>
-            {% else %}
-              <span class="text-slate-600">{{ e.prazo_resposta|date:"d/m/Y" }}</span>
+              <span class="venc">vencido</span>
             {% endif %}
           {% else %}
-            <span class="text-slate-400">—</span>
+            <span style="color:var(--ink-mute)">—</span>
           {% endif %}
         </td>
-        <td class="px-4 py-3">
-          {% if e.status == 'enviado' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">Enviado</span>
-          {% elif e.status == 'prazo_vencido' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700">Prazo vencido</span>
-          {% elif e.status == 'respondido_satisfatorio' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Respondido (sat.)</span>
-          {% elif e.status == 'respondido_insatisfatorio' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">Respondido (insat.)</span>
-          {% elif e.status == 'sem_resposta' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-200 text-slate-700">Sem resposta</span>{% endif %}
+        <td>
+          {% if e.status == 'enviado' %}<span class="badge enc-enviado"><span class="dot"></span>Enviado</span>
+          {% elif e.status == 'prazo_vencido' %}<span class="badge enc-vencido"><span class="dot"></span>Prazo vencido</span>
+          {% elif e.status == 'respondido_satisfatorio' %}<span class="badge enc-resp-sat"><span class="dot"></span>Respondido (sat.)</span>
+          {% elif e.status == 'respondido_insatisfatorio' %}<span class="badge enc-resp-insat"><span class="dot"></span>Respondido (insat.)</span>
+          {% elif e.status == 'sem_resposta' %}<span class="badge enc-sem-resposta"><span class="dot"></span>Sem resposta</span>{% endif %}
         </td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
-  {% else %}
-  <div class="px-4 py-12 text-center text-sm text-slate-500">Nenhum encaminhamento encontrado.</div>
-  {% endif %}
-</div>
 
-{% if is_paginated %}
-<div class="flex items-center justify-between mt-4 text-sm text-slate-600">
-  <span>Página {{ page_obj.number }} de {{ paginator.num_pages }}</span>
-  <div class="flex gap-2">
-    {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-1 rounded border border-slate-300 hover:bg-slate-100">Anterior</a>{% endif %}
-    {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="px-3 py-1 rounded border border-slate-300 hover:bg-slate-100">Próxima</a>{% endif %}
+  <div class="ledger-foot">
+    <div class="info">
+      {% if is_paginated %}
+        Mostrando <strong>{{ page_obj.start_index }}–{{ page_obj.end_index }}</strong> de <strong>{{ paginator.count }}</strong> encaminhamento{{ paginator.count|pluralize }}
+      {% else %}
+        <strong>{{ encaminhamentos|length }}</strong> encaminhamento{{ encaminhamentos|length|pluralize }}
+      {% endif %}
+    </div>
+    {% if is_paginated %}
+    <div class="pages">
+      {% if page_obj.has_previous %}<a href="?{% if request.GET.urlencode %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.previous_page_number }}">← Anterior</a>{% endif %}
+      <a class="on" href="?{% if request.GET.urlencode %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.number }}">{{ page_obj.number }}</a>
+      {% if page_obj.has_next %}<a href="?{% if request.GET.urlencode %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.next_page_number }}">Próxima →</a>{% endif %}
+    </div>
+    {% endif %}
   </div>
 </div>
+{% else %}
+<div class="empty-state">
+  <div class="icon-area">◌</div>
+  <h3>{% if filtro or q or status_atual or orgao_atual or tipo_atual %}Nenhum encaminhamento encontrado{% else %}Nenhum encaminhamento registrado{% endif %}</h3>
+  <p class="desc">{% if filtro or q or status_atual or orgao_atual or tipo_atual %}Tente ajustar os filtros ou limpar a busca para ver outros resultados.{% else %}Os encaminhamentos aparecem aqui automaticamente quando são criados dentro de uma demanda.{% endif %}</p>
+</div>
 {% endif %}
+
+</div>
+
 {% endblock %}

@@ -15,7 +15,7 @@ from django.dispatch import receiver
 
 from core.utils import formatar_cep, formatar_cnpj, formatar_cpf, somente_digitos
 
-from .models import EmailPessoa, Entidade, Pessoa, RedeSocial, Telefone
+from .models import EmailContato, Entidade, Pessoa, RedeSocial, Site, Telefone
 
 
 @receiver(pre_save, sender=Pessoa)
@@ -28,8 +28,9 @@ def normalizar_pessoa(sender, instance, **kwargs):
 
 @receiver(pre_save, sender=Entidade)
 def normalizar_entidade(sender, instance, **kwargs):
+    # Canais (email/telefone/site) migraram para models plurais via ADR 0057;
+    # normalização específica de cada canal ficou nos respectivos signals.
     instance.cnpj = formatar_cnpj(instance.cnpj)
-    instance.telefone = somente_digitos(instance.telefone)
     instance.cep = formatar_cep(instance.cep)
     if instance.estado:
         instance.estado = instance.estado.upper()
@@ -40,7 +41,7 @@ def normalizar_telefone(sender, instance, **kwargs):
     instance.numero = somente_digitos(instance.numero)
 
 
-@receiver(pre_save, sender=EmailPessoa)
+@receiver(pre_save, sender=EmailContato)
 def normalizar_email(sender, instance, **kwargs):
     instance.endereco = (instance.endereco or "").strip().lower()
 
@@ -48,3 +49,8 @@ def normalizar_email(sender, instance, **kwargs):
 @receiver(pre_save, sender=RedeSocial)
 def normalizar_rede_social(sender, instance, **kwargs):
     instance.valor = (instance.valor or "").strip().lstrip("@")
+
+
+@receiver(pre_save, sender=Site)
+def normalizar_site(sender, instance, **kwargs):
+    instance.url = (instance.url or "").strip()

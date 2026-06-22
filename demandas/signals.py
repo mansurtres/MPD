@@ -121,8 +121,6 @@ def _nome_usuario(uid):
         return "[usuário removido]"
 
 
-# Anexos polimórficos: GenericForeignKey não cascateia no banco. Antes de
-# deletar Pessoa/Entidade/Demanda/Encaminhamento, removemos os anexos órfãos.
 # --- Transições automáticas de status da Demanda (ADR 0044) ---
 
 # Tipos de Interacao que NÃO devem disparar avanço de status (são geradas
@@ -192,6 +190,8 @@ def _limpar_anexos_de(modelo):
     return handler
 
 
+# Anexos polimórficos: GenericForeignKey não cascateia no banco. Antes de
+# deletar Pessoa/Entidade/Demanda/Encaminhamento, removemos os anexos órfãos.
 def _setup_anexos_orfaos():
     """Liga pre_delete dos modelos pais para limpar anexos polimórficos.
     GenericForeignKey não cascateia no banco — precisamos fazer manualmente.
@@ -199,7 +199,7 @@ def _setup_anexos_orfaos():
     Encaminhamento já cascateia via FK pra Demanda; mas se for deletado
     isolado, anexos próprios também devem sumir.
     """
-    from pessoas.models import Entidade, Pessoa
+    from pessoas.models import Entidade, Pessoa  # deferred: app-load circularity
 
     for modelo in (Demanda, Pessoa, Entidade, Encaminhamento):
         pre_delete.connect(_limpar_anexos_de(modelo), sender=modelo, weak=False)

@@ -1,198 +1,401 @@
 {% extends "base.html" %}
 
 {% block conteudo %}
-<div class="min-h-screen flex flex-col bg-slate-50">
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="/">
+      <span class="mark">M</span>
+      <span class="name">MPD</span>
+      <span class="tag">{{ NOME_CURTO_DO_MANDATO|default:"Gabinete" }}</span>
+    </a>
 
-  <nav class="bg-white border-b border-slate-200">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex items-center justify-between h-14">
-        <div class="flex items-center gap-6">
-          <a href="/" class="font-semibold text-slate-800 tracking-tight">{{ NOME_CURTO_DO_MANDATO }}</a>
-          <div class="flex items-center gap-4">
-            <a href="{% url 'demandas:inbox_lista' %}" class="text-sm text-slate-600 hover:text-slate-900">
-              Inbox
-              {% if topbar_inbox_pendentes %}<span class="relative -top-px px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-200 text-red-800 ring-1 ring-red-800">{{ topbar_inbox_pendentes }}</span>{% endif %}
-            </a>
-            {% if perms.pessoas.view_pessoa %}
-            <a href="{% url 'pessoas:pessoa_lista' %}" class="text-sm text-slate-600 hover:text-slate-900">Pessoas</a>
-            {% endif %}
-            {% if perms.pessoas.view_entidade %}
-            <a href="{% url 'pessoas:entidade_lista' %}" class="text-sm text-slate-600 hover:text-slate-900">Entidades</a>
-            {% endif %}
-            {% if perms.demandas.view_demanda %}
-            <a href="{% url 'demandas:demanda_lista' %}" class="text-sm text-slate-600 hover:text-slate-900">Demandas</a>
-            {% endif %}
-            {% if perms.demandas.view_encaminhamento %}
-            <a href="{% url 'demandas:encaminhamento_lista' %}" class="text-sm text-slate-600 hover:text-slate-900">Encaminhamentos</a>
-            {% endif %}
-            <a href="{% url 'demandas:minhas_pendencias' %}" class="text-sm text-slate-600 hover:text-slate-900">
-              Pendências
-              {% if topbar_pendencias_vencidas %}<span class="relative -top-px px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-200 text-red-800 ring-1 ring-red-800">{{ topbar_pendencias_vencidas }}</span>{% endif %}
-            </a>
-            <a href="{% url 'core:configuracoes' %}" class="text-sm text-slate-600 hover:text-slate-900">Configurações</a>
-          </div>
-        </div>
-        <div class="flex items-center gap-5">
-          <span class="text-sm text-slate-500">{{ request.user.nome_completo|default:request.user.email }}</span>
-          <a href="{% url 'accounts:perfil' %}" class="text-sm text-slate-600 hover:text-slate-900">Perfil</a>
-          {% if request.user.is_staff %}
-          <a href="{% url 'accounts:usuarios_lista' %}" class="text-sm text-slate-600 hover:text-slate-900">Usuários</a>
+    <div class="search-wrap">
+      <form class="search-global" role="search" autocomplete="off" onsubmit="return false;">
+        <span class="icon">⌕</span>
+        <input type="search" id="busca-global-input"
+               placeholder="Buscar pessoa, demanda, D-AAMM-NNNNN…"
+               aria-label="Busca global"
+               aria-autocomplete="list"
+               aria-controls="busca-global-dropdown"
+               aria-expanded="false"
+               autocomplete="off">
+        <span class="kbd" title="Pressione / para focar a busca">/</span>
+      </form>
+      <div id="busca-global-dropdown" class="busca-dropdown hidden" role="listbox"></div>
+    </div>
+
+    <div class="topbar-right">
+      <nav>
+        <a href="{% url 'demandas:inbox_lista' %}">
+          Inbox
+          <span class="badge-count" id="topbar-badge-inbox" {% if not topbar_inbox_pendentes %}hidden{% endif %}>{{ topbar_inbox_pendentes|default:0 }}</span>
+        </a>
+        {% if perms.demandas.view_demanda %}
+        <a href="{% url 'demandas:demanda_lista' %}">Demandas</a>
+        {% endif %}
+        {% if papel_eh_admin %}
+        <a href="{% url 'pessoas:pessoa_lista' %}">Pessoas</a>
+        <a href="{% url 'pessoas:entidade_lista' %}">Entidades</a>
+        {% endif %}
+        {% if perms.demandas.view_encaminhamento %}
+        <a href="{% url 'demandas:encaminhamento_lista' %}">Encaminhamentos</a>
+        {% endif %}
+        <a href="{% url 'demandas:minhas_pendencias' %}">
+          Pendências
+          {% if topbar_pendencias_vencidas %}<span class="badge-count alert">{{ topbar_pendencias_vencidas }}</span>{% endif %}
+        </a>
+        {% if papel_eh_admin %}
+        <a href="{% url 'core:analise' %}">Análise</a>
+        {% endif %}
+        {% if papel_eh_admin %}
+        <a href="{% url 'core:auditoria' %}">Auditoria</a>
+        {% endif %}
+      </nav>
+      <div class="divider"></div>
+      <div class="me-wrap">
+        {% with nome=request.user.nome_completo|default:request.user.email %}
+        <button type="button" id="me-trigger" class="me" aria-haspopup="menu" aria-expanded="false" aria-controls="me-dropdown" title="{{ nome }}">
+          <span class="av" aria-hidden="true">{{ nome|slice:":1"|upper }}{{ request.user.email|slice:":1"|upper }}</span>
+          <span class="me-text">
+            <span class="who">{{ nome }}</span>
+            <span class="role">{% if papel_eh_admin %}Admin{% elif papel_eh_chefe %}Chefe de Gabinete{% else %}Assessor{% endif %}</span>
+          </span>
+          <span class="caret" aria-hidden="true">▾</span>
+        </button>
+        <div id="me-dropdown" class="me-dropdown hidden" role="menu" aria-labelledby="me-trigger">
+          <a href="{% url 'accounts:perfil' %}" role="menuitem">Perfil</a>
+          {% if papel_eh_admin %}
+          <a href="{% url 'core:configuracoes' %}" role="menuitem">Configurações</a>
           {% endif %}
-          <form method="post" action="{% url 'accounts:logout' %}" class="inline">
+          <div class="sep" role="none"></div>
+          <form method="post" action="{% url 'accounts:logout' %}" role="none">
             {% csrf_token %}
-            <button type="submit" class="text-sm text-slate-600 hover:text-slate-900 cursor-pointer">Sair</button>
+            <button type="submit" role="menuitem" class="me-logout">Sair</button>
           </form>
         </div>
-      </div>
-    </div>
-  </nav>
-
-  {% if messages %}
-  <div class="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-4 space-y-2">
-    {% for message in messages %}
-    <div class="px-4 py-3 rounded-md text-sm border
-      {% if message.tags == 'success' %}bg-green-50 text-green-800 border-green-200
-      {% elif message.tags == 'error' %}bg-red-50 text-red-800 border-red-200
-      {% elif message.tags == 'warning' %}bg-yellow-50 text-yellow-800 border-yellow-200
-      {% else %}bg-blue-50 text-blue-800 border-blue-200{% endif %}">
-      {{ message }}
-    </div>
-    {% endfor %}
-  </div>
-  {% endif %}
-
-  <main class="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
-    {% block app_conteudo %}{% endblock %}
-  </main>
-
-  {# FAB de captura rápida (Fase 5) — sempre visível para usuário logado. #}
-  <button type="button" id="captura-fab" title="Captura rápida (Ctrl+K)"
-          class="fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-slate-800 hover:bg-slate-700 text-white text-2xl shadow-lg flex items-center justify-center">
-    +
-  </button>
-
-  {# Modal de captura rápida (Fase 5). Abre via Ctrl+K, FAB ou outros gatilhos. #}
-  <div id="captura-modal" class="hidden fixed inset-0 z-50">
-    <div class="absolute inset-0 bg-slate-900/40" id="captura-backdrop"></div>
-    <div class="absolute inset-x-0 top-24 mx-auto max-w-2xl px-4">
-      <div class="bg-white rounded-xl shadow-2xl">
-        <div id="captura-header" class="px-6 py-3 border-b border-slate-200 flex items-center justify-between">
-          <h3 class="text-base font-semibold text-slate-900">Captura rápida</h3>
-          <span class="text-xs text-slate-500">Enter envia · Shift+Enter quebra linha · Esc fecha</span>
-        </div>
-        <form method="post" action="{% url 'demandas:inbox_capturar' %}?ajax=1" id="captura-form" class="px-6 py-4 space-y-3">
-          {% csrf_token %}
-          <textarea name="conteudo" id="captura-textarea" rows="4" required autofocus
-                    placeholder="Anote a ideia, lembrete, demanda potencial. Triagem depois."
-                    class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"></textarea>
-          <div id="captura-erro" class="hidden text-xs text-red-600"></div>
-          <div class="flex items-center justify-end">
-            <div class="flex gap-2">
-              <button type="button" data-close-captura class="text-sm text-slate-500 hover:text-slate-800 px-3 py-1.5">Cancelar</button>
-              <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-4 py-1.5 rounded-lg">Capturar</button>
-            </div>
-          </div>
-        </form>
-        <div id="captura-sucesso" class="hidden px-6 py-10 text-center">
-          <div class="mx-auto w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mb-3">
-            <svg class="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-          <p class="text-lg font-semibold text-slate-900">Capturado no inbox</p>
-          <p class="text-sm text-slate-500 mt-1">Triagem depois.</p>
-        </div>
+        {% endwith %}
       </div>
     </div>
   </div>
+</header>
 
-  <script>
-  (function() {
-    const modal = document.getElementById('captura-modal');
-    const fab = document.getElementById('captura-fab');
-    const form = document.getElementById('captura-form');
-    const ta = document.getElementById('captura-textarea');
-    const errBox = document.getElementById('captura-erro');
-    const header = document.getElementById('captura-header');
-    const sucesso = document.getElementById('captura-sucesso');
-    const backdrop = document.getElementById('captura-backdrop');
-
-    function open() {
-      modal.classList.remove('hidden');
-      document.body.classList.add('overflow-hidden');
-      setTimeout(() => ta.focus(), 30);
-    }
-    function resetCaptura() {
-      header.classList.remove('hidden');
-      form.classList.remove('hidden');
-      sucesso.classList.add('hidden');
-      ta.value = '';
-      errBox.classList.add('hidden');
-    }
-    function close() {
-      modal.classList.add('hidden');
-      document.body.classList.remove('overflow-hidden');
-      resetCaptura();
-    }
-    function mostrarSucesso() {
-      header.classList.add('hidden');
-      form.classList.add('hidden');
-      sucesso.classList.remove('hidden');
-    }
-    fab.addEventListener('click', open);
-    backdrop.addEventListener('click', close);
-    document.querySelectorAll('[data-close-captura]').forEach(el => el.addEventListener('click', close));
-    document.addEventListener('keydown', e => {
-      // Ctrl+K / Cmd+K abre
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
-        e.preventDefault();
-        open();
-        return;
-      }
-      // Esc fecha
-      if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
-        close();
-        return;
-      }
-    });
-    // Enter no textarea envia; Shift+Enter quebra linha
-    ta.addEventListener('keydown', e => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        form.requestSubmit();
-      }
-    });
-    form.addEventListener('submit', async e => {
-      e.preventDefault();
-      errBox.classList.add('hidden');
-      const fd = new FormData(form);
-      try {
-        const resp = await fetch(form.action, {
-          method: 'POST',
-          body: fd,
-          headers: {'HX-Request': 'true'},
-        });
-        if (resp.ok) {
-          const inboxPath = "{% url 'demandas:inbox_lista' %}";
-          if (window.location.pathname === inboxPath) {
-            close();
-            window.location.reload();
-          } else {
-            mostrarSucesso();
-            setTimeout(close, 1100);
-          }
-        } else {
-          const data = await resp.json().catch(() => ({}));
-          errBox.textContent = data.errors ? Object.values(data.errors).flat().join('; ') : 'Erro ao capturar.';
-          errBox.classList.remove('hidden');
-        }
-      } catch (err) {
-        errBox.textContent = 'Erro de rede.';
-        errBox.classList.remove('hidden');
-      }
-    });
-  })();
-  </script>
-
+{% if messages %}
+<div class="page" style="padding-top: 16px; padding-bottom: 0;">
+  {% for message in messages %}
+  <div class="msg {% if message.tags == 'success' %}success{% elif message.tags == 'error' %}error{% elif message.tags == 'warning' %}warning{% else %}info{% endif %}">
+    {{ message }}
+  </div>
+  {% endfor %}
 </div>
+{% endif %}
+
+<main class="page">
+  {% block app_conteudo %}{% endblock %}
+</main>
+
+<button type="button" id="captura-fab" class="fab" title="Captura rápida (Ctrl+K)" aria-label="Captura rápida (Ctrl+K)">+</button>
+
+<div id="captura-modal" class="captura-modal hidden">
+  <div class="captura-backdrop" id="captura-backdrop"></div>
+  <div class="captura-shell">
+    <div class="captura-card">
+      <div class="captura-header" id="captura-header">
+        <h3>Captura rápida</h3>
+        <span class="hint">Enter envia · Shift+Enter quebra linha · Esc fecha</span>
+      </div>
+      <form method="post" action="{% url 'demandas:inbox_capturar' %}?ajax=1" id="captura-form" class="captura-form">
+        {% csrf_token %}
+        <textarea name="conteudo" id="captura-textarea" rows="4" required autofocus
+                  placeholder="Anote a ideia, lembrete, demanda potencial. Triagem depois."></textarea>
+        <div id="captura-erro" class="erro" style="display:none"></div>
+        <div class="actions">
+          <button type="button" data-close-captura class="btn ghost">Cancelar</button>
+          <button type="submit" class="btn primary">Capturar</button>
+        </div>
+      </form>
+      <div id="captura-sucesso" class="captura-sucesso" style="display:none">
+        <div class="check">✓</div>
+        <p class="ttl">Capturado no inbox</p>
+        <p class="sub">triagem depois.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const modal = document.getElementById('captura-modal');
+  const fab = document.getElementById('captura-fab');
+  const form = document.getElementById('captura-form');
+  const ta = document.getElementById('captura-textarea');
+  const errBox = document.getElementById('captura-erro');
+  const header = document.getElementById('captura-header');
+  const sucesso = document.getElementById('captura-sucesso');
+  const backdrop = document.getElementById('captura-backdrop');
+
+  function open() {
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => ta.focus(), 30);
+  }
+  function resetCaptura() {
+    header.style.display = '';
+    form.style.display = '';
+    sucesso.style.display = 'none';
+    ta.value = '';
+    errBox.style.display = 'none';
+  }
+  function close() {
+    modal.classList.add('hidden');
+    document.body.style.overflow = '';
+    resetCaptura();
+  }
+  function mostrarSucesso() {
+    header.style.display = 'none';
+    form.style.display = 'none';
+    sucesso.style.display = 'block';
+  }
+  fab.addEventListener('click', open);
+  backdrop.addEventListener('click', close);
+  document.querySelectorAll('[data-close-captura]').forEach(el => el.addEventListener('click', close));
+  document.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+      e.preventDefault();
+      open();
+      return;
+    }
+    if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+      close();
+      return;
+    }
+  });
+  ta.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      form.requestSubmit();
+    }
+  });
+  const meTrigger = document.getElementById('me-trigger');
+  const meDropdown = document.getElementById('me-dropdown');
+  function meOpen() {
+    meDropdown.classList.remove('hidden');
+    meTrigger.setAttribute('aria-expanded', 'true');
+  }
+  function meClose() {
+    meDropdown.classList.add('hidden');
+    meTrigger.setAttribute('aria-expanded', 'false');
+  }
+  meTrigger.addEventListener('click', e => {
+    e.stopPropagation();
+    if (meDropdown.classList.contains('hidden')) meOpen(); else meClose();
+  });
+  document.addEventListener('click', e => {
+    if (meDropdown.classList.contains('hidden')) return;
+    if (!meDropdown.contains(e.target) && e.target !== meTrigger) meClose();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !meDropdown.classList.contains('hidden')) meClose();
+  });
+
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    errBox.style.display = 'none';
+    const fd = new FormData(form);
+    try {
+      const resp = await fetch(form.action, {
+        method: 'POST',
+        body: fd,
+        headers: {'HX-Request': 'true'},
+      });
+      if (resp.ok) {
+        const data = await resp.json().catch(() => ({}));
+        if (typeof data.inbox_pendentes === 'number') {
+          window.MPDAtualizarBadgeInbox(data.inbox_pendentes);
+        }
+        const inboxPath = "{% url 'demandas:inbox_lista' %}";
+        if (window.location.pathname === inboxPath) {
+          close();
+          window.location.reload();
+        } else {
+          mostrarSucesso();
+          setTimeout(close, 1100);
+        }
+      } else {
+        const data = await resp.json().catch(() => ({}));
+        errBox.textContent = data.errors ? Object.values(data.errors).flat().join('; ') : 'Erro ao capturar.';
+        errBox.style.display = 'block';
+      }
+    } catch (err) {
+      errBox.textContent = 'Erro de rede.';
+      errBox.style.display = 'block';
+    }
+  });
+})();
+
+// Helper global: atualiza o badge "Inbox" na topbar após capturar via AJAX.
+// Usado tanto pelo modal Ctrl+K quanto pelo composer da home.
+window.MPDAtualizarBadgeInbox = function(n) {
+  const badge = document.getElementById('topbar-badge-inbox');
+  if (!badge) return;
+  badge.textContent = String(n);
+  if (n > 0) badge.removeAttribute('hidden');
+  else badge.setAttribute('hidden', '');
+};
+</script>
+
+<script>
+// ─── Busca global do topbar ─────────────────────────────────────────────
+// Input ao digitar (debounce 200ms) consulta /buscar.json e renderiza
+// dropdown agrupado por categoria. Atalho: Ctrl+/ ou / quando fora de campo
+// editável foca o input. Setas ↑↓ navegam; Enter abre o item ativo; Esc fecha.
+(function() {
+  const input = document.getElementById('busca-global-input');
+  const dropdown = document.getElementById('busca-global-dropdown');
+  if (!input || !dropdown) return;
+
+  let timer = null;
+  let itemAtivo = -1;
+  let itensAtuais = [];
+  const endpoint = "{% url 'core:buscar_global' %}";
+
+  function escape(s) {
+    return String(s).replace(/[&<>"']/g, c => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;',
+    })[c]);
+  }
+  function destacar(texto, termo) {
+    if (!termo) return escape(texto);
+    const t = escape(texto);
+    const re = new RegExp('(' + termo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'ig');
+    return t.replace(re, '<mark>$1</mark>');
+  }
+
+  function fechar() {
+    dropdown.classList.add('hidden');
+    input.setAttribute('aria-expanded', 'false');
+    itemAtivo = -1;
+  }
+  function abrir() {
+    dropdown.classList.remove('hidden');
+    input.setAttribute('aria-expanded', 'true');
+  }
+
+  function render(resultados, termo) {
+    if (!resultados.length) {
+      if (termo.length < 2) {
+        dropdown.innerHTML = '<div class="dica">Digite pelo menos 2 caracteres. <kbd>↑</kbd><kbd>↓</kbd> para navegar, <kbd>Enter</kbd> para abrir, <kbd>Esc</kbd> para fechar.</div>';
+      } else {
+        dropdown.innerHTML = '<div class="vazio">Nenhum resultado para "' + escape(termo) + '".</div>';
+      }
+      itensAtuais = [];
+      abrir();
+      return;
+    }
+
+    // Agrupa por categoria preservando ordem da resposta
+    const grupos = {};
+    const ordem = [];
+    resultados.forEach(r => {
+      if (!grupos[r.categoria]) { grupos[r.categoria] = []; ordem.push(r.categoria); }
+      grupos[r.categoria].push(r);
+    });
+
+    let html = '';
+    itensAtuais = [];
+    ordem.forEach(cat => {
+      html += '<div class="grupo-h">' + escape(cat) + '<span class="ct">' + grupos[cat].length + '</span></div>';
+      grupos[cat].forEach(r => {
+        const idx = itensAtuais.length;
+        itensAtuais.push(r);
+        html += '<a class="item" data-idx="' + idx + '" href="' + escape(r.url) + '">'
+              +   '<div class="lbl">' + destacar(r.label, termo) + '</div>'
+              +   (r.sublabel ? '<div class="sub">' + destacar(r.sublabel, termo) + '</div>' : '')
+              + '</a>';
+      });
+    });
+    dropdown.innerHTML = html;
+    itemAtivo = -1;
+    abrir();
+
+    dropdown.querySelectorAll('.item').forEach(el => {
+      el.addEventListener('mouseenter', () => {
+        dropdown.querySelectorAll('.item').forEach(i => i.classList.remove('active'));
+        itemAtivo = parseInt(el.dataset.idx, 10);
+        el.classList.add('active');
+      });
+    });
+  }
+
+  function buscar(q) {
+    clearTimeout(timer);
+    if (q.length < 2) {
+      render([], q);
+      return;
+    }
+    timer = setTimeout(async () => {
+      try {
+        const resp = await fetch(endpoint + '?q=' + encodeURIComponent(q));
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const data = await resp.json();
+        render(data.resultados || [], data.termo || q);
+      } catch (err) {
+        dropdown.innerHTML = '<div class="erro">Erro ao buscar.</div>';
+        abrir();
+      }
+    }, 200);
+  }
+
+  input.addEventListener('input', () => buscar(input.value.trim()));
+  input.addEventListener('focus', () => {
+    if (input.value.trim().length >= 2) buscar(input.value.trim());
+    else render([], input.value.trim());
+  });
+
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { fechar(); input.blur(); return; }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (!itensAtuais.length) return;
+      itemAtivo = (itemAtivo + 1) % itensAtuais.length;
+      atualizarAtivo();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!itensAtuais.length) return;
+      itemAtivo = itemAtivo <= 0 ? itensAtuais.length - 1 : itemAtivo - 1;
+      atualizarAtivo();
+    } else if (e.key === 'Enter') {
+      if (itemAtivo >= 0 && itensAtuais[itemAtivo]) {
+        e.preventDefault();
+        window.location = itensAtuais[itemAtivo].url;
+      } else if (itensAtuais.length === 1) {
+        e.preventDefault();
+        window.location = itensAtuais[0].url;
+      }
+    }
+  });
+
+  function atualizarAtivo() {
+    const items = dropdown.querySelectorAll('.item');
+    items.forEach(i => i.classList.remove('active'));
+    const el = items[itemAtivo];
+    if (el) {
+      el.classList.add('active');
+      el.scrollIntoView({block: 'nearest'});
+    }
+  }
+
+  // Click fora fecha
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.search-wrap')) fechar();
+  });
+
+  // Atalho: "/" foca o input quando não está em campo editável
+  document.addEventListener('keydown', e => {
+    if (e.key === '/' && !['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)) {
+      e.preventDefault();
+      input.focus();
+    }
+  });
+})();
+</script>
 {% endblock %}

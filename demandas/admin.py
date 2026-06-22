@@ -32,10 +32,9 @@ class DemandaAdmin(admin.ModelAdmin):
         "status",
         "resultado",
         "responsavel",
-        "coordenacao_responsavel",
         "criado_em",
     ]
-    list_filter = ["status", "resultado", "coordenacao_responsavel", "origem", "restrito"]
+    list_filter = ["status", "resultado", "origem"]
     search_fields = ["numero", "titulo", "descricao"]
     readonly_fields = ["numero", "criado_em", "atualizado_em", "arquivado_em"]
     autocomplete_fields = ["responsavel", "criado_por"]
@@ -48,7 +47,7 @@ class DemandaAdmin(admin.ModelAdmin):
         ("Estado", {"fields": ("status", "resultado", "resultado_observacao", "prioridade")}),
         (
             "Atribuição",
-            {"fields": ("responsavel", "coordenacao_responsavel", "restrito", "prazo")},
+            {"fields": ("responsavel", "prazo")},
         ),
         (
             "Arquivamento",

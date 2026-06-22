@@ -1,0 +1,1022 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>MPD · Editar MPD-2026-00342</title>
+<meta name="viewport" content="width=1400">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  body { background: var(--bg); }
+  .page { max-width: 1360px; margin: 32px auto 80px; padding: 0 28px; }
+
+  .doc {
+    background: var(--paper);
+    box-shadow: 0 1px 0 rgba(0,0,0,0.04), 0 16px 40px -24px rgba(60,50,30,0.22);
+  }
+
+  /* Cabeçalho */
+  .doc-head {
+    border-top: 6px solid var(--navy);
+    padding: 26px 36px 22px;
+    border-bottom: 1px solid var(--rule);
+    background: linear-gradient(180deg, var(--paper), var(--paper-2));
+  }
+  .doc-head .breadcrumb {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-bottom: 14px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .doc-head .breadcrumb .sep { color: var(--rule-strong); }
+  .doc-head .breadcrumb .here { color: var(--navy); font-weight: 600; }
+  .doc-head .breadcrumb a { text-decoration: none; }
+  .doc-head .breadcrumb .draft {
+    margin-left: auto;
+    background: var(--paper-2);
+    border: 1px solid var(--rule-strong);
+    padding: 2px 8px;
+    color: var(--ink-soft);
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .doc-head .breadcrumb .draft strong { color: var(--olive); }
+
+  .doc-head .row1 {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 24px;
+    align-items: end;
+  }
+  .doc-head h1 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 36px;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    margin: 0 0 4px;
+    color: var(--ink);
+  }
+  .doc-head .sub {
+    font-family: var(--serif);
+    font-size: 16px;
+    color: var(--ink-soft);
+    font-style: italic;
+    margin: 0;
+  }
+  .doc-head .sub .num {
+    font-family: var(--mono);
+    font-size: 14px;
+    font-style: normal;
+    color: var(--ink-mute);
+    margin-left: 6px;
+    background: var(--paper-2);
+    padding: 2px 8px;
+    border: 1px solid var(--rule-strong);
+  }
+
+  .doc-head .head-actions { display: flex; gap: 8px; }
+
+  /* Botões */
+  .btn {
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 16px;
+    border: 1px solid var(--rule-strong);
+    background: var(--paper);
+    color: var(--ink);
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn:hover { background: #fff; border-color: var(--ink); }
+  .btn.primary { background: var(--navy); border-color: var(--navy); color: #fff; }
+  .btn.primary:hover { background: var(--navy-deep); }
+  .btn.ghost { background: transparent; }
+  .btn.danger { color: var(--bordo); border-color: var(--bordo); }
+
+  /* Origem segmentada — destaque do tipo da demanda */
+  .origem-strip {
+    background: var(--paper-2);
+    border-bottom: 1px solid var(--rule);
+    padding: 14px 36px;
+    display: flex; gap: 18px; align-items: center;
+  }
+  .origem-strip .lbl {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+  }
+  .origem-segment {
+    display: flex; gap: 0;
+    border: 1px solid var(--navy);
+  }
+  .origem-segment label {
+    padding: 8px 18px;
+    font-family: var(--sans);
+    font-size: 13px;
+    color: var(--navy);
+    cursor: pointer;
+    border-right: 1px solid var(--navy);
+    display: flex; align-items: center; gap: 8px;
+    background: var(--paper);
+  }
+  .origem-segment label:last-child { border-right: 0; }
+  .origem-segment label.on {
+    background: var(--navy);
+    color: var(--paper);
+    font-weight: 600;
+  }
+  .origem-segment label .desc {
+    font-family: var(--serif);
+    font-size: 12px;
+    font-style: italic;
+    opacity: 0.85;
+    margin-left: 6px;
+    font-weight: 400;
+  }
+  .origem-segment input { display: none; }
+  .origem-strip .anonimo {
+    margin-left: auto;
+    font-family: var(--sans);
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .origem-strip .anonimo input { accent-color: var(--navy); }
+
+  /* Corpo 2-col */
+  .doc-body { display: grid; grid-template-columns: 1fr 360px; }
+  .body-main { padding: 32px 36px 40px; border-right: 1px solid var(--rule); }
+  .body-side { padding: 32px 28px 40px; background: var(--paper-2); }
+
+  /* Section */
+  .section { margin-bottom: 30px; }
+  .section:last-child { margin-bottom: 0; }
+  .section-head {
+    display: flex; align-items: baseline; gap: 12px;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--navy);
+  }
+  .section-head h2 {
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--navy);
+    margin: 0;
+  }
+  .section-head .step {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-mute);
+    letter-spacing: 0.04em;
+  }
+  .section-head .lede {
+    font-family: var(--serif);
+    font-size: 13.5px;
+    color: var(--ink-mute);
+    font-style: italic;
+    margin-left: auto;
+  }
+
+  /* Campos */
+  .field { margin-bottom: 16px; }
+  .field .k {
+    font-family: var(--sans);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    letter-spacing: 0.02em;
+    margin-bottom: 6px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .field .k .req { color: var(--bordo); margin-left: 4px; }
+  .field .k .hint {
+    font-family: var(--serif);
+    font-size: 12px;
+    color: var(--ink-mute);
+    font-weight: 400;
+    font-style: italic;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .field input[type="text"],
+  .field input[type="date"],
+  .field textarea,
+  .field select {
+    width: 100%;
+    background: var(--paper);
+    border: 1px solid var(--rule-strong);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 14px;
+    padding: 10px 12px;
+    outline: 0;
+  }
+  .field textarea {
+    font-family: var(--serif);
+    font-size: 16px;
+    line-height: 1.55;
+    resize: vertical;
+    min-height: 120px;
+  }
+  .field input:focus, .field textarea:focus, .field select:focus {
+    border-color: var(--navy);
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(31,58,95,0.08);
+  }
+  .field input.big {
+    font-family: var(--serif);
+    font-size: 22px;
+    font-weight: 500;
+    padding: 12px 14px;
+    line-height: 1.2;
+  }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .field-row.three { grid-template-columns: 1fr 1fr 1fr; }
+
+  /* Sugestão da IA — discreta, atrelada a um campo */
+  .ai-hint {
+    margin-top: 6px;
+    background: var(--paper);
+    border: 1px solid var(--navy);
+    border-left-width: 3px;
+    padding: 9px 12px;
+    font-family: var(--sans);
+    font-size: 12px;
+    color: var(--ink-soft);
+    display: flex; align-items: center; gap: 10px;
+    line-height: 1.4;
+  }
+  .ai-hint .tag {
+    background: var(--navy); color: var(--paper);
+    padding: 2px 7px;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 600;
+    flex: none;
+  }
+  .ai-hint .accept {
+    margin-left: auto;
+    background: transparent;
+    border: 1px solid var(--navy);
+    padding: 3px 8px;
+    font-size: 11px;
+    color: var(--navy);
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .ai-hint .ignore {
+    background: transparent;
+    border: 0;
+    color: var(--ink-mute);
+    font-size: 11px;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  .ai-hint strong { color: var(--ink); font-weight: 600; }
+  .ai-hint .demanda {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--navy);
+    font-weight: 600;
+  }
+
+  /* Partes — chips selecionados + autocomplete */
+  .parts-area {
+    border: 1px solid var(--rule-strong);
+    background: var(--paper);
+    padding: 10px 12px;
+    min-height: 88px;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    margin: 2px 4px 2px 0;
+    background: var(--paper-2);
+    border: 1px solid var(--rule-strong);
+    font-family: var(--sans);
+    font-size: 12.5px;
+    color: var(--ink);
+  }
+  .chip .av {
+    width: 20px; height: 20px;
+    background: var(--navy);
+    color: var(--paper);
+    display: grid; place-items: center;
+    font-family: var(--sans);
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  .chip .av.ent { background: var(--olive); }
+  .chip .role {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    color: var(--ink-mute);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-left: 4px;
+  }
+  .chip .x {
+    color: var(--ink-mute);
+    cursor: pointer;
+    font-family: var(--mono);
+    margin-left: 6px;
+    padding: 0 2px;
+  }
+  .chip .x:hover { color: var(--bordo); }
+  .chip.solicitante { border-color: var(--navy); }
+  .chip.representada { border-color: var(--olive); }
+
+  .parts-area .input-row {
+    margin-top: 8px;
+    display: flex; align-items: center; gap: 8px;
+    border-top: 1px dotted var(--rule);
+    padding-top: 8px;
+  }
+  .parts-area .input-row input {
+    flex: 1;
+    border: 0; outline: 0; background: transparent;
+    font-family: var(--sans);
+    font-size: 13px;
+    color: var(--ink);
+    padding: 4px 0;
+  }
+  .parts-area .input-row input::placeholder { font-style: italic; color: var(--ink-mute); }
+  .parts-area .input-row .add-btn {
+    background: transparent;
+    border: 1px dashed var(--rule-strong);
+    padding: 3px 9px;
+    font-family: var(--sans);
+    font-size: 11px;
+    color: var(--ink-mute);
+    cursor: pointer;
+  }
+  .parts-area .input-row .add-btn:hover { color: var(--ink); border-color: var(--ink); }
+
+  /* Autocomplete sugestões */
+  .autocomplete {
+    margin-top: 6px;
+    background: var(--paper);
+    border: 1px solid var(--rule-strong);
+    box-shadow: 0 8px 24px -12px rgba(60,50,30,0.25);
+  }
+  .autocomplete .ac-head {
+    padding: 6px 12px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    background: var(--paper-2);
+    border-bottom: 1px solid var(--rule);
+  }
+  .autocomplete .ac-it {
+    display: grid;
+    grid-template-columns: 28px 1fr auto;
+    gap: 10px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--rule);
+    align-items: center;
+    cursor: pointer;
+  }
+  .autocomplete .ac-it:last-child { border-bottom: 0; }
+  .autocomplete .ac-it:hover { background: var(--paper-2); }
+  .autocomplete .ac-it .av {
+    width: 28px; height: 28px;
+    background: var(--navy-soft);
+    border: 1px solid var(--navy);
+    color: var(--navy);
+    display: grid; place-items: center;
+    font-family: var(--sans);
+    font-size: 10px;
+    font-weight: 700;
+  }
+  .autocomplete .ac-it .nome {
+    font-family: var(--sans);
+    font-size: 13px;
+    color: var(--ink);
+    font-weight: 500;
+  }
+  .autocomplete .ac-it .meta {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-mute);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .autocomplete .ac-it .new {
+    font-family: var(--sans);
+    font-size: 11px;
+    color: var(--navy);
+    font-weight: 600;
+    background: transparent;
+    border: 1px solid var(--navy);
+    padding: 2px 8px;
+  }
+
+  /* Temas como chips selecionáveis */
+  .themes {
+    display: flex; flex-wrap: wrap; gap: 6px;
+  }
+  .theme-chip {
+    background: transparent;
+    border: 1px solid var(--rule-strong);
+    padding: 6px 12px;
+    font-family: var(--sans);
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .theme-chip:hover { border-color: var(--ink); color: var(--ink); }
+  .theme-chip.on {
+    background: var(--ink); color: var(--paper); border-color: var(--ink);
+    font-weight: 600;
+  }
+  .theme-chip.on.suggested {
+    background: var(--navy); border-color: var(--navy);
+  }
+  .theme-chip .ai-mark {
+    font-family: var(--mono);
+    font-size: 9px;
+    background: var(--paper);
+    color: var(--navy);
+    padding: 0 4px;
+    letter-spacing: 0.04em;
+    font-weight: 600;
+  }
+
+  /* Drop area de anexos */
+  .drop {
+    background: var(--paper);
+    border: 1.5px dashed var(--rule-strong);
+    padding: 24px;
+    text-align: center;
+    font-family: var(--sans);
+    color: var(--ink-mute);
+  }
+  .drop strong { color: var(--ink); font-weight: 600; }
+  .drop .or {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 13px;
+    margin: 0 8px;
+  }
+  .drop .browse {
+    background: var(--paper-2);
+    border: 1px solid var(--rule-strong);
+    padding: 4px 12px;
+    font-family: var(--sans);
+    font-size: 12px;
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .drop-attached {
+    margin-top: 10px;
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    gap: 10px;
+    padding: 8px 12px;
+    background: var(--paper-2);
+    border: 1px solid var(--rule);
+    align-items: center;
+  }
+  .drop-attached .ext {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    background: var(--navy); color: var(--paper);
+    padding: 3px 6px;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+  }
+  .drop-attached .nome {
+    font-family: var(--sans);
+    font-size: 13px;
+    color: var(--ink);
+  }
+  .drop-attached .nome small {
+    display: block;
+    color: var(--ink-mute);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    margin-top: 1px;
+  }
+  .drop-attached .tam {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--ink-mute);
+  }
+  .drop-attached .x {
+    color: var(--ink-mute);
+    cursor: pointer;
+    font-family: var(--mono);
+    padding: 0 4px;
+  }
+  .drop-attached .x:hover { color: var(--bordo); }
+
+  /* Action footer */
+  .action-footer {
+    border-top: 2px solid var(--navy);
+    padding: 16px 36px;
+    background: var(--paper-2);
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 14px;
+  }
+  .action-footer .left {
+    font-family: var(--sans);
+    font-size: 12px;
+    color: var(--ink-mute);
+    display: flex; align-items: center; gap: 14px;
+  }
+  .action-footer .left .ok {
+    color: var(--olive); font-weight: 600;
+  }
+  .action-footer .left .pending {
+    color: var(--bordo); font-weight: 600;
+  }
+  .action-footer .right { display: flex; gap: 8px; }
+
+  /* ===== Sidebar ===== */
+  .side-block {
+    margin-bottom: 26px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .side-block:last-child { border-bottom: 0; padding-bottom: 0; margin-bottom: 0; }
+  .side-block h3 {
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--navy);
+    margin: 0 0 12px;
+  }
+
+  /* Mini chip de prioridade */
+  .prio-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 4px;
+  }
+  .prio-grid label {
+    background: var(--paper);
+    border: 1px solid var(--rule-strong);
+    padding: 8px 10px;
+    font-family: var(--sans);
+    font-size: 12px;
+    color: var(--ink-soft);
+    cursor: pointer;
+    text-align: center;
+  }
+  .prio-grid label.on { background: var(--navy); color: var(--paper); border-color: var(--navy); font-weight: 600; }
+  .prio-grid label.urgente.on { background: var(--bordo); border-color: var(--bordo); }
+  .prio-grid label.alta.on { background: var(--amber); border-color: var(--amber); }
+  .prio-grid input { display: none; }
+
+  /* Toggle de visibilidade */
+  .visib {
+    background: var(--paper);
+    border: 1px solid var(--rule-strong);
+    padding: 12px;
+  }
+  .visib label {
+    display: flex; align-items: start; gap: 10px;
+    cursor: pointer;
+  }
+  .visib input { accent-color: var(--navy); margin-top: 3px; }
+  .visib .t {
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .visib .d {
+    font-family: var(--serif);
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    margin-top: 2px;
+    line-height: 1.4;
+  }
+
+  /* Atalhos */
+  .shortcuts {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    padding: 12px;
+  }
+  .shortcuts .row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 4px 0;
+    font-family: var(--sans);
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+  .shortcuts .row .what { flex: 1; }
+  .shortcuts kbd {
+    background: var(--paper-2);
+    border: 1px solid var(--rule-strong);
+    padding: 1px 5px;
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+
+<header class="appbar">
+  <div class="appbar-inner">
+    <a class="brand" href="home.html">
+      <span class="mark">M</span>
+      <span class="name">MPD</span>
+      <span class="tag">Pedro Trés · 11ª Legislatura</span>
+    </a>
+    <nav>
+      <a href="home.html">Início</a>
+      <a href="05-inbox.html">Entrada <span class="alert">7</span></a>
+      <a href="04-lista.html" class="current">Demandas</a>
+      <a href="pessoas.html">Pessoas</a>
+      <a href="entidades.html">Entidades</a>
+      <a href="encaminhamentos.html">Encaminhamentos</a>
+      <a href="pendencias.html">Pendências <span class="alert">3</span></a>
+    </nav>
+    <div class="me">
+      <div class="who">
+        <span class="av">MC</span>
+        <span>
+          <span class="name">Mariana Costa</span>
+          <span class="role">Gabinete · resp.</span>
+        </span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="page">
+  <article class="doc">
+
+    <header class="doc-head">
+      <div class="breadcrumb">
+        <a href="04-lista.html" class="demo-link">DEMANDAS</a>
+        <span class="sep">/</span>
+        <span style="color:var(--navy);font-weight:600">MPD-2026-00342</span>
+        <span class="sep">/</span>
+        <span class="here">EDITAR</span>
+        <span class="draft">Alterações · <strong>não salvas</strong></span>
+      </div>
+      <div class="row1">
+        <div>
+          <h1>Editar demanda</h1>
+          <p class="sub">Você está editando <span class="num">MPD-2026-00342</span> — alterará a ficha permanentemente. Edições ficam no log de auditoria.</p>
+        </div>
+        <div class="head-actions">
+          <button class="btn ghost">Cancelar</button>
+          <button class="btn primary">Salvar alterações</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Origem -->
+    <div class="origem-strip">
+      <span class="lbl">Natureza</span>
+      <div class="origem-segment">
+        <label class="on">
+          <input type="radio" name="origem" checked>
+          Responsiva
+          <span class="desc">— cidadão pediu, gabinete responde</span>
+        </label>
+        <label>
+          <input type="radio" name="origem">
+          Proativa
+          <span class="desc">— mandato iniciou a ação</span>
+        </label>
+      </div>
+      <label class="anonimo">
+        <input type="checkbox">
+        Demanda anônima (sem partes vinculadas)
+      </label>
+    </div>
+
+    <div class="doc-body">
+
+      <!-- Main col: o conteúdo da demanda -->
+      <section class="body-main">
+
+        <!-- Identificação -->
+        <div class="section">
+          <div class="section-head">
+            <h2>Identificação</h2>
+            <span class="step">passo 01 / 04</span>
+            <span class="lede">como chegou e do que se trata</span>
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <div class="k">Canal de entrada <span class="req">*</span></div>
+              <select>
+                <option>WhatsApp</option>
+                <option>Telefone</option>
+                <option>Presencial</option>
+                <option>E-mail</option>
+                <option>Ofício recebido</option>
+                <option>DM Instagram</option>
+                <option>Indicação interna</option>
+                <option>Outro</option>
+              </select>
+            </div>
+            <div class="field">
+              <div class="k">Data e hora da entrada <span class="hint">quando chegou ao mandato</span></div>
+              <input type="text" value="17/05/2026 — 10:42">
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="k">
+              Título <span class="req">*</span>
+              <span class="hint">frase curta que descreve o caso</span>
+            </div>
+            <input type="text" class="big" value="Falta de iluminação na Rua Antônio Ataíde — trecho da Praça Costa Pereira">
+          </div>
+
+          <div class="ai-hint">
+            <span class="tag">↳ Sugestão</span>
+            <span>Seu título tem padrão de demanda <strong>proativa</strong> (ação do mandato sem demandante esperando retorno). Quer reclassificar?</span>
+            <button class="accept">Mudar para proativa</button>
+            <button class="ignore">ignorar</button>
+          </div>
+
+          <div class="field">
+            <div class="k">
+              Relato / descrição <span class="req">*</span>
+              <span class="hint">edição do relato original</span>
+            </div>
+            <textarea>Sebastiana Oliveira, líder da Associação de Moradores do Centro, encaminhou via WhatsApp denuncia de que nove postes de iluminação pública estão sem funcionar há mais de três semanas na Rua Antônio Ataíde, no trecho entre a Praça Costa Pereira e a Rua Sete de Setembro.
+
+Moradores relatam aumento de furtos à noite e dificuldade para idosos retornarem do centro comercial. Fotos noturnas anexadas. Líder protocolou pedido junto à concessionária há duas semanas, sem retorno.</textarea>
+          </div>
+        </div>
+
+        <!-- Partes -->
+        <div class="section">
+          <div class="section-head">
+            <h2>Partes envolvidas</h2>
+            <span class="step">passo 02 / 04</span>
+            <span class="lede">quem é solicitante, afetado, representado</span>
+          </div>
+
+          <div class="field">
+            <div class="k">Pessoas</div>
+            <div class="parts-area">
+              <span class="chip solicitante">
+                <span class="av">LG</span>
+                Lia Garcia
+                <span class="role">contato SEMUS</span>
+                <span class="x">×</span>
+              </span>
+              <div class="input-row">
+                <input type="text" placeholder="Adicionar pessoa — digite o nome…">
+                <button class="add-btn">+ cadastrar nova</button>
+              </div>
+              <div class="autocomplete">
+                <div class="ac-head">Pessoas encontradas — 2 resultados</div>
+                <div class="ac-it">
+                  <div class="av">LG</div>
+                  <div>
+                    <div class="nome">Lia Garcia</div>
+                    <div class="meta">SEMUS · 3 demandas anteriores</div>
+                  </div>
+                  <span class="meta">já adicionada</span>
+                </div>
+                <div class="ac-it">
+                  <div class="av">LG</div>
+                  <div>
+                    <div class="nome">Lia Gomes Alves</div>
+                    <div class="meta">Bairro Maruípe · 1 demanda</div>
+                  </div>
+                  <span></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="k">Entidades</div>
+            <div class="parts-area">
+              <span class="chip representada">
+                <span class="av ent">SE</span>
+                SEMUS — Secretaria M. de Saúde
+                <span class="role">parceira</span>
+                <span class="x">×</span>
+              </span>
+              <span class="chip">
+                <span class="av ent">UB</span>
+                UBS Maruípe
+                <span class="role">afetada</span>
+                <span class="x">×</span>
+              </span>
+              <div class="input-row">
+                <input type="text" placeholder="Adicionar entidade — digite o nome…">
+                <button class="add-btn">+ cadastrar nova</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Classificação -->
+        <div class="section">
+          <div class="section-head">
+            <h2>Classificação</h2>
+            <span class="step">passo 03 / 04</span>
+            <span class="lede">temas e tags ajudam relatório por área</span>
+          </div>
+
+          <div class="field">
+            <div class="k">Temas <span class="hint">2 sugeridos pelo texto</span></div>
+            <div class="themes">
+              <button class="theme-chip on suggested">Saúde <span class="ai-mark">IA</span> ✓</button>
+              <button class="theme-chip on suggested">Atenção primária <span class="ai-mark">IA</span> ✓</button>
+              <button class="theme-chip">Mobilidade</button>
+              <button class="theme-chip">Educação</button>
+              <button class="theme-chip">Segurança</button>
+              <button class="theme-chip">Urbanismo</button>
+              <button class="theme-chip">Cultura</button>
+              <button class="theme-chip">Meio ambiente</button>
+              <button class="theme-chip">Direitos sociais</button>
+              <button class="theme-chip" style="border-style:dashed;color:var(--ink-mute)">+ novo tema</button>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="k">Tags <span class="hint">opcional · livres</span></div>
+            <div class="parts-area" style="min-height:auto">
+              <span class="chip">Maruípe <span class="x">×</span></span>
+              <span class="chip">Edital SEMUS <span class="x">×</span></span>
+              <span class="chip">Atenção primária <span class="x">×</span></span>
+              <div class="input-row">
+                <input type="text" placeholder="Nova tag…">
+              </div>
+            </div>
+          </div>
+
+          <div class="ai-hint">
+            <span class="tag">↳ Cuidado</span>
+            <span>Já existe uma demanda parecida em aberto: <span class="demanda">MPD-2025-00712</span> "Pediatria UBS Maruípe — fila de 8 meses". Pode ser que esta nova seja a <strong>ação proativa que ela esperava</strong> — vincular?</span>
+            <button class="accept">Vincular como follow-up →</button>
+            <button class="ignore">são separadas</button>
+          </div>
+        </div>
+
+        <!-- Anexos -->
+        <div class="section">
+          <div class="section-head">
+            <h2>Anexos</h2>
+            <span class="step">passo 04 / 04</span>
+            <span class="lede">opcional · até 25 MB por arquivo</span>
+          </div>
+
+          <div class="drop">
+            <strong>Arraste arquivos aqui</strong>
+            <span class="or">ou</span>
+            <button class="browse">selecionar do computador</button>
+            <div style="margin-top:8px;font-family:var(--mono);font-size:10px;letter-spacing:0.06em;text-transform:uppercase">PDF · DOC · imagens · áudio · até 25 MB</div>
+          </div>
+
+          <div class="drop-attached">
+            <span class="ext">PDF</span>
+            <div class="nome">Edital-SEMUS-021-2026-vagas-remanescentes.pdf
+              <small>baixado de semus.vitoria.es.gov.br · 17/05</small>
+            </div>
+            <span class="tam">412 KB</span>
+            <span class="x">×</span>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- Sidebar — atribuição e visibilidade -->
+      <aside class="body-side">
+
+        <div class="side-block">
+          <h3>Coordenação</h3>
+          <div class="field">
+            <select>
+              <option>Gabinete</option>
+              <option>Jurídico</option>
+              <option>Comunicação</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="side-block">
+          <h3>Responsável</h3>
+          <div class="field">
+            <select>
+              <option>Mariana Costa — sugerida (Gabinete · Saúde)</option>
+              <option>Lucas Almeida</option>
+              <option>Bia Ferreira</option>
+              <option>Pedro Trés</option>
+              <option>— sem responsável definido —</option>
+            </select>
+            <div class="ai-hint" style="margin-top:6px;padding:7px 10px">
+              <span class="tag">↳ IA</span>
+              <span style="font-size:11.5px">Mariana já cuidou de 6 demandas de saúde nos últimos 6 meses.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="side-block">
+          <h3>Prioridade</h3>
+          <div class="prio-grid">
+            <label>
+              <input type="radio" name="prio">
+              Baixa
+            </label>
+            <label class="on">
+              <input type="radio" name="prio" checked>
+              Normal
+            </label>
+            <label class="alta">
+              <input type="radio" name="prio">
+              Alta
+            </label>
+            <label class="urgente">
+              <input type="radio" name="prio">
+              Urgente
+            </label>
+          </div>
+        </div>
+
+        <div class="side-block">
+          <h3>Prazo</h3>
+          <div class="field">
+            <input type="text" value="24/05/2026">
+            <div style="font-family:var(--serif);font-size:12.5px;font-style:italic;color:var(--ink-mute);margin-top:6px;line-height:1.5">
+              Em 7 dias — encaixa antes do prazo de inscrição do edital (sugerido pelo conteúdo do relato).
+            </div>
+          </div>
+        </div>
+
+        <div class="side-block">
+          <h3>Visibilidade</h3>
+          <div class="visib">
+            <label>
+              <input type="checkbox">
+              <div>
+                <div class="t">Marcar como restrita</div>
+                <div class="d">Só responsável, coordenação e CG vêem. Use para casos sensíveis (saúde individual, denúncias).</div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div class="side-block">
+          <h3>Atalhos</h3>
+          <div class="shortcuts">
+            <div class="row"><span class="what">Salvar rascunho</span><kbd>Ctrl</kbd><kbd>S</kbd></div>
+            <div class="row"><span class="what">Criar demanda</span><kbd>Ctrl</kbd><kbd>↵</kbd></div>
+            <div class="row"><span class="what">Cancelar</span><kbd>Esc</kbd></div>
+            <div class="row"><span class="what">Próximo campo</span><kbd>Tab</kbd></div>
+          </div>
+        </div>
+
+      </aside>
+
+    </div>
+
+    <!-- Action footer -->
+    <footer class="action-footer">
+      <div class="left">
+        <span>Editando <strong style="color:var(--ink)">MPD-2026-00342</strong> · aberta em 02/05/26</span>
+        <span style="color:var(--ink-mute)">· alterações ficam em auditoria</span>
+      </div>
+      <div class="right">
+        <button class="btn" style="color:var(--bordo);border-color:var(--bordo)">Arquivar demanda</button>
+        <button class="btn ghost">Cancelar</button>
+        <button class="btn primary">Salvar alterações</button>
+      </div>
+    </footer>
+
+  </article>
+</main>
+
+</body>
+</html>

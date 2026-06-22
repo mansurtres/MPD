@@ -56,7 +56,7 @@ Ideia que parece "óbvia" e não está no doc → primeiro vira ADR ou backlog.
 
 ## 5. Estado atual
 
-**Fase corrente:** v0.7 — **Fase 6 (Segurança, Visualização, Exportação) concluída.** Filtros poderosos + exportação CSV nas listas principais; painel `/analise` com toggle tabela/gráfico (Chart.js CDN); auditoria UI `/auditoria` com diff visual; infra operacional (`/healthz`, `scripts/backup.sh`, `manage.py verificar_integridade`). LGPD foi **adiada para Fase 8 (v1.1)** — ADR 0047 documenta a decisão.
+**Fase corrente:** v0.8 — **Redesign de permissões need-to-know (ADR 0059) concluído** (ver entrada ao fim desta seção). Base: **Fase 6 (Segurança, Visualização, Exportação) concluída.** Filtros poderosos + exportação CSV nas listas principais; painel `/analise` com toggle tabela/gráfico (Chart.js CDN); auditoria UI `/auditoria` com diff visual; infra operacional (`/healthz`, `scripts/backup.sh`, `manage.py verificar_integridade`). LGPD foi **adiada para Fase 8 (v1.1)** — ADR 0047 documenta a decisão.
 
 **Fundação (Fase 0/1, mantido):**
 - Django 5.2 + PostgreSQL 16 + Tailwind v4 standalone.
@@ -140,7 +140,7 @@ Ideia que parece "óbvia" e não está no doc → primeiro vira ADR ou backlog.
 **Fase 3 — Demandas e Interações (v0.4.0):**
 - App `demandas` com `Demanda`, `DemandaPessoa`, `DemandaEntidade`, `Interacao`, `Encaminhamento`, `Anexo` (polimórfico via GenericForeignKey), `ItemInbox` (modelo só; UX em Fase 4).
 - Demanda com 2 eixos independentes: `status` (novo→em_andamento→aguardando_*→respondido→arquivado) e `resultado` (pendente, atendido, parcial, não atendido, inviável, não se aplica). Regra de fechamento codificada em `clean()`: `respondido` exige retorno + resultado classificado. Resultado classificado não volta a pendente.
-- Geração de número thread-safe `MPD-AAAA-NNNNN` via `select_for_update`.
+- Geração de número no formato `D-AAMM-NNNNN` (ADR 0056 — supersede `MPD-AAAA-NNNNN`): prefixo curto, ano+mês compactos, 5 dígitos aleatórios `10000–99999`. Retry com savepoint cobre colisão (padrão ADR 0051).
 - Mudanças de status/responsável/resultado disparam **Interacao automática** via `post_save`. Snapshot de estado original em `__init__`. Middleware `UsuarioAtualMiddleware` repassa `request.user` para os signals.
 - Schedule follow-up: ao salvar Interacao realizada, opcionalmente cria nova agendada com `interacao_origem` apontando para a anterior. Cadeia reconstruível.
 - Janela de edição de 24h codificada em `Interacao.pode_editar`. Automáticas são imutáveis para todos. ADM/CG editam alheia.
@@ -159,7 +159,7 @@ Ideia que parece "óbvia" e não está no doc → primeiro vira ADR ou backlog.
 - Regra de fechamento bifurcada por origem em `Demanda.clean()`:
   - Responsiva: exige `Interacao(tipo=devolutiva, status=realizada)` vinculada **e** `resultado != pendente`.
   - Proativa: exige apenas `resultado != pendente`.
-- UX: link discreto "Marcar como respondida" virou **CTA sólido** no topo do detalhe ("Concluir demanda — devolutiva ao demandante" para responsivas; "Concluir ação" para proativas). Modal centralizado pé-da-página virou **drawer lateral** (não cobre conteúdo, fecha por backdrop/Esc).
+- UX: link discreto "Marcar como respondida" virou **CTA sólido** no topo do detalhe — **"Concluir demanda →"** em ambos os casos (proativa **continua sendo demanda**); o que diferencia é o sub-rótulo abaixo do botão: *"com devolutiva ao demandante"* (responsiva) vs *"origem proativa · sem devolutiva"* (proativa). Errata 2026-05-31 da ADR 0043 (rótulo original "Concluir ação" descartado por romper coerência conceitual). Modal centralizado pé-da-página virou **drawer lateral** (não cobre conteúdo, fecha por backdrop/Esc).
 - `ConcluirDemandaView` orquestra tudo em `transaction.atomic`: cria Interacao(devolutiva), atualiza resultado/observação, muda status para `concluida`, roda `full_clean()` — rollback se qualquer passo falhar.
 - Tipo `devolutiva` é exclusivo do fluxo de conclusão; não aparece no seletor genérico de "Adicionar interação" (evita devolutivas órfãs).
 - Migration `0005_devolutiva_como_interacao` com data migration: para cada `Demanda.status='respondido'` com `retorno_data` preenchido, cria Interacao a partir dos campos `retorno_*` (com canal como prefixo do conteúdo), depois `UPDATE status='respondido' → 'concluida'`, depois drop dos campos.
@@ -194,12 +194,12 @@ Ideia que parece "óbvia" e não está no doc → primeiro vira ADR ou backlog.
 
 **Fase 6 — Segurança, Visualização, Exportação (v0.7):**
 - **Filtros + Exportação CSV** em `/demandas/`, `/pessoas/`, `/encaminhamentos/`. UTF-8 BOM + separador `;` (Excel BR). Limite 10k. Permissão CO+ (`_pode_exportar` em `demandas/views.py`). Cada exportação registra evento via `core.utils.registrar_export` (logger `mpd.exports`).
-- **Painel `/analise`** (CO+) com 6 métricas: demandas por tema, por mês (últimos 12), por coordenação, top 20 pessoas, encaminhamentos pendentes por órgão, carga por assessor. Cada bloco tem **toggle tabela/gráfico** (Chart.js v4 via CDN — bar, line, doughnut).
-- **Auditoria UI `/auditoria`** (CG+): lista paginada do `auditlog_logentry` com filtros (usuário, modelo, ação, período). Diff visual antes/depois por campo. `actor` pode ser `None` (eventos do sistema) — template trata.
+- **Painel `/analise`** (CG+ desde ADR 0055; era CO+ até v0.7.3) com 6 métricas: demandas por tema, por mês (últimos 12), por coordenação, top 20 pessoas, encaminhamentos pendentes por órgão, carga por assessor. Cada bloco tem **toggle tabela/gráfico** (Chart.js v4 via CDN — bar, line, doughnut).
+- **Auditoria UI `/auditoria`** (ADM apenas desde ADR 0055; era CG+ até v0.7.3): lista paginada do `auditlog_logentry` com filtros (usuário, modelo, ação, período). Diff visual antes/depois por campo. `actor` pode ser `None` (eventos do sistema) — template trata.
 - **`/healthz`** verifica conexão ao DB (retorna 503 se cursor.execute falha); público.
 - **`scripts/backup.sh`** lê `.env`, prefere `DATABASE_URL`, fallback para variáveis individuais. Timestamp no nome do arquivo. Doc inline.
 - **`manage.py verificar_integridade`** detecta 5 categorias: responsiva concluída sem devolutiva, anexo órfão (arquivo ou content_type), encaminhamento prazo passado com status=enviado, ItemInbox pendente +90d, Interação agendada +180d. Exit code 1 se encontrou problema (cron monitorado).
-- **Topbar** ganha card "Auditoria" (CG+) e "Painel de análise" (CO+) em `/configuracoes/`. Flags `papel_eh_admin`, `papel_eh_chefe`, `papel_eh_coordenador`, `papel_cg_plus`, `papel_co_plus` adicionados ao `context_processors.pendencias_usuario` para uso simples em templates.
+- **Topbar** ganha card "Auditoria" (ADM apenas, era CG+ — ADR 0055) e "Painel de análise" (CG+, era CO+ — ADR 0055) em `/configuracoes/`. Flags `papel_eh_admin`, `papel_eh_chefe`, `papel_eh_coordenador`, `papel_cg_plus`, `papel_co_plus` adicionados ao `context_processors.pendencias_usuario` para uso simples em templates.
 - **LGPD adiada** para Fase 8 (v1.1) — ADR 0047 explica a decisão (LGPD obrigatória só com exposição pública; MVP é uso interno).
 
 **179 testes passando** ao final da v0.7 (+8 sobre v0.6: CSV export OK, CSV bloqueia assessor, CSV respeita querystring, auditoria abre p/ admin, auditoria bloqueia coord, análise abre p/ coord, análise bloqueia assessor, verificar_integridade detecta devolutiva faltando). ADRs 0001–0047.
@@ -229,7 +229,25 @@ A revisão de fim-de-Fase-6 levantou critérios literais do roadmap sem espelho 
 
 **226 testes passando** ao final da v0.7.3 (+19 sobre v0.7.2: 3 export LogEntry, 6 verificar_integridade, 4 auditoria filtros, 1 entidades quick filter, 3 inbox lista, 2 minhas pendências). ADRs 0001–0053.
 
-**Próximo marco:** v1.0 — Fase 7 (Polimento e Web). Ver [`roadmap.md`](./roadmap.md) §Fase 7.
+**Fechamento do front-end na nova identidade + Fase 7 (template) — branch `feature/teste-claude-design`:**
+Toda tela restante migrou para a identidade visual nova (editorial: Funnel Display + Source Serif 4 + Geist Mono, paleta quente, cantos retos, componentes próprios). O *bridge* Tailwind→tokens em `components.css` deixa de ser necessário nas telas vivas (varredura sem `slate-*`/`rounded-xl`/`bg-white` cru).
+- **Estrutura compartilhada extraída para `static/css/components.css`**: seção "LISTAS (ledger)" (escopo `.lista-page`: quick-filters, active-filters, filtros-adv, ledger, ledger-foot, empty-state, base de badge) e "DETALHE (documento)" (escopo `.detalhe-page`: doc/doc-grid/main-title/main-meta/sec/kv/itemlist/reclist/aside). Cada template carrega só CSS de coluna/seção próprio. O detalhe de Demanda permanece bespoke (não escopado).
+- **Telas refeitas**: listas de pessoas/entidades/encaminhamentos; detalhes de pessoa/entidade; CRUD de tags e temas (color picker em tokens); usuários (lista/form) + perfil; hub de configurações; auditoria (filtros + diff); reuniões; captura standalone; home pública.
+- **DT-013 (ADR 0054)** — drop de `papel`/`papel_outro` em `DemandaPessoa`/`DemandaEntidade` (migration `demandas/0009`; model/forms/templates/JS/seed/testes limpos). `Vinculo.papel` (pessoas) é outro campo e permanece.
+- **DT-011** — gestão de usuários por permissão custom `accounts.gerenciar_usuarios` (migrations `accounts/0005`+`0006`); `StaffRequiredMixin`→`GerenciarUsuariosMixin(PermissionRequiredMixin)`; forms param de expor `is_staff` (ADR 0040 obsoleta); promoção a staff só via Django Admin.
+- **Qualidade de front (Fase 7)**: confirmação explícita (one-way) ao classificar `resultado` no drawer Concluir; passada de responsividade mobile (grids de pendências/reuniões empilham <640px; listas/detalhes já colapsam); foco visível global (`:focus-visible`) e `aria-label` em controles só-ícone.
+- **Banner universal de erros** de formulário (`_form_erros_resumo.html` + `form-helpers.js`: lista erros no topo + auto-scroll/foco) aplicado a todos os forms.
+- **`slug_publico` curto (8 chars) padronizado** em todo o sistema (errata ADR 0038): lógica consolidada em `core.utils`; Pessoa/Entidade migram de 12→8; Demanda ganha `slug_publico` e o usa nas URLs browseadas (`demanda_detalhe`/`demanda_editar`), encurtando `/demandas/<uuid-36>/` → `/demandas/<hash-8>/`. Endpoints de ação seguem em `<uuid:pk>`.
+- Plano e ledger em `docs/superpowers/`.
+
+**228 testes passando** ao final deste fechamento (230 da v0.7.3 −3 testes de papel +1 de gating de usuários). ADRs 0001–0057. Pendência registrada para revisão: o painel inline de Estado (`EstadoForm`/endpoint `demanda_estado`, ADR 0044) ficou sem UI no detalhe refeito — decidir se restaura ou remove o endpoint.
+
+**Redesign de permissões — need-to-know (v0.8, ADR 0059):**
+O modelo de acesso inverteu de "colaborativo por default" para **privilégio mínimo**. Três papéis na v1 (Admin / Chefe de Gabinete / Assessor — o papel **Coordenador** e o **campo de coordenação/time** foram removidos, junto com o flag **`restrito`**). Visibilidade **inteiramente por papel** (`Demanda.objects.visiveis_para`): Admin vê tudo; CG vê todas as **ativas** (sem histórico concluído); Assessor vê só as **próprias** (responsável ou autor) — ativas com contexto completo, histórico próprio em leitura com **partes mascaradas** (nome sim, ficha/contato não). **Exportação, `/analise`, `/auditoria` e Configurações são exclusivas do Admin.** Listas de pessoas/entidades só do Admin; ficha só no contexto de demanda visível; os demais usam **busca cega** (vincular sem navegar o acervo). Fonte de verdade: [`docs/permissoes.md`](./docs/permissoes.md) v2 + [`docs/decisoes.md`](./docs/decisoes.md) ADR 0059. Migrations: `demandas/0011_drop_restrito`, `accounts/0007`+`demandas/0012` (drop coordenação), `accounts/0008` (remove grupo Coordenador, move membros p/ Assessor).
+
+**235 testes passando** ao final da v0.8 (228 → +visibilidade por papel, mascaramento, listas/ficha contextuais, busca cega, gating de export/analise/config; −testes de restrito/coordenação/Coordenador). ADRs 0001–0059.
+
+**Próximo marco:** v1.0 — Fase 7 restante (Polimento e Web: Docker, backup `-Fc`, docs de deploy/manual, performance, Lighthouse) → deploy. Ver [`roadmap.md`](./roadmap.md) §Fase 7.
 
 ---
 
@@ -308,4 +326,4 @@ Para o histórico completo ver [`docs/decisoes.md`](./docs/decisoes.md). Decisõ
 
 ---
 
-*Atualizar este arquivo ao fim de cada fase. Última atualização: 2026-05-17 (v0.7.3 — cobertura de testes dos critérios de Fases 4 a 6; exports visíveis em `/auditoria` via ADR 0053).*
+*Atualizar este arquivo ao fim de cada fase. Última atualização: 2026-06-21 (branch `feature/teste-claude-design` — front-end inteiro na identidade nova + Fase 7 que toca template: DT-013/DT-011 fechados, confirmação one-way do resultado, responsividade + a11y. 228 testes).*

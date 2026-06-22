@@ -1,23 +1,71 @@
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.contenttypes.models import ContentType
+from django.core.exceptions import PermissionDenied
+from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import render
+from django.urls import reverse
 from django.views.generic import ListView
 
-from core.permissoes import eh_cg_plus, eh_co_plus
+from core.permissoes import eh_admin
 
 
 def inicio(request):
-    if request.user.is_authenticated:
-        return render(request, "core/inicio_autenticado.html")
-    return render(request, "core/inicio.html")
+    if not request.user.is_authenticated:
+        return render(request, "core/inicio.html")
+
+    # Contagem de demandas atribuídas ao usuário (apenas abertas) +
+    # últimas 5 demandas visíveis para o painel "Demandas recentes" na home.
+    from demandas.models import Demanda
+
+    demandas_minhas_count = (
+        Demanda.objects.filter(
+            responsavel=request.user,
+        )
+        .exclude(
+            status__in=[Demanda.STATUS_CONCLUIDA, Demanda.STATUS_ARQUIVADO],
+        )
+        .count()
+    )
+
+    demandas_recentes = list(
+        Demanda.objects.visiveis_para(request.user).order_by("-atualizado_em", "-criado_em")[:5]
+    )
+
+    # Nomes de pessoas reais para popular o placeholder rotativo do composer.
+    # Até 40 primeiros nomes embaralhados na request. Se a base ainda estiver
+    # vazia, o JS cai na lista fictícia interna.
+    import random as _random
+
+    from pessoas.models import Pessoa
+
+    nomes = list(
+        Pessoa.objects.filter(ativo=True)
+        .exclude(nome="")
+        .values_list("nome", flat=True)
+        .distinct()[:80]
+    )
+    _random.shuffle(nomes)
+    nomes_placeholder = nomes[:40]
+
+    return render(
+        request,
+        "core/inicio_autenticado.html",
+        {
+            "demandas_minhas_count": demandas_minhas_count,
+            "demandas_recentes": demandas_recentes,
+            "nomes_placeholder": nomes_placeholder,
+        },
+    )
 
 
 @login_required
 def configuracoes(request):
-    """Hub de configurações administrativas. Cada card aparece conforme a
-    permissão do usuário."""
+    """Hub de configurações administrativas. Exclusivo do Admin (ADR 0059 —
+    tags, temas e usuários são governança)."""
+    if not eh_admin(request.user):
+        raise PermissionDenied
     return render(request, "core/configuracoes.html")
 
 
@@ -40,14 +88,15 @@ def healthz(request):
 
 
 class AnaliseView(LoginRequiredMixin, UserPassesTestMixin, ListView):
-    """Painel de análise. CO+. Métricas textuais + gráficas (Chart.js
-    via CDN — toggle por métrica). Não usa ListView de fato; reusa só o
-    template/auth — context_data carrega as métricas."""
+    """Painel de análise. Apenas Admin (ADR 0059 — visão agregada é
+    governança, concentrada numa pessoa). Métricas textuais + gráficas
+    (Chart.js via CDN — toggle por métrica). Não usa ListView de fato;
+    reusa só o template/auth — context_data carrega as métricas."""
 
     template_name = "core/analise.html"
 
     def test_func(self):
-        return eh_co_plus(self.request.user)
+        return eh_admin(self.request.user)
 
     def get_queryset(self):
         # Override exigido pelo ListView, mas não usado.
@@ -65,8 +114,8 @@ class AnaliseView(LoginRequiredMixin, UserPassesTestMixin, ListView):
 
         from demandas.models import Demanda, Encaminhamento
 
-        # ADR 0049: todas as métricas filtram por demandas visíveis ao usuário.
-        # Coordenador (não-ADM/CG) NÃO vê contagens de restritas de outras coords.
+        # ADR 0049/0059: as métricas filtram por demandas visíveis ao usuário
+        # (defesa em profundidade — embora /analise hoje seja exclusivo do Admin).
         demandas_visiveis = Demanda.objects.visiveis_para(self.request.user)
 
         # 1. Demandas por tema
@@ -87,19 +136,7 @@ class AnaliseView(LoginRequiredMixin, UserPassesTestMixin, ListView):
             .order_by("mes")
         )
 
-        # 3. Demandas por coordenação
-        ctx["por_coordenacao"] = list(
-            demandas_visiveis.values("coordenacao_responsavel")
-            .annotate(total=Count("id"))
-            .order_by("-total")
-        )
-        coord_display = dict(Demanda.COORDENACAO_CHOICES)
-        for item in ctx["por_coordenacao"]:
-            item["display"] = coord_display.get(
-                item["coordenacao_responsavel"], item["coordenacao_responsavel"]
-            )
-
-        # 4. Top 20 pessoas com mais demandas — agregação condicional para
+        # 3. Top 20 pessoas com mais demandas (era métrica 4) — agregação condicional para
         #    contar apenas demandas visíveis ao usuário. Sem isso, count
         #    incluía restritas (vazamento de PII associada a caso sigiloso).
         from pessoas.models import Pessoa
@@ -169,16 +206,16 @@ class AnaliseView(LoginRequiredMixin, UserPassesTestMixin, ListView):
 
 
 class AuditoriaListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
-    """Lista entradas do auditlog cronologicamente. Restrito a Chefe de
-    Gabinete + Administrador (CG+). Diff visual antes/depois renderizado
-    a partir do JSON do auditlog."""
+    """Lista entradas do auditlog cronologicamente. Restrito a
+    Administrador. Diff visual antes/depois renderizado a partir do
+    JSON do auditlog."""
 
     template_name = "core/auditoria.html"
     context_object_name = "logs"
     paginate_by = 50
 
     def test_func(self):
-        return eh_cg_plus(self.request.user)
+        return eh_admin(self.request.user)
 
     def get_queryset(self):
         from auditlog.models import LogEntry
@@ -223,3 +260,98 @@ class AuditoriaListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
             (LogEntry.Action.ACCESS, "Acessou"),
         ]
         return ctx
+
+
+# --- Busca global do topbar ---
+
+
+@login_required
+def buscar_global_json(request):
+    """Endpoint de busca global usado pelo input do topbar.
+
+    Pesquisa em três categorias respeitando permissões e visibilidade:
+    - Pessoa (nome, sobrenome, nome_social) — exige `pessoas.view_pessoa`.
+    - Entidade (nome, nome_fantasia, cnpj) — exige `pessoas.view_entidade`.
+    - Demanda (numero, titulo, descricao) — exige `demandas.view_demanda`,
+      e respeita `Demanda.objects.visiveis_para(user)` (ADR 0059 — só
+      mostra as demandas que o usuário pode ver).
+
+    Resposta:
+        {"resultados": [
+            {"categoria": "Pessoa", "label": "...", "sublabel": "...", "url": "..."},
+            ...
+        ]}
+
+    Limite de 5 por categoria, ordenado pela categoria mais provável de uso
+    (Demanda primeiro porque o number lookup `D-AAMM-NNNNN` — ADR 0056 — é o
+    caso mais comum de busca direta).
+    """
+    q = request.GET.get("q", "").strip()
+    resultados = []
+
+    if not q or len(q) < 2:
+        return JsonResponse({"resultados": []})
+
+    # 1. Demandas — número primeiro (caso mais comum: D-2605-72918, ADR 0056)
+    if request.user.has_perm("demandas.view_demanda"):
+        from demandas.models import Demanda
+
+        demandas_qs = (
+            Demanda.objects.visiveis_para(request.user)
+            .filter(Q(numero__icontains=q) | Q(titulo__icontains=q) | Q(descricao__icontains=q))
+            .select_related("responsavel")
+            .order_by("-criado_em")[:5]
+        )
+        for d in demandas_qs:
+            sublabel_parts = [d.get_status_display()]
+            if d.responsavel:
+                sublabel_parts.append(d.responsavel.nome_completo or d.responsavel.email)
+            resultados.append(
+                {
+                    "categoria": "Demanda",
+                    "label": f"{d.numero} — {d.titulo}",
+                    "sublabel": " · ".join(sublabel_parts),
+                    "url": reverse("demandas:demanda_detalhe", args=[d.slug_publico]),
+                }
+            )
+
+    # 2. Pessoas
+    if request.user.has_perm("pessoas.view_pessoa"):
+        from pessoas.models import Pessoa
+
+        pessoas_qs = (
+            Pessoa.objects.filter(ativo=True)
+            .filter(Q(nome__icontains=q) | Q(sobrenome__icontains=q) | Q(nome_social__icontains=q))
+            .order_by("nome", "sobrenome")[:5]
+        )
+        for p in pessoas_qs:
+            sublabel = " · ".join(filter(None, [p.bairro, p.cidade])) or "Pessoa"
+            resultados.append(
+                {
+                    "categoria": "Pessoa",
+                    "label": p.nome_exibicao,
+                    "sublabel": sublabel,
+                    "url": reverse("pessoas:pessoa_detalhe", args=[p.slug_publico]),
+                }
+            )
+
+    # 3. Entidades
+    if request.user.has_perm("pessoas.view_entidade"):
+        from pessoas.models import Entidade
+
+        entidades_qs = (
+            Entidade.objects.filter(ativo=True)
+            .filter(Q(nome__icontains=q) | Q(nome_fantasia__icontains=q) | Q(cnpj__icontains=q))
+            .order_by("nome")[:5]
+        )
+        for e in entidades_qs:
+            resultados.append(
+                {
+                    "categoria": "Entidade",
+                    "label": e.nome,
+                    "sublabel": e.get_tipo_display(),
+                    "url": reverse("pessoas:entidade_detalhe", args=[e.slug_publico]),
+                }
+            )
+
+    return JsonResponse({"resultados": resultados, "termo": q})

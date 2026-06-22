@@ -1,139 +1,195 @@
 {% extends "layouts/app.html" %}
 
 {% block app_conteudo %}
-<div class="flex items-center gap-3 mb-4">
-  <a href="{% url 'pessoas:entidade_lista' %}" class="text-sm text-slate-500 hover:text-slate-800">← Entidades</a>
-  <span class="text-slate-300">/</span>
-  <h1 class="text-xl font-semibold text-slate-900">{{ entidade.nome }}</h1>
-  <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">{{ entidade.get_tipo_display }}</span>
-  {% if not entidade.ativo %}
-  <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">Inativa</span>
-  {% endif %}
+<div class="detalhe-page">
+
+<div class="doc-bc">
+  <a href="/">Início</a>
+  <span class="sep">/</span>
+  <a href="{% url 'pessoas:entidade_lista' %}">Entidades</a>
+  <span class="sep">/</span>
+  <span class="here">{{ entidade.nome }}</span>
 </div>
 
-<div class="flex items-center gap-3 mb-6">
-  {% if perms.pessoas.change_entidade %}
-  <a href="{% url 'pessoas:entidade_editar' entidade.slug_publico %}" class="text-sm text-slate-700 hover:text-slate-900 underline">Editar</a>
-  {% endif %}
-  {% if pode_alternar_ativo %}
-  <form method="post" action="{% url 'pessoas:entidade_toggle_ativo' entidade.slug_publico %}" class="inline">
-    {% csrf_token %}
-    <button type="submit" class="text-sm text-slate-700 hover:text-slate-900 underline">
-      {% if entidade.ativo %}Desativar{% else %}Reativar{% endif %}
-    </button>
-  </form>
-  {% endif %}
-</div>
-
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-  <div class="lg:col-span-2 space-y-6">
-    <section class="bg-white border border-slate-200 rounded-xl p-6">
-      <h2 class="text-base font-semibold text-slate-900 mb-4">Identificação</h2>
-      <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
-        <div><dt class="text-slate-500">Nome</dt><dd class="text-slate-900">{{ entidade.nome }}</dd></div>
-        {% if entidade.nome_fantasia %}<div><dt class="text-slate-500">Nome fantasia</dt><dd class="text-slate-900">{{ entidade.nome_fantasia }}</dd></div>{% endif %}
-        <div><dt class="text-slate-500">Tipo</dt><dd class="text-slate-900">{{ entidade.get_tipo_display }}</dd></div>
-        {% if entidade.cnpj %}<div><dt class="text-slate-500">CNPJ</dt><dd class="text-slate-900">{{ entidade.cnpj }}</dd></div>{% endif %}
-      </dl>
-    </section>
-
-    {% if entidade.email or entidade.telefone or entidade.site %}
-    <section class="bg-white border border-slate-200 rounded-xl p-6">
-      <h2 class="text-base font-semibold text-slate-900 mb-4">Contato</h2>
-      <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
-        {% if entidade.email %}<div><dt class="text-slate-500">E-mail</dt><dd class="text-slate-900">{{ entidade.email }}</dd></div>{% endif %}
-        {% if entidade.telefone %}<div><dt class="text-slate-500">Telefone</dt><dd class="text-slate-900">{{ entidade.telefone }}</dd></div>{% endif %}
-        {% if entidade.site %}<div><dt class="text-slate-500">Site</dt><dd class="text-slate-900"><a class="underline" href="{{ entidade.site }}" target="_blank" rel="noopener">{{ entidade.site }}</a></dd></div>{% endif %}
-      </dl>
-    </section>
-    {% endif %}
-
-    {% if entidade.bairro or entidade.cidade %}
-    <section class="bg-white border border-slate-200 rounded-xl p-6">
-      <h2 class="text-base font-semibold text-slate-900 mb-4">Endereço</h2>
-      <p class="text-sm text-slate-900">
-        {% if entidade.logradouro %}{{ entidade.logradouro }}{% if entidade.numero %}, {{ entidade.numero }}{% endif %}{% if entidade.complemento %} — {{ entidade.complemento }}{% endif %}<br>{% endif %}
-        {{ entidade.bairro }}{% if entidade.cidade %}, {{ entidade.cidade }}{% endif %}{% if entidade.estado %}/{{ entidade.estado }}{% endif %}
-        {% if entidade.cep %} — CEP {{ entidade.cep }}{% endif %}
-      </p>
-    </section>
-    {% endif %}
-
-    <section class="bg-white border border-slate-200 rounded-xl p-6">
-      <h2 class="text-base font-semibold text-slate-900 mb-2">Pessoas vinculadas</h2>
-      {% if vinculos %}
-      <ul class="divide-y divide-slate-100">
-        {% for v in vinculos %}
-        <li class="py-2 text-sm">
-          <a href="{% url 'pessoas:pessoa_detalhe' v.pessoa.slug_publico %}" class="font-medium text-slate-900 hover:underline">{{ v.pessoa.nome_exibicao }}</a>
-          <span class="text-slate-500"> — {{ v.papel }}</span>
-        </li>
-        {% endfor %}
-      </ul>
-      {% else %}
-      <p class="text-sm text-slate-500">Nenhuma pessoa vinculada.</p>
-      {% endif %}
-    </section>
-
-    {% if perms.demandas.view_demanda %}
-    <section class="bg-white border border-slate-200 rounded-xl p-6">
-      <h2 class="text-base font-semibold text-slate-900 mb-2">Demandas</h2>
-      {% if demandas %}
-      <ul class="divide-y divide-slate-100">
-        {% for d in demandas %}
-        <li class="py-2 text-sm">
-          <div class="flex items-center justify-between gap-3">
-            <a href="{% url 'demandas:demanda_detalhe' d.pk %}" class="font-medium text-slate-900 hover:underline">{{ d.numero }} — {{ d.titulo }}</a>
-            <div class="flex items-center gap-2 shrink-0">
-              <span class="text-xs text-slate-500">{{ d.get_status_display }}</span>
-              {% if d.resultado == 'pendente' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">Pendente</span>
-              {% elif d.resultado == 'atendido' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Atendido</span>
-              {% elif d.resultado == 'atendido_parcialmente' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800">Parcial</span>
-              {% elif d.resultado == 'nao_atendido' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">Não atendido</span>
-              {% elif d.resultado == 'inviavel' %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">Inviável</span>
-              {% else %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-200 text-slate-700">{{ d.get_resultado_display }}</span>{% endif %}
-            </div>
-          </div>
-          {% if d.temas.all %}
-          <div class="mt-1 flex flex-wrap gap-1">
-            {% for t in d.temas.all %}{% if t.cor %}<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium" style="background: color-mix(in srgb, {{ t.cor }} 18%, white); color: color-mix(in srgb, {{ t.cor }} 75%, black);">{{ t.nome }}</span>{% else %}<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600">{{ t.nome }}</span>{% endif %}{% endfor %}
-          </div>
-          {% endif %}
-        </li>
-        {% endfor %}
-      </ul>
-      {% else %}
-      <p class="text-sm text-slate-500">Nenhuma demanda vinculada.</p>
-      {% endif %}
-    </section>
-    {% endif %}
-
-    {% if entidade.observacoes %}
-    <section class="bg-white border border-slate-200 rounded-xl p-6">
-      <h2 class="text-base font-semibold text-slate-900 mb-2">Observações</h2>
-      <p class="text-sm text-slate-700 whitespace-pre-line">{{ entidade.observacoes }}</p>
-    </section>
-    {% endif %}
-  </div>
-
-  <aside class="space-y-6">
-    <section class="bg-white border border-slate-200 rounded-xl p-6">
-      <h2 class="text-base font-semibold text-slate-900 mb-3">Tags</h2>
-      {% if entidade.tags.all %}
-      <div class="flex flex-wrap gap-1">
-        {% for t in entidade.tags.all %}
-        {% if t.cor %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium" style="background: color-mix(in srgb, {{ t.cor }} 18%, white); color: color-mix(in srgb, {{ t.cor }} 75%, black);">{{ t.nome }}</span>{% else %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">{{ t.nome }}</span>{% endif %}
-        {% endfor %}
+<div class="doc">
+  <div class="doc-grid">
+    <div class="main">
+      <h1 class="main-title">{{ entidade.nome }}</h1>
+      <div class="main-meta">
+        <span class="item"><span class="k">Tipo</span><span class="v">{{ entidade.get_tipo_display }}</span></span>
+        {% if entidade.cnpj %}<span class="sep">·</span><span class="item"><span class="k">CNPJ</span><span class="v">{{ entidade.cnpj }}</span></span>{% endif %}
+        {% if entidade.cidade %}<span class="sep">·</span><span class="item"><span class="k">Cidade</span><span class="v">{{ entidade.cidade }}</span></span>{% endif %}
+        <span class="sep">·</span>
+        <span class="item"><span class="k">Status</span>
+          {% if entidade.ativo %}<span class="badge ativa"><span class="dot"></span>Ativa</span>{% else %}<span class="badge inativa"><span class="dot"></span>Inativa</span>{% endif %}
+        </span>
       </div>
-      {% else %}
-      <p class="text-sm text-slate-500">Sem tags.</p>
-      {% endif %}
-    </section>
 
-    <section class="bg-white border border-slate-200 rounded-xl p-6 text-xs text-slate-500">
-      <div>Criada em {{ entidade.criado_em|date:"d/m/Y H:i" }}{% if entidade.criado_por %} por {{ entidade.criado_por }}{% endif %}.</div>
-      <div>Atualizada em {{ entidade.atualizado_em|date:"d/m/Y H:i" }}.</div>
-    </section>
-  </aside>
+      <div class="doc-actions">
+        {% if perms.pessoas.change_entidade %}
+        <a href="{% url 'pessoas:entidade_editar' entidade.slug_publico %}" class="btn secondary">Editar</a>
+        {% endif %}
+        {% if pode_alternar_ativo %}
+        <form method="post" action="{% url 'pessoas:entidade_toggle_ativo' entidade.slug_publico %}" style="margin:0">
+          {% csrf_token %}
+          <button type="submit" class="btn ghost">{% if entidade.ativo %}Desativar{% else %}Reativar{% endif %}</button>
+        </form>
+        {% endif %}
+      </div>
+
+      <section class="sec">
+        <h2>Identificação</h2>
+        <dl class="kv">
+          <div><dt>Nome</dt><dd>{{ entidade.nome }}</dd></div>
+          {% if entidade.nome_fantasia %}<div><dt>Nome fantasia</dt><dd>{{ entidade.nome_fantasia }}</dd></div>{% endif %}
+          <div><dt>Tipo</dt><dd>{{ entidade.get_tipo_display }}</dd></div>
+          {% if entidade.cnpj %}<div><dt>CNPJ</dt><dd>{{ entidade.cnpj }}</dd></div>{% endif %}
+        </dl>
+      </section>
+
+      <section class="sec">
+        <h2>Contatos</h2>
+        {% if entidade.telefones.all %}
+        <h3>Telefones</h3>
+        <ul class="itemlist">
+          {% for tel in entidade.telefones.all %}
+          <li>
+            <span class="num">{{ tel.numero_formatado }}</span>
+            <span class="tipo">{{ tel.get_tipo_display }}</span>
+            {% if tel.eh_whatsapp %}<a href="https://wa.me/55{{ tel.numero }}" target="_blank" rel="noopener" class="wa" title="Abrir conversa no WhatsApp">{% include "_icon_whatsapp.html" %}WhatsApp</a>{% endif %}
+            {% if tel.rotulo %}<span class="rotulo">{{ tel.rotulo }}</span>{% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+
+        {% if entidade.emails.all %}
+        <h3>E-mails</h3>
+        <ul class="itemlist">
+          {% for em in entidade.emails.all %}
+          <li><a href="mailto:{{ em.endereco }}">{{ em.endereco }}</a>{% if em.rotulo %}<span class="rotulo">{{ em.rotulo }}</span>{% endif %}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+
+        {% if entidade.redes_sociais.all %}
+        <h3>Redes sociais</h3>
+        <ul class="itemlist">
+          {% for rs in entidade.redes_sociais.all %}
+          <li><span class="tipo">{{ rs.get_plataforma_display }}</span><span>{{ rs.valor }}</span>{% if rs.rotulo %}<span class="rotulo">{{ rs.rotulo }}</span>{% endif %}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+
+        {% if entidade.sites.all %}
+        <h3>Sites</h3>
+        <ul class="itemlist">
+          {% for s in entidade.sites.all %}
+          <li><a href="{{ s.url }}" target="_blank" rel="noopener">{{ s.url }}</a>{% if s.rotulo %}<span class="rotulo">{{ s.rotulo }}</span>{% endif %}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+
+        {% if not entidade.telefones.all and not entidade.emails.all and not entidade.redes_sociais.all and not entidade.sites.all %}
+        <p class="vazio">Nenhum canal de contato cadastrado.</p>
+        {% endif %}
+      </section>
+
+      <section class="sec">
+        <h2>Endereço</h2>
+        {% if entidade.logradouro or entidade.bairro or entidade.cidade %}
+        <p class="freetext">{% if entidade.logradouro %}{{ entidade.logradouro }}{% if entidade.numero %}, {{ entidade.numero }}{% endif %}{% if entidade.complemento %} — {{ entidade.complemento }}{% endif %}
+{% endif %}{{ entidade.bairro }}{% if entidade.cidade %}, {{ entidade.cidade }}/{{ entidade.estado }}{% endif %}{% if entidade.cep %} — CEP {{ entidade.cep }}{% endif %}</p>
+        {% else %}
+        <p class="vazio">Endereço não cadastrado.</p>
+        {% endif %}
+      </section>
+
+      <section class="sec">
+        <h2>Pessoas vinculadas</h2>
+        {% if vinculos %}
+        <ul class="reclist">
+          {% for v in vinculos %}
+          <li>
+            <div class="row">
+              <span>
+                <a class="tit" href="{% url 'pessoas:pessoa_detalhe' v.pessoa.slug_publico %}">{{ v.pessoa.nome_exibicao }}</a>
+                <span style="color:var(--ink-mute);font-family:var(--font-serif);font-style:italic"> — {{ v.papel }}</span>
+              </span>
+            </div>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="vazio">Nenhuma pessoa vinculada.</p>
+        {% endif %}
+      </section>
+
+      {% if perms.demandas.view_demanda %}
+      <section class="sec">
+        <h2>Demandas</h2>
+        {% if demandas %}
+        <ul class="reclist">
+          {% for d in demandas %}
+          <li>
+            <div class="row">
+              <a class="tit" href="{% url 'demandas:demanda_detalhe' d.slug_publico %}"><span class="seq">{{ d.numero }}</span>{{ d.titulo }}</a>
+              <span style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+                <span style="font-family:var(--font-mono);font-size:11px;color:var(--ink-mute);text-transform:uppercase;letter-spacing:0.04em">{{ d.get_status_display }}</span>
+                {% if d.resultado == 'atendido' %}<span class="badge rs-atend" style="border:1.5px solid rgba(52,64,34,0.35)"><span class="glyph">✓</span>Atendido</span>
+                {% elif d.resultado == 'atendido_parcialmente' %}<span class="badge rs-parc" style="border:1.5px solid rgba(107,74,26,0.35)"><span class="glyph">◐</span>Parcial</span>
+                {% elif d.resultado == 'nao_atendido' %}<span class="badge rs-nao" style="border:1.5px solid rgba(125,31,31,0.35)"><span class="glyph">✗</span>Não atendido</span>
+                {% elif d.resultado == 'inviavel' %}<span class="badge rs-inv" style="color:#fff;border:1.5px solid var(--ink-700)"><span class="glyph">⊘</span>Inviável</span>
+                {% elif d.resultado == 'nao_se_aplica' %}<span class="badge rs-nsa" style="border:1.5px solid rgba(0,0,0,0.18)"><span class="glyph">—</span>N/A</span>
+                {% else %}<span class="badge rs-pend" style="border:1.5px solid rgba(0,0,0,0.18)"><span class="glyph">○</span>Pendente</span>{% endif %}
+              </span>
+            </div>
+            {% if d.temas.all %}
+            <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">
+              {% for t in d.temas.all %}{% if t.cor %}<span style="font-family:var(--font-sans);font-size:11px;padding:1px 7px;border:1px solid {{ t.cor }};color:{{ t.cor }};background:color-mix(in srgb, {{ t.cor }} 14%, white)">{{ t.nome }}</span>{% else %}<span style="font-family:var(--font-sans);font-size:11px;padding:1px 7px;border:1px solid var(--rule-strong);color:var(--ink-soft)">{{ t.nome }}</span>{% endif %}{% endfor %}
+            </div>
+            {% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="vazio">Nenhuma demanda vinculada.</p>
+        {% endif %}
+      </section>
+      {% endif %}
+
+      {% if entidade.observacoes %}
+      <section class="sec">
+        <h2>Observações</h2>
+        <p class="freetext">{{ entidade.observacoes }}</p>
+      </section>
+      {% endif %}
+    </div>
+
+    <aside class="aside">
+      <div class="aside-sec">
+        <h2>Tags</h2>
+        {% if entidade.tags.all %}
+        <div class="tagcloud">
+          {% for t in entidade.tags.all %}
+          {% if t.cor %}<span class="pill" style="color:{{ t.cor }};background:color-mix(in srgb, {{ t.cor }} 14%, white)">{{ t.nome }}</span>{% else %}<span class="pill" style="color:var(--ink-soft)">{{ t.nome }}</span>{% endif %}
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="vazio">Sem tags.</p>
+        {% endif %}
+      </div>
+
+      <div class="aside-sec">
+        <h2>Registro</h2>
+        <div class="aside-meta">
+          <div>Criada em {{ entidade.criado_em|date:"d/m/Y H:i" }}{% if entidade.criado_por %} por {{ entidade.criado_por }}{% endif %}.</div>
+          <div>Atualizada em {{ entidade.atualizado_em|date:"d/m/Y H:i" }}.</div>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
 </div>
 {% endblock %}

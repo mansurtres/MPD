@@ -2,7 +2,7 @@
 
 Todas as rotas do sistema na `v1.0`. Para cada tela: rota, perfis com acesso, função, ações principais, fase de implementação.
 
-> **Perfis:** `ADM` = Administrador, `CG` = Chefe de Gabinete, `CO` = Coordenador (Jurídico ou Comunicação), `AS` = Assessor.
+> **Perfis (ADR 0059):** `ADM` = Administrador, `CG` = Chefe de Gabinete, `AS` = Assessor.
 
 ---
 
@@ -115,7 +115,7 @@ Todas as rotas do sistema na `v1.0`. Para cada tela: rota, perfis com acesso, fu
 
 ### 6.2 Detalhe
 - **Rota:** `/pessoas/<id>`
-- **Perfis:** todos logados (respeitando demandas restritas)
+- **Perfis:** ADM; demais só no contexto de uma demanda visível (need-to-know, ADR 0059)
 - **Fase:** 2 (básico) → 3 (lista de demandas)
 - **Função:** ficha completa com toda a história relacional.
 - **Componentes:** dados pessoais, endereço, vínculos com entidades, lista de demandas cronológica reversa, histórico de alterações, **anexos da pessoa**.
@@ -154,15 +154,15 @@ Todas as rotas do sistema na `v1.0`. Para cada tela: rota, perfis com acesso, fu
 
 ### 8.1 Lista
 - **Rota:** `/demandas`
-- **Perfis:** todos logados (respeitando `restrito`)
+- **Perfis:** todos logados — cada um vê só o que pode (visibilidade por papel, ADR 0059)
 - **Fase:** 3 → 5
 - **Função:** listar demandas com filtros poderosos.
-- **Quick filters:** "Minhas demandas", "Da minha coordenação", "Vencidas", "Sem retorno há +30 dias", "Atendidas", "Não atendidas", "Sem resultado classificado".
+- **Quick filters:** "Minhas demandas", "Vencidas", "Sem retorno há +30 dias", "Atendidas", "Não atendidas", "Sem resultado classificado".
 - **Filtros avançados (Fase 5):** filtro por `resultado` (multi-select).
 
 ### 8.2 Detalhe
 - **Rota:** `/demandas/<id>`
-- **Perfis:** conforme `restrito`
+- **Perfis:** conforme a visibilidade por papel (ADR 0059)
 - **Fase:** 3
 - **Função:** painel central de trabalho sobre uma demanda.
 - **Componentes:**
@@ -212,7 +212,7 @@ Todas as rotas do sistema na `v1.0`. Para cada tela: rota, perfis com acesso, fu
 - **Função:** leitura agregada de encaminhamentos cruzando demandas. Cada linha é deep-link para a Demanda — **sem detalhe próprio nem CRUD aqui** (princípio "Demanda é o núcleo, partículas não viram entidades autônomas").
 - **Quick filters:** "Aguardando resposta", "Prazo vencido" (status `prazo_vencido` OU status `enviado` com `prazo_resposta < hoje`), "Respondidos esta semana".
 - **Filtros:** busca livre (órgão, número do documento, número/título da demanda), status, órgão (autocomplete por histórico via `<datalist>`), tipo de documento.
-- **Visibilidade:** encaminhamento de demanda restrita só aparece para quem pode ver a demanda. `_filtrar_visiveis(Demanda.objects.all(), user)` é aplicado antes de filtrar encaminhamentos.
+- **Visibilidade:** encaminhamento só aparece para quem pode ver a demanda associada — `Demanda.objects.visiveis_para(user)` (por papel, ADR 0059) é aplicado antes de filtrar encaminhamentos.
 
 ---
 
@@ -251,7 +251,6 @@ Todas as rotas do sistema na `v1.0`. Para cada tela: rota, perfis com acesso, fu
   - **Efetividade do mandato** (distribuição de `resultado` no período: % atendido, % parcial, % não atendido, % inviável, % não se aplica).
   - **Efetividade por tema** (resultado cruzado com tag de categoria `tema`).
   - **Efetividade por bairro** (resultado cruzado com bairro da pessoa).
-  - **Efetividade por coordenação** (resultado cruzado com `coordenacao_responsavel`).
   - **Pessoas com demandas atendidas** (lista de pessoas com pelo menos uma demanda `atendida` ou `atendida_parcialmente` no período — ordenável por quantidade).
   - **Demandas resolvidas não comunicadas** (lista operacional: `resultado` ≠ `pendente` E `status` ≠ `respondido` — pendentes de comunicar boa/má notícia à pessoa).
 

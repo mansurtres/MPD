@@ -1,0 +1,1720 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>MPD · Android (6 telas)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="../tokens.css">
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<style>
+  body {
+    background: #ece8e0;
+    font-family: var(--sans);
+    margin: 0; padding: 0;
+  }
+
+  /* === Header da página de showcase === */
+  .showcase-head {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 56px 32px 24px;
+  }
+  .showcase-head .kicker {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-bottom: 18px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .showcase-head .kicker::after {
+    content: ""; flex: 1; height: 1px; background: var(--rule-strong);
+    max-width: 200px;
+  }
+  .showcase-head h1 {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: 48px;
+    line-height: 1.08;
+    letter-spacing: -0.02em;
+    margin: 0 0 16px;
+    color: var(--ink);
+    max-width: 24ch;
+  }
+  .showcase-head h1 em { font-style: italic; color: var(--navy); }
+  .showcase-head .lede {
+    font-family: var(--serif);
+    font-size: 17px;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    max-width: 64ch;
+    margin: 0 0 18px;
+  }
+  .showcase-head .lede strong { color: var(--ink); font-weight: 600; }
+  .showcase-head .back {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    color: var(--ink-soft);
+    text-decoration: none;
+    border: 1px solid var(--rule-strong);
+    padding: 6px 14px;
+    background: var(--paper);
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .showcase-head .back:hover { color: var(--navy); border-color: var(--navy); }
+
+  /* Grid de phones */
+  .phones {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 40px 32px 80px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, 402px);
+    gap: 56px 32px;
+    justify-content: center;
+  }
+
+  /* Caption acima do phone */
+  .phone-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .phone-wrap .caption {
+    width: 402px;
+    margin-bottom: 16px;
+    text-align: left;
+  }
+  .phone-wrap .caption .num {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--navy);
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .phone-wrap .caption .name {
+    font-family: var(--serif);
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--ink);
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    margin-bottom: 6px;
+  }
+  .phone-wrap .caption .desc {
+    font-family: var(--serif);
+    font-size: 14px;
+    line-height: 1.45;
+    color: var(--ink-soft);
+    font-style: italic;
+  }
+
+  /* ============================================================
+     Sistema visual MPD adaptado para mobile
+     Define classes que vão ser usadas DENTRO dos iOS frames.
+     ============================================================ */
+
+  /* Variáveis sobrepostas para o contexto mobile */
+  .mpd-mobile {
+    --m-paper: #f8f5ee;
+    --m-paper-2: #efeadc;
+    --m-paper-3: #e6dfca;
+    --m-ink: #1a1814;
+    --m-ink-soft: #46423b;
+    --m-ink-mute: #6b6357;
+    --m-rule: #d6cdb8;
+    --m-rule-strong: #b8ad94;
+    --m-navy: #1f3a5f;
+    --m-navy-deep: #15293f;
+    --m-navy-soft: #e8edf3;
+    --m-bordo: #8a2a2a;
+    --m-bordo-soft: #f3e3e3;
+    --m-tan: #6b4a2a;
+    --m-olive: #5a6b3a;
+    --m-amber: #b4751c;
+    --m-teal: #2a6f6a;
+
+    background: var(--m-paper);
+    color: var(--m-ink);
+    font-family: var(--sans);
+    height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-top: 54px; /* status bar */
+    padding-bottom: 100px; /* tab bar + home indicator */
+  }
+  .mpd-mobile::-webkit-scrollbar { display: none; }
+
+  .mpd-mobile * { box-sizing: border-box; }
+
+  /* Cabeçalho do "documento" mobile */
+  .mh {
+    background: var(--m-paper);
+    border-top: 4px solid var(--m-navy);
+    padding: 14px 18px 14px;
+    border-bottom: 1px solid var(--m-rule);
+  }
+  .mh .crumb {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--m-ink-mute);
+    margin-bottom: 8px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .mh .crumb .here { color: var(--m-navy); font-weight: 600; }
+  .mh .crumb .sep { color: var(--m-rule-strong); }
+  .mh h1 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 26px;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    margin: 0 0 4px;
+    color: var(--m-ink);
+  }
+  .mh .sub {
+    font-family: var(--serif);
+    font-size: 14px;
+    color: var(--m-ink-soft);
+    line-height: 1.4;
+    font-style: italic;
+    margin: 0;
+  }
+  .mh .sub strong { color: var(--m-ink); font-weight: 600; font-style: normal; }
+  .mh .sub .warn { color: var(--m-bordo); font-weight: 600; font-style: normal; }
+
+  /* Body sections */
+  .ms {
+    padding: 20px 18px 0;
+  }
+  .ms-head {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--m-navy);
+  }
+  .ms-head h2 {
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--m-navy);
+    margin: 0;
+  }
+  .ms-head .ct {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--m-ink-mute);
+    letter-spacing: 0.04em;
+  }
+  .ms-head .all {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--m-ink-mute);
+    text-decoration: none;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  /* Stat ruler horizontal */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    border: 1px solid var(--m-rule);
+    background: var(--m-paper);
+    margin: 0 0 16px;
+  }
+  .stats .c {
+    padding: 12px 12px;
+    border-right: 1px solid var(--m-rule);
+  }
+  .stats .c:last-child { border-right: 0; }
+  .stats .c .k {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--m-ink-mute);
+    margin-bottom: 4px;
+    line-height: 1.2;
+  }
+  .stats .c .v {
+    font-family: var(--serif);
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--m-ink);
+    letter-spacing: -0.01em;
+    line-height: 1;
+  }
+  .stats .c .v.warn { color: var(--m-bordo); }
+  .stats .c .v.ok { color: var(--m-olive); }
+
+  /* Stamp */
+  .mstamp {
+    display: inline-block;
+    font-family: var(--sans);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 3px 8px 4px;
+    border: 1.5px solid currentColor;
+  }
+  .mstamp.and { color: var(--m-amber); }
+  .mstamp.cnc { color: var(--m-olive); }
+  .mstamp.agt { color: var(--m-tan); }
+  .mstamp.agp { color: var(--m-bordo); }
+  .mstamp.urg { color: var(--m-bordo); background: var(--m-bordo-soft); }
+  .mstamp.novo { color: var(--m-navy); }
+
+  /* Card de demanda (lista mobile) */
+  .dcard {
+    background: var(--m-paper);
+    border: 1px solid var(--m-rule);
+    border-left: 3px solid var(--m-navy);
+    padding: 13px 14px;
+    margin-bottom: 8px;
+  }
+  .dcard.late { border-left-color: var(--m-bordo); background: #fbf6f4; }
+  .dcard .top {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .dcard .num {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--m-navy);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  .dcard .num .y { color: var(--m-ink-mute); font-weight: 400; }
+  .dcard .ttl {
+    font-family: var(--serif);
+    font-size: 15.5px;
+    color: var(--m-ink);
+    line-height: 1.3;
+    font-weight: 500;
+    margin: 0 0 8px;
+  }
+  .dcard .ttl a { color: var(--m-ink); text-decoration: none; }
+  .dcard .meta-row {
+    display: flex; align-items: center; gap: 8px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--m-rule);
+    font-family: var(--sans);
+    font-size: 11.5px;
+    color: var(--m-ink-mute);
+  }
+  .dcard .meta-row .av {
+    width: 22px; height: 22px;
+    background: var(--m-navy-soft);
+    border: 1px solid var(--m-navy);
+    color: var(--m-navy);
+    display: grid; place-items: center;
+    font-family: var(--sans);
+    font-size: 10px;
+    font-weight: 700;
+  }
+  .dcard .meta-row .pz {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--m-ink-soft);
+  }
+  .dcard .meta-row .pz.warn { color: var(--m-bordo); font-weight: 600; }
+  .dcard .meta-row .pz.late { color: var(--m-bordo); font-weight: 700; }
+
+  /* Tab bar */
+  .tabs {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 84px;
+    background: var(--m-paper);
+    border-top: 1px solid var(--m-rule);
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+    padding: 8px 8px 24px;
+    z-index: 5;
+  }
+  .tabs .t {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    text-decoration: none;
+    color: var(--m-ink-mute);
+    font-family: var(--sans);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    padding: 4px 0;
+    cursor: pointer;
+    position: relative;
+  }
+  .tabs .t.on { color: var(--m-navy); font-weight: 700; }
+  .tabs .t.on::before {
+    content: ""; position: absolute; top: 0; left: 50%;
+    width: 24px; height: 2px;
+    background: var(--m-navy);
+    transform: translateX(-50%);
+  }
+  .tabs .t .ic {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    width: 22px; height: 22px;
+    display: grid; place-items: center;
+    border: 1.5px solid currentColor;
+    letter-spacing: 0.04em;
+  }
+  .tabs .t.cap .ic {
+    background: var(--m-navy);
+    color: var(--m-paper);
+    border-color: var(--m-navy);
+    font-size: 14px;
+  }
+  .tabs .alert {
+    position: absolute;
+    top: 0; right: 50%;
+    transform: translateX(20px);
+    background: var(--m-bordo);
+    color: var(--m-paper);
+    font-family: var(--mono);
+    font-size: 9px;
+    padding: 1px 4px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+
+  /* === CAPTURA tela === */
+  .cap-screen {
+    padding-top: 54px;
+    height: 100%;
+    background: var(--m-navy);
+    color: var(--m-paper);
+    display: flex;
+    flex-direction: column;
+  }
+  .cap-screen .cap-head {
+    padding: 18px 20px 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.12);
+  }
+  .cap-screen .cap-head .crumb {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.55);
+    margin-bottom: 8px;
+  }
+  .cap-screen .cap-head h1 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 30px;
+    line-height: 1.1;
+    margin: 0;
+    letter-spacing: -0.015em;
+  }
+  .cap-screen .cap-head .sub {
+    font-family: var(--serif);
+    font-size: 14px;
+    font-style: italic;
+    color: rgba(255,255,255,0.75);
+    margin: 4px 0 0;
+  }
+
+  .cap-screen .field {
+    flex: 1;
+    padding: 24px 20px;
+    display: flex;
+    flex-direction: column;
+  }
+  .cap-screen .field textarea {
+    background: transparent;
+    border: 0;
+    outline: 0;
+    color: var(--m-paper);
+    font-family: var(--serif);
+    font-size: 22px;
+    line-height: 1.4;
+    resize: none;
+    width: 100%;
+    flex: 1;
+    min-height: 200px;
+  }
+  .cap-screen .field textarea::placeholder {
+    color: rgba(255,255,255,0.35);
+    font-style: italic;
+  }
+  .cap-screen .ai-hint {
+    margin-top: 12px;
+    padding: 10px 12px;
+    background: rgba(255,255,255,0.06);
+    border-left: 2px solid #d4c896;
+    font-family: var(--sans);
+    font-size: 12px;
+    color: rgba(255,255,255,0.85);
+  }
+  .cap-screen .ai-hint .tag {
+    background: #d4c896;
+    color: var(--m-navy);
+    font-family: var(--mono);
+    font-size: 9px;
+    padding: 1px 6px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 700;
+    margin-right: 8px;
+  }
+
+  .cap-actions {
+    padding: 14px 20px 20px;
+    display: flex; gap: 10px;
+    border-top: 1px solid rgba(255,255,255,0.12);
+  }
+  .cap-actions .ic-btn {
+    width: 46px; height: 46px;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: var(--m-paper);
+    display: grid; place-items: center;
+    font-family: var(--mono);
+    font-size: 18px;
+    font-weight: 700;
+  }
+  .cap-actions .submit {
+    flex: 1;
+    background: #d4c896;
+    color: var(--m-navy);
+    border: 0;
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 15px;
+    padding: 0;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+  }
+
+  .cap-recent {
+    padding: 16px 20px 100px;
+    background: rgba(0,0,0,0.18);
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+  .cap-recent .lbl {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: rgba(255,255,255,0.55);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .cap-recent .it {
+    font-family: var(--serif);
+    font-size: 13.5px;
+    line-height: 1.4;
+    color: rgba(255,255,255,0.7);
+    padding: 8px 0;
+    border-top: 1px dotted rgba(255,255,255,0.12);
+  }
+  .cap-recent .it:first-of-type { border-top: 0; padding-top: 0; }
+  .cap-recent .it .when {
+    color: rgba(255,255,255,0.45);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    margin-right: 6px;
+  }
+
+  /* === Outros componentes mobile === */
+  .agenda-it {
+    display: grid;
+    grid-template-columns: 60px 1fr;
+    gap: 12px;
+    padding: 12px 0;
+    border-top: 1px solid var(--m-rule);
+  }
+  .agenda-it:first-of-type { border-top: 0; padding-top: 0; }
+  .agenda-it .time {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--m-ink-mute);
+    text-align: right;
+    padding-top: 2px;
+  }
+  .agenda-it .time .h {
+    display: block;
+    font-family: var(--serif);
+    font-size: 17px;
+    font-weight: 500;
+    color: var(--m-ink);
+    line-height: 1;
+    margin-bottom: 2px;
+  }
+  .agenda-it .body .type {
+    font-family: var(--sans);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .agenda-it.dev .body .type { color: var(--m-bordo); }
+  .agenda-it.reu .body .type { color: var(--m-navy); }
+  .agenda-it.vis .body .type { color: var(--m-tan); }
+  .agenda-it .body .ttl {
+    font-family: var(--serif);
+    font-size: 14px;
+    line-height: 1.3;
+    color: var(--m-ink);
+    margin: 0;
+    font-weight: 500;
+  }
+
+  /* Pessoa: header */
+  .p-head {
+    background: var(--m-paper);
+    border-top: 4px solid var(--m-navy);
+    padding: 16px 18px 14px;
+    border-bottom: 1px solid var(--m-rule);
+    display: flex;
+    gap: 14px;
+    align-items: center;
+  }
+  .p-head .av {
+    width: 64px; height: 64px;
+    background: var(--m-navy-soft);
+    border: 1px solid var(--m-navy);
+    color: var(--m-navy);
+    display: grid; place-items: center;
+    font-family: var(--sans);
+    font-size: 22px;
+    font-weight: 700;
+    flex: none;
+  }
+  .p-head .info h1 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 22px;
+    line-height: 1.15;
+    letter-spacing: -0.005em;
+    margin: 0;
+    color: var(--m-ink);
+  }
+  .p-head .info .role {
+    font-family: var(--sans);
+    font-size: 11.5px;
+    color: var(--m-ink-mute);
+    margin-top: 4px;
+    line-height: 1.4;
+  }
+  .p-head .info .role strong {
+    color: var(--m-navy);
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border: 1px solid var(--m-navy);
+    padding: 1px 5px;
+    margin-right: 4px;
+    font-weight: 600;
+  }
+
+  .p-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 6px;
+    padding: 12px 18px;
+    background: var(--m-paper-2);
+    border-bottom: 1px solid var(--m-rule);
+  }
+  .p-actions .a {
+    background: var(--m-paper);
+    border: 1px solid var(--m-rule-strong);
+    padding: 10px 4px;
+    font-family: var(--sans);
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--m-ink);
+    text-align: center;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+  }
+  .p-actions .a.primary {
+    background: var(--m-navy);
+    color: var(--m-paper);
+    border-color: var(--m-navy);
+    font-weight: 600;
+  }
+  .p-actions .a .ic {
+    display: block;
+    font-family: var(--mono);
+    font-size: 16px;
+    margin-bottom: 3px;
+    font-weight: 700;
+  }
+
+  /* Pessoa: bloco de info */
+  .p-block {
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--m-rule);
+  }
+  .p-block .lbl {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--m-ink-mute);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .p-block .row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-top: 1px dotted var(--m-rule);
+    font-family: var(--sans);
+    font-size: 13px;
+  }
+  .p-block .row:first-of-type { border-top: 0; padding-top: 0; }
+  .p-block .row .k {
+    color: var(--m-ink-mute);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .p-block .row .v {
+    color: var(--m-ink);
+    font-family: var(--mono);
+    font-size: 12.5px;
+    font-weight: 500;
+  }
+  .p-block .row .v.label {
+    font-family: var(--sans);
+    font-size: 13px;
+  }
+
+  /* Demanda detalhe: timeline */
+  .dd-head {
+    background: var(--m-paper);
+    border-top: 4px solid var(--m-navy);
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--m-rule);
+  }
+  .dd-head .num-row {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .dd-head .num {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--m-navy);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+  .dd-head .num .y { color: var(--m-ink-mute); font-weight: 400; }
+  .dd-head h1 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 19px;
+    line-height: 1.25;
+    margin: 0 0 8px;
+    color: var(--m-ink);
+    letter-spacing: -0.005em;
+  }
+  .dd-head .meta-line {
+    display: flex; align-items: center; gap: 8px;
+    flex-wrap: wrap;
+    font-family: var(--sans);
+    font-size: 11.5px;
+    color: var(--m-ink-mute);
+    margin-top: 8px;
+  }
+  .dd-head .meta-line .sep { color: var(--m-rule-strong); }
+
+  .dd-alert {
+    background: var(--m-bordo-soft);
+    border-top: 3px solid var(--m-bordo);
+    border-bottom: 1px solid var(--m-rule);
+    padding: 12px 18px;
+    font-family: var(--serif);
+    font-size: 13.5px;
+    line-height: 1.4;
+    color: var(--m-ink);
+  }
+  .dd-alert .lbl {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--m-bordo);
+    font-weight: 700;
+    display: block;
+    margin-bottom: 4px;
+    font-style: normal;
+  }
+  .dd-alert strong { color: var(--m-bordo); font-weight: 700; }
+  .dd-alert .btn {
+    display: block;
+    margin-top: 10px;
+    background: var(--m-navy);
+    color: var(--m-paper);
+    border: 0;
+    padding: 10px 14px;
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 13.5px;
+    width: 100%;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+  }
+
+  .tl-it {
+    display: grid;
+    grid-template-columns: 56px 1fr;
+    gap: 12px;
+    padding: 12px 0;
+    border-top: 1px solid var(--m-rule);
+  }
+  .tl-it:first-of-type { border-top: 0; padding-top: 0; }
+  .tl-it .date {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--m-ink-mute);
+    text-align: right;
+    padding-top: 2px;
+    line-height: 1.4;
+  }
+  .tl-it .date .d {
+    display: block;
+    color: var(--m-navy);
+    font-weight: 600;
+    font-size: 12px;
+  }
+  .tl-it .body .type {
+    font-family: var(--sans);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--m-ink-mute);
+    margin-bottom: 4px;
+  }
+  .tl-it.ret .body .type { color: var(--m-olive); }
+  .tl-it.enc .body .type { color: var(--m-bordo); }
+  .tl-it.con .body .type { color: var(--m-navy); }
+  .tl-it.dev .body .type { color: var(--m-olive); }
+  .tl-it.int .body .type { color: var(--m-tan); }
+  .tl-it.agd .body .type { color: var(--m-bordo); font-style: italic; }
+  .tl-it .body p {
+    font-family: var(--serif);
+    font-size: 13.5px;
+    line-height: 1.45;
+    color: var(--m-ink-soft);
+    margin: 0;
+  }
+  .tl-it .body p strong { color: var(--m-ink); font-weight: 600; }
+
+  /* Lista de demandas: barra de busca */
+  .search-bar {
+    background: var(--m-paper);
+    border-top: 4px solid var(--m-navy);
+    border-bottom: 1px solid var(--m-rule);
+    padding: 12px 18px 10px;
+  }
+  .search-bar h1 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 22px;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    margin: 0 0 10px;
+    color: var(--m-ink);
+  }
+  .search-bar h1 .total {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--m-ink-mute);
+    margin-left: 8px;
+    font-weight: 400;
+    vertical-align: 3px;
+    letter-spacing: 0.04em;
+  }
+  .search-bar h1 .urg {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--m-bordo);
+    margin-left: 8px;
+    vertical-align: 3px;
+    font-weight: 500;
+  }
+  .search-bar .input {
+    background: var(--m-paper-2);
+    border: 1px solid var(--m-rule-strong);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+  }
+  .search-bar .input input {
+    flex: 1; border: 0; outline: 0; background: transparent;
+    font-family: var(--sans);
+    font-size: 14px;
+    color: var(--m-ink);
+    padding: 0;
+  }
+  .search-bar .input input::placeholder { color: var(--m-ink-mute); font-style: italic; }
+  .search-bar .pre {
+    font-family: var(--mono);
+    color: var(--m-ink-mute);
+    font-size: 14px;
+  }
+
+  .chips-row {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding: 10px 18px;
+    background: var(--m-paper);
+    border-bottom: 1px solid var(--m-rule);
+  }
+  .chips-row::-webkit-scrollbar { display: none; }
+  .chips-row .chip {
+    background: transparent;
+    border: 1px solid var(--m-rule-strong);
+    color: var(--m-ink-soft);
+    font-family: var(--sans);
+    font-size: 12px;
+    padding: 4px 10px;
+    white-space: nowrap;
+    cursor: pointer;
+    flex: none;
+  }
+  .chips-row .chip.on {
+    background: var(--m-ink);
+    color: var(--m-paper);
+    border-color: var(--m-ink);
+    font-weight: 500;
+  }
+  .chips-row .chip .num {
+    font-family: var(--mono);
+    font-size: 10px;
+    opacity: 0.65;
+    margin-left: 2px;
+  }
+
+  .group-divider {
+    background: var(--m-paper-2);
+    padding: 10px 18px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--m-ink-soft);
+    font-weight: 700;
+    border-top: 2px solid var(--m-navy);
+    border-bottom: 1px solid var(--m-rule);
+    display: flex; justify-content: space-between;
+  }
+  .group-divider.urg { color: var(--m-bordo); border-top-color: var(--m-bordo); }
+  .group-divider .ct { color: var(--m-ink-mute); font-weight: 500; }
+
+  /* Inbox item */
+  .ib-item {
+    background: var(--m-paper);
+    border-bottom: 1px solid var(--m-rule);
+    padding: 14px 18px;
+    position: relative;
+  }
+  .ib-item.urg { border-left: 3px solid var(--m-bordo); }
+  .ib-item .meta {
+    display: flex; align-items: center; gap: 10px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--m-ink-mute);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .ib-item .meta .who {
+    color: var(--m-ink-soft);
+    font-family: var(--sans);
+    font-size: 11px;
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: 500;
+  }
+  .ib-item p {
+    font-family: var(--serif);
+    font-size: 14.5px;
+    line-height: 1.45;
+    color: var(--m-ink);
+    margin: 0 0 8px;
+  }
+  .ib-item .hint {
+    display: flex; gap: 6px; align-items: center;
+    flex-wrap: wrap;
+  }
+  .ib-item .hint .ai {
+    background: var(--m-navy);
+    color: var(--m-paper);
+    font-family: var(--mono);
+    font-size: 9.5px;
+    padding: 2px 6px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+  .ib-item .hint .tag {
+    background: transparent;
+    border: 1px solid var(--m-rule-strong);
+    color: var(--m-ink-soft);
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 6px;
+  }
+  .ib-item .hint .tag.sau { color: var(--m-olive); border-color: var(--m-olive); }
+  .ib-item .hint .tag.mob { color: var(--m-teal); border-color: var(--m-teal); }
+  .ib-item .hint .tag.seg { color: var(--m-bordo); border-color: var(--m-bordo); }
+  .ib-item .actions {
+    display: flex; gap: 6px;
+    margin-top: 10px;
+  }
+  .ib-item .actions .b {
+    flex: 1;
+    background: transparent;
+    border: 1px solid var(--m-rule-strong);
+    color: var(--m-ink-soft);
+    font-family: var(--sans);
+    font-size: 11.5px;
+    padding: 6px 8px;
+    text-align: center;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+  }
+  .ib-item .actions .b.primary {
+    background: var(--m-navy);
+    color: var(--m-paper);
+    border-color: var(--m-navy);
+    font-weight: 600;
+  }
+
+  /* Inicio: greeting + ações rápidas */
+  .greeting {
+    background: var(--m-paper);
+    border-top: 4px solid var(--m-navy);
+    padding: 16px 18px 14px;
+    border-bottom: 1px solid var(--m-rule);
+  }
+  .greeting .when {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--m-ink-mute);
+    margin-bottom: 6px;
+  }
+  .greeting h1 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 24px;
+    line-height: 1.15;
+    margin: 0 0 4px;
+    color: var(--m-ink);
+    letter-spacing: -0.01em;
+  }
+  .greeting h1 .who { color: var(--m-navy); font-style: italic; }
+  .greeting .sub {
+    font-family: var(--serif);
+    font-size: 13.5px;
+    line-height: 1.4;
+    color: var(--m-ink-soft);
+    font-style: italic;
+    margin: 0;
+  }
+  .greeting .sub .warn { color: var(--m-bordo); font-weight: 600; font-style: normal; }
+  .greeting .sub strong { color: var(--m-ink); font-weight: 600; font-style: normal; }
+
+  /* CTA capture */
+  .quick-cap {
+    background: var(--m-navy);
+    color: var(--m-paper);
+    padding: 12px 16px;
+    margin: 12px 18px 0;
+    display: flex; align-items: center; gap: 10px;
+    cursor: pointer;
+  }
+  .quick-cap .ic {
+    font-family: var(--mono);
+    font-size: 22px;
+    font-weight: 700;
+    flex: none;
+  }
+  .quick-cap .body {
+    flex: 1;
+    font-family: var(--serif);
+    font-size: 14px;
+    line-height: 1.3;
+  }
+  .quick-cap .body .label {
+    display: block;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #d4c896;
+    margin-bottom: 2px;
+    font-style: normal;
+  }
+  .quick-cap .body em { font-style: italic; opacity: 0.75; }
+</style>
+
+</head>
+<body>
+
+<!-- Header da página -->
+<header class="showcase-head">
+  <div class="kicker">MPD · adaptação mobile</div>
+  <h1>Seis telas para o <em>celular Android</em> do gabinete.</h1>
+  <p class="lede">
+    Mobile foca em <strong>uso em campo</strong>: captura no momento, consulta entre compromissos, devolutiva pelo bolso. Tabelas viram cards; sidebar vira tab bar inferior; data da timeline vira data acima do bloco. A captura rápida deixa de ser modal e vira tela própria (a mais usada). Mesma paleta: papel cru, tinta navy, bordô para urgência, serif para o relato.
+  </p>
+  <a class="back" href="../index.html">← voltar ao desktop</a>
+  <a class="back" href="index.html" style="margin-left:10px">Ver versão iOS →</a>
+</header>
+
+<!-- Grid de phones -->
+<div id="app"></div>
+
+<script type="text/babel" src="android-frame.jsx"></script>
+
+<script type="text/babel" data-presets="env,react">
+
+// ============================================================
+// Componentes de UI mobile MPD
+// ============================================================
+
+function MPDTabs({ current = 'inicio' }) {
+  const tabs = [
+    { id: 'inicio', label: 'Início', ic: '⌂' },
+    { id: 'inbox', label: 'Entrada', ic: '7', alert: true },
+    { id: 'capture', label: 'Capturar', ic: '+', cap: true },
+    { id: 'demandas', label: 'Demandas', ic: '☰' },
+    { id: 'pessoas', label: 'Pessoas', ic: '◉' },
+  ];
+  return (
+    <div className="tabs">
+      {tabs.map(t => (
+        <div key={t.id} className={'t ' + (current === t.id ? 'on ' : '') + (t.cap ? 'cap' : '')}>
+          <span className="ic">{t.ic}</span>
+          <span>{t.label}</span>
+          {t.alert && current !== t.id && <span className="alert">7</span>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ============================================================
+// 1) CAPTURA — tela navy com input grande
+// ============================================================
+function ScreenCaptura() {
+  return (
+    <div className="mpd-mobile" style={{padding:0, background:'#1f3a5f'}}>
+      <div className="cap-screen">
+        <div className="cap-head">
+          <div className="crumb">Captura · 17 mai · 10:42</div>
+          <h1>Anote agora.</h1>
+          <p className="sub">Quem, onde, o quê. Triagem depois — Mariana ou Lucas resolvem no inbox quando chegar no gabinete.</p>
+        </div>
+        <div className="field">
+          <textarea defaultValue="Sebastiana ligou agora. Disse que conversou com mais gente da Antônio Ataíde — agora têm 11 vizinhos endossando o pedido. Pediu pra registrar a manifestação dos novos."></textarea>
+          <div className="ai-hint">
+            <span className="tag">↳ IA</span>
+            Esta nota parece se vincular à <strong>MPD-2026-00342</strong> (iluminação Antônio Ataíde). Quer anexar como interação ao invés de criar nova?
+          </div>
+        </div>
+        <div className="cap-actions">
+          <button className="ic-btn" title="Áudio">🎤</button>
+          <button className="ic-btn" title="Foto">📷</button>
+          <button className="ic-btn" title="Local">⌖</button>
+          <button className="submit">Capturar →</button>
+        </div>
+        <div className="cap-recent">
+          <div className="lbl">Capturadas hoje · 3</div>
+          <div className="it"><span className="when">09:12</span>Sebastiana ligou agora cedo…</div>
+          <div className="it"><span className="when">08:55</span>Família do Sr. Antônio — atendimento na UPA…</div>
+          <div className="it"><span className="when">08:31</span>Pensar em ofício pedindo cópia do plano…</div>
+        </div>
+      </div>
+      <MPDTabs current="capture" />
+    </div>
+  );
+}
+
+// ============================================================
+// 2) INÍCIO — saudação + agenda + atalhos
+// ============================================================
+function ScreenInicio() {
+  return (
+    <div className="mpd-mobile">
+      <div className="greeting">
+        <div className="when">Domingo · 17 mai · 14:08</div>
+        <h1>Bom dia, <span className="who">Mariana</span>.</h1>
+        <p className="sub">Você tem <span className="warn">3 vencidas</span> e <strong>1 devolutiva hoje às 14:30</strong> — Sebastiana, iluminação Antônio Ataíde.</p>
+      </div>
+
+      <div className="quick-cap">
+        <span className="ic">+</span>
+        <div className="body">
+          <span className="label">Captura rápida</span>
+          <em>Anote algo que apareceu agora…</em>
+        </div>
+      </div>
+
+      <div className="ms">
+        <div className="stats">
+          <div className="c"><div className="k">Vencidas</div><div className="v warn">3</div></div>
+          <div className="c"><div className="k">Hoje</div><div className="v">5</div></div>
+          <div className="c"><div className="k">Inbox</div><div className="v warn">7</div></div>
+        </div>
+      </div>
+
+      <div className="ms">
+        <div className="ms-head">
+          <h2>Agenda do dia</h2>
+          <span className="ct">5 marcações</span>
+          <a className="all" href="#">Ver semana →</a>
+        </div>
+
+        <div className="agenda-it dev">
+          <div className="time"><span className="h">14:30</span><span>hoje</span></div>
+          <div className="body">
+            <div className="type">▣ Devolutiva agendada</div>
+            <p className="ttl">Retornar a Sebastiana — cronograma SEMOB confirmado para 12/06</p>
+          </div>
+        </div>
+        <div className="agenda-it reu">
+          <div className="time"><span className="h">16:00</span><span>hoje</span></div>
+          <div className="body">
+            <div className="type">▣ Reunião · com entidade</div>
+            <p className="ttl">Assoc. Moradores do Centro — pauta mensal</p>
+          </div>
+        </div>
+        <div className="agenda-it vis">
+          <div className="time"><span className="h">10:00</span><span>amanhã</span></div>
+          <div className="body">
+            <div className="type">▣ Visita com demandante</div>
+            <p className="ttl">Vistoria conjunta com Sr. Antônio — Rua Antônio Ataíde</p>
+          </div>
+        </div>
+        <div className="agenda-it reu">
+          <div className="time"><span className="h">14:00</span><span>22 mai</span></div>
+          <div className="body">
+            <div className="type">▣ Reunião · órgão público</div>
+            <p className="ttl">Lia Garcia (SEMUS) — edital de pediatria</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="ms">
+        <div className="ms-head">
+          <h2>Pendências críticas</h2>
+          <span className="ct">3 vencidas</span>
+          <a className="all" href="#">Ver todas →</a>
+        </div>
+        <div className="dcard late">
+          <div className="top">
+            <span className="num"><span className="y">MPD-2026-</span>00339</span>
+            <span className="mstamp agp">Vencida há 7d</span>
+          </div>
+          <p className="ttl">Linha 502 — reforço no horário escolar</p>
+          <div className="meta-row">
+            <span className="av">LA</span>
+            Lucas Almeida
+            <span className="pz late">10/05</span>
+          </div>
+        </div>
+        <div className="dcard late">
+          <div className="top">
+            <span className="num"><span className="y">MPD-2026-</span>00328</span>
+            <span className="mstamp agp">Vencida há 4d</span>
+          </div>
+          <p className="ttl">Atendimento médico — fila SUS 14 meses</p>
+          <div className="meta-row">
+            <span className="av">MC</span>
+            Mariana Costa
+            <span className="pz late">13/05</span>
+          </div>
+        </div>
+      </div>
+
+      <MPDTabs current="inicio" />
+    </div>
+  );
+}
+
+// ============================================================
+// 3) DEMANDA DETALHE
+// ============================================================
+function ScreenDemanda() {
+  return (
+    <div className="mpd-mobile">
+      <div className="dd-head">
+        <div className="num-row">
+          <span className="num"><span className="y">MPD-2026-</span>00342</span>
+          <span className="mstamp and">Em andamento</span>
+        </div>
+        <h1>Falta de iluminação na Rua Antônio Ataíde — trecho da Praça Costa Pereira</h1>
+        <div className="meta-line">
+          <span><strong style={{color:'var(--m-ink)'}}>Sebastiana Oliveira</strong> · solicitante</span>
+        </div>
+        <div className="meta-line">
+          <span>Centro · Vitória</span>
+          <span className="sep">·</span>
+          <span>Mariana Costa</span>
+          <span className="sep">·</span>
+          <span style={{color:'var(--m-bordo)',fontWeight:600}}>prazo 28/05</span>
+        </div>
+      </div>
+
+      <div className="dd-alert">
+        <span className="lbl">Devolutiva pendente</span>
+        Retornar a Sebastiana hoje, <strong>14:30</strong>. Canal: WhatsApp. SEMOB respondeu — previsão 12/06.
+        <button className="btn">Registrar devolutiva agora →</button>
+      </div>
+
+      <div className="ms">
+        <div className="ms-head">
+          <h2>Linha do tempo</h2>
+          <span className="ct">7 entradas</span>
+        </div>
+
+        <div className="tl-it agd">
+          <div className="date"><span className="d">19 MAI</span>14:30</div>
+          <div className="body">
+            <div className="type">▣ Devolutiva agendada</div>
+            <p>Retornar a Sebastiana com cronograma da SEMOB. Combinar visita se reparo não começar.</p>
+          </div>
+        </div>
+        <div className="tl-it ret">
+          <div className="date"><span className="d">14 MAI</span>11:08</div>
+          <div className="body">
+            <div className="type">▣ Retorno externo · SEMOB</div>
+            <p>Resposta de Edmilson Rocha (Dir. Operações): postos identificados, previsão de execução <strong>até 12/06</strong>.</p>
+          </div>
+        </div>
+        <div className="tl-it enc">
+          <div className="date"><span className="d">05 MAI</span>10:20</div>
+          <div className="body">
+            <div className="type">▣ Of. 0142/2026 enviado · SEMOB</div>
+            <p>Ofício solicitando vistoria emergencial e cronograma de reparo dos 9 postes inoperantes.</p>
+          </div>
+        </div>
+        <div className="tl-it con">
+          <div className="date"><span className="d">03 MAI</span>18:30</div>
+          <div className="body">
+            <div className="type">▣ Visita ao local</div>
+            <p>Visita noturna com Sebastiana e 2 moradores. Confirmados 9 pontos inoperantes.</p>
+          </div>
+        </div>
+        <div className="tl-it con">
+          <div className="date"><span className="d">02 MAI</span>09:14</div>
+          <div className="body">
+            <div className="type">▣ Registro inicial</div>
+            <p>Mensagem via WhatsApp de Sebastiana relatando 9 postes inoperantes.</p>
+          </div>
+        </div>
+      </div>
+
+      <MPDTabs current="demandas" />
+    </div>
+  );
+}
+
+// ============================================================
+// 4) PERFIL DE PESSOA
+// ============================================================
+function ScreenPessoa() {
+  return (
+    <div className="mpd-mobile">
+      <div className="p-head">
+        <div className="av">SO</div>
+        <div className="info">
+          <h1>Sebastiana Oliveira</h1>
+          <div className="role">
+            <strong>Presidente</strong>
+            Assoc. Moradores Centro · 62 anos
+          </div>
+        </div>
+      </div>
+
+      <div className="p-actions">
+        <button className="a primary"><span className="ic">↗</span>WhatsApp</button>
+        <button className="a"><span className="ic">☏</span>Ligar</button>
+        <button className="a"><span className="ic">+</span>Demanda</button>
+      </div>
+
+      <div className="p-block">
+        <div className="lbl">Resumo</div>
+        <div style={{fontFamily:'var(--serif)',fontSize:14,lineHeight:1.5,color:'var(--m-ink-soft)'}}>
+          <strong style={{color:'var(--m-ink)'}}>8 demandas</strong> desde abr/2024 · 1 em aberto (#00342) · taxa de atendimento <strong style={{color:'var(--m-olive)'}}>71%</strong>. Líder comunitária do Centro. Prefere WhatsApp entre 8h e 18h.
+        </div>
+      </div>
+
+      <div className="p-block">
+        <div className="lbl">Contato</div>
+        <div className="row">
+          <span className="k">Celular</span>
+          <span className="v">(27) 9·9988-1234</span>
+        </div>
+        <div className="row">
+          <span className="k">Fixo</span>
+          <span className="v">(27) 3324-7791</span>
+        </div>
+        <div className="row">
+          <span className="k">Instagram</span>
+          <span className="v">@sebamoradorescentro</span>
+        </div>
+      </div>
+
+      <div className="p-block">
+        <div className="lbl">Tags · 5</div>
+        <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
+          <span style={{background:'var(--m-navy-soft)',border:'1px solid var(--m-navy)',color:'var(--m-navy)',fontFamily:'var(--sans)',fontSize:11,fontWeight:600,padding:'2px 7px'}}>Líder local</span>
+          <span style={{background:'var(--m-paper)',border:'1px solid var(--m-rule-strong)',color:'var(--m-ink-soft)',fontFamily:'var(--sans)',fontSize:11,fontWeight:600,padding:'2px 7px'}}>Centro</span>
+          <span style={{background:'#eef0e3',border:'1px solid var(--m-olive)',color:'var(--m-olive)',fontFamily:'var(--sans)',fontSize:11,fontWeight:600,padding:'2px 7px'}}>60+</span>
+          <span style={{background:'#f1eadd',border:'1px solid var(--m-tan)',color:'var(--m-tan)',fontFamily:'var(--sans)',fontSize:11,fontWeight:600,padding:'2px 7px'}}>Mídia espontânea</span>
+          <span style={{background:'var(--m-paper)',border:'1px solid var(--m-rule-strong)',color:'var(--m-ink-soft)',fontFamily:'var(--sans)',fontSize:11,fontWeight:600,padding:'2px 7px'}}>Pauta recorrente</span>
+        </div>
+      </div>
+
+      <div className="ms">
+        <div className="ms-head">
+          <h2>Histórico de demandas</h2>
+          <span className="ct">8</span>
+          <a className="all" href="#">Ver todas →</a>
+        </div>
+
+        <div className="dcard">
+          <div className="top">
+            <span className="num"><span className="y">MPD-2026-</span>00342</span>
+            <span className="mstamp and">Em andamento</span>
+          </div>
+          <p className="ttl">Iluminação Antônio Ataíde — Praça Costa Pereira</p>
+          <div className="meta-row">
+            Solicitante · Mobilidade
+            <span className="pz warn">28/05</span>
+          </div>
+        </div>
+
+        <div className="dcard" style={{borderLeftColor:'var(--m-olive)'}}>
+          <div className="top">
+            <span className="num"><span className="y">MPD-2025-</span>00891</span>
+            <span className="mstamp cnc">Concluída ✓</span>
+          </div>
+          <p className="ttl">Coleta seletiva no Centro — frequência irregular</p>
+          <div className="meta-row">
+            Solicitante · Meio ambiente
+            <span className="pz">14/12/25</span>
+          </div>
+        </div>
+
+        <div className="dcard" style={{borderLeftColor:'var(--m-tan)'}}>
+          <div className="top">
+            <span className="num"><span className="y">MPD-2026-</span>00318</span>
+            <span className="mstamp cnc">Concluída ⊘</span>
+          </div>
+          <p className="ttl">Praça Costa Pereira — bancos e lixeiras</p>
+          <div className="meta-row">
+            Solicitante · Urbanismo
+            <span className="pz">02/05/26</span>
+          </div>
+        </div>
+      </div>
+
+      <MPDTabs current="pessoas" />
+    </div>
+  );
+}
+
+// ============================================================
+// 5) DEMANDAS (lista)
+// ============================================================
+function ScreenDemandas() {
+  return (
+    <div className="mpd-mobile" style={{padding:0,paddingBottom:100}}>
+      <div className="search-bar" style={{paddingTop:60}}>
+        <h1>Demandas <span className="total">147</span><span className="urg">3 vencidas</span></h1>
+        <div className="input">
+          <span className="pre">⌕</span>
+          <input type="text" placeholder="Buscar por número, título, pessoa…" />
+        </div>
+      </div>
+
+      <div className="chips-row">
+        <button className="chip on">Todas <span className="num">147</span></button>
+        <button className="chip">Minhas <span className="num">23</span></button>
+        <button className="chip" style={{color:'var(--m-bordo)',borderColor:'var(--m-bordo)'}}>Vencidas <span className="num">3</span></button>
+        <button className="chip">Hoje <span className="num">5</span></button>
+        <button className="chip">Mobilidade <span className="num">38</span></button>
+        <button className="chip">Saúde <span className="num">31</span></button>
+      </div>
+
+      <div className="group-divider urg">
+        <span>▼ Vencidas</span>
+        <span className="ct">3 itens</span>
+      </div>
+
+      <div style={{padding:'10px 18px 0'}}>
+        <div className="dcard late">
+          <div className="top">
+            <span className="num"><span className="y">MPD-2026-</span>00339</span>
+            <span className="mstamp agp">Vencida há 7d</span>
+          </div>
+          <p className="ttl">Linha 502 — reforço no horário escolar</p>
+          <div className="meta-row">
+            <span className="av">LA</span>
+            Lucas Almeida · Mobilidade
+            <span className="pz late">10/05</span>
+          </div>
+        </div>
+
+        <div className="dcard late">
+          <div className="top">
+            <span className="num"><span className="y">MPD-2026-</span>00328</span>
+            <span className="mstamp agp">Vencida há 4d</span>
+          </div>
+          <p className="ttl">Atendimento médico — paciente em fila SUS há 14 meses</p>
+          <div className="meta-row">
+            <span className="av">MC</span>
+            Mariana Costa · Saúde · <strong style={{color:'var(--m-bordo)'}}>restrita</strong>
+            <span className="pz late">13/05</span>
+          </div>
+        </div>
+
+        <div className="dcard late">
+          <div className="top">
+            <span className="num"><span className="y">MPD-2026-</span>00315</span>
+            <span className="mstamp agp">Vencida há 3d</span>
+          </div>
+          <p className="ttl">Vazamento de esgoto — Rua dos Coqueiros, 304</p>
+          <div className="meta-row">
+            <span className="av">BF</span>
+            Bia Ferreira · Urbanismo
+            <span className="pz late">14/05</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="group-divider">
+        <span>▼ Prazo próximo</span>
+        <span className="ct">5 itens</span>
+      </div>
+
+      <div style={{padding:'10px 18px 0'}}>
+        <div className="dcard">
+          <div className="top">
+            <span className="num"><span className="y">MPD-2026-</span>00342</span>
+            <span className="mstamp and">Em andamento</span>
+          </div>
+          <p className="ttl">Iluminação Antônio Ataíde — Praça Costa Pereira</p>
+          <div className="meta-row">
+            <span className="av">MC</span>
+            Mariana · Mobilidade · Segurança
+            <span className="pz warn">28/05</span>
+          </div>
+        </div>
+
+        <div className="dcard">
+          <div className="top">
+            <span className="num"><span className="y">MPD-2026-</span>00341</span>
+            <span className="mstamp agt">Aguard. terc.</span>
+          </div>
+          <p className="ttl">Vagas em creche pública — Bento Ferreira</p>
+          <div className="meta-row">
+            <span className="av">BF</span>
+            Bia · Educação
+            <span className="pz">30/05</span>
+          </div>
+        </div>
+
+        <div className="dcard">
+          <div className="top">
+            <span className="num"><span className="y">MPD-2026-</span>00337</span>
+            <span className="mstamp and">Em andamento</span>
+          </div>
+          <p className="ttl">Sinalização da ciclofaixa Beira-Mar — apagada</p>
+          <div className="meta-row">
+            <span className="av">LA</span>
+            Lucas · Mobilidade
+            <span className="pz">29/05</span>
+          </div>
+        </div>
+      </div>
+
+      <MPDTabs current="demandas" />
+    </div>
+  );
+}
+
+// ============================================================
+// 6) INBOX
+// ============================================================
+function ScreenInbox() {
+  return (
+    <div className="mpd-mobile" style={{padding:0,paddingBottom:100}}>
+      <div className="search-bar" style={{paddingTop:60}}>
+        <h1>Entrada <span className="total">7 pendentes</span></h1>
+        <div className="input">
+          <span className="pre">⌕</span>
+          <input type="text" placeholder="Buscar no inbox…" />
+        </div>
+      </div>
+
+      <div className="chips-row">
+        <button className="chip on">Pendentes <span className="num">7</span></button>
+        <button className="chip">Hoje <span className="num">12</span></button>
+        <button className="chip">Triadas <span className="num">42</span></button>
+        <button className="chip">Descartadas <span className="num">8</span></button>
+      </div>
+
+      <div className="group-divider">
+        <span>▼ Hoje · domingo</span>
+        <span className="ct">5 itens</span>
+      </div>
+
+      <div className="ib-item urg">
+        <div className="meta">
+          <span>17 MAI · 08:55</span>
+          <span className="who">Mariana C.</span>
+        </div>
+        <p>Família do Sr. Antônio — atendimento na UPA São Pedro foi suspenso, sem motivo. Pedem ajuda <strong>urgente</strong>.</p>
+        <div className="hint">
+          <span className="tag sau">Saúde · sugerido</span>
+          <span className="ai">↳ alta prioridade</span>
+        </div>
+        <div className="actions">
+          <button className="b primary">Virar demanda</button>
+          <button className="b">Adiar</button>
+        </div>
+      </div>
+
+      <div className="ib-item">
+        <div className="meta">
+          <span>17 MAI · 09:12</span>
+          <span className="who">Lucas A.</span>
+        </div>
+        <p>Sebastiana ligou. Conversou com mais gente da Antônio Ataíde — agora têm 11 vizinhos endossando o pedido. Pediu pra registrar.</p>
+        <div className="hint">
+          <span className="ai">↳ ligar a #00342</span>
+          <span className="tag mob">Mobilidade</span>
+        </div>
+        <div className="actions">
+          <button className="b primary">Anexar à #00342</button>
+          <button className="b">Triar</button>
+        </div>
+      </div>
+
+      <div className="ib-item">
+        <div className="meta">
+          <span>17 MAI · 08:31</span>
+          <span className="who">Pedro Trés</span>
+        </div>
+        <p>Pensar em ofício pedindo cópia do plano diretor de mobilidade — citar na sessão de quarta. Bia já tem alguma versão?</p>
+        <div className="hint">
+          <span className="tag mob">Mobilidade · sugerido</span>
+          <span className="ai">↳ proativa</span>
+        </div>
+        <div className="actions">
+          <button className="b primary">Virar demanda</button>
+          <button className="b">Adiar</button>
+        </div>
+      </div>
+
+      <div className="ib-item">
+        <div className="meta">
+          <span>17 MAI · 07:48</span>
+          <span className="who">Pedro Trés</span>
+        </div>
+        <p>Lembrar de comprar bolo pro aniversário da Mariana sexta-feira.</p>
+        <div className="hint">
+          <span className="tag" style={{color:'var(--m-ink-mute)'}}>↳ pessoal · descartar?</span>
+        </div>
+        <div className="actions">
+          <button className="b" style={{borderColor:'var(--m-ink)',color:'var(--m-ink)',fontWeight:600}}>Descartar</button>
+          <button className="b">Manter</button>
+        </div>
+      </div>
+
+      <MPDTabs current="inbox" />
+    </div>
+  );
+}
+
+// ============================================================
+// Página de showcase: 6 phones lado a lado
+// ============================================================
+
+function PhoneCard({ num, name, desc, children }) {
+  return (
+    <div className="phone-wrap">
+      <div className="caption">
+        <div className="num">{num}</div>
+        <div className="name">{name}</div>
+        <div className="desc">{desc}</div>
+      </div>
+      <AndroidDevice width={412} height={892}>
+        {children}
+      </AndroidDevice>
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <div className="phones">
+      <PhoneCard num="01" name="Captura" desc="A tela mais usada no mobile. Texto grande, áudio, foto, geolocalização. IA sugere vínculos discretos.">
+        <ScreenCaptura />
+      </PhoneCard>
+      <PhoneCard num="02" name="Início" desc="Saudação + pendências do dia. Captura rápida sempre acessível. Stats em régua de 3.">
+        <ScreenInicio />
+      </PhoneCard>
+      <PhoneCard num="03" name="Demanda · detalhe" desc="Cabeçalho com número e status. Devolutiva pendente como banda destacada. Timeline com data à esquerda do bloco.">
+        <ScreenDemanda />
+      </PhoneCard>
+      <PhoneCard num="04" name="Perfil de pessoa" desc="Sebastiana. Avatar grande, botões de contato direto, lista de demandas como cards.">
+        <ScreenPessoa />
+      </PhoneCard>
+      <PhoneCard num="05" name="Demandas · lista" desc="Busca persistente, chips horizontais com scroll, cards agrupados por urgência (vencidas no topo).">
+        <ScreenDemandas />
+      </PhoneCard>
+      <PhoneCard num="06" name="Entrada · inbox" desc="Anotações em serif preservadas, sugestão da IA discreta, botão de ação rápida em cada item.">
+        <ScreenInbox />
+      </PhoneCard>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('app')).render(<App />);
+</script>
+
+</body>
+</html>
