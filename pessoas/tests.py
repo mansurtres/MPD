@@ -51,13 +51,13 @@ def usuario_assessor(db):
 
 
 @pytest.fixture
-def usuario_coordenador(db):
+def usuario_chefe(db):
     u = Usuario.objects.create_user(
-        email="coord@test.com",
+        email="chefe@test.com",
         password="senha12345",  # pragma: allowlist secret
-        nome_completo="Coordenador",
+        nome_completo="Chefe de Gabinete",
     )
-    grupo = Group.objects.filter(name="Coordenador").first()
+    grupo = Group.objects.filter(name="Chefe de Gabinete").first()
     if grupo:
         u.groups.add(grupo)
     return u
@@ -583,23 +583,11 @@ def test_assessor_nao_desativa_pessoa(client, usuario_assessor, pessoa_basica):
     assert pessoa_basica.ativo  # continuou ativa
 
 
-def test_coord_desativa_pessoa(client, usuario_coordenador, pessoa_basica):
-    client.force_login(usuario_coordenador)
+def test_chefe_desativa_pessoa(client, usuario_chefe, pessoa_basica):
+    client.force_login(usuario_chefe)
     client.post(reverse("pessoas:pessoa_toggle_ativo", kwargs={"slug": pessoa_basica.slug_publico}))
     pessoa_basica.refresh_from_db()
     assert not pessoa_basica.ativo
-
-
-def test_coord_nao_reativa_pessoa(client, usuario_coordenador, pessoa_basica):
-    pessoa_basica.ativo = False
-    pessoa_basica.save()
-    client.force_login(usuario_coordenador)
-    response = client.post(
-        reverse("pessoas:pessoa_toggle_ativo", kwargs={"slug": pessoa_basica.slug_publico})
-    )
-    assert response.status_code == 403
-    pessoa_basica.refresh_from_db()
-    assert not pessoa_basica.ativo  # CO não pode reativar
 
 
 def test_admin_reativa_pessoa(client, usuario_admin, pessoa_basica):
@@ -615,13 +603,6 @@ def test_assessor_nao_cria_tag(client, usuario_assessor):
     client.force_login(usuario_assessor)
     response = client.post(reverse("pessoas:tag_nova"), {"nome": "Saúde"})
     assert response.status_code == 403
-
-
-def test_coord_cria_tag(client, usuario_coordenador):
-    client.force_login(usuario_coordenador)
-    response = client.post(reverse("pessoas:tag_nova"), {"nome": "Saúde", "ativo": "on"})
-    assert response.status_code == 302
-    assert Tag.objects.filter(nome="Saúde").exists()
 
 
 # --- Lista: filtros e soft delete ---
@@ -701,7 +682,8 @@ def test_cep_endpoint_sem_permissao_403(client, db):
 
 def test_grupos_padrao_existem(db):
     nomes = set(Group.objects.values_list("name", flat=True))
-    assert {"Administrador", "Chefe de Gabinete", "Coordenador", "Assessor"} <= nomes
+    assert {"Administrador", "Chefe de Gabinete", "Assessor"} <= nomes
+    assert "Coordenador" not in nomes  # removido na ADR 0059
 
 
 def test_grupo_assessor_tem_view_pessoa(db):
@@ -714,13 +696,13 @@ def test_grupo_assessor_nao_tem_add_tag(db):
     assert not grupo.permissions.filter(codename="add_tag").exists()
 
 
-def test_grupo_coordenador_tem_pode_desativar_pessoa(db):
-    grupo = Group.objects.get(name="Coordenador")
+def test_grupo_chefe_tem_pode_desativar_pessoa(db):
+    grupo = Group.objects.get(name="Chefe de Gabinete")
     assert grupo.permissions.filter(codename="pode_desativar_pessoa").exists()
 
 
-def test_grupo_coordenador_nao_tem_pode_reativar_pessoa(db):
-    grupo = Group.objects.get(name="Coordenador")
+def test_grupo_assessor_nao_tem_pode_reativar_pessoa(db):
+    grupo = Group.objects.get(name="Assessor")
     assert not grupo.permissions.filter(codename="pode_reativar_pessoa").exists()
 
 

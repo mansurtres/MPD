@@ -1,4 +1,4 @@
-"""Views de exportação CSV (Fase 6). CO+. Registra log via auditlog."""
+"""Views de exportação CSV (Fase 6). Apenas Admin (ADR 0059). Registra log via auditlog."""
 
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
@@ -9,11 +9,11 @@ from ._shared import _pode_exportar
 
 class DemandaCSVExportView(LoginRequiredMixin, View):
     """Exporta a lista de demandas filtrada pelo querystring para CSV BR
-    (UTF-8 BOM + separador ;). Limite 10k. CO+. Registra log."""
+    (UTF-8 BOM + separador ;). Limite 10k. Apenas Admin. Registra log."""
 
     def get(self, request):
         if not _pode_exportar(request.user):
-            raise PermissionDenied("Exportação restrita a Coordenadores e acima.")
+            raise PermissionDenied("Exportação restrita ao Administrador.")
         from core.csv_export import exportar_csv
 
         from .demandas import DemandaListView
@@ -59,7 +59,7 @@ class DemandaCSVExportView(LoginRequiredMixin, View):
 class EncaminhamentoCSVExportView(LoginRequiredMixin, View):
     def get(self, request):
         if not _pode_exportar(request.user):
-            raise PermissionDenied("Exportação restrita a Coordenadores e acima.")
+            raise PermissionDenied("Exportação restrita ao Administrador.")
         from core.csv_export import exportar_csv
 
         from .encaminhamentos import EncaminhamentoListView

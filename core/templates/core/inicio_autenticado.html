@@ -594,11 +594,11 @@
           <h3>Pendências</h3>
           <p>Devolutivas a entregar, reuniões, ofícios com prazo.</p>
         </a>
-        {% if papel_co_plus %}
+        {% if papel_eh_admin %}
         <a class="card" href="{% url 'core:analise' %}">
           <div class="num">/ análise</div>
           <h3>Análise</h3>
-          <p>Painel operacional: por tema, coordenação, assessor.</p>
+          <p>Painel operacional: por tema, mês, assessor.</p>
         </a>
         {% endif %}
         <a class="card" href="{% url 'core:configuracoes' %}">

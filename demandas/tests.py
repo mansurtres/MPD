@@ -58,19 +58,6 @@ def chefe(db):
 
 
 @pytest.fixture
-def coord_juridico(db):
-    u = Usuario.objects.create_user(
-        email="coord@test.com",
-        password="senha12345",  # pragma: allowlist secret
-        nome_completo="Coord Jurídico",
-    )
-    g = Group.objects.filter(name="Coordenador").first()
-    if g:
-        u.groups.add(g)
-    return u
-
-
-@pytest.fixture
 def assessor(db):
     u = Usuario.objects.create_user(
         email="assessor@test.com",
@@ -718,10 +705,6 @@ def test_chefe_arquiva_sem_responder(db, chefe):
     assert chefe.has_perm("demandas.pode_arquivar_sem_responder")
 
 
-def test_coordenador_nao_pode_arquivar_sem_responder(db, coord_juridico):
-    assert not coord_juridico.has_perm("demandas.pode_arquivar_sem_responder")
-
-
 # --- Arquivamento ---
 
 
@@ -1281,12 +1264,6 @@ def test_auditoria_bloqueia_chefe(client, chefe):
     assert resp.status_code == 403
 
 
-def test_auditoria_bloqueia_coordenador(client, coord_juridico):
-    client.force_login(coord_juridico)
-    resp = client.get(reverse("core:auditoria"))
-    assert resp.status_code == 403
-
-
 def test_analise_acessivel_a_admin_com_metricas(client, admin_user, demanda):
     client.force_login(admin_user)
     resp = client.get(reverse("core:analise"))
@@ -1301,12 +1278,6 @@ def test_analise_acessivel_a_admin_com_metricas(client, admin_user, demanda):
 def test_analise_bloqueia_chefe(client, chefe):
     """Análise é exclusiva do Admin (ADR 0059) — CG não acessa."""
     client.force_login(chefe)
-    resp = client.get(reverse("core:analise"))
-    assert resp.status_code == 403
-
-
-def test_analise_bloqueia_coordenador(client, coord_juridico):
-    client.force_login(coord_juridico)
     resp = client.get(reverse("core:analise"))
     assert resp.status_code == 403
 

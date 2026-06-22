@@ -111,8 +111,8 @@ class AnaliseView(LoginRequiredMixin, UserPassesTestMixin, ListView):
 
         from demandas.models import Demanda, Encaminhamento
 
-        # ADR 0049: todas as métricas filtram por demandas visíveis ao usuário.
-        # Coordenador (não-ADM/CG) NÃO vê contagens de restritas de outras coords.
+        # ADR 0049/0059: as métricas filtram por demandas visíveis ao usuário
+        # (defesa em profundidade — embora /analise hoje seja exclusivo do Admin).
         demandas_visiveis = Demanda.objects.visiveis_para(self.request.user)
 
         # 1. Demandas por tema
@@ -270,8 +270,8 @@ def buscar_global_json(request):
     - Pessoa (nome, sobrenome, nome_social) — exige `pessoas.view_pessoa`.
     - Entidade (nome, nome_fantasia, cnpj) — exige `pessoas.view_entidade`.
     - Demanda (numero, titulo, descricao) — exige `demandas.view_demanda`,
-      e respeita `Demanda.objects.visiveis_para(user)` (ADR 0049 — não
-      vaza restritas para coordenadores de outras coordenações).
+      e respeita `Demanda.objects.visiveis_para(user)` (ADR 0059 — só
+      mostra as demandas que o usuário pode ver).
 
     Resposta:
         {"resultados": [
