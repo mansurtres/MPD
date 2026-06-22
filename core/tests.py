@@ -38,6 +38,29 @@ def test_inicio_autenticado_renderiza_dashboard(client, db):
     assert "core/inicio_autenticado.html" in templates
 
 
+def test_configuracoes_exclusiva_do_admin(client, db):
+    """Configurações (tags/temas/usuários) é só do Admin (ADR 0059)."""
+    from django.contrib.auth.models import Group
+
+    admin = Usuario.objects.create_user(
+        email="adm3@t.com",
+        password="senha12345",  # pragma: allowlist secret
+        is_superuser=True,
+        is_staff=True,
+    )
+    assessor = Usuario.objects.create_user(
+        email="as3@t.com",
+        password="senha12345",  # pragma: allowlist secret
+    )
+    g = Group.objects.filter(name="Assessor").first()
+    if g:
+        assessor.groups.add(g)
+    client.force_login(assessor)
+    assert client.get(reverse("core:configuracoes")).status_code == 403
+    client.force_login(admin)
+    assert client.get(reverse("core:configuracoes")).status_code == 200
+
+
 # --- aplicar_tailwind ---
 
 

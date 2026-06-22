@@ -64,7 +64,9 @@
         </button>
         <div id="me-dropdown" class="me-dropdown hidden" role="menu" aria-labelledby="me-trigger">
           <a href="{% url 'accounts:perfil' %}" role="menuitem">Perfil</a>
+          {% if papel_eh_admin %}
           <a href="{% url 'core:configuracoes' %}" role="menuitem">Configurações</a>
+          {% endif %}
           <div class="sep" role="none"></div>
           <form method="post" action="{% url 'accounts:logout' %}" role="none">
             {% csrf_token %}

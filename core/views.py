@@ -1,6 +1,7 @@
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.contenttypes.models import ContentType
+from django.core.exceptions import PermissionDenied
 from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import render
@@ -61,8 +62,10 @@ def inicio(request):
 
 @login_required
 def configuracoes(request):
-    """Hub de configurações administrativas. Cada card aparece conforme a
-    permissão do usuário."""
+    """Hub de configurações administrativas. Exclusivo do Admin (ADR 0059 —
+    tags, temas e usuários são governança)."""
+    if not eh_admin(request.user):
+        raise PermissionDenied
     return render(request, "core/configuracoes.html")
 
 
