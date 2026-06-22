@@ -1,91 +1,68 @@
 {% extends "layouts/app.html" %}
 
 {% block app_conteudo %}
-<style>
-  .perfil-form-wrap .form-err {
-    background: var(--danger-50);
-    border-left: 3px solid var(--danger-500);
-    padding: 14px 18px; margin-bottom: 16px;
-    font-family: var(--font-serif); font-size: 14px;
-    line-height: 1.5; color: var(--danger-700);
-  }
-  .perfil-form-wrap .form-err .lbl {
-    font-family: var(--font-mono); font-size: 10px;
-    letter-spacing: 0.14em; text-transform: uppercase;
-    color: var(--danger-600); font-weight: 700;
-    display: block; margin-bottom: 4px;
-  }
-  .perfil-form-wrap .form-err ul { margin: 4px 0 0; padding-left: 20px; }
-  .perfil-form-wrap .form-err strong { color: var(--ink); font-weight: 600; }
-</style>
 
 <div class="page-head" style="margin-bottom:16px">
   <div>
     <div class="breadcrumb">
-      <a href="/" style="text-decoration:none;color:var(--ink-mute)">Início</a>
+      <a href="/">Início</a>
       <span class="sep">/</span>
-      <span style="color:var(--primary);font-weight:var(--fw-semibold)">Perfil</span>
+      <span class="here">Perfil</span>
     </div>
-    <h1>Meu perfil</h1>
   </div>
 </div>
 
-<div class="perfil-form-wrap" style="max-width:560px">
+<div class="form-page narrow">
+<article class="doc">
+
+  <header class="form-head">
+    <h1>Meu perfil</h1>
+    <p class="sub">Atualize seu nome e cargo exibidos no sistema. O e-mail de login não pode ser alterado aqui.</p>
+  </header>
 
   {% include "_form_erros_resumo.html" with form=form %}
 
-  <form method="post" novalidate
-        style="background:var(--surface-2);border-top:6px solid var(--primary);box-shadow:var(--shadow-lg);padding:28px 32px;">
+  <form method="post" novalidate>
     {% csrf_token %}
+    <div class="form-body">
+      <section class="section">
 
-    {% comment %}E-mail — somente leitura{% endcomment %}
-    <div style="margin-bottom:18px">
-      <p style="font-family:var(--font-mono);font-size:10.5px;font-weight:700;color:var(--ink-mute);letter-spacing:0.1em;text-transform:uppercase;margin:0 0 6px">
-        E-mail
-      </p>
-      <p style="font-family:var(--font-serif);font-size:15px;color:var(--ink);margin:0;padding:9px 0;border-bottom:1px solid var(--rule)">
-        {{ request.user.email }}
-      </p>
-    </div>
+        <div class="field">
+          <label class="lbl">E-mail</label>
+          <p style="font-family:var(--font-mono);font-size:13px;color:var(--ink-strong);margin:0">{{ request.user.email }}</p>
+        </div>
 
-    {% comment %}Nome completo{% endcomment %}
-    <div style="margin-bottom:18px">
-      <label for="{{ form.nome_completo.id_for_label }}"
-             style="display:block;font-family:var(--font-mono);font-size:10.5px;font-weight:700;color:var(--ink-mute);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">
-        Nome completo
-      </label>
-      <input
-        type="text"
-        name="{{ form.nome_completo.html_name }}"
-        id="{{ form.nome_completo.id_for_label }}"
-        value="{{ form.nome_completo.value|default:'' }}"
-      >
-      {% for erro in form.nome_completo.errors %}
-      <p style="font-family:var(--font-mono);font-size:11px;color:var(--danger-600);margin-top:4px">{{ erro }}</p>
-      {% endfor %}
-    </div>
+        <div class="field">
+          <label class="lbl" for="{{ form.nome_completo.id_for_label }}">Nome completo</label>
+          <input
+            type="text"
+            name="{{ form.nome_completo.html_name }}"
+            id="{{ form.nome_completo.id_for_label }}"
+            value="{{ form.nome_completo.value|default:'' }}"
+          >
+          {% for erro in form.nome_completo.errors %}<p class="err">{{ erro }}</p>{% endfor %}
+        </div>
 
-    {% comment %}Cargo{% endcomment %}
-    <div style="margin-bottom:24px">
-      <label for="{{ form.cargo.id_for_label }}"
-             style="display:block;font-family:var(--font-mono);font-size:10.5px;font-weight:700;color:var(--ink-mute);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">
-        Cargo
-      </label>
-      <input
-        type="text"
-        name="{{ form.cargo.html_name }}"
-        id="{{ form.cargo.id_for_label }}"
-        value="{{ form.cargo.value|default:'' }}"
-      >
-      {% for erro in form.cargo.errors %}
-      <p style="font-family:var(--font-mono);font-size:11px;color:var(--danger-600);margin-top:4px">{{ erro }}</p>
-      {% endfor %}
-    </div>
+        <div class="field">
+          <label class="lbl" for="{{ form.cargo.id_for_label }}">Cargo</label>
+          <input
+            type="text"
+            name="{{ form.cargo.html_name }}"
+            id="{{ form.cargo.id_for_label }}"
+            value="{{ form.cargo.value|default:'' }}"
+          >
+          {% for erro in form.cargo.errors %}<p class="err">{{ erro }}</p>{% endfor %}
+        </div>
 
-    <div style="display:flex;gap:10px;align-items:center">
-      <button type="submit" class="btn primary">Salvar →</button>
+      </section>
+
+      <div class="form-foot">
+        <button type="submit" class="btn primary">Salvar →</button>
+      </div>
     </div>
   </form>
 
+</article>
 </div>
+
 {% endblock %}

@@ -13,37 +13,44 @@
       <span class="sep">/</span>
       <span class="here">{{ titulo }}</span>
     </div>
-    <h1>{{ titulo }}</h1>
   </div>
 </div>
 
-<div class="tema-form-wrap" style="max-width:560px">
+<div class="form-page narrow">
+<article class="doc">
+
+  <header class="form-head">
+    <h1>{{ titulo }}</h1>
+    <p class="sub">Temas classificam demandas por assunto. A cor facilita a leitura rápida em listas e no painel de análise.</p>
+  </header>
 
   {% include "_form_erros_resumo.html" with form=form %}
 
-  <form method="post" style="background:var(--surface-2);border-top:6px solid var(--primary);box-shadow:var(--shadow-lg);padding:28px 32px;" id="tema-form">
+  <form method="post" novalidate id="tema-form">
     {% csrf_token %}
+    <div class="form-body">
+      <section class="section">
 
-    <div style="margin-bottom:18px">
-      <label style="display:block;font-family:var(--font-mono);font-size:10.5px;font-weight:700;color:var(--ink-mute);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">
-        Nome <span style="color:var(--danger-500)">*</span>
-      </label>
-      {{ form.nome }}
-      {% for e in form.nome.errors %}<p style="font-family:var(--font-mono);font-size:11px;color:var(--danger-600);margin-top:4px">{{ e }}</p>{% endfor %}
-    </div>
+        <div class="field">
+          <label class="lbl">Nome <span class="req">*</span></label>
+          {{ form.nome }}
+          {% for e in form.nome.errors %}<p class="err">{{ e }}</p>{% endfor %}
+        </div>
 
-    {% include "_color_picker.html" with preview_default="tema" %}
+        {% include "_color_picker.html" with preview_default="tema" %}
 
-    <div style="margin-bottom:24px">
-      <label style="display:block;font-family:var(--font-mono);font-size:10.5px;font-weight:700;color:var(--ink-mute);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">
-        Descrição
-      </label>
-      {{ form.descricao }}
-    </div>
+        <div class="field">
+          <label class="lbl">Descrição</label>
+          {{ form.descricao }}
+          {% for e in form.descricao.errors %}<p class="err">{{ e }}</p>{% endfor %}
+        </div>
 
-    <div style="display:flex;gap:10px;align-items:center">
-      <button type="submit" class="btn primary">Salvar →</button>
-      <a href="{% url 'demandas:tema_lista' %}" class="btn ghost">Cancelar</a>
+      </section>
+
+      <div class="form-foot">
+        <button type="submit" class="btn primary">Salvar →</button>
+        <a href="{% url 'demandas:tema_lista' %}" class="btn ghost">Cancelar</a>
+      </div>
     </div>
   </form>
 
@@ -69,6 +76,7 @@
   </div>
   {% endif %}
 
+</article>
 </div>
 
 {% endblock %}

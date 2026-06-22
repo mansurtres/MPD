@@ -1,184 +1,136 @@
 {% extends "layouts/app.html" %}
 
 {% block app_conteudo %}
-<style>
-  .usuario-form-wrap .form-err {
-    background: var(--danger-50);
-    border-left: 3px solid var(--danger-500);
-    padding: 14px 18px; margin-bottom: 16px;
-    font-family: var(--font-serif); font-size: 14px;
-    line-height: 1.5; color: var(--danger-700);
-  }
-  .usuario-form-wrap .form-err .lbl {
-    font-family: var(--font-mono); font-size: 10px;
-    letter-spacing: 0.14em; text-transform: uppercase;
-    color: var(--danger-600); font-weight: 700;
-    display: block; margin-bottom: 4px;
-  }
-  .usuario-form-wrap .form-err ul { margin: 4px 0 0; padding-left: 20px; }
-  .usuario-form-wrap .form-err strong { color: var(--ink); font-weight: 600; }
-</style>
 
 <div class="page-head" style="margin-bottom:16px">
   <div>
     <div class="breadcrumb">
-      <a href="/" style="text-decoration:none;color:var(--ink-mute)">Início</a>
+      <a href="/">Início</a>
       <span class="sep">/</span>
-      <a href="{% url 'core:configuracoes' %}" style="text-decoration:none;color:var(--ink-mute)">Configurações</a>
+      <a href="{% url 'core:configuracoes' %}">Configurações</a>
       <span class="sep">/</span>
-      <a href="{% url 'accounts:usuarios_lista' %}" style="text-decoration:none;color:var(--ink-mute)">Usuários</a>
+      <a href="{% url 'accounts:usuarios_lista' %}">Usuários</a>
       <span class="sep">/</span>
-      <span style="color:var(--primary);font-weight:var(--fw-semibold)">{{ titulo }}</span>
+      <span class="here">{{ titulo }}</span>
     </div>
-    <h1>{{ titulo }}</h1>
   </div>
 </div>
 
-<div class="usuario-form-wrap" style="max-width:560px">
+<div class="form-page narrow">
+<article class="doc">
+
+  <header class="form-head">
+    <h1>{{ titulo }}</h1>
+    <p class="sub">Gerencie o acesso de membros da equipe ao sistema. O e-mail é o identificador de login.</p>
+  </header>
 
   {% include "_form_erros_resumo.html" with form=form %}
 
-  <form method="post" novalidate
-        style="background:var(--surface-2);border-top:6px solid var(--primary);box-shadow:var(--shadow-lg);padding:28px 32px;">
+  <form method="post" novalidate>
     {% csrf_token %}
+    <div class="form-body">
+      <section class="section">
 
-    {% comment %}E-mail{% endcomment %}
-    <div style="margin-bottom:18px">
-      <label for="{{ form.email.id_for_label }}"
-             style="display:block;font-family:var(--font-mono);font-size:10.5px;font-weight:700;color:var(--ink-mute);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">
-        E-mail <span style="color:var(--danger-500)">*</span>
-      </label>
-      <input
-        type="email"
-        name="{{ form.email.html_name }}"
-        id="{{ form.email.id_for_label }}"
-        value="{{ form.email.value|default:'' }}"
-        autocomplete="off"
-        {% if form.email.errors %}style="border-color:var(--danger-500)"{% endif %}
-      >
-      {% for erro in form.email.errors %}
-      <p style="font-family:var(--font-mono);font-size:11px;color:var(--danger-600);margin-top:4px">{{ erro }}</p>
-      {% endfor %}
-    </div>
+        <div class="field">
+          <label class="lbl" for="{{ form.email.id_for_label }}">E-mail <span class="req">*</span></label>
+          <input
+            type="email"
+            name="{{ form.email.html_name }}"
+            id="{{ form.email.id_for_label }}"
+            value="{{ form.email.value|default:'' }}"
+            autocomplete="off"
+            {% if form.email.errors %}style="border-color:var(--danger-500)"{% endif %}
+          >
+          {% for erro in form.email.errors %}<p class="err">{{ erro }}</p>{% endfor %}
+        </div>
 
-    {% comment %}Nome completo{% endcomment %}
-    <div style="margin-bottom:18px">
-      <label for="{{ form.nome_completo.id_for_label }}"
-             style="display:block;font-family:var(--font-mono);font-size:10.5px;font-weight:700;color:var(--ink-mute);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">
-        Nome completo
-      </label>
-      <input
-        type="text"
-        name="{{ form.nome_completo.html_name }}"
-        id="{{ form.nome_completo.id_for_label }}"
-        value="{{ form.nome_completo.value|default:'' }}"
-      >
-      {% for erro in form.nome_completo.errors %}
-      <p style="font-family:var(--font-mono);font-size:11px;color:var(--danger-600);margin-top:4px">{{ erro }}</p>
-      {% endfor %}
-    </div>
+        <div class="field">
+          <label class="lbl" for="{{ form.nome_completo.id_for_label }}">Nome completo</label>
+          <input
+            type="text"
+            name="{{ form.nome_completo.html_name }}"
+            id="{{ form.nome_completo.id_for_label }}"
+            value="{{ form.nome_completo.value|default:'' }}"
+          >
+          {% for erro in form.nome_completo.errors %}<p class="err">{{ erro }}</p>{% endfor %}
+        </div>
 
-    {% comment %}Cargo{% endcomment %}
-    <div style="margin-bottom:18px">
-      <label for="{{ form.cargo.id_for_label }}"
-             style="display:block;font-family:var(--font-mono);font-size:10.5px;font-weight:700;color:var(--ink-mute);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">
-        Cargo
-      </label>
-      <input
-        type="text"
-        name="{{ form.cargo.html_name }}"
-        id="{{ form.cargo.id_for_label }}"
-        value="{{ form.cargo.value|default:'' }}"
-      >
-      {% for erro in form.cargo.errors %}
-      <p style="font-family:var(--font-mono);font-size:11px;color:var(--danger-600);margin-top:4px">{{ erro }}</p>
-      {% endfor %}
-    </div>
+        <div class="field">
+          <label class="lbl" for="{{ form.cargo.id_for_label }}">Cargo</label>
+          <input
+            type="text"
+            name="{{ form.cargo.html_name }}"
+            id="{{ form.cargo.id_for_label }}"
+            value="{{ form.cargo.value|default:'' }}"
+          >
+          {% for erro in form.cargo.errors %}<p class="err">{{ erro }}</p>{% endfor %}
+        </div>
 
-    {% comment %}Coordenação{% endcomment %}
-    <div style="margin-bottom:18px">
-      <label for="{{ form.coordenacao.id_for_label }}"
-             style="display:block;font-family:var(--font-mono);font-size:10.5px;font-weight:700;color:var(--ink-mute);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">
-        Coordenação
-      </label>
-      <select
-        name="{{ form.coordenacao.html_name }}"
-        id="{{ form.coordenacao.id_for_label }}"
-      >
-        <option value="" {% if not form.coordenacao.value %}selected{% endif %}>—</option>
-        {% for v, label in form.coordenacao.field.choices %}{% if v %}
-        <option value="{{ v }}" {% if form.coordenacao.value == v %}selected{% endif %}>{{ label }}</option>
-        {% endif %}{% endfor %}
-      </select>
-      <p style="margin-top:6px;font-family:var(--font-serif);font-size:13px;color:var(--ink-mute)">Define escopo de visibilidade de demandas restritas.</p>
-      {% for erro in form.coordenacao.errors %}
-      <p style="font-family:var(--font-mono);font-size:11px;color:var(--danger-600);margin-top:4px">{{ erro }}</p>
-      {% endfor %}
-    </div>
+        <div class="field">
+          <label class="lbl" for="{{ form.coordenacao.id_for_label }}">Coordenação</label>
+          <select
+            name="{{ form.coordenacao.html_name }}"
+            id="{{ form.coordenacao.id_for_label }}"
+          >
+            <option value="" {% if not form.coordenacao.value %}selected{% endif %}>—</option>
+            {% for v, label in form.coordenacao.field.choices %}{% if v %}
+            <option value="{{ v }}" {% if form.coordenacao.value == v %}selected{% endif %}>{{ label }}</option>
+            {% endif %}{% endfor %}
+          </select>
+          <p class="help">Define escopo de visibilidade de demandas restritas.</p>
+          {% for erro in form.coordenacao.errors %}<p class="err">{{ erro }}</p>{% endfor %}
+        </div>
 
-    {% comment %}Senha — somente na criação{% endcomment %}
-    {% if form.password1 %}
-    <div style="margin-bottom:18px">
-      <label for="{{ form.password1.id_for_label }}"
-             style="display:block;font-family:var(--font-mono);font-size:10.5px;font-weight:700;color:var(--ink-mute);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">
-        Senha <span style="color:var(--danger-500)">*</span>
-      </label>
-      <input
-        type="password"
-        name="{{ form.password1.html_name }}"
-        id="{{ form.password1.id_for_label }}"
-        autocomplete="new-password"
-        {% if form.password1.errors %}style="border-color:var(--danger-500)"{% endif %}
-      >
-      <p style="margin-top:6px;font-family:var(--font-serif);font-size:13px;color:var(--ink-mute)">Mínimo 8 caracteres.</p>
-      {% for erro in form.password1.errors %}
-      <p style="font-family:var(--font-mono);font-size:11px;color:var(--danger-600);margin-top:4px">{{ erro }}</p>
-      {% endfor %}
-    </div>
+        {% if form.password1 %}
+        <div class="field">
+          <label class="lbl" for="{{ form.password1.id_for_label }}">Senha <span class="req">*</span></label>
+          <input
+            type="password"
+            name="{{ form.password1.html_name }}"
+            id="{{ form.password1.id_for_label }}"
+            autocomplete="new-password"
+            {% if form.password1.errors %}style="border-color:var(--danger-500)"{% endif %}
+          >
+          <p class="help">Mínimo 8 caracteres.</p>
+          {% for erro in form.password1.errors %}<p class="err">{{ erro }}</p>{% endfor %}
+        </div>
 
-    <div style="margin-bottom:18px">
-      <label for="{{ form.password2.id_for_label }}"
-             style="display:block;font-family:var(--font-mono);font-size:10.5px;font-weight:700;color:var(--ink-mute);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">
-        Confirmar senha <span style="color:var(--danger-500)">*</span>
-      </label>
-      <input
-        type="password"
-        name="{{ form.password2.html_name }}"
-        id="{{ form.password2.id_for_label }}"
-        autocomplete="new-password"
-        {% if form.password2.errors %}style="border-color:var(--danger-500)"{% endif %}
-      >
-      {% for erro in form.password2.errors %}
-      <p style="font-family:var(--font-mono);font-size:11px;color:var(--danger-600);margin-top:4px">{{ erro }}</p>
-      {% endfor %}
-    </div>
-    {% endif %}
+        <div class="field">
+          <label class="lbl" for="{{ form.password2.id_for_label }}">Confirmar senha <span class="req">*</span></label>
+          <input
+            type="password"
+            name="{{ form.password2.html_name }}"
+            id="{{ form.password2.id_for_label }}"
+            autocomplete="new-password"
+            {% if form.password2.errors %}style="border-color:var(--danger-500)"{% endif %}
+          >
+          {% for erro in form.password2.errors %}<p class="err">{{ erro }}</p>{% endfor %}
+        </div>
+        {% endif %}
 
-    {% comment %}Conta ativa — somente na edição (UsuarioUpdateForm inclui is_active){% endcomment %}
-    {% if form.is_active %}
-    <div style="margin-bottom:24px;display:flex;align-items:center;gap:10px">
-      <input
-        type="checkbox"
-        name="{{ form.is_active.html_name }}"
-        id="{{ form.is_active.id_for_label }}"
-        {% if form.is_active.value %}checked{% endif %}
-        style="width:auto;margin:0"
-      >
-      <label for="{{ form.is_active.id_for_label }}"
-             style="font-family:var(--font-serif);font-size:14px;color:var(--ink-body);cursor:pointer;margin:0">
-        Conta ativa
-      </label>
-      {% for erro in form.is_active.errors %}
-      <p style="font-family:var(--font-mono);font-size:11px;color:var(--danger-600);margin-top:4px">{{ erro }}</p>
-      {% endfor %}
-    </div>
-    {% endif %}
+        {% if form.is_active %}
+        <div class="field-check">
+          <input
+            type="checkbox"
+            name="{{ form.is_active.html_name }}"
+            id="{{ form.is_active.id_for_label }}"
+            {% if form.is_active.value %}checked{% endif %}
+          >
+          <label for="{{ form.is_active.id_for_label }}">Conta ativa</label>
+          {% for erro in form.is_active.errors %}<p class="err">{{ erro }}</p>{% endfor %}
+        </div>
+        {% endif %}
 
-    <div style="display:flex;gap:10px;align-items:center;padding-top:8px">
-      <button type="submit" class="btn primary">Salvar →</button>
-      <a href="{% url 'accounts:usuarios_lista' %}" class="btn ghost">Cancelar</a>
+      </section>
+
+      <div class="form-foot">
+        <button type="submit" class="btn primary">Salvar →</button>
+        <a href="{% url 'accounts:usuarios_lista' %}" class="btn ghost">Cancelar</a>
+      </div>
     </div>
   </form>
 
+</article>
 </div>
+
 {% endblock %}
