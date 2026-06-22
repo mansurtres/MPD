@@ -2193,7 +2193,7 @@ Forçar o assessor a escolher "o" telefone/email/site da entidade é perda de in
 ## ADR 0059 — Inversão para acesso *need-to-know*; remoção de Coordenação; papéis v1 = Admin / Chefe de Gabinete / Assessor
 
 **Data:** 2026-06-22
-**Status:** Aceito (supersede ADR 0041; inverte o princípio "colaborativo por default" da `permissoes.md`; mantém ADR 0024/0048 — Groups+Permissions nativos)
+**Status:** Aceito (supersede ADR 0041 e ADR 0007; inverte o princípio "colaborativo por default" da `permissoes.md`; mantém ADR 0024/0048 — Groups+Permissions nativos)
 
 ### Contexto
 
@@ -2207,7 +2207,9 @@ Em paralelo, o campo **Coordenação** (time: gabinete/jurídico/comunicação �
 
 **2. Papéis v1 = Admin, Chefe de Gabinete, Assessor.** Remove o grupo "Coordenador" (data migration; membros migram para Assessor ou o Admin reatribui).
 
-**3. Remoção do campo Coordenação:** drop de `Usuario.coordenacao`, `Demanda.coordenacao_responsavel`, `COORDENACAO_CHOICES`, o índice `(status, coordenacao_responsavel)`, o filtro "da minha coordenação" e as métricas "por coordenação". Migrations `RemoveField` (espelha o drop de `papel`, ADR 0054).
+**3. Remoção de campos que perderam função** (espelha o drop de `papel`, ADR 0054; migrations `RemoveField`):
+- **Coordenação (time):** drop de `Usuario.coordenacao`, `Demanda.coordenacao_responsavel`, `COORDENACAO_CHOICES`, o índice `(status, coordenacao_responsavel)`, o filtro "da minha coordenação" e as métricas "por coordenação".
+- **`restrito` (supersede ADR 0007):** drop de `Demanda.restrito`, da permissão `pode_marcar_restrita`, do ícone de cadeado e da ação marcar/desmarcar. No modelo need-to-know o flag perdeu função — Assessor só vê as suas, CG todas as ativas, Admin tudo —, então a visibilidade é **inteiramente por papel**, sem exceção "sigilosa".
 
 **4. Visibilidade por papel:**
 - **Admin:** vê tudo (demandas, pessoas, entidades, histórico, auditoria); **único que exporta**.

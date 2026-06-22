@@ -32,7 +32,7 @@ Três perfis na v1, atribuídos via Django Group. Cada usuário pertence a exata
 
 4. **`/auditoria`, `/analise` e Configurações são exclusivos do Admin.** Governança e visão agregada ficam numa única pessoa responsável.
 
-5. **`restrito` continua como camada extra.** Uma demanda marcada `restrito=True` é visível apenas para o **responsável e o Admin** — escondida inclusive do Chefe de Gabinete. É o nível mais alto de sigilo, acima da regra need-to-know normal.
+5. **O flag `restrito` foi removido (ADR 0059, supersede ADR 0007).** No modelo need-to-know ele perdeu função — o Assessor já só vê as suas, o CG vê todas as ativas e o Admin vê tudo. Não há mais demanda "sigilosa" como exceção: a visibilidade é **inteiramente por papel**.
 
 6. **Soft delete > hard delete.** Só o Admin exclui definitivamente. Desativar (soft delete) é ação de gestão (Admin/CG). Assessor não exclui nem desativa.
 
@@ -75,14 +75,12 @@ Igual a Pessoas (§3.1): lista/navegação e export só ADM; ficha só no contex
 |---|---|---|---|
 | Listar demandas ativas | ✅ todas | ✅ todas | ✅ só as dele (responsável/autor) |
 | Listar/ver demandas concluídas/arquivadas | ✅ todas | ❌ | ✅ só as próprias (leitura, partes mascaradas) |
-| Ver demanda `restrito` | ✅ | ❌ (a menos que responsável) | ✅ se for o responsável |
 | Criar demanda | ✅ | ✅ | ✅ |
 | Editar demanda atribuída a si | ✅ | ✅ | ✅ |
 | Editar demanda de outro | ✅ | ✅ (ativas) | ❌ |
 | Atribuir/reatribuir responsável | ✅ | ✅ | ❌ |
 | Atualizar `resultado` / concluir (com devolutiva) | ✅ | ✅ | ✅ (nas dele) |
 | Arquivar | ✅ | ✅ | ❌ |
-| Marcar/desmarcar `restrito` | ✅ | ✅ | ❌ |
 | Excluir definitivamente | ✅ | ❌ | ❌ |
 | Exportar lista | ✅ | ❌ | ❌ |
 
