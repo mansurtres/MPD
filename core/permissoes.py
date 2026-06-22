@@ -14,6 +14,8 @@ Papéis na v1 (ADR 0059): Administrador, Chefe de Gabinete, Assessor.
 O papel "Coordenador" foi removido junto com o conceito de coordenação.
 """
 
+from django.contrib.auth.mixins import UserPassesTestMixin
+
 GRUPO_ADM = "Administrador"
 GRUPO_CG = "Chefe de Gabinete"
 GRUPO_AS = "Assessor"
@@ -37,3 +39,12 @@ def eh_cg_plus(user):
     if user.is_superuser:
         return True
     return user.groups.filter(name__in=[GRUPO_ADM, GRUPO_CG]).exists()
+
+
+class SomenteAdminMixin(UserPassesTestMixin):
+    """Restringe a view ao Administrador (ADR 0059 — need-to-know).
+    Não-admin autenticado recebe 403; anônimo é redirecionado pelo
+    LoginRequiredMixin que vem antes na MRO."""
+
+    def test_func(self):
+        return eh_admin(self.request.user)

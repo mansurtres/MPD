@@ -713,6 +713,31 @@ def test_assessor_ativa_mostra_ficha_da_parte(client, admin_user, assessor, pess
     assert pessoa.slug_publico in resp.content.decode()  # link presente
 
 
+def test_assessor_nao_ve_ficha_de_pessoa_sem_demanda_sua(client, assessor, pessoa):
+    """Sem demanda visível ligada (e não foi quem cadastrou), o assessor
+    não abre a ficha (ADR 0059 — sem navegação pelo acervo)."""
+    client.force_login(assessor)
+    resp = client.get(reverse("pessoas:pessoa_detalhe", args=[pessoa.slug_publico]))
+    assert resp.status_code == 403
+
+
+def test_assessor_ve_ficha_no_contexto_de_demanda_sua(client, admin_user, assessor, pessoa):
+    d = _mk_demanda(admin_user, responsavel=assessor)
+    DemandaPessoa.objects.create(demanda=d, pessoa=pessoa)
+    client.force_login(assessor)
+    resp = client.get(reverse("pessoas:pessoa_detalhe", args=[pessoa.slug_publico]))
+    assert resp.status_code == 200
+
+
+def test_assessor_ve_ficha_de_pessoa_que_cadastrou(client, assessor):
+    from pessoas.models import Pessoa
+
+    p = Pessoa.objects.create(nome="Nova", sobrenome="Pessoa", criado_por=assessor)
+    client.force_login(assessor)
+    resp = client.get(reverse("pessoas:pessoa_detalhe", args=[p.slug_publico]))
+    assert resp.status_code == 200
+
+
 # --- Permissões via grupos ---
 
 

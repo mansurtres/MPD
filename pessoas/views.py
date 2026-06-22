@@ -10,7 +10,7 @@ from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView, View
 
-from core.permissoes import eh_admin
+from core.permissoes import SomenteAdminMixin, eh_admin
 from core.utils import somente_digitos
 
 from .deduplicacao import buscar_similares
@@ -34,8 +34,8 @@ from .viacep import consultar as consultar_cep
 # --- Pessoas ---
 
 
-class PessoaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
-    permission_required = "pessoas.view_pessoa"
+class PessoaListView(LoginRequiredMixin, SomenteAdminMixin, ListView):
+    # Navegar o acervo de pessoas é exclusivo do Admin (ADR 0059 — need-to-know).
     model = Pessoa
     template_name = "pessoas/lista.html"
     context_object_name = "pessoas"
@@ -96,6 +96,25 @@ class PessoaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         return ctx
 
 
+def _pode_ver_ficha(user, registro):
+    """Need-to-know (ADR 0059): Admin vê qualquer ficha; os demais só veem
+    a ficha de quem é parte de uma demanda visível a eles — ou de quem eles
+    mesmos cadastraram. Sem navegação livre pelo acervo."""
+    from core.permissoes import eh_admin
+
+    if eh_admin(user):
+        return True
+    if getattr(registro, "criado_por_id", None) == user.id:
+        return True
+    from demandas.models import Demanda
+
+    demandas = registro.demandas.all()
+    q = Demanda.q_visivel_para(user)
+    if q is not None:
+        demandas = demandas.filter(q)
+    return demandas.exists()
+
+
 class PessoaDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
     permission_required = "pessoas.view_pessoa"
     model = Pessoa
@@ -106,6 +125,12 @@ class PessoaDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
 
     def get_queryset(self):
         return super().get_queryset().select_related("criado_por")
+
+    def get_object(self, queryset=None):
+        obj = super().get_object(queryset)
+        if not _pode_ver_ficha(self.request.user, obj):
+            raise PermissionDenied("Ficha acessível apenas no contexto de uma demanda sua.")
+        return obj
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -321,8 +346,8 @@ class VinculoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, View):
 # --- Entidades ---
 
 
-class EntidadeListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
-    permission_required = "pessoas.view_entidade"
+class EntidadeListView(LoginRequiredMixin, SomenteAdminMixin, ListView):
+    # Navegar o acervo de entidades é exclusivo do Admin (ADR 0059).
     model = Entidade
     template_name = "pessoas/entidades/lista.html"
     context_object_name = "entidades"
@@ -386,6 +411,12 @@ class EntidadeDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView
 
     def get_queryset(self):
         return super().get_queryset().select_related("criado_por")
+
+    def get_object(self, queryset=None):
+        obj = super().get_object(queryset)
+        if not _pode_ver_ficha(self.request.user, obj):
+            raise PermissionDenied("Ficha acessível apenas no contexto de uma demanda sua.")
+        return obj
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)

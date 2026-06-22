@@ -33,10 +33,8 @@
         {% if perms.demandas.view_demanda %}
         <a href="{% url 'demandas:demanda_lista' %}">Demandas</a>
         {% endif %}
-        {% if perms.pessoas.view_pessoa %}
+        {% if papel_eh_admin %}
         <a href="{% url 'pessoas:pessoa_lista' %}">Pessoas</a>
-        {% endif %}
-        {% if perms.pessoas.view_entidade %}
         <a href="{% url 'pessoas:entidade_lista' %}">Entidades</a>
         {% endif %}
         {% if perms.demandas.view_encaminhamento %}

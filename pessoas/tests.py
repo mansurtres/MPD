@@ -350,10 +350,20 @@ def test_lista_pessoas_redireciona_anonimo(client, db):
     assert "/entrar/" in response["Location"]
 
 
-def test_assessor_acessa_lista_pessoas(client, usuario_assessor):
+def test_assessor_nao_acessa_lista_pessoas(client, usuario_assessor):
+    """Navegar o acervo é exclusivo do Admin (ADR 0059 — need-to-know)."""
     client.force_login(usuario_assessor)
-    response = client.get(reverse("pessoas:pessoa_lista"))
-    assert response.status_code == 200
+    assert client.get(reverse("pessoas:pessoa_lista")).status_code == 403
+
+
+def test_admin_acessa_lista_pessoas(client, usuario_admin):
+    client.force_login(usuario_admin)
+    assert client.get(reverse("pessoas:pessoa_lista")).status_code == 200
+
+
+def test_assessor_nao_acessa_lista_entidades(client, usuario_assessor):
+    client.force_login(usuario_assessor)
+    assert client.get(reverse("pessoas:entidade_lista")).status_code == 403
 
 
 def _management_forms_vazios():
@@ -608,24 +618,24 @@ def test_assessor_nao_cria_tag(client, usuario_assessor):
 # --- Lista: filtros e soft delete ---
 
 
-def test_lista_padrao_oculta_inativos(client, usuario_assessor, pessoa_basica):
+def test_lista_padrao_oculta_inativos(client, usuario_admin, pessoa_basica):
     pessoa_basica.ativo = False
     pessoa_basica.save()
-    client.force_login(usuario_assessor)
+    client.force_login(usuario_admin)
     response = client.get(reverse("pessoas:pessoa_lista"))
     assert pessoa_basica not in response.context["pessoas"]
 
 
-def test_lista_inativos_mostra_tudo(client, usuario_assessor, pessoa_basica):
+def test_lista_inativos_mostra_tudo(client, usuario_admin, pessoa_basica):
     pessoa_basica.ativo = False
     pessoa_basica.save()
-    client.force_login(usuario_assessor)
+    client.force_login(usuario_admin)
     response = client.get(reverse("pessoas:pessoa_lista") + "?inativos=1")
     assert pessoa_basica in response.context["pessoas"]
 
 
-def test_lista_busca_por_nome(client, usuario_assessor, pessoa_basica):
-    client.force_login(usuario_assessor)
+def test_lista_busca_por_nome(client, usuario_admin, pessoa_basica):
+    client.force_login(usuario_admin)
     response = client.get(reverse("pessoas:pessoa_lista") + "?q=Maria")
     assert pessoa_basica in response.context["pessoas"]
 
