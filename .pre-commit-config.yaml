@@ -15,3 +15,15 @@ repos:
     hooks:
       - id: detect-secrets
         args: ['--baseline', '.secrets.baseline']
+
+  # Guardrail: comentário {# ... #} do Django SÓ funciona em uma linha. Em
+  # multi-linha o `{#` e o conteúdo vazam como texto cru na UI. Bloqueia
+  # qualquer linha que abra `{#` sem fechar `#}` na mesma linha.
+  - repo: local
+    hooks:
+      - id: no-multiline-django-comment
+        name: Comentario Django {# #} deve ser de uma unica linha
+        language: pygrep
+        entry: '\{#[^}]*$'
+        files: \.html$
+        exclude: ^prototipo/
