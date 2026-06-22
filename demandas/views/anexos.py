@@ -8,7 +8,7 @@ from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect
 from django.views.generic import View
 
-from core.permissoes import eh_co_plus
+from core.permissoes import eh_cg_plus
 
 from ..forms import AnexoForm
 from ..models import Anexo, Demanda, Encaminhamento, Interacao
@@ -147,7 +147,7 @@ class AnexoDeleteView(LoginRequiredMixin, PermissionRequiredMixin, View):
 
     def post(self, request, pk):
         anexo = get_object_or_404(Anexo, pk=pk)
-        if anexo.enviado_por_id != request.user.id and not eh_co_plus(request.user):
+        if anexo.enviado_por_id != request.user.id and not eh_cg_plus(request.user):
             raise PermissionDenied("Sem permissão para excluir este anexo.")
         referer = request.META.get("HTTP_REFERER", "/")
         anexo.arquivo.delete(save=False)

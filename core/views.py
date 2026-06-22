@@ -7,7 +7,7 @@ from django.shortcuts import render
 from django.urls import reverse
 from django.views.generic import ListView
 
-from core.permissoes import eh_admin, eh_cg_plus
+from core.permissoes import eh_admin
 
 
 def inicio(request):
@@ -85,14 +85,15 @@ def healthz(request):
 
 
 class AnaliseView(LoginRequiredMixin, UserPassesTestMixin, ListView):
-    """Painel de análise. CG+. Métricas textuais + gráficas (Chart.js
-    via CDN — toggle por métrica). Não usa ListView de fato; reusa só o
-    template/auth — context_data carrega as métricas."""
+    """Painel de análise. Apenas Admin (ADR 0059 — visão agregada é
+    governança, concentrada numa pessoa). Métricas textuais + gráficas
+    (Chart.js via CDN — toggle por métrica). Não usa ListView de fato;
+    reusa só o template/auth — context_data carrega as métricas."""
 
     template_name = "core/analise.html"
 
     def test_func(self):
-        return eh_cg_plus(self.request.user)
+        return eh_admin(self.request.user)
 
     def get_queryset(self):
         # Override exigido pelo ListView, mas não usado.

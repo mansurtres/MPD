@@ -10,7 +10,7 @@ from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView, View
 
-from core.permissoes import eh_co_plus
+from core.permissoes import eh_admin
 from core.utils import somente_digitos
 
 from .deduplicacao import buscar_similares
@@ -92,7 +92,7 @@ class PessoaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         ctx["filtro"] = self.request.GET.get("filtro", "")
         ctx["mostrar_inativos"] = self.request.GET.get("inativos") == "1"
         ctx["tags_disponiveis"] = Tag.objects.filter(ativo=True)
-        ctx["pode_exportar"] = eh_co_plus(self.request.user)
+        ctx["pode_exportar"] = eh_admin(self.request.user)
         return ctx
 
 
@@ -755,8 +755,8 @@ class PessoaCSVExportView(LoginRequiredMixin, View):
     canais primários (telefone, email) mas não dados sensíveis em massa."""
 
     def get(self, request):
-        if not eh_co_plus(request.user):
-            raise PermissionDenied("Exportação restrita a Coordenadores e acima.")
+        if not eh_admin(request.user):
+            raise PermissionDenied("Exportação restrita ao Administrador.")
         from core.csv_export import exportar_csv
 
         def row_fn(p):

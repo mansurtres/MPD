@@ -6,15 +6,15 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.shortcuts import redirect
 
-from core.permissoes import eh_co_plus
+from core.permissoes import eh_admin
 
 from ..forms import DemandaEntidadeFormSet, DemandaForm, DemandaPessoaFormSet
 from ..models import Anexo
 
 
 def _pode_exportar(user):
-    """Coordenador, Chefe de Gabinete, Administrador. Critério de Fase 6."""
-    return eh_co_plus(user)
+    """Exportação é exclusiva do Administrador (need-to-know, ADR 0059)."""
+    return eh_admin(user)
 
 
 def _anexar_se_houver(request, objeto_pai):

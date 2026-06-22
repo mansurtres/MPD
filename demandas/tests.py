@@ -1236,6 +1236,13 @@ def test_export_csv_bloqueia_assessor(client, assessor, demanda):
     assert resp.status_code == 403
 
 
+def test_export_csv_bloqueia_chefe(client, chefe, demanda):
+    """Export é exclusivo do Admin (ADR 0059) — CG não exporta."""
+    client.force_login(chefe)
+    resp = client.get(reverse("demandas:demanda_export_csv"))
+    assert resp.status_code == 403
+
+
 def test_export_csv_respeita_filtros_da_querystring(client, admin_user, pessoa):
     """CSV exportado respeita filtros da querystring — filtra por status."""
     Demanda.objects.create(
@@ -1280,8 +1287,8 @@ def test_auditoria_bloqueia_coordenador(client, coord_juridico):
     assert resp.status_code == 403
 
 
-def test_analise_acessivel_a_chefe(client, chefe, demanda):
-    client.force_login(chefe)
+def test_analise_acessivel_a_admin_com_metricas(client, admin_user, demanda):
+    client.force_login(admin_user)
     resp = client.get(reverse("core:analise"))
     assert resp.status_code == 200
     # Métricas no contexto
@@ -1289,6 +1296,13 @@ def test_analise_acessivel_a_chefe(client, chefe, demanda):
     assert "por_mes" in resp.context
     assert "top_pessoas" in resp.context
     assert "carga_assessores" in resp.context
+
+
+def test_analise_bloqueia_chefe(client, chefe):
+    """Análise é exclusiva do Admin (ADR 0059) — CG não acessa."""
+    client.force_login(chefe)
+    resp = client.get(reverse("core:analise"))
+    assert resp.status_code == 403
 
 
 def test_analise_bloqueia_coordenador(client, coord_juridico):
