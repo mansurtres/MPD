@@ -862,13 +862,20 @@ class PessoaBuscarJSONView(LoginRequiredMixin, PermissionRequiredMixin, View):
                 Q(nome__icontains=q) | Q(sobrenome__icontains=q) | Q(nome_social__icontains=q)
             )
         qs = qs.order_by("nome", "sobrenome")[:20]
+        # Busca cega (ADR 0059): não-Admin vincula sem ver a ficha — recebe só
+        # o nome. A localização (bairro/cidade) é detalhe da ficha e some.
+        mostrar_detalhe = eh_admin(request.user)
         return JsonResponse(
             {
                 "resultados": [
                     {
                         "id": p.pk,
                         "label": p.nome_exibicao,
-                        "secundario": " · ".join(filter(None, [p.bairro, p.cidade])),
+                        "secundario": (
+                            " · ".join(filter(None, [p.bairro, p.cidade]))
+                            if mostrar_detalhe
+                            else ""
+                        ),
                     }
                     for p in qs
                 ]
@@ -889,13 +896,15 @@ class EntidadeBuscarJSONView(LoginRequiredMixin, PermissionRequiredMixin, View):
                 Q(nome__icontains=q) | Q(nome_fantasia__icontains=q) | Q(cnpj__icontains=q)
             )
         qs = qs.order_by("nome")[:20]
+        # Busca cega (ADR 0059): não-Admin recebe só o nome para vincular.
+        mostrar_detalhe = eh_admin(request.user)
         return JsonResponse(
             {
                 "resultados": [
                     {
                         "id": e.pk,
                         "label": e.nome,
-                        "secundario": e.get_tipo_display(),
+                        "secundario": e.get_tipo_display() if mostrar_detalhe else "",
                     }
                     for e in qs
                 ]

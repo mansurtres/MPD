@@ -640,6 +640,28 @@ def test_lista_busca_por_nome(client, usuario_admin, pessoa_basica):
     assert pessoa_basica in response.context["pessoas"]
 
 
+def test_busca_cega_nao_vaza_ficha_para_assessor(client, usuario_assessor, pessoa_basica):
+    """Busca cega (ADR 0059): o assessor vê o nome para vincular, mas não a
+    localização (bairro/cidade) — sem expor a ficha."""
+    import json
+
+    client.force_login(usuario_assessor)
+    resp = client.get(reverse("pessoas:pessoa_buscar_json"), {"q": "Maria"})
+    blob = json.dumps(resp.json(), ensure_ascii=False)
+    assert "Maria" in blob  # nome para vincular
+    assert "Centro" not in blob  # bairro não vaza
+    assert "Vitória" not in blob  # cidade não vaza
+
+
+def test_busca_admin_mostra_localizacao(client, usuario_admin, pessoa_basica):
+    import json
+
+    client.force_login(usuario_admin)
+    resp = client.get(reverse("pessoas:pessoa_buscar_json"), {"q": "Maria"})
+    blob = json.dumps(resp.json(), ensure_ascii=False)
+    assert "Centro" in blob  # admin vê o detalhe para desambiguar
+
+
 # --- Endpoints auxiliares ---
 
 
