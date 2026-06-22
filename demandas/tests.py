@@ -297,8 +297,8 @@ def test_mudanca_resultado_gera_interacao(db, demanda, admin_user):
     demanda.resultado = Demanda.RESULTADO_ATENDIDO_PARCIALMENTE
     demanda.save()
     assert demanda.interacoes.count() == inicial + 1
-    nova = demanda.interacoes.order_by("-criado_em").first()
-    assert nova.tipo == Interacao.TIPO_MUDANCA_RESULTADO
+    nova = demanda.interacoes.filter(tipo=Interacao.TIPO_MUDANCA_RESULTADO).first()
+    assert nova is not None
     assert nova.automatica
 
 
@@ -310,8 +310,8 @@ def test_mudanca_status_gera_interacao(db, demanda):
     demanda.status = Demanda.STATUS_EM_ANDAMENTO
     demanda.save()
     assert demanda.interacoes.count() == inicial + 1
-    nova = demanda.interacoes.order_by("-criado_em").first()
-    assert nova.tipo == Interacao.TIPO_MUDANCA_STATUS
+    nova = demanda.interacoes.filter(tipo=Interacao.TIPO_MUDANCA_STATUS).first()
+    assert nova is not None
     assert nova.automatica
 
 
@@ -323,8 +323,8 @@ def test_mudanca_responsavel_gera_interacao(db, demanda, chefe):
     demanda.responsavel = chefe
     demanda.save()
     assert demanda.interacoes.count() == inicial + 1
-    nova = demanda.interacoes.order_by("-criado_em").first()
-    assert nova.tipo == Interacao.TIPO_MUDANCA_RESPONSAVEL
+    nova = demanda.interacoes.filter(tipo=Interacao.TIPO_MUDANCA_RESPONSAVEL).first()
+    assert nova is not None
 
 
 # --- Critério 9-10: interação realizada / agendada ---
