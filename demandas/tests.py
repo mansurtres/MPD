@@ -690,6 +690,29 @@ def test_visibilidade_assessor_ve_propria_concluida(db, admin_user, assessor):
     assert minha.pode_ser_visto_por(assessor)
 
 
+def test_assessor_historico_mascara_ficha_da_parte(client, admin_user, assessor, pessoa):
+    """No histórico próprio (concluída), a parte aparece só com nome —
+    sem link para a ficha (ADR 0059)."""
+    d = _mk_demanda(admin_user, responsavel=assessor, status=Demanda.STATUS_CONCLUIDA)
+    DemandaPessoa.objects.create(demanda=d, pessoa=pessoa)
+    client.force_login(assessor)
+    resp = client.get(reverse("demandas:demanda_detalhe", args=[d.slug_publico]))
+    assert resp.status_code == 200
+    body = resp.content.decode()
+    assert pessoa.nome_exibicao in body  # nome aparece
+    assert pessoa.slug_publico not in body  # mas sem link para a ficha
+
+
+def test_assessor_ativa_mostra_ficha_da_parte(client, admin_user, assessor, pessoa):
+    """Na demanda ATIVA do assessor, a parte tem link para a ficha."""
+    d = _mk_demanda(admin_user, responsavel=assessor, status=Demanda.STATUS_EM_ANDAMENTO)
+    DemandaPessoa.objects.create(demanda=d, pessoa=pessoa)
+    client.force_login(assessor)
+    resp = client.get(reverse("demandas:demanda_detalhe", args=[d.slug_publico]))
+    assert resp.status_code == 200
+    assert pessoa.slug_publico in resp.content.decode()  # link presente
+
+
 # --- Permissões via grupos ---
 
 

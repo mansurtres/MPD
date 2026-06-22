@@ -1200,7 +1200,7 @@
         <div class="parte">
           <div class="av">{{ dp.pessoa.nome|slice:":1"|upper }}{{ dp.pessoa.sobrenome|slice:":1"|upper }}</div>
           <div>
-            <div class="nome"><a href="{% url 'pessoas:pessoa_detalhe' dp.pessoa.slug_publico %}">{{ dp.pessoa.nome_exibicao }}</a></div>
+            <div class="nome">{% if mascarar_partes %}{{ dp.pessoa.nome_exibicao }}{% else %}<a href="{% url 'pessoas:pessoa_detalhe' dp.pessoa.slug_publico %}">{{ dp.pessoa.nome_exibicao }}</a>{% endif %}</div>
           </div>
         </div>
         {% endfor %}
@@ -1208,7 +1208,7 @@
         <div class="parte">
           <div class="av entidade">{{ de.entidade.nome|slice:":2"|upper }}</div>
           <div>
-            <div class="nome"><a href="{% url 'pessoas:entidade_detalhe' de.entidade.slug_publico %}">{{ de.entidade.nome }}</a></div>
+            <div class="nome">{% if mascarar_partes %}{{ de.entidade.nome }}{% else %}<a href="{% url 'pessoas:entidade_detalhe' de.entidade.slug_publico %}">{{ de.entidade.nome }}</a>{% endif %}</div>
           </div>
         </div>
         {% endfor %}

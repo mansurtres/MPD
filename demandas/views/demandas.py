@@ -142,6 +142,14 @@ class DemandaDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView)
         )
         ctx["partes_pessoas"] = d.demanda_pessoas.select_related("pessoa")
         ctx["partes_entidades"] = d.demanda_entidades.select_related("entidade")
+        # Histórico do Assessor (ADR 0059): nas suas demandas já concluídas/
+        # arquivadas, as partes aparecem só com o nome — sem link para a ficha
+        # nem dados de contato. Admin/CG veem o contexto completo.
+        from core.permissoes import eh_admin, eh_cg_plus
+
+        ctx["mascarar_partes"] = (
+            not eh_admin(u) and not eh_cg_plus(u) and d.status not in Demanda.STATUS_ATIVOS
+        )
         ctx["encaminhamentos"] = d.encaminhamentos.select_related("criado_por").prefetch_related(
             "anexos__enviado_por"
         )
