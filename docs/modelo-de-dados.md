@@ -57,9 +57,9 @@ Schema do banco de dados do MPD. Foco em mínimo viável: apenas tabelas, campos
 
 **Auditoria via `django-auditlog`.** Não modelamos tabela própria.
 
-**Quatro perfis:** Administrador, Chefe de Gabinete, Coordenador, Assessor.
+**Três perfis (ADR 0059):** Administrador, Chefe de Gabinete, Assessor.
 
-**Visibilidade por boolean `restrito`.** Demanda restrita é visível apenas para responsável, chefia e admin.
+**Visibilidade inteiramente por papel (need-to-know, ADR 0059).** Admin vê tudo; Chefe de Gabinete vê todas as demandas **ativas**; Assessor vê só as **próprias** (responsável ou autor). Centralizada em `Demanda.objects.visiveis_para(user)`.
 
 **Interação pode existir no futuro** (`status='agendada'`). É essa a infraestrutura que garante que demandas não se percam: cada interação encerrada pode gerar a próxima como agendada.
 
@@ -93,9 +93,7 @@ Custom user estendendo `AbstractUser` do Django.
 
 **Índices:** `email`, `username`, `is_active`.
 
-**Perfis (Groups):** quatro grupos via data migration na Fase 1: `Administrador`, `Chefe de Gabinete`, `Coordenador`, `Assessor`. Cada usuário pertence a exatamente um grupo (regra de aplicação).
-
-**Distinção Coordenador Jurídico vs Comunicação:** dada pela `coordenacao_responsavel` que assumem nas demandas, não por grupos diferentes.
+**Perfis (Groups):** três grupos (ADR 0059): `Administrador`, `Chefe de Gabinete`, `Assessor`. Cada usuário pertence a exatamente um grupo (regra de aplicação). O papel `Coordenador` foi removido junto com o conceito de coordenação/time.
 
 ---
 
@@ -303,8 +301,6 @@ Coração operacional.
 | `resultado_observacao` | TEXT | NULL | Anotação interna sobre o desfecho material |
 | `prioridade` * | VARCHAR(10) | NOT NULL, DEFAULT 'normal' | CHECK IN ('baixa','normal','alta','urgente') |
 | 🔗 `responsavel_id` | UUID | FK → usuarios(id), NULL | |
-| `coordenacao_responsavel` * | VARCHAR(15) | NOT NULL | CHECK IN ('gabinete','juridico','comunicacao') |
-| `restrito` * | BOOLEAN | NOT NULL, DEFAULT FALSE | TRUE = visível só p/ responsável + chefia + admin |
 | `prazo` | DATE | NULL | |
 | `observacoes_arquivamento` | TEXT | NULL | |
 | 🔗 `criado_por_id` * | UUID | FK → usuarios(id) | |
@@ -363,7 +359,6 @@ A **devolutiva ao demandante** é registrada como `Interacao(tipo='devolutiva')`
 - `numero` (UNIQUE)
 - `responsavel_id`
 - `status`, `resultado`
-- `(status, coordenacao_responsavel)` composto
 - `(responsavel_id, status)` composto (para consulta de carga por assessor)
 - `(resultado, criado_em)` composto (para análise temporal de efetividade)
 - `criado_em`, `prazo`

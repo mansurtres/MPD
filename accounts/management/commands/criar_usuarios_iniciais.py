@@ -6,7 +6,7 @@ from accounts.models import Usuario
 
 
 class Command(BaseCommand):
-    help = "Cria um usuário is_staff e um usuário comum para desenvolvimento local."
+    help = "Cria um usuário de cada papel (Admin, Chefe de Gabinete, Assessor) para dev local."
 
     def handle(self, *args, **options):
         if not settings.DEBUG:
@@ -57,5 +57,22 @@ class Command(BaseCommand):
             usuario.groups.add(grupo_assessor)
             self.stdout.write("usuario@mpd.local adicionado ao grupo Assessor.")
 
-        if not criado_admin and not criado_usuario:
+        chefe, criado_chefe = Usuario.objects.get_or_create(
+            email="chefe@mpd.local",
+            defaults={
+                "username": "chefe@mpd.local",
+                "nome_completo": "Chefe de Gabinete",
+                "cargo": "Chefe de Gabinete",
+            },
+        )
+        if criado_chefe:
+            chefe.set_password("chefe12345")  # pragma: allowlist secret
+            chefe.save()
+            self.stdout.write(self.style.SUCCESS("Criado: chefe@mpd.local (senha: chefe12345)"))
+        grupo_cg = Group.objects.filter(name="Chefe de Gabinete").first()
+        if grupo_cg and not chefe.groups.filter(pk=grupo_cg.pk).exists():
+            chefe.groups.add(grupo_cg)
+            self.stdout.write("chefe@mpd.local adicionado ao grupo Chefe de Gabinete.")
+
+        if not criado_admin and not criado_usuario and not criado_chefe:
             self.stdout.write("Usuários já existiam; grupos sincronizados se necessário.")

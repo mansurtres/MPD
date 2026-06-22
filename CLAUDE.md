@@ -56,7 +56,7 @@ Ideia que parece "óbvia" e não está no doc → primeiro vira ADR ou backlog.
 
 ## 5. Estado atual
 
-**Fase corrente:** v0.7 — **Fase 6 (Segurança, Visualização, Exportação) concluída.** Filtros poderosos + exportação CSV nas listas principais; painel `/analise` com toggle tabela/gráfico (Chart.js CDN); auditoria UI `/auditoria` com diff visual; infra operacional (`/healthz`, `scripts/backup.sh`, `manage.py verificar_integridade`). LGPD foi **adiada para Fase 8 (v1.1)** — ADR 0047 documenta a decisão.
+**Fase corrente:** v0.8 — **Redesign de permissões need-to-know (ADR 0059) concluído** (ver entrada ao fim desta seção). Base: **Fase 6 (Segurança, Visualização, Exportação) concluída.** Filtros poderosos + exportação CSV nas listas principais; painel `/analise` com toggle tabela/gráfico (Chart.js CDN); auditoria UI `/auditoria` com diff visual; infra operacional (`/healthz`, `scripts/backup.sh`, `manage.py verificar_integridade`). LGPD foi **adiada para Fase 8 (v1.1)** — ADR 0047 documenta a decisão.
 
 **Fundação (Fase 0/1, mantido):**
 - Django 5.2 + PostgreSQL 16 + Tailwind v4 standalone.
@@ -241,6 +241,11 @@ Toda tela restante migrou para a identidade visual nova (editorial: Funnel Displ
 - Plano e ledger em `docs/superpowers/`.
 
 **228 testes passando** ao final deste fechamento (230 da v0.7.3 −3 testes de papel +1 de gating de usuários). ADRs 0001–0057. Pendência registrada para revisão: o painel inline de Estado (`EstadoForm`/endpoint `demanda_estado`, ADR 0044) ficou sem UI no detalhe refeito — decidir se restaura ou remove o endpoint.
+
+**Redesign de permissões — need-to-know (v0.8, ADR 0059):**
+O modelo de acesso inverteu de "colaborativo por default" para **privilégio mínimo**. Três papéis na v1 (Admin / Chefe de Gabinete / Assessor — o papel **Coordenador** e o **campo de coordenação/time** foram removidos, junto com o flag **`restrito`**). Visibilidade **inteiramente por papel** (`Demanda.objects.visiveis_para`): Admin vê tudo; CG vê todas as **ativas** (sem histórico concluído); Assessor vê só as **próprias** (responsável ou autor) — ativas com contexto completo, histórico próprio em leitura com **partes mascaradas** (nome sim, ficha/contato não). **Exportação, `/analise`, `/auditoria` e Configurações são exclusivas do Admin.** Listas de pessoas/entidades só do Admin; ficha só no contexto de demanda visível; os demais usam **busca cega** (vincular sem navegar o acervo). Fonte de verdade: [`docs/permissoes.md`](./docs/permissoes.md) v2 + [`docs/decisoes.md`](./docs/decisoes.md) ADR 0059. Migrations: `demandas/0011_drop_restrito`, `accounts/0007`+`demandas/0012` (drop coordenação), `accounts/0008` (remove grupo Coordenador, move membros p/ Assessor).
+
+**235 testes passando** ao final da v0.8 (228 → +visibilidade por papel, mascaramento, listas/ficha contextuais, busca cega, gating de export/analise/config; −testes de restrito/coordenação/Coordenador). ADRs 0001–0059.
 
 **Próximo marco:** v1.0 — Fase 7 restante (Polimento e Web: Docker, backup `-Fc`, docs de deploy/manual, performance, Lighthouse) → deploy. Ver [`roadmap.md`](./roadmap.md) §Fase 7.
 
