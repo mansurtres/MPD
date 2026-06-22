@@ -81,7 +81,7 @@
     background: var(--primary); color: var(--primary-fg);
     display: grid; place-items: center;
     font-family: var(--font-mono); font-size: 22px; font-weight: 700;
-    flex: none;
+    flex: none; cursor: pointer;
   }
   .ibx-quick input {
     flex: 1; outline: 0;
@@ -330,8 +330,8 @@
 
 <form method="post" action="{% url 'demandas:inbox_capturar' %}" class="ibx-quick">
   {% csrf_token %}
-  <div class="ic">+</div>
-  <input type="text" name="conteudo" placeholder="Anote algo rápido — o que ouviu, o que pensar depois, o nome de alguém para registrar…" required>
+  <label class="ic" for="ibx-quick-input" title="Anotar — clique e escreva">+</label>
+  <input type="text" id="ibx-quick-input" name="conteudo" placeholder="Anote algo rápido — o que ouviu, o que pensar depois, o nome de alguém para registrar…" required>
   <button type="submit" class="submit">Capturar →</button>
 </form>
 
