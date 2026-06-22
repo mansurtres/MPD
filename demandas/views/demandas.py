@@ -57,9 +57,6 @@ class DemandaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         resultado = params.get("resultado", "").strip()
         if resultado:
             qs = qs.filter(resultado=resultado)
-        coord = params.get("coord", "").strip()
-        if coord:
-            qs = qs.filter(coordenacao_responsavel=coord)
         tema_id = params.get("tema", "").strip()
         if tema_id:
             qs = qs.filter(temas__id=tema_id)
@@ -67,8 +64,6 @@ class DemandaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         quick = params.get("filtro", "").strip()
         if quick == "minhas":
             qs = qs.filter(responsavel=self.request.user)
-        elif quick == "minha_coord" and self.request.user.coordenacao:
-            qs = qs.filter(coordenacao_responsavel=self.request.user.coordenacao)
         elif quick == "vencidas":
             qs = qs.filter(prazo__lt=timezone.now().date()).exclude(
                 status__in=[Demanda.STATUS_CONCLUIDA, Demanda.STATUS_ARQUIVADO]
@@ -113,11 +108,9 @@ class DemandaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         ctx["filtro"] = self.request.GET.get("filtro", "")
         ctx["status_atual"] = self.request.GET.get("status", "")
         ctx["resultado_atual"] = self.request.GET.get("resultado", "")
-        ctx["coord_atual"] = self.request.GET.get("coord", "")
         ctx["tema_atual"] = self.request.GET.get("tema", "")
         ctx["status_choices"] = Demanda.STATUS_CHOICES
         ctx["resultado_choices"] = Demanda.RESULTADO_CHOICES
-        ctx["coord_choices"] = Demanda.COORDENACAO_CHOICES
         ctx["temas_disponiveis"] = Tema.objects.filter(ativo=True)
         ctx["pode_exportar"] = _pode_exportar(self.request.user)
         ctx["hoje"] = timezone.now().date()
@@ -185,8 +178,6 @@ class DemandaCreateView(LoginRequiredMixin, PermissionRequiredMixin, _DemandaFor
 
     def _salvar(self, form, formsets):
         form.instance.criado_por = self.request.user
-        if not form.instance.coordenacao_responsavel and self.request.user.coordenacao:
-            form.instance.coordenacao_responsavel = self.request.user.coordenacao
         super()._salvar(form, formsets)
         self._processar_anexos_iniciais(form)
 

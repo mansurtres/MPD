@@ -153,7 +153,6 @@ class Command(BaseCommand):
                 descricao="Moradores relatam buracos. Pedido de tapa-buracos urgente.",
                 origem=Demanda.ORIGEM_RESPONSIVA,
                 canal_entrada="whatsapp",
-                coordenacao_responsavel=Demanda.COORDENACAO_GABINETE,
                 criado_por=admin,
                 responsavel=admin,
             )
@@ -174,7 +173,6 @@ class Command(BaseCommand):
                 descricao="Reconhecimento ao trabalho do coletivo no carnaval do bairro.",
                 origem=Demanda.ORIGEM_PROATIVA,
                 canal_entrada="presencial",
-                coordenacao_responsavel=Demanda.COORDENACAO_COMUNICACAO,
                 criado_por=admin,
                 anonimo=True,
                 resultado=Demanda.RESULTADO_NAO_SE_APLICA,

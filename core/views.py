@@ -132,19 +132,7 @@ class AnaliseView(LoginRequiredMixin, UserPassesTestMixin, ListView):
             .order_by("mes")
         )
 
-        # 3. Demandas por coordenação
-        ctx["por_coordenacao"] = list(
-            demandas_visiveis.values("coordenacao_responsavel")
-            .annotate(total=Count("id"))
-            .order_by("-total")
-        )
-        coord_display = dict(Demanda.COORDENACAO_CHOICES)
-        for item in ctx["por_coordenacao"]:
-            item["display"] = coord_display.get(
-                item["coordenacao_responsavel"], item["coordenacao_responsavel"]
-            )
-
-        # 4. Top 20 pessoas com mais demandas — agregação condicional para
+        # 3. Top 20 pessoas com mais demandas (era métrica 4) — agregação condicional para
         #    contar apenas demandas visíveis ao usuário. Sem isso, count
         #    incluía restritas (vazamento de PII associada a caso sigiloso).
         from pessoas.models import Pessoa

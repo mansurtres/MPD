@@ -50,7 +50,6 @@ def chefe(db):
         email="chefe@test.com",
         password="senha12345",  # pragma: allowlist secret
         nome_completo="Chefe",
-        coordenacao="gabinete",
     )
     g = Group.objects.filter(name="Chefe de Gabinete").first()
     if g:
@@ -64,7 +63,6 @@ def coord_juridico(db):
         email="coord@test.com",
         password="senha12345",  # pragma: allowlist secret
         nome_completo="Coord Jurídico",
-        coordenacao="juridico",
     )
     g = Group.objects.filter(name="Coordenador").first()
     if g:
@@ -78,7 +76,6 @@ def assessor(db):
         email="assessor@test.com",
         password="senha12345",  # pragma: allowlist secret
         nome_completo="Assessor",
-        coordenacao="comunicacao",
     )
     g = Group.objects.filter(name="Assessor").first()
     if g:
@@ -104,7 +101,6 @@ def demanda(db, admin_user, pessoa):
         titulo="Demanda teste",
         descricao="Descrição teste",
         canal_entrada="whatsapp",
-        coordenacao_responsavel="gabinete",
         criado_por=admin_user,
     )
     DemandaPessoa.objects.create(demanda=d, pessoa=pessoa)
@@ -119,7 +115,6 @@ def test_gera_numero_no_save(db, admin_user, pessoa):
         titulo="X",
         descricao="Y",
         canal_entrada="presencial",
-        coordenacao_responsavel="gabinete",
         criado_por=admin_user,
     )
     agora = timezone.now()
@@ -133,7 +128,6 @@ def test_numero_aleatorio_e_unico(db, admin_user):
         titulo="A",
         descricao="X",
         canal_entrada="presencial",
-        coordenacao_responsavel="gabinete",
         criado_por=admin_user,
         anonimo=True,
     )
@@ -141,7 +135,6 @@ def test_numero_aleatorio_e_unico(db, admin_user):
         titulo="B",
         descricao="X",
         canal_entrada="presencial",
-        coordenacao_responsavel="gabinete",
         criado_por=admin_user,
         anonimo=True,
     )
@@ -164,7 +157,6 @@ def test_criar_demanda_com_entidade_funciona(db, admin_user, entidade):
         titulo="Só entidade",
         descricao="X",
         canal_entrada="oficio",
-        coordenacao_responsavel="juridico",
         criado_por=admin_user,
     )
     from demandas.models import DemandaEntidade
@@ -178,7 +170,6 @@ def test_criar_demanda_anonima_funciona(db, admin_user):
         titulo="Anônima",
         descricao="X",
         canal_entrada="presencial",
-        coordenacao_responsavel="gabinete",
         criado_por=admin_user,
         anonimo=True,
     )
@@ -242,7 +233,6 @@ def test_proativa_concluida_sem_devolutiva_funciona(db, admin_user):
         descricao="Reconhecimento",
         origem=Demanda.ORIGEM_PROATIVA,
         canal_entrada="presencial",
-        coordenacao_responsavel="comunicacao",
         anonimo=True,
         criado_por=admin_user,
     )
@@ -259,7 +249,6 @@ def test_proativa_concluida_com_resultado_pendente_bloqueada(db, admin_user):
         descricao="Reconhecimento",
         origem=Demanda.ORIGEM_PROATIVA,
         canal_entrada="presencial",
-        coordenacao_responsavel="comunicacao",
         anonimo=True,
         criado_por=admin_user,
     )
@@ -672,7 +661,6 @@ def _mk_demanda(autor, responsavel=None, status=Demanda.STATUS_NOVO, titulo="D")
         titulo=titulo,
         descricao="X",
         canal_entrada="email",
-        coordenacao_responsavel="gabinete",
         criado_por=autor,
         responsavel=responsavel,
         status=status,
@@ -799,7 +787,6 @@ def test_view_lista_renderiza_demanda_sem_responsavel(client, admin_user):
         titulo="Sem responsável",
         descricao="X",
         canal_entrada="presencial",
-        coordenacao_responsavel="gabinete",
         criado_por=admin_user,
         anonimo=True,
     )
@@ -871,7 +858,6 @@ def test_criar_demanda_com_anexo_inicial(client, admin_user, pessoa):
             "descricao": "Teste anexo",
             "origem": Demanda.ORIGEM_RESPONSIVA,
             "canal_entrada": "presencial",
-            "coordenacao_responsavel": "gabinete",
             "prioridade": "normal",
             # Inline formsets vazios (mas com management form):
             "dp-TOTAL_FORMS": "1",
@@ -942,7 +928,6 @@ def demanda_de_terceiro(db, admin_user, pessoa):
         titulo="De terceiro",
         descricao="X",
         canal_entrada="oficio",
-        coordenacao_responsavel="juridico",
         criado_por=admin_user,
         responsavel=admin_user,
     )
@@ -1031,7 +1016,6 @@ def test_demandas_quick_filter_com_encaminhamento_aberto(client, admin_user, dem
         titulo="Sem encaminhamento",
         descricao="X",
         canal_entrada="presencial",
-        coordenacao_responsavel="gabinete",
         criado_por=admin_user,
         anonimo=True,
     )
@@ -1096,7 +1080,6 @@ def test_processar_inbox_cria_demanda_e_marca_processado(client, admin_user, pes
             "descricao": "Buraco grande na esquina.",
             "origem": Demanda.ORIGEM_RESPONSIVA,
             "canal_entrada": "presencial",
-            "coordenacao_responsavel": "gabinete",
             "prioridade": "normal",
             "dp-TOTAL_FORMS": "1",
             "dp-INITIAL_FORMS": "0",
@@ -1254,27 +1237,28 @@ def test_export_csv_bloqueia_assessor(client, assessor, demanda):
 
 
 def test_export_csv_respeita_filtros_da_querystring(client, admin_user, pessoa):
+    """CSV exportado respeita filtros da querystring — filtra por status."""
     Demanda.objects.create(
-        titulo="Demanda gabinete",
+        titulo="Demanda nova",
         descricao="X",
         canal_entrada="presencial",
-        coordenacao_responsavel="gabinete",
         criado_por=admin_user,
         anonimo=True,
+        status=Demanda.STATUS_NOVO,
     )
     Demanda.objects.create(
-        titulo="Demanda juridico",
+        titulo="Demanda em andamento",
         descricao="Y",
         canal_entrada="oficio",
-        coordenacao_responsavel="juridico",
         criado_por=admin_user,
         anonimo=True,
+        status=Demanda.STATUS_EM_ANDAMENTO,
     )
     client.force_login(admin_user)
-    resp = client.get(reverse("demandas:demanda_export_csv") + "?coord=juridico")
+    resp = client.get(reverse("demandas:demanda_export_csv") + "?status=em_andamento")
     assert resp.status_code == 200
-    assert b"Demanda juridico" in resp.content
-    assert b"Demanda gabinete" not in resp.content
+    assert b"Demanda em andamento" in resp.content
+    assert b"Demanda nova" not in resp.content
 
 
 def test_auditoria_acessivel_a_admin(client, admin_user, demanda):
@@ -1330,7 +1314,6 @@ def test_verificar_integridade_detecta_devolutiva_faltando(db, admin_user, pesso
         titulo="Sem devolutiva",
         descricao="X",
         canal_entrada="presencial",
-        coordenacao_responsavel="gabinete",
         origem=Demanda.ORIGEM_RESPONSIVA,
         resultado=Demanda.RESULTADO_ATENDIDO,
         criado_por=admin_user,
@@ -1555,7 +1538,6 @@ def test_processar_inbox_ja_processado_redireciona_para_demanda(client, admin_us
         titulo="Já criada",
         descricao="X",
         canal_entrada="presencial",
-        coordenacao_responsavel="gabinete",
         criado_por=admin_user,
         anonimo=True,
     )

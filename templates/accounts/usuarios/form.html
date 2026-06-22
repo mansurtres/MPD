@@ -66,21 +66,6 @@
           {% for erro in form.cargo.errors %}<p class="err">{{ erro }}</p>{% endfor %}
         </div>
 
-        <div class="field">
-          <label class="lbl" for="{{ form.coordenacao.id_for_label }}">Coordenação</label>
-          <select
-            name="{{ form.coordenacao.html_name }}"
-            id="{{ form.coordenacao.id_for_label }}"
-          >
-            <option value="" {% if not form.coordenacao.value %}selected{% endif %}>—</option>
-            {% for v, label in form.coordenacao.field.choices %}{% if v %}
-            <option value="{{ v }}" {% if form.coordenacao.value == v %}selected{% endif %}>{{ label }}</option>
-            {% endif %}{% endfor %}
-          </select>
-          <p class="help">Define escopo de visibilidade de demandas restritas.</p>
-          {% for erro in form.coordenacao.errors %}<p class="err">{{ erro }}</p>{% endfor %}
-        </div>
-
         {% if form.password1 %}
         <div class="field">
           <label class="lbl" for="{{ form.password1.id_for_label }}">Senha <span class="req">*</span></label>

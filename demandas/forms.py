@@ -29,7 +29,6 @@ class DemandaForm(forms.ModelForm):
             "anonimo",
             "prioridade",
             "responsavel",
-            "coordenacao_responsavel",
             "prazo",
             "temas",
         ]

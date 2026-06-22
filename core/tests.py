@@ -177,7 +177,6 @@ def test_buscar_global_acha_pessoa_demanda_entidade(client, db):
         titulo="Reforma da praça da Maria",
         descricao="X",
         canal_entrada="presencial",
-        coordenacao_responsavel="gabinete",
         criado_por=admin,
         anonimo=True,
     )
@@ -221,7 +220,6 @@ def test_buscar_global_respeita_visibilidade(client, db):
         titulo="SegredoMaximo Z",
         descricao="X",
         canal_entrada="presencial",
-        coordenacao_responsavel="juridico",
         criado_por=admin,
         responsavel=admin,
         anonimo=True,

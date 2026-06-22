@@ -169,10 +169,6 @@ class ProcessarInboxView(LoginRequiredMixin, PermissionRequiredMixin, View):
             with transaction.atomic():
                 demanda = form.save(commit=False)
                 demanda.criado_por = request.user
-                if not demanda.coordenacao_responsavel and getattr(
-                    request.user, "coordenacao", None
-                ):
-                    demanda.coordenacao_responsavel = request.user.coordenacao
                 demanda.save()
                 form.save_m2m()
                 for fs in formsets.values():

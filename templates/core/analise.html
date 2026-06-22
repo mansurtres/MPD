@@ -165,25 +165,6 @@
     <div class="vis-grafico"><canvas id="chart-por_mes" height="160"></canvas></div>
   </section>
 
-  {# Por coordenação #}
-  <section class="an-card" data-bloco="por_coord">
-    <div class="an-card-head">
-      <h2>Por coordenação</h2>
-      <div class="an-card-toggle">
-        <button type="button" class="toggle-vis on" data-vis="tabela">Tabela</button>
-        <button type="button" class="toggle-vis" data-vis="grafico">Gráfico</button>
-      </div>
-    </div>
-    <div class="vis-tabela">
-      <table class="an-table">
-        <tbody>
-          {% for c in por_coordenacao %}<tr><td class="label">{{ c.display }}</td><td class="value">{{ c.total }}</td></tr>{% endfor %}
-        </tbody>
-      </table>
-    </div>
-    <div class="vis-grafico"><canvas id="chart-por_coord" height="160"></canvas></div>
-  </section>
-
   {# Encaminhamentos por órgão #}
   <section class="an-card" data-bloco="enc_orgao">
     <div class="an-card-head">
@@ -265,7 +246,6 @@
 
 {{ por_tema|json_script:"data-por_tema" }}
 {{ por_mes|json_script:"data-por_mes" }}
-{{ por_coordenacao|json_script:"data-por_coord" }}
 {{ enc_por_orgao|json_script:"data-enc_orgao" }}
 {{ top_pessoas|json_script:"data-top_pessoas" }}
 {{ carga_assessores|json_script:"data-carga" }}
@@ -297,7 +277,6 @@
   const NAVY_SOFT = '#3b5a85';
   const DANGER = '#dc2626';
   const ACCENT = '#0f766e';
-  const COORD_COLORS = ['#1f3a5f', '#0e7490', '#a16207', '#7c3aed', '#be185d'];
 
   function renderChart(bloco) {
     if (charts[bloco]) return;
@@ -318,11 +297,6 @@
                     borderColor: NAVY, backgroundColor: 'rgba(31,58,95,0.08)',
                     tension: 0.25, fill: true}],
       }, options: {plugins: {legend: {display: false}}} };
-    } else if (bloco === 'por_coord') {
-      cfg = { type: 'doughnut', data: {
-        labels: data.map(d => d.display),
-        datasets: [{data: data.map(d => d.total), backgroundColor: COORD_COLORS}],
-      } };
     } else if (bloco === 'enc_orgao') {
       cfg = { type: 'bar', data: {
         labels: data.map(d => d.destinatario_orgao),

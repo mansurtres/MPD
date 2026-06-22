@@ -919,8 +919,6 @@
         <div class="source">
           <span>Capturada por</span>
           <span class="who">{{ demanda.criado_por.nome_completo|default:demanda.criado_por.email }}</span>
-          <span class="sep">·</span>
-          <span>{{ demanda.get_coordenacao_responsavel_display }}</span>
         </div>
       </div>
       {% endif %}
@@ -1176,10 +1174,6 @@
           </div>
         </div>
         {% endif %}
-        <div class="block">
-          <div class="k">Coordenação</div>
-          <div class="v">{{ demanda.get_coordenacao_responsavel_display }}</div>
-        </div>
         {% if demanda.prazo %}
         <div class="block">
           <div class="k">Prazo</div>

@@ -153,15 +153,6 @@ class Demanda(AuditavelMixin, models.Model):
         ("urgente", "Urgente"),
     ]
 
-    COORDENACAO_GABINETE = "gabinete"
-    COORDENACAO_JURIDICO = "juridico"
-    COORDENACAO_COMUNICACAO = "comunicacao"
-    COORDENACAO_CHOICES = [
-        (COORDENACAO_GABINETE, "Gabinete"),
-        (COORDENACAO_JURIDICO, "Jurídico"),
-        (COORDENACAO_COMUNICACAO, "Comunicação"),
-    ]
-
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     numero = models.CharField("número", max_length=20, unique=True, blank=True)
     slug_publico = models.CharField(
@@ -188,9 +179,6 @@ class Demanda(AuditavelMixin, models.Model):
         null=True,
         blank=True,
         related_name="demandas_responsavel",
-    )
-    coordenacao_responsavel = models.CharField(
-        "coordenação responsável", max_length=15, choices=COORDENACAO_CHOICES
     )
     prazo = models.DateField(null=True, blank=True)
     observacoes_arquivamento = models.TextField(
@@ -227,7 +215,6 @@ class Demanda(AuditavelMixin, models.Model):
             models.Index(fields=["responsavel"]),
             models.Index(fields=["status"]),
             models.Index(fields=["resultado"]),
-            models.Index(fields=["status", "coordenacao_responsavel"]),
             models.Index(fields=["responsavel", "status"]),
             models.Index(fields=["resultado", "criado_em"]),
             models.Index(fields=["criado_em"]),

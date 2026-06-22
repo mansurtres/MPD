@@ -64,7 +64,6 @@
       <tr>
         <th>Nome</th>
         <th>Cargo</th>
-        <th>Coordenação</th>
         <th>Papel</th>
         <th>Status</th>
         <th></th>
@@ -83,7 +82,6 @@
           </div>
         </td>
         <td style="font-family:var(--font-sans);font-size:13.5px;color:var(--ink-soft)">{{ usuario.cargo|default:"—" }}</td>
-        <td style="font-family:var(--font-mono);font-size:12px;color:var(--ink-soft)">{{ usuario.get_coordenacao_display|default:"—" }}</td>
         <td>
           {% if usuario.is_staff or usuario.is_superuser %}
           <span class="badge papel-admin"><span class="dot"></span>Admin</span>
