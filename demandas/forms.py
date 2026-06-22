@@ -30,7 +30,6 @@ class DemandaForm(forms.ModelForm):
             "prioridade",
             "responsavel",
             "coordenacao_responsavel",
-            "restrito",
             "prazo",
             "temas",
         ]

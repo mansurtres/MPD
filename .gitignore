@@ -46,3 +46,7 @@ backups/
 
 # Scratch de orquestração (subagent-driven dev) — não versionar
 .superpowers/
+
+# Scratch de subagentes/ferramentas (não versionar)
+.claude/worktrees/
+.firecrawl/

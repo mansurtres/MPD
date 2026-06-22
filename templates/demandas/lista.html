@@ -245,7 +245,6 @@
         <td class="col-num">
           <a href="{% url 'demandas:demanda_detalhe' d.slug_publico %}" onclick="event.stopPropagation()">
             <span class="seq">{{ d.numero }}</span>
-            {% if d.restrito %}<span class="icons"><span class="ic lock" title="Restrita">🔒</span></span>{% endif %}
           </a>
         </td>
         <td class="col-title">

@@ -560,9 +560,8 @@
     display: flex; flex-wrap: wrap; gap: 4px;
   }
 
-  /* Badges extras locais (origem, restrita) — complementam os tokens globais */
+  /* Badge extra local (origem) — complementa os tokens globais */
   .badge.origem    { background: var(--info-50); color: var(--info-700); border: 1.5px solid var(--info-500); }
-  .badge.restrita  { background: var(--danger-50); color: var(--danger-700); border: 1.5px solid var(--danger-500); }
 
   /* Pill — para Temas e Tags (não confundir com .badge usado em Status/Resultado).
      Estética leve: borda + dot na cor; fundo é um tint muito suave.
@@ -1154,10 +1153,9 @@
           {% elif demanda.resultado == 'nao_se_aplica' %}<span class="badge rs-nsa"><span class="glyph">—</span>N/A</span>{% endif %}
         </div>
         <div class="block">
-          <div class="k">Origem{% if demanda.restrito %} · visibilidade{% endif %}</div>
+          <div class="k">Origem</div>
           <div class="badges">
             <span class="badge origem">{{ demanda.get_origem_display }}</span>
-            {% if demanda.restrito %}<span class="badge restrita">Restrita</span>{% endif %}
           </div>
         </div>
         {% if demanda.resultado_observacao %}

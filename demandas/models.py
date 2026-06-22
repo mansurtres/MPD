@@ -33,17 +33,20 @@ from core.utils import gerar_slug_publico
 
 
 def _q_demanda_visivel_para(user):
-    """Predicado Q de visibilidade de demanda.
+    """Predicado Q de visibilidade need-to-know (ADR 0059).
 
-    Usado por DemandaQuerySet.visiveis_para e por Demanda.q_visivel_para
-    (classmethod para uso em queries externas como PessoaDetailView).
-    Retorna None se o usuário tem acesso irrestrito (CG+).
+    Admin → None (vê tudo). Chefe de Gabinete → todas as ATIVAS (sem
+    histórico concluído/arquivado). Assessor → as próprias (responsável
+    ou autor), ativas + o próprio histórico. Usado por
+    DemandaQuerySet.visiveis_para e por Demanda.q_visivel_para.
     """
-    from core.permissoes import eh_cg_plus
+    from core.permissoes import eh_admin, eh_cg_plus
 
-    if eh_cg_plus(user):
+    if eh_admin(user):
         return None
-    return models.Q(restrito=False) | models.Q(responsavel=user)
+    if eh_cg_plus(user):
+        return models.Q(status__in=Demanda.STATUS_ATIVOS)
+    return models.Q(responsavel=user) | models.Q(criado_por=user)
 
 
 class DemandaQuerySet(models.QuerySet):
@@ -119,6 +122,14 @@ class Demanda(AuditavelMixin, models.Model):
         (STATUS_CONCLUIDA, "Concluída"),
         (STATUS_ARQUIVADO, "Arquivado"),
     ]
+    # Ativos = tudo menos concluída/arquivada. Base da visibilidade do
+    # Chefe de Gabinete (vê só ativas) — ADR 0059.
+    STATUS_ATIVOS = [
+        STATUS_NOVO,
+        STATUS_EM_ANDAMENTO,
+        STATUS_AGUARDANDO_TERCEIROS,
+        STATUS_AGUARDANDO_PESSOA,
+    ]
 
     RESULTADO_PENDENTE = "pendente"
     RESULTADO_ATENDIDO = "atendido"
@@ -181,7 +192,6 @@ class Demanda(AuditavelMixin, models.Model):
     coordenacao_responsavel = models.CharField(
         "coordenação responsável", max_length=15, choices=COORDENACAO_CHOICES
     )
-    restrito = models.BooleanField("restrita", default=False)
     prazo = models.DateField(null=True, blank=True)
     observacoes_arquivamento = models.TextField(
         "observações de arquivamento", blank=True, default=""
@@ -229,7 +239,6 @@ class Demanda(AuditavelMixin, models.Model):
                 "pode_arquivar_sem_responder",
                 "Pode arquivar demanda não concluída (com justificativa)",
             ),
-            ("pode_marcar_restrita", "Pode marcar/desmarcar demanda como restrita"),
             ("pode_atribuir_responsavel", "Pode atribuir/reatribuir responsável"),
             ("pode_reabrir_demanda", "Pode reabrir demanda concluída"),
             ("pode_excluir_demanda", "Pode excluir demanda definitivamente"),
@@ -340,14 +349,15 @@ class Demanda(AuditavelMixin, models.Model):
         return self.demanda_pessoas.exists() or self.demanda_entidades.exists()
 
     def pode_ser_visto_por(self, user):
-        """Visibilidade segue ADR/permissoes.md §3.3 + edge case 5.1."""
-        from core.permissoes import eh_cg_plus
+        """Visibilidade need-to-know (ADR 0059): Admin tudo; CG só ativas;
+        Assessor só as próprias (responsável ou autor)."""
+        from core.permissoes import eh_admin, eh_cg_plus
 
-        if not self.restrito:
+        if eh_admin(user):
             return True
-        if self.responsavel_id == user.id:
-            return True
-        return eh_cg_plus(user)
+        if eh_cg_plus(user):
+            return self.status in Demanda.STATUS_ATIVOS
+        return self.responsavel_id == user.id or self.criado_por_id == user.id
 
     @classmethod
     def q_visivel_para(cls, user):

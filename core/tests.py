@@ -196,9 +196,9 @@ def test_buscar_global_acha_pessoa_demanda_entidade(client, db):
         assert r["label"]
 
 
-def test_buscar_global_respeita_visibilidade_de_restrita(client, db):
-    """Demanda restrita NÃO aparece para coordenador de outra coordenação
-    (ADR 0049 — visiveis_para)."""
+def test_buscar_global_respeita_visibilidade(client, db):
+    """Demanda que o usuário não criou nem é responsável NÃO aparece na
+    busca global (ADR 0059 — visiveis_para)."""
     from django.contrib.auth.models import Group
 
     from demandas.models import Demanda
@@ -209,14 +209,13 @@ def test_buscar_global_respeita_visibilidade_de_restrita(client, db):
         is_superuser=True,
         is_staff=True,
     )
-    coord = Usuario.objects.create_user(
-        email="coord@t.com",
+    assessor = Usuario.objects.create_user(
+        email="assessor2@t.com",
         password="senha12345",  # pragma: allowlist secret
-        coordenacao="comunicacao",
     )
-    g = Group.objects.filter(name="Coordenador").first()
+    g = Group.objects.filter(name="Assessor").first()
     if g:
-        coord.groups.add(g)
+        assessor.groups.add(g)
 
     Demanda.objects.create(
         titulo="SegredoMaximo Z",
@@ -224,10 +223,10 @@ def test_buscar_global_respeita_visibilidade_de_restrita(client, db):
         canal_entrada="presencial",
         coordenacao_responsavel="juridico",
         criado_por=admin,
+        responsavel=admin,
         anonimo=True,
-        restrito=True,
     )
-    client.force_login(coord)
+    client.force_login(assessor)
     resp = client.get(reverse("core:buscar_global"), {"q": "SegredoMaximo"})
     assert resp.status_code == 200
     labels = [r["label"] for r in resp.json()["resultados"]]

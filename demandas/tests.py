@@ -664,35 +664,55 @@ def test_pessoa_acessa_demandas_via_related_manager(db, demanda, pessoa):
     assert demanda in pessoa.demandas.all()
 
 
-# --- Critério 22: demanda restrita ---
+# --- Visibilidade need-to-know por papel (ADR 0059) ---
 
 
-def test_demanda_restrita_invisivel_para_co_de_outra_coord(db, admin_user, pessoa, coord_juridico):
-    d = Demanda.objects.create(
-        titulo="Restrita",
-        descricao="Sigilo",
+def _mk_demanda(autor, responsavel=None, status=Demanda.STATUS_NOVO, titulo="D"):
+    return Demanda.objects.create(
+        titulo=titulo,
+        descricao="X",
         canal_entrada="email",
-        coordenacao_responsavel="comunicacao",
-        restrito=True,
-        criado_por=admin_user,
-        responsavel=admin_user,
+        coordenacao_responsavel="gabinete",
+        criado_por=autor,
+        responsavel=responsavel,
+        status=status,
     )
-    DemandaPessoa.objects.create(demanda=d, pessoa=pessoa)
-    assert not d.pode_ser_visto_por(coord_juridico)
 
 
-def test_demanda_restrita_visivel_para_responsavel(db, admin_user, pessoa, assessor):
-    d = Demanda.objects.create(
-        titulo="Restrita",
-        descricao="Sigilo",
-        canal_entrada="email",
-        coordenacao_responsavel="comunicacao",
-        restrito=True,
-        criado_por=admin_user,
-        responsavel=assessor,
-    )
-    DemandaPessoa.objects.create(demanda=d, pessoa=pessoa)
-    assert d.pode_ser_visto_por(assessor)
+def test_visibilidade_admin_ve_tudo(db, admin_user, assessor):
+    ativa = _mk_demanda(assessor, responsavel=assessor)
+    concluida = _mk_demanda(assessor, responsavel=assessor, status=Demanda.STATUS_CONCLUIDA)
+    vis = set(Demanda.objects.visiveis_para(admin_user))
+    assert ativa in vis and concluida in vis
+    assert ativa.pode_ser_visto_por(admin_user)
+    assert concluida.pode_ser_visto_por(admin_user)
+
+
+def test_visibilidade_cg_ve_ativas_nao_concluidas(db, admin_user, chefe, assessor):
+    ativa = _mk_demanda(assessor, responsavel=assessor)
+    concluida = _mk_demanda(assessor, responsavel=assessor, status=Demanda.STATUS_CONCLUIDA)
+    vis = set(Demanda.objects.visiveis_para(chefe))
+    assert ativa in vis
+    assert concluida not in vis
+    assert ativa.pode_ser_visto_por(chefe)
+    assert not concluida.pode_ser_visto_por(chefe)
+
+
+def test_visibilidade_assessor_so_as_proprias(db, admin_user, assessor):
+    minha_resp = _mk_demanda(admin_user, responsavel=assessor)
+    minha_autor = _mk_demanda(assessor, responsavel=admin_user)
+    de_outro = _mk_demanda(admin_user, responsavel=admin_user)
+    vis = set(Demanda.objects.visiveis_para(assessor))
+    assert minha_resp in vis  # responsável
+    assert minha_autor in vis  # autor
+    assert de_outro not in vis
+    assert not de_outro.pode_ser_visto_por(assessor)
+
+
+def test_visibilidade_assessor_ve_propria_concluida(db, admin_user, assessor):
+    minha = _mk_demanda(admin_user, responsavel=assessor, status=Demanda.STATUS_CONCLUIDA)
+    assert minha in set(Demanda.objects.visiveis_para(assessor))
+    assert minha.pode_ser_visto_por(assessor)
 
 
 # --- Permissões via grupos ---
@@ -795,25 +815,6 @@ def test_pessoa_detalhe_lista_demandas_vinculadas(client, demanda, pessoa, admin
     resp = client.get(reverse("pessoas:pessoa_detalhe", args=[pessoa.slug_publico]))
     assert resp.status_code == 200
     assert demanda.numero.encode() in resp.content
-
-
-def test_pessoa_detalhe_oculta_demanda_restrita_de_outra_coord(
-    client, admin_user, pessoa, coord_juridico
-):
-    d = Demanda.objects.create(
-        titulo="Restrita comunicacao",
-        descricao="X",
-        canal_entrada="email",
-        coordenacao_responsavel="comunicacao",
-        restrito=True,
-        criado_por=admin_user,
-        responsavel=admin_user,
-    )
-    DemandaPessoa.objects.create(demanda=d, pessoa=pessoa)
-    client.force_login(coord_juridico)
-    resp = client.get(reverse("pessoas:pessoa_detalhe", args=[pessoa.slug_publico]))
-    assert resp.status_code == 200
-    assert d.numero.encode() not in resp.content
 
 
 # --- Filtro de tipos da Interacao manual (impede Interações órfãs) ---
@@ -934,16 +935,16 @@ def test_anexo_download_forca_attachment_e_nosniff(db, demanda, admin_user, clie
 
 
 @pytest.fixture
-def demanda_restrita_juridico(db, admin_user, pessoa):
-    """Demanda restrita à coordenação Jurídico — não visível para outros."""
+def demanda_de_terceiro(db, admin_user, pessoa):
+    """Demanda que o assessor não criou nem é responsável — invisível a ele
+    no modelo need-to-know (ADR 0059)."""
     d = Demanda.objects.create(
-        titulo="Restrita Juridico",
+        titulo="De terceiro",
         descricao="X",
         canal_entrada="oficio",
         coordenacao_responsavel="juridico",
         criado_por=admin_user,
         responsavel=admin_user,
-        restrito=True,
     )
     DemandaPessoa.objects.create(demanda=d, pessoa=pessoa)
     return d
@@ -965,12 +966,11 @@ def test_encaminhamento_lista_acessivel_a_admin(client, admin_user, demanda):
 
 
 def test_encaminhamento_lista_respeita_visibilidade_da_demanda(
-    client, admin_user, assessor, demanda_restrita_juridico
+    client, admin_user, assessor, demanda_de_terceiro
 ):
-    """Assessor de outra coordenação não vê encaminhamentos de demanda
-    restrita à coordenação Jurídico."""
+    """Assessor não vê encaminhamentos de demanda que não é dele (ADR 0059)."""
     Encaminhamento.objects.create(
-        demanda=demanda_restrita_juridico,
+        demanda=demanda_de_terceiro,
         destinatario_orgao="Procuradoria-Geral",
         tipo_documento="oficio",
         data_envio=timezone.now().date(),
@@ -1237,12 +1237,12 @@ def test_context_processor_conta_pendencias_vencidas(client, admin_user, demanda
 # --- Fase 6 — Segurança, Visualização, Exportação (ADR 0047) ---
 
 
-def test_export_csv_demandas_acessivel_a_coordenador(client, coord_juridico, demanda):
-    client.force_login(coord_juridico)
+def test_export_csv_demandas_acessivel_a_admin(client, admin_user, demanda):
+    client.force_login(admin_user)
     resp = client.get(reverse("demandas:demanda_export_csv"))
     assert resp.status_code == 200
     assert resp["Content-Type"].startswith("text/csv")
-    assert b"\xef\xbb\xbf" in resp.content[:5]  # BOM
+    assert b"\xef\xbb\xbf" in resp.content[:5]  # BOM (Excel BR)
     assert b";" in resp.content  # separador BR
     assert demanda.numero.encode() in resp.content
 
@@ -1481,52 +1481,16 @@ def test_auditlog_registra_descarte_de_inbox(db, admin_user):
     assert logs.filter(action=LogEntry.Action.UPDATE).exists()
 
 
-# --- /analise filtra demandas restritas (ADR 0049, defesa em profundidade) ---
-# ADR 0054 elevou /analise para CG+, então todo viewer já tem visibilidade
-# plena de restritas. O manager `visiveis_para(user)` permanece aplicado no
-# painel como rede de proteção (defesa em profundidade), mas o único caso
-# observável agora é o admin/CG vendo restritas — testado abaixo.
+# --- /analise reflete a visibilidade do viewer (ADR 0049/0059) ---
 
 
-def test_analise_admin_ve_demanda_restrita(client, admin_user, demanda_restrita_juridico):
-    """Sanity: admin continua vendo demanda restrita no painel."""
+def test_analise_admin_ve_todas_as_demandas(client, admin_user, demanda_de_terceiro):
+    """Sanity: admin vê as demandas no painel (visibilidade total)."""
     client.force_login(admin_user)
     resp = client.get(reverse("core:analise"))
     por_mes = resp.context["por_mes"]
     total_admin = sum(m["total"] for m in por_mes)
-    assert total_admin >= 1  # ao menos a restrita
-
-
-# --- Export CSV respeita visibilidade restrita (Tarefa 1.4 do roteiro v0.7.2) ---
-
-
-def test_export_csv_oculta_demanda_restrita_de_coord(client, coord_juridico, admin_user):
-    """Coordenador NÃO consegue exportar demanda restrita de outra coord via CSV.
-    Confirma que _filtrar_visiveis aplicado no get_queryset cobre o fluxo
-    de export."""
-    publica = Demanda.objects.create(
-        titulo="Publica",
-        descricao="X",
-        canal_entrada="presencial",
-        coordenacao_responsavel="comunicacao",
-        criado_por=admin_user,
-        anonimo=True,
-    )
-    restrita = Demanda.objects.create(
-        titulo="SegredoMaximo",
-        descricao="X",
-        canal_entrada="presencial",
-        coordenacao_responsavel="juridico",
-        criado_por=admin_user,
-        anonimo=True,
-        restrito=True,
-    )
-    client.force_login(coord_juridico)
-    resp = client.get(reverse("demandas:demanda_export_csv"))
-    assert resp.status_code == 200
-    assert publica.numero.encode() in resp.content
-    assert restrita.numero.encode() not in resp.content
-    assert b"SegredoMaximo" not in resp.content
+    assert total_admin >= 1
 
 
 # --- Conclusão limpa: devolutiva não dispara avanço de status (Tarefa 2.1) ---
