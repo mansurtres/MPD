@@ -24,7 +24,7 @@ A documentação completa do projeto está em [`docs/`](./docs/) e em [`roadmap.
 ### 1. Clonar e instalar dependências
 
 ```bash
-git clone <url-do-repo> mpd
+git clone https://github.com/mansurtres/MPD.git mpd
 cd mpd
 uv sync --extra dev
 ```
