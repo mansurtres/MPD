@@ -748,6 +748,36 @@ def test_grupo_chefe_de_gabinete_nao_tem_delete_pessoa(db):
     assert not grupo.permissions.filter(codename="delete_pessoa").exists()
 
 
+# --- Realinhamento da matriz de grupos (ADR 0059 / DT-018) ---
+
+
+def test_grupo_chefe_nao_tem_add_tag(db):
+    """Criar/editar tag é exclusivo do Admin (permissoes.md §3.7)."""
+    grupo = Group.objects.get(name="Chefe de Gabinete")
+    assert not grupo.permissions.filter(codename="add_tag").exists()
+    assert not grupo.permissions.filter(codename="change_tag").exists()
+
+
+def test_grupo_chefe_nao_tem_anonimizar(db):
+    """Anonimização (LGPD) é exclusiva do Admin (permissoes.md §3.1)."""
+    grupo = Group.objects.get(name="Chefe de Gabinete")
+    assert not grupo.permissions.filter(codename="pode_anonimizar_pessoa").exists()
+
+
+def test_grupo_chefe_mantem_desativar_pessoa(db):
+    """Desativar/reativar permanece em Admin + CG (não foi removido no DT-018)."""
+    grupo = Group.objects.get(name="Chefe de Gabinete")
+    assert grupo.permissions.filter(codename="pode_desativar_pessoa").exists()
+    assert grupo.permissions.filter(codename="pode_reativar_pessoa").exists()
+
+
+def test_grupo_administrador_tem_crud_de_tema(db):
+    """Tema é configuração — só o Admin cria/edita (permissoes.md §3.7)."""
+    grupo = Group.objects.get(name="Administrador")
+    assert grupo.permissions.filter(codename="add_tema").exists()
+    assert grupo.permissions.filter(codename="change_tema").exists()
+
+
 # --- Auditlog (LGPD) ---
 
 

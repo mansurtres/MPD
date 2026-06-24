@@ -1455,7 +1455,7 @@ def test_tema_criar_ajax_duplicado_falha(client, admin_user):
 
 
 def test_tema_criar_ajax_bloqueia_assessor(client, assessor):
-    # Assessor não tem demandas.add_tema (só CO+).
+    # Criar tema é exclusivo do Admin (add_tema; permissoes.md §3.7, ADR 0059).
     client.force_login(assessor)
     resp = client.post(reverse("demandas:tema_criar_ajax"), {"nome": "X"})
     assert resp.status_code == 403
