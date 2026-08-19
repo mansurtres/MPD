@@ -491,6 +491,9 @@ Fase 5 concluída.
 
 #### 4.6.2. Especificações
 
+> **Status da trilha de infraestrutura (2026-08-18 — ADR 0061).** O deploy foi executado no **Render** via Blueprint (`render.yaml`), com Postgres gerenciado e disco persistente para anexos. **Entregues:** `production.py` revisado (item 3 — disco, CSRF, logging estruturado para stdout, `django-axes` atrás de proxy), Whitenoise já em uso desde a base, `docs/deploy.md` (item 2). **Adiados com ADR e gatilho registrados:** backup robusto com `pg_dump -Fc`/rotação/criptografia (item 3 — [DT-020](docs/debito-tecnico.md)) e Docker (item 4 — [DT-022](docs/debito-tecnico.md)). Sentry segue opcional e não foi ativado. `docs/manual.md` (item 2) continua pendente. Novos débitos abertos pela trilha: DT-020 a DT-023.
+
+
 1. **Filtros avançados via querystring** em todas as listagens (Demandas, Pessoas, Entidades, Encaminhamentos, Inbox). Filtros são combináveis e preservados na paginação. Inclui filtro por intervalo de datas (`criado_em`, `data_envio`, etc.).
 
 2. **Exportação CSV**: UTF-8 com BOM (para o Excel BR ler acentos), separador `;`. Endpoints `/demandas/export.csv`, `/pessoas/export.csv`, `/encaminhamentos/export.csv`. Permissão CO+. Limite de 10.000 registros por exportação. Toda exportação registra entrada no auditlog (quem, quando, filtros aplicados, total).

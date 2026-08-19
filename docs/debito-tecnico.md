@@ -97,6 +97,48 @@ Quando um item for resolvido, mover para a seção **Resolvidos** no fim com a r
 
 ---
 
+## Infraestrutura (Fase 7)
+
+### DT-020 — Backup automatizado off-site inexistente; `scripts/backup.sh` inoperante no Windows (ADR 0061)
+
+**Prioridade:** Média (as duas camadas atuais cobrem os cenários reais de perda; o buraco é a catástrofe rara combinada com esquecimento do ritual mensal)
+**Sintoma:** [scripts/backup.sh](../scripts/backup.sh) é script bash e **não roda no Windows do único operador** — a automação existente é inoperante no ambiente real. O `roadmap.md` §4.6.2 item 3 pede `pg_dump -Fc`, rotação (7 diários + 4 semanais) e criptografia at-rest; nada disso existe. Hoje a proteção é o point-in-time recovery de 3 dias do Render mais um export manual que depende de Pedro lembrar todo mês.
+**Por que é cheiro:** backup que depende de disciplina humana mensal falha exatamente quando é mais necessário. E um script versionado que não executa na única máquina que o usaria dá falsa sensação de cobertura.
+**Proposta:** cron job no Render rodando `pg_dump -Fc` com envio para armazenamento externo (Cloudflare R2 ou Backblaze B2), rotação e criptografia com `age`. Alternativa mais barata: reescrever `backup.sh` em PowerShell para rodar da máquina de Pedro contra a External Database URL.
+**Gatilho:** volume de dados ou criticidade tornarem a janela de 3 dias insuficiente; ou a primeira vez que o export mensal for esquecido.
+
+---
+
+### DT-021 — Sem recuperação de senha por e-mail (ADR 0061)
+
+**Prioridade:** Baixa (equipe pequena e presente no gabinete)
+**Sintoma:** o MPD não tem fluxo de "esqueci minha senha" — nenhuma view de `password_reset`, nenhum backend de e-mail configurado além do console. Quem esquece a senha depende do Admin redefini-la em Configurações → Usuários.
+**Por que é cheiro:** concentra no Admin uma tarefa operacional trivial e cria dependência de disponibilidade dele. Numa equipe distribuída, vira gargalo.
+**Proposta:** habilitar as views nativas de `password_reset` do Django com um serviço de envio transacional (Resend, Brevo). Exige domínio verificado para entregabilidade — mais natural depois da migração para domínio próprio.
+**Gatilho:** primeira vez que redefinir senha manualmente incomodar; ou a equipe passar de ~10 pessoas; ou a adoção de domínio próprio.
+
+---
+
+### DT-022 — Sem `Dockerfile`: aplicação amarrada ao Render (ADR 0061)
+
+**Prioridade:** Baixa (nenhuma intenção presente de trocar de provedor)
+**Sintoma:** o `roadmap.md` §4.6.2 item 4 pedia `Dockerfile`, `docker-compose.yml` e `docker-compose.dev.yml`. Nenhum existe. O deploy depende do runtime Python do Render e do `build.sh`.
+**Por que é cheiro:** sair do Render hoje significa refazer a camada de deploy do zero. Também não há paridade entre o ambiente de desenvolvimento (Windows) e o de produção (Linux) — a diferença já mordeu na execução do `build.sh`.
+**Proposta:** `Dockerfile` multi-stage replicando os passos do `build.sh`, e `render.yaml` migrando para `runtime: docker`. O trabalho é localizado; nada do código de domínio muda.
+**Gatilho:** decisão de sair do Render; exigência de residência de dados no Brasil (ver nota de jurisdição na ADR 0061); ou necessidade de reproduzir produção localmente para depurar algo que só acontece em Linux.
+
+---
+
+### DT-023 — Dados hospedados fora do Brasil (ADR 0061)
+
+**Prioridade:** Baixa hoje; **Alta se surgir exigência de residência de dados**
+**Sintoma:** o `roadmap.md` registra preferência por hospedagem no Brasil como mitigação de risco no tratamento de PII de cidadão. O Render não tem região na América do Sul; os dados ficam na Virgínia, sob jurisdição dos Estados Unidos.
+**Por que é cheiro:** é uma restrição de projeto declarada que a plataforma escolhida não atende. Não é ilegal — a LGPD admite transferência internacional com salvaguardas — mas é uma promessa do roadmap que o sistema não cumpre.
+**Proposta:** se o gatilho disparar, migrar para provedor com região brasileira (Magalu Cloud, AWS São Paulo, Locaweb). O DT-022 (Docker) é pré-requisito prático dessa migração.
+**Gatilho:** exigência contratual, normativa ou política de residência de dados no Brasil; ou o Render abrir região na América do Sul (aí a migração é só trocar a região).
+
+---
+
 ## Resolvidos
 
 ### DT-018 — Matriz fina de permissões de grupo divergia da permissoes.md v2

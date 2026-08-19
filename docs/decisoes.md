@@ -2289,3 +2289,60 @@ Efeito: apaga também as `Interacao` vinculadas — a FK é `SET_NULL`, então s
 ---
 
 *Decisões adicionadas em ordem cronológica conforme surgem. Cada decisão registrada uma vez; alterações futuras criam nova ADR (não editam a anterior).*
+
+## ADR 0061 — Deploy em produção no Render via Blueprint
+
+**Data:** 2026-08-18
+**Status:** Aceito. Complementa ADR 0033 (proxy SSL), ADR 0030 (usuários iniciais) e ADR 0047 (LGPD adiada para a Fase 8).
+
+### Contexto
+
+O MPD chegou ao fim da v0.8 pronto para uso real: 239 testes verdes, três papéis de acesso implementados (ADR 0059) e front-end fechado na identidade nova. Pedro criou conta no Render e decidiu (2026-08-18) que o primeiro deploy já é **produção real** — equipe do gabinete com dados reais de cidadãos, plano pago —, e não um ensaio descartável.
+
+Restrição de contexto que atravessa todas as escolhas: **Pedro nunca fez deploy de nenhum sistema** e será o único operador. Isso não é acidente de circunstância, é requisito de projeto: cada camada a mais é uma noite perdida quando algo falhar às 23h.
+
+O `roadmap.md` §4.6.2 previa Docker (item 4) e backup automatizado com `pg_dump -Fc`, rotação e criptografia (item 3). Nenhum dos dois entra nesta entrega.
+
+### Decisão
+
+**1. Render com Blueprint (`render.yaml`), runtime Python nativo.** Três recursos declarados em um arquivo versionado: Web Service Starter, PostgreSQL Basic-256mb e disco persistente de 1 GB. ~US$ 13,25/mês. Endereço `mpd.onrender.com`; domínio próprio fica parametrizado por variável de ambiente para adoção futura sem tocar em código.
+
+**2. Anexos em disco persistente, não em object storage.** O filesystem de um Web Service do Render é efêmero: sem disco, todo anexo enviado pela equipe some no deploy seguinte. O disco resolve com uma variável de ambiente, sem conta em terceiro nem biblioteca nova, e traz snapshot diário. `AnexoDownloadView` já serve arquivo por `FileResponse` com checagem de permissão, então nada em `/var/data/media` é alcançável sem passar pela camada de autorização do Django.
+
+**3. Backup em duas camadas.** Point-in-time recovery de 3 dias (automático, do Render) mais export manual mensal baixado pelo painel. Sem automação própria.
+
+**4. Docker adiado.** Resolve portabilidade — um problema que o projeto não tem hoje — e cobra por isso uma camada permanente de indireção entre o operador e o diagnóstico.
+
+**5. Recuperação de senha por e-mail adiada.** O Admin redefine senha pela UI. Evita configurar e manter serviço de envio de e-mail para uma equipe que se encontra no gabinete.
+
+### Consequências
+
+- **Indisponibilidade de ~1 min por deploy** e instância única: efeito inevitável de disco anexado no Render, que impede troca sem interrupção e escala horizontal. Irrelevante para uma equipe de meia dúzia de pessoas.
+- **Build depende de rede:** o `build.sh` baixa o binário do Tailwind a cada deploy, porque `tailwind-output.css` não é versionado. Se o download falhar, o build aborta e a versão anterior continua no ar — falha ruidosa preferível a site publicado sem CSS.
+- **Janela de recuperação automática é de 3 dias.** Perda descoberta depois disso depende do export mensal.
+- **Senha esquecida exige intervenção do Admin.**
+- **Duas variáveis de ambiente derrubam o deploy em silêncio** e ficam fixas no `render.yaml`: `DJANGO_SETTINGS_MODULE` (o `manage.py` usa `development` por padrão enquanto o `wsgi.py` usa `production`; sem a variável o `collectstatic` gera estáticos sem manifesto e toda página responde 500) e `DJANGO_TRUST_PROXY_SSL_HEADER` (sem ela, loop infinito de redirecionamento).
+- **`collectstatic` ignora `tailwind-input.css`:** é arquivo-fonte do compilador, e seu `@import "tailwindcss"` faz o `CompressedManifestStaticFilesStorage` abortar o build inteiro.
+- **Novos débitos técnicos:** DT-020 a DT-023.
+
+### Nota sobre a localização dos dados
+
+O roadmap registra preferência por hospedagem no Brasil, como mitigação de risco no tratamento de PII de cidadão. **O Render não opera região na América do Sul** — as opções são Oregon, Ohio, Virgínia, Frankfurt e Singapura. Escolhida **Virgínia**, a mais próxima por rota de rede (~120 ms, contra ~180 ms de Oregon).
+
+Consequência assumida: os dados ficam sob jurisdição dos Estados Unidos. Não há impedimento legal sob a LGPD para transferência internacional com as devidas salvaguardas, e o tratamento formal de LGPD está na Fase 8 (ADR 0047). Pedro seguiu com o Render ciente disso.
+
+**Gatilho de revisita:** exigência contratual ou normativa de residência de dados no Brasil, ou o Render abrir região na América do Sul.
+
+### Errata sobre a ADR 0033
+
+O default desligado de `DJANGO_TRUST_PROXY_SSL_HEADER` permanece **correto** — só se ativa atrás de proxy estrito que sanitize `X-Forwarded-Proto`. O Render é um desses. Ligar a variável em produção não contradiz a ADR 0033; é exatamente o caso de uso que ela previu.
+
+### Alternativas consideradas
+
+- **Docker desde já:** cumpriria o roadmap ao pé da letra e daria portabilidade real, mas insere uma camada que o operador não escreveu e não conhece, justamente onde ele tem menos repertório para diagnosticar. Registrado como DT-022.
+- **Object storage (Cloudflare R2 / S3 + `django-storages`):** removeria as limitações do disco, ao custo de mais uma conta, mais uma biblioteca e mais credenciais. Desproporcional ao volume de anexos de um gabinete municipal. A migração futura é localizada (troca de `STORAGES["default"]`).
+- **Versionar `tailwind-output.css`:** evitaria a dependência de rede no build, mas cria passo manual esquecível cujo sintoma — CSS silenciosamente desatualizado em produção — é pior que um build que falha alto.
+- **Backup automatizado off-site agora:** exigiria contratar armazenamento externo e gerenciar credenciais. Além disso, o `scripts/backup.sh` existente é bash e **não roda no Windows do único operador** — a automação atual já é inoperante no ambiente real. Registrado como DT-020.
+- **Tier gratuito do Render:** descartado na origem. O Postgres free expira em 30 dias e é deletado, levando os dados junto.
+
+---
