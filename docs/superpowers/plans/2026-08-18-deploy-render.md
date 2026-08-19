@@ -418,7 +418,11 @@ services:
     name: mpd
     runtime: python
     plan: starter
-    region: oregon
+    # O Render nao tem regiao na America do Sul. Virginia e a mais proxima do
+    # Brasil por rota de rede (~120ms), contra ~180ms de Oregon. A preferencia
+    # por hospedagem no Brasil (roadmap, mitigacao de risco de vazamento) nao
+    # e atendivel no Render — ver nota na ADR 0061.
+    region: virginia
     branch: main
     buildCommand: "./build.sh"
     preDeployCommand: "uv run python manage.py migrate --no-input"
@@ -618,6 +622,7 @@ Acrescentar ao final, seguindo o formato das ADRs existentes no arquivo (ler a A
 - **Decisão:** (a) Render com `render.yaml`, runtime Python nativo; (b) anexos em disco persistente de 1 GB em `/var/data`, não em object storage; (c) backup em duas camadas — PITR de 3 dias do Render + export manual mensal; (d) Docker adiado; (e) recuperação de senha por e-mail adiada.
 - **Consequências:** ~1 min de indisponibilidade por deploy e instância única (efeito do disco); build depende do download do binário do Tailwind; janela de recuperação automática é de 3 dias; senha esquecida exige intervenção do Admin.
 - **Alternativas descartadas:** Docker agora (uma camada a mais entre um operador leigo e o diagnóstico, sem benefício presente); object storage R2/S3 (conta e credenciais adicionais para o volume de um gabinete); versionar `tailwind-output.css` (passo manual esquecível, sintoma silencioso).
+- **Nota sobre localizacao dos dados:** o roadmap registra preferencia por hospedagem no Brasil (mitigacao de risco com PII de cidadao). O Render nao opera regiao na America do Sul — as opcoes sao Oregon, Ohio, Virginia, Frankfurt e Singapura. Escolhida **Virginia**, a mais proxima por rota de rede. Consequencia assumida: os dados ficam sob jurisdicao dos EUA. Nao ha impedimento legal sob a LGPD para transferencia internacional com as devidas salvaguardas, e o tratamento formal de LGPD esta na Fase 8 (ADR 0047). **Gatilho de revisita:** exigencia contratual ou normativa de residencia de dados no Brasil, ou o Render abrir regiao na America do Sul.
 - **Errata sobre a ADR 0033:** o default desligado de `DJANGO_TRUST_PROXY_SSL_HEADER` permanece correto; no Render a variável é ligada porque a plataforma é proxy estrito.
 
 - [ ] **Step 2: Atualizar `roadmap.md` §Fase 7**
