@@ -28,7 +28,7 @@ Três recursos, declarados em `render.yaml` e criados de uma vez via **New Bluep
 
 | Recurso | Plano | Custo aprox./mês | Papel |
 |---|---|---|---|
-| Web Service (Python) | Starter | US$ 7 | Roda Django sob gunicorn. Health check em `/healthz` (rota já existente) |
+| Web Service (Python) | Starter | US$ 7 | Roda Django sob gunicorn. Health check em `/healthz/` (rota já existente; a barra final importa — sem ela o Django responde 301) |
 | PostgreSQL | Basic-256mb | US$ 6 | Banco. Point-in-time recovery de 3 dias (workspace Hobby) |
 | Persistent Disk | 1 GB | US$ 0,25 | Montado em `/var/data/media`; recebe `MEDIA_ROOT`. Snapshot diário automático, retenção ≥7 dias |
 
@@ -55,7 +55,7 @@ Nenhuma mudança em `models.py`, `views.py`, templates ou testes. A suíte de **
 
 ### 4.1. Arquivos novos
 
-**`render.yaml`** — Blueprint declarando os três recursos, as variáveis de ambiente (com `generateValue: true` para `DJANGO_SECRET_KEY`, `fromDatabase` para `DATABASE_URL`), o ponto de montagem do disco e `healthCheckPath: /healthz`.
+**`render.yaml`** — Blueprint declarando os três recursos, as variáveis de ambiente (com `generateValue: true` para `DJANGO_SECRET_KEY`, `fromDatabase` para `DATABASE_URL`), o ponto de montagem do disco e `healthCheckPath: /healthz/`.
 
 **`build.sh`** (executável) — comando de build:
 
@@ -92,7 +92,21 @@ Quatro ajustes:
 
 Bloco de produção documentando cada variável e seu valor no Render.
 
-### 4.6. Variável que derruba o deploy — `DJANGO_TRUST_PROXY_SSL_HEADER`
+### 4.6. Duas variáveis que derrubam o deploy em silêncio
+
+#### `DJANGO_SETTINGS_MODULE`
+
+[manage.py](../../../manage.py) usa `config.settings.development` por padrão, enquanto [config/wsgi.py](../../../config/wsgi.py) usa `config.settings.production`. A divergência é inofensiva no ambiente local, onde o `.env` resolve tudo — e destrutiva no Render, onde o `.env` não existe (é ignorado pelo git).
+
+Sem `DJANGO_SETTINGS_MODULE=config.settings.production` definida no ambiente:
+
+- `collectstatic` e `migrate` rodam com `DEBUG=True` e com o storage de estáticos **sem** o manifesto do WhiteNoise;
+- o gunicorn sobe com `production.py` (pelo `wsgi.py`), que **exige** o manifesto;
+- resultado: `Missing staticfiles manifest entry` em **toda página do sistema** — erro 500 generalizado, inclusive na tela de login.
+
+A variável entra fixa no `render.yaml`.
+
+#### `DJANGO_TRUST_PROXY_SSL_HEADER`
 
 [config/settings/production.py](../../../config/settings/production.py) liga `SECURE_SSL_REDIRECT = True`, e só confia em `X-Forwarded-Proto` quando `DJANGO_TRUST_PROXY_SSL_HEADER` está ativa (ADR 0033, default desligado por segurança).
 
@@ -166,7 +180,7 @@ Registrado na ADR e no débito técnico, não varrido para debaixo do tapete. O 
 
 **Depois de subir (roteiro manual, executado por Pedro com acompanhamento):**
 
-- [ ] `/healthz` responde 200
+- [ ] `/healthz/` responde 200
 - [ ] Home pública abre **com estilo aplicado** (valida o passo do Tailwind)
 - [ ] Login do superusuário funciona
 - [ ] Criar uma Pessoa, criar uma Demanda, enviar um anexo
@@ -181,6 +195,8 @@ Registrado na ADR e no débito técnico, não varrido para debaixo do tapete. O 
 | Risco | Mitigação |
 |---|---|
 | Loop de redirecionamento por `DJANGO_TRUST_PROXY_SSL_HEADER` desligada | Valor fixo no `render.yaml` + destaque no guia |
+| Erro 500 em toda página por `DJANGO_SETTINGS_MODULE` ausente | Valor fixo no `render.yaml` + linha própria na tabela de diagnóstico do guia |
+| Erro 500 em toda pagina por `DJANGO_SETTINGS_MODULE` ausente | Valor fixo no `render.yaml` + linha propria na tabela de diagnostico |
 | Site no ar sem CSS | `build.sh` compila o Tailwind; falha de download derruba o build em voz alta |
 | Anexos perdidos | Disco persistente + critério de aceite que testa explicitamente sobrevivência a deploy |
 | Custo escapando do previsto | Planos fixos; alerta de billing configurado no painel |
