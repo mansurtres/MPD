@@ -139,6 +139,16 @@ Quando um item for resolvido, mover para a seção **Resolvidos** no fim com a r
 
 ---
 
+### DT-024 — Criação de usuário não atribui papel; provisionar exige Django Admin
+
+**Prioridade:** Alta (toda entrada de pessoa na equipe depende do superusuário; descoberto no primeiro provisionamento real, 2026-08-19)
+**Sintoma:** [accounts/forms.py](../accounts/forms.py) `UsuarioCreateForm` expõe apenas `email`, `nome_completo` e `cargo`; [accounts/views.py](../accounts/views.py) `UsuarioCreateView` não toca em `groups`. Um usuário criado por `/configuracoes/usuarios/novo/` nasce **sem grupo algum** — consegue autenticar e não enxerga nada. O papel só se atribui em `/admin/accounts/usuario/`, que exige `is_staff`.
+**Por que é cheiro:** três consequências. (a) O fluxo aparenta estar completo e entrega um usuário inútil, sem aviso nenhum na interface. (b) A permissão `accounts.gerenciar_usuarios`, criada no DT-011 justamente para o Chefe de Gabinete administrar a equipe, resolve metade do trabalho — ele cria a conta e não consegue dar o papel. (c) Concentra no superusuário uma tarefa rotineira, contrariando a matriz de [permissoes.md](permissoes.md).
+**Proposta:** acrescentar um campo `papel` (ModelChoiceField sobre `Group`, rotulado como "Papel") a `UsuarioCreateForm` e `UsuarioUpdateForm`, gravando em `user.groups.set([papel])` no `save()`. Restringir as opções aos três grupos padrão. Manter `is_staff`/`is_superuser` fora do formulário (ADR 0040). Exibir o papel na lista de usuários. ~4 testes: criação atribui grupo, edição troca grupo, formulário não oferece staff, usuário sem papel não é criável.
+**Gatilho:** **antes de a equipe crescer** — cada nova pessoa hoje custa uma ida ao Django Admin, e um esquecimento produz alguém que entra no sistema e não entende por que a tela está vazia.
+
+---
+
 ## Resolvidos
 
 ### DT-018 — Matriz fina de permissões de grupo divergia da permissoes.md v2

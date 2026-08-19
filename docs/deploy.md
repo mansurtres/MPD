@@ -78,7 +78,15 @@ A senha é digitada por você e não fica gravada em lugar nenhum — nem em arq
 
 ## 5. Cadastrar a equipe
 
-Entre em `https://mpd-6ecl.onrender.com` com o usuário que você acabou de criar, vá em **Configurações** → **Usuários** e crie cada pessoa da equipe, escolhendo o papel:
+Criar um usuário completo leva **dois passos**, porque o formulário do sistema ainda não tem campo de papel (ver DT-024):
+
+**Passo 1 — a conta.** Em **Configurações** → **Usuários** → **Novo usuário**: e-mail, nome completo, cargo e senha. A pessoa já consegue entrar, mas ainda **não vê nada**, porque não tem papel.
+
+**Passo 2 — o papel.** Em `/admin/accounts/usuario/`, clique no usuário → seção **Permissões** → campo **Grupos** → escolha o papel → **Salvar**.
+
+> ⚠️ Nunca marque `is_staff` nem `is_superuser` para a equipe. `is_staff` dá acesso ao Django Admin, onde a pessoa poderia se auto-promover — é o que ADR 0040 e DT-011 fecharam. Como consequência, **só quem é superusuário consegue atribuir papéis**: o Chefe de Gabinete gerencia usuários no sistema, mas não alcança o Django Admin.
+
+Os papéis disponíveis:
 
 | Papel | O que enxerga |
 |---|---|
