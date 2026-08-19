@@ -12,9 +12,10 @@ Três peças rodando no Render, criadas de uma vez a partir do arquivo [`render.
 |---|---|---|---|
 | Web Service | Starter | ~US$ 7 | Roda o sistema |
 | PostgreSQL | Basic-256mb | ~US$ 6 | Guarda os dados |
+| Disco do banco | 1 GB | ~US$ 0,30 | Armazenamento do PostgreSQL, cobrado à parte (US$ 0,30/GB) |
 | Disco persistente | 1 GB | ~US$ 0,25 | Guarda os anexos |
 
-**Total ~US$ 13,25/mês.** Endereço `https://mpd.onrender.com`, com HTTPS (o cadeado no navegador) automático e gratuito.
+**Total ~US$ 13,55/mês.** Endereço **`https://mpd-6ecl.onrender.com`** — o subdomínio `mpd` já estava tomado por outra conta, e o Render acrescentou um sufixo. HTTPS automático e gratuito.
 
 **Onde os dados ficam:** região da Virgínia, Estados Unidos. O Render não tem servidores na América do Sul. Consequência registrada na ADR 0061.
 
@@ -120,6 +121,8 @@ Antes de qualquer coisa: painel → serviço `mpd` → aba **Logs**. A mensagem 
 | Anexo enviado ontem sumiu hoje | O disco não está montado, ou `MEDIA_ROOT` aponta para fora dele | Confirmar que o disco `mpd-media` existe em `/var/data` e que `MEDIA_ROOT=/var/data/media` |
 | "Bad Request (400)" ao abrir o site | O endereço não está em `DJANGO_ALLOWED_HOSTS` | Acrescentar o endereço exato do serviço |
 | Deploy travado em "in progress", health check falhando | Banco ainda provisionando, ou uma migração falhou | Ver os Logs — a saída do pre-deploy mostra o erro exato da migração |
+| Deploy falha nas migrações com `failed to resolve host 'dpg-...'` | Banco e serviço web estão em **regiões diferentes** — o DNS interno do Render só resolve na mesma região | Conferir se `region:` do serviço e do banco no `render.yaml` são idênticos. Região de banco é imutável: corrigir exige apagar e recriar (indolor se o banco estiver vazio) |
+| Deploy falha nas migrações logo após criar o Blueprint | Banco ainda provisionando | Esperar o `mpd-db` ficar `available` e disparar Manual Deploy |
 | O site fica ~1 min fora do ar a cada atualização | **Comportamento esperado**, não é defeito | Nada a fazer. É consequência do disco persistente, decisão registrada na ADR 0061 |
 | Alguém não consegue entrar depois de errar a senha várias vezes | Bloqueio automático do django-axes: 5 tentativas, 30 min de espera | Esperar 30 min, ou destravar em `/admin/axes/` |
 

@@ -35,9 +35,9 @@ services:
       - key: DJANGO_DEBUG
         value: "False"
       - key: DJANGO_ALLOWED_HOSTS
-        value: mpd.onrender.com
+        value: mpd-6ecl.onrender.com
       - key: DJANGO_CSRF_TRUSTED_ORIGINS
-        value: https://mpd.onrender.com
+        value: https://mpd-6ecl.onrender.com
       - key: DJANGO_TRUST_PROXY_SSL_HEADER
         value: "True"
       - key: DJANGO_PROXY_COUNT
@@ -69,3 +69,10 @@ databases:
     databaseName: mpd
     user: mpd
     postgresMajorVersion: "16"
+    # OBRIGATORIO e igual a do web service: o DNS interno do Render so resolve
+    # o host do banco a partir de servicos na MESMA regiao. Divergencia produz
+    # "failed to resolve host 'dpg-...'" no migrate, com o banco saudavel.
+    region: virginia
+    # Sem isto o padrao e 15 GB, cobrados a US$ 0,30/GB/mes (~US$ 4,50). O disco
+    # so pode crescer depois, nunca encolher — comecar pequeno.
+    diskSizeGB: 1

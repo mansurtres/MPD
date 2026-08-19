@@ -2323,6 +2323,10 @@ O `roadmap.md` §4.6.2 previa Docker (item 4) e backup automatizado com `pg_dump
 - **Senha esquecida exige intervenção do Admin.**
 - **Duas variáveis de ambiente derrubam o deploy em silêncio** e ficam fixas no `render.yaml`: `DJANGO_SETTINGS_MODULE` (o `manage.py` usa `development` por padrão enquanto o `wsgi.py` usa `production`; sem a variável o `collectstatic` gera estáticos sem manifesto e toda página responde 500) e `DJANGO_TRUST_PROXY_SSL_HEADER` (sem ela, loop infinito de redirecionamento).
 - **`collectstatic` ignora `tailwind-input.css`:** é arquivo-fonte do compilador, e seu `@import "tailwindcss"` faz o `CompressedManifestStaticFilesStorage` abortar o build inteiro.
+- **Banco e serviço web precisam declarar a MESMA região.** O DNS interno do Render só resolve o host de um banco a partir de serviços da mesma região. Omitir `region:` no bloco `databases:` faz o banco cair no padrão da plataforma (Oregon) enquanto o serviço fica onde foi declarado — e o `migrate` falha com `failed to resolve host 'dpg-...'`, com o banco íntegro e `available`. Erro cometido e corrigido no primeiro deploy (2026-08-19).
+- **Disco do banco dimensionado explicitamente** (`diskSizeGB: 1`). Sem isso o padrão é 15 GB, cobrados a US$ 0,30/GB/mês — US$ 4,50 mensais desnecessários. O disco só cresce, nunca encolhe.
+- **Endereço real é `mpd-6ecl.onrender.com`:** o subdomínio `mpd` estava tomado por outra conta. `DJANGO_ALLOWED_HOSTS` e `DJANGO_CSRF_TRUSTED_ORIGINS` acompanham o host real, ou o site responde 400.
+- **Custo revisado:** ~US$ 13,55/mês, contando o armazenamento do banco.
 - **Novos débitos técnicos:** DT-020 a DT-023.
 
 ### Nota sobre a localização dos dados
