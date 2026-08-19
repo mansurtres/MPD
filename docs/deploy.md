@@ -49,7 +49,7 @@ A criação leva alguns minutos. **É normal o primeiro deploy falhar** se o ban
 
 ### Se o nome `mpd` estiver ocupado
 
-O endereço `mpd.onrender.com` é único no mundo inteiro do Render — se outra pessoa já usa, você precisa escolher outro. Três lugares precisam concordar entre si, no `render.yaml`:
+O endereço `mpd.onrender.com` é único no mundo inteiro do Render — e **de fato já estava em uso**, por isso este sistema ficou em `mpd-6ecl.onrender.com`. Se precisar trocar de novo, Três lugares precisam concordar entre si, no `render.yaml`:
 
 - `name: mpd` (linha do serviço)
 - `DJANGO_ALLOWED_HOSTS` → `seunome.onrender.com`
@@ -78,7 +78,7 @@ A senha é digitada por você e não fica gravada em lugar nenhum — nem em arq
 
 ## 5. Cadastrar a equipe
 
-Entre em `https://mpd.onrender.com` com o usuário que você acabou de criar, vá em **Configurações** → **Usuários** e crie cada pessoa da equipe, escolhendo o papel:
+Entre em `https://mpd-6ecl.onrender.com` com o usuário que você acabou de criar, vá em **Configurações** → **Usuários** e crie cada pessoa da equipe, escolhendo o papel:
 
 | Papel | O que enxerga |
 |---|---|
@@ -138,7 +138,7 @@ Se uma atualização quebrar algo, o painel tem **Rollback** para voltar à vers
 
 ## 9. Migrar para domínio próprio no futuro
 
-Quando quiser trocar `mpd.onrender.com` por algo como `sistema.seumandato.com.br`:
+Quando quiser trocar `mpd-6ecl.onrender.com` por algo como `sistema.seumandato.com.br`:
 
 1. Registre o domínio (registro.br, ~R$ 40/ano)
 2. Painel → serviço `mpd` → **Settings** → **Custom Domains** → adicionar o domínio

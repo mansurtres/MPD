@@ -2305,7 +2305,7 @@ O `roadmap.md` §4.6.2 previa Docker (item 4) e backup automatizado com `pg_dump
 
 ### Decisão
 
-**1. Render com Blueprint (`render.yaml`), runtime Python nativo.** Três recursos declarados em um arquivo versionado: Web Service Starter, PostgreSQL Basic-256mb e disco persistente de 1 GB. ~US$ 13,25/mês. Endereço `mpd.onrender.com`; domínio próprio fica parametrizado por variável de ambiente para adoção futura sem tocar em código.
+**1. Render com Blueprint (`render.yaml`), runtime Python nativo.** Três recursos declarados em um arquivo versionado: Web Service Starter, PostgreSQL Basic-256mb e disco persistente de 1 GB. ~US$ 13,55/mês. Endereço `mpd-6ecl.onrender.com`; domínio próprio fica parametrizado por variável de ambiente para adoção futura sem tocar em código.
 
 **2. Anexos em disco persistente, não em object storage.** O filesystem de um Web Service do Render é efêmero: sem disco, todo anexo enviado pela equipe some no deploy seguinte. O disco resolve com uma variável de ambiente, sem conta em terceiro nem biblioteca nova, e traz snapshot diário. `AnexoDownloadView` já serve arquivo por `FileResponse` com checagem de permissão, então nada em `/var/data/media` é alcançável sem passar pela camada de autorização do Django.
 
@@ -2340,6 +2340,19 @@ Consequência assumida: os dados ficam sob jurisdição dos Estados Unidos. Não
 ### Errata sobre a ADR 0033
 
 O default desligado de `DJANGO_TRUST_PROXY_SSL_HEADER` permanece **correto** — só se ativa atrás de proxy estrito que sanitize `X-Forwarded-Proto`. O Render é um desses. Ligar a variável em produção não contradiz a ADR 0033; é exatamente o caso de uso que ela previu.
+
+### Resultado verificado em produção (2026-08-19)
+
+Deploy concluído e validado no ar em `https://mpd-6ecl.onrender.com`:
+
+- `/healthz/` responde `{"status": "ok"}` — confirma conexão com o PostgreSQL.
+- Home e `/entrar/` renderizam **com o CSS aplicado**, servido como `tailwind-output.<hash>.css` — prova simultânea de que o passo do Tailwind no `build.sh` funcionou e de que `DJANGO_SETTINGS_MODULE` aponta para produção (o hash só existe sob `CompressedManifestStaticFilesStorage`).
+- `http://` redireciona para `https://` com 301, **sem loop** — `DJANGO_TRUST_PROXY_SSL_HEADER` correta.
+- As data migrations criaram os três grupos: Administrador (61 permissões), Chefe de Gabinete (46), Assessor (30).
+- **Disco persistente comprovado:** anexo de 850 KB enviado pela UI sobreviveu a um redeploy com `clearCache`, isto é, a um build reconstruído do zero. Baixado e aberto normalmente depois da troca de instância.
+- **Indisponibilidade medida no redeploy: 1min08s** — coerente com o "~1 minuto" estimado, e consequência aceita do disco anexado.
+
+Três falhas reais no caminho, todas documentadas na tabela de diagnóstico de [deploy.md](deploy.md): `collectstatic` abortando pelo `@import "tailwindcss"` (pega na verificação local, antes de subir); banco e serviço em regiões divergentes; subdomínio `mpd` indisponível.
 
 ### Alternativas consideradas
 
