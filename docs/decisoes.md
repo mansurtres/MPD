@@ -2239,4 +2239,110 @@ Em paralelo, o campo **Coordenação** (time: gabinete/jurídico/comunicação �
 
 ---
 
+## ADR 0060 — Correção, cancelamento e exclusão de Encaminhamento
+
+**Data:** 2026-08-18
+**Status:** Aceito — **implementação pendente** (ver [DT-019](debito-tecnico.md)). Complementa ADR 0046 (encaminhamento sem CRUD próprio); herda a visibilidade de ADR 0059 sem alterá-la.
+
+### Contexto
+
+Teste de uso do sistema com os assessores do gabinete. Hoje o `Encaminhamento` só admite duas operações na UI: **criar** (`AdicionarEncaminhamentoView`) e **registrar resposta** (`EncaminhamentoRespostaView`, que grava apenas `status`, `data_resposta` e `conteudo_resposta`). Depois de criado, os dados do envio — órgão, pessoa de contato, tipo de documento, número/protocolo, data de envio, prazo — ficam congelados.
+
+O modelo tratou o encaminhamento como **lançamento imutável**, quase contábil: um fato que aconteceu, ao qual só se acrescenta a resposta. Mas o fato é **digitado por humano** no momento do lançamento. Errou o órgão, trocou a data, esqueceu o número do ofício, lançou duplicado ou lançou na demanda errada: não há saída na interface. A única correção possível é o Django Admin, restrito a staff — inacessível a quem opera.
+
+Dois problemas correlatos: a permissão `pode_excluir_encaminhamento` existe desde a Fase 3 e **nenhuma view a usa** (permissão órfã), e a [`permissoes.md` §3.5](permissoes.md) já promete "excluir encaminhamento: Admin (e CG nas ativas)" — uma linha da matriz sem implementação correspondente.
+
+### Decisão
+
+Três ações distintas, todas no **detalhe da Demanda**. A lista `/encaminhamentos/` continua sendo lente de leitura, sem mutação (ADR 0046).
+
+**1. Corrigir.** Disponível enquanto o `status` for `enviado` ou `prazo_vencido` — a resposta do órgão é o marco de congelamento, não o relógio. Permitido a quem tem `demandas.change_encaminhamento` **e** enxerga a demanda: exatamente a regra que hoje vale para registrar resposta (Admin e CG no que veem; Assessor nas demandas dele). Reusa o `EncaminhamentoForm` do lançamento, com os mesmos seis campos.
+
+Rastro: o `conteudo` da `Interacao` de lançamento vinculada é reescrito com o novo "Tipo → Órgão", para a timeline deixar de exibir o dado errado; o antes/depois fica em `/auditoria`, que já monitora `Encaminhamento` (ADR 0029). **Nenhuma linha nova na timeline.**
+
+**2. Cancelar.** Novo `status = 'cancelado'` e campo `motivo_cancelamento`, obrigatório quando o status é esse (validado no `clean()`, como o `motivo_descarte` do `ItemInbox`). Mesma regra de permissão da correção. Cobre o caminho que o mandato **abriu e desistiu**: ofício que não foi mais enviado, pedido retirado.
+
+Rastro: a `Interacao` de lançamento passa a `status='cancelada'` — semântica que o model já define como *"histórico de algo que não vai acontecer"* —, ficando atenuada na timeline com o motivo à vista. Nenhuma linha nova. Como `cancelado` não conta como status aberto, o signal `avancar_status_por_encaminhamento` já devolve a demanda de `aguardando_terceiros` para `em_andamento` quando não sobra encaminhamento aberto, sem código adicional. Encaminhamento cancelado não se edita nem se responde; **reverter o cancelamento fica fora da v1** (o caminho é excluir e relançar).
+
+**3. Excluir.** Exige `demandas.pode_excluir_encaminhamento` — que só Admin e CG possuem; Assessor não — mais a visibilidade da demanda. Disponível enquanto **não houver resposta registrada**; encaminhamento já respondido é fato histórico e sai apenas pelo Django Admin. Cobre o registro que **nunca deveria ter existido**: duplicata, lançamento na demanda errada.
+
+Efeito: apaga também as `Interacao` vinculadas — a FK é `SET_NULL`, então sem isso restaria uma linha órfã "Ofício → Secretaria X" na timeline — e os anexos, que o `pre_delete` já limpa. O status da demanda volta como no cancelamento.
+
+**Por que três ações e não uma.** Excluir e cancelar respondem a perguntas diferentes: se o registro nunca deveria existir, ele some; se o caminho existiu e foi abortado, ele fica visível como abortado. Colapsar os dois em "excluir" apaga a memória de uma decisão do mandato; colapsar em "cancelar" enche a tela de lixo de digitação.
+
+### Consequências
+
+- **Schema:** migration `demandas/0014` — novo valor `cancelado` em `STATUS_CHOICES` e campo `motivo_cancelamento`.
+- **Permissões inalteradas:** nenhuma permissão nova, nenhuma mudança de grupo. As três ações reusam `change_encaminhamento` e `pode_excluir_encaminhamento`, já distribuídas desde a Fase 3.
+- **Docs:** `permissoes.md` §3.5 ganha as três linhas; `fluxos-de-estado.md` §5 ganha o estado `cancelado` e suas transições; `modelo-de-dados.md` §12 ganha o campo.
+- **Fecha a permissão órfã** `pode_excluir_encaminhamento` e a promessa não cumprida da matriz.
+- **Enquanto não implementado** (DT-019), correção e exclusão seguem só pelo Django Admin, para staff.
+
+### Alternativas consideradas
+
+- **Janela de 24h para editar** (espelho de `Interacao.JANELA_EDICAO_HORAS`): rejeitado — o erro descoberto na semana seguinte (prazo errado, número de ofício) ficaria sem saída. O marco natural de congelamento é a resposta do órgão, não o relógio.
+- **Edição livre até a demanda ser arquivada, inclusive dos campos de resposta:** rejeitado — a resposta é justamente o fato que a timeline registrou; reescrevê-la é reescrever história.
+- **Só cancelar, sem excluir:** rejeitado — duplicata de digitação viraria lixo permanente na tela.
+- **Só excluir, sem cancelar:** rejeitado — perde o registro de que o mandato abriu e desistiu de um caminho.
+- **Uma linha "correção" na timeline a cada edição:** rejeitado — três correções de digitação ganhariam o mesmo peso visual de uma reunião ou de uma devolutiva. O rastro de quem corrigiu o quê pertence a `/auditoria`.
+
+---
+
 *Decisões adicionadas em ordem cronológica conforme surgem. Cada decisão registrada uma vez; alterações futuras criam nova ADR (não editam a anterior).*
+
+## ADR 0061 — Deploy em produção no Render via Blueprint
+
+**Data:** 2026-08-18
+**Status:** Aceito. Complementa ADR 0033 (proxy SSL), ADR 0030 (usuários iniciais) e ADR 0047 (LGPD adiada para a Fase 8).
+
+### Contexto
+
+O MPD chegou ao fim da v0.8 pronto para uso real: 239 testes verdes, três papéis de acesso implementados (ADR 0059) e front-end fechado na identidade nova. Pedro criou conta no Render e decidiu (2026-08-18) que o primeiro deploy já é **produção real** — equipe do gabinete com dados reais de cidadãos, plano pago —, e não um ensaio descartável.
+
+Restrição de contexto que atravessa todas as escolhas: **Pedro nunca fez deploy de nenhum sistema** e será o único operador. Isso não é acidente de circunstância, é requisito de projeto: cada camada a mais é uma noite perdida quando algo falhar às 23h.
+
+O `roadmap.md` §4.6.2 previa Docker (item 4) e backup automatizado com `pg_dump -Fc`, rotação e criptografia (item 3). Nenhum dos dois entra nesta entrega.
+
+### Decisão
+
+**1. Render com Blueprint (`render.yaml`), runtime Python nativo.** Três recursos declarados em um arquivo versionado: Web Service Starter, PostgreSQL Basic-256mb e disco persistente de 1 GB. ~US$ 13,25/mês. Endereço `mpd.onrender.com`; domínio próprio fica parametrizado por variável de ambiente para adoção futura sem tocar em código.
+
+**2. Anexos em disco persistente, não em object storage.** O filesystem de um Web Service do Render é efêmero: sem disco, todo anexo enviado pela equipe some no deploy seguinte. O disco resolve com uma variável de ambiente, sem conta em terceiro nem biblioteca nova, e traz snapshot diário. `AnexoDownloadView` já serve arquivo por `FileResponse` com checagem de permissão, então nada em `/var/data/media` é alcançável sem passar pela camada de autorização do Django.
+
+**3. Backup em duas camadas.** Point-in-time recovery de 3 dias (automático, do Render) mais export manual mensal baixado pelo painel. Sem automação própria.
+
+**4. Docker adiado.** Resolve portabilidade — um problema que o projeto não tem hoje — e cobra por isso uma camada permanente de indireção entre o operador e o diagnóstico.
+
+**5. Recuperação de senha por e-mail adiada.** O Admin redefine senha pela UI. Evita configurar e manter serviço de envio de e-mail para uma equipe que se encontra no gabinete.
+
+### Consequências
+
+- **Indisponibilidade de ~1 min por deploy** e instância única: efeito inevitável de disco anexado no Render, que impede troca sem interrupção e escala horizontal. Irrelevante para uma equipe de meia dúzia de pessoas.
+- **Build depende de rede:** o `build.sh` baixa o binário do Tailwind a cada deploy, porque `tailwind-output.css` não é versionado. Se o download falhar, o build aborta e a versão anterior continua no ar — falha ruidosa preferível a site publicado sem CSS.
+- **Janela de recuperação automática é de 3 dias.** Perda descoberta depois disso depende do export mensal.
+- **Senha esquecida exige intervenção do Admin.**
+- **Duas variáveis de ambiente derrubam o deploy em silêncio** e ficam fixas no `render.yaml`: `DJANGO_SETTINGS_MODULE` (o `manage.py` usa `development` por padrão enquanto o `wsgi.py` usa `production`; sem a variável o `collectstatic` gera estáticos sem manifesto e toda página responde 500) e `DJANGO_TRUST_PROXY_SSL_HEADER` (sem ela, loop infinito de redirecionamento).
+- **`collectstatic` ignora `tailwind-input.css`:** é arquivo-fonte do compilador, e seu `@import "tailwindcss"` faz o `CompressedManifestStaticFilesStorage` abortar o build inteiro.
+- **Novos débitos técnicos:** DT-020 a DT-023.
+
+### Nota sobre a localização dos dados
+
+O roadmap registra preferência por hospedagem no Brasil, como mitigação de risco no tratamento de PII de cidadão. **O Render não opera região na América do Sul** — as opções são Oregon, Ohio, Virgínia, Frankfurt e Singapura. Escolhida **Virgínia**, a mais próxima por rota de rede (~120 ms, contra ~180 ms de Oregon).
+
+Consequência assumida: os dados ficam sob jurisdição dos Estados Unidos. Não há impedimento legal sob a LGPD para transferência internacional com as devidas salvaguardas, e o tratamento formal de LGPD está na Fase 8 (ADR 0047). Pedro seguiu com o Render ciente disso.
+
+**Gatilho de revisita:** exigência contratual ou normativa de residência de dados no Brasil, ou o Render abrir região na América do Sul.
+
+### Errata sobre a ADR 0033
+
+O default desligado de `DJANGO_TRUST_PROXY_SSL_HEADER` permanece **correto** — só se ativa atrás de proxy estrito que sanitize `X-Forwarded-Proto`. O Render é um desses. Ligar a variável em produção não contradiz a ADR 0033; é exatamente o caso de uso que ela previu.
+
+### Alternativas consideradas
+
+- **Docker desde já:** cumpriria o roadmap ao pé da letra e daria portabilidade real, mas insere uma camada que o operador não escreveu e não conhece, justamente onde ele tem menos repertório para diagnosticar. Registrado como DT-022.
+- **Object storage (Cloudflare R2 / S3 + `django-storages`):** removeria as limitações do disco, ao custo de mais uma conta, mais uma biblioteca e mais credenciais. Desproporcional ao volume de anexos de um gabinete municipal. A migração futura é localizada (troca de `STORAGES["default"]`).
+- **Versionar `tailwind-output.css`:** evitaria a dependência de rede no build, mas cria passo manual esquecível cujo sintoma — CSS silenciosamente desatualizado em produção — é pior que um build que falha alto.
+- **Backup automatizado off-site agora:** exigiria contratar armazenamento externo e gerenciar credenciais. Além disso, o `scripts/backup.sh` existente é bash e **não roda no Windows do único operador** — a automação atual já é inoperante no ambiente real. Registrado como DT-020.
+- **Tier gratuito do Render:** descartado na origem. O Postgres free expira em 30 dias e é deletado, levando os dados junto.
+
+---

@@ -1,6 +1,11 @@
 """Testes do app core: views institucionais e helpers compartilhados."""
 
+import os
+import sys
+from unittest import mock
+
 from django import forms
+from django.conf import Settings
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 
@@ -249,3 +254,62 @@ def test_buscar_global_respeita_visibilidade(client, db):
     assert resp.status_code == 200
     labels = [r["label"] for r in resp.json()["resultados"]]
     assert not any("SegredoMaximo" in lbl for lbl in labels)
+
+
+# ---------------------------------------------------------------------------
+# Settings de produção (ADR 0061)
+#
+# Carregam config.settings.production sob um ambiente simulado e travam as
+# garantias de que o deploy no Render depende. Nenhum destes testes toca o banco.
+# ---------------------------------------------------------------------------
+
+ENV_PRODUCAO = {
+    "DJANGO_SETTINGS_MODULE": "config.settings.production",
+    "DJANGO_SECRET_KEY": "chave-apenas-para-teste-nao-usar-em-producao-0000",  # pragma: allowlist secret
+    "DJANGO_ALLOWED_HOSTS": "mpd.onrender.com",
+    "DATABASE_URL": "postgres://usuario:senha@localhost:5432/mpd",  # pragma: allowlist secret
+    "DJANGO_TRUST_PROXY_SSL_HEADER": "True",
+    "DJANGO_CSRF_TRUSTED_ORIGINS": "https://mpd.onrender.com",
+    "MEDIA_ROOT": "/var/data/media",
+    "DJANGO_PROXY_COUNT": "1",
+}
+
+
+def _settings_de_producao():
+    """Reimporta config.settings.production sob o ambiente simulado.
+
+    O pop em sys.modules é necessário: sem ele a segunda chamada devolveria o
+    módulo em cache, com os valores calculados no primeiro import.
+    """
+    with mock.patch.dict(os.environ, ENV_PRODUCAO):
+        sys.modules.pop("config.settings.production", None)
+        return Settings("config.settings.production")
+
+
+def test_producao_nunca_roda_com_debug_ligado():
+    assert _settings_de_producao().DEBUG is False
+
+
+def test_producao_guarda_anexos_no_disco_persistente():
+    assert _settings_de_producao().MEDIA_ROOT == "/var/data/media"
+
+
+def test_producao_confia_no_proxy_ssl_quando_a_variavel_esta_ligada():
+    settings = _settings_de_producao()
+    assert settings.SECURE_PROXY_SSL_HEADER == ("HTTP_X_FORWARDED_PROTO", "https")
+
+
+def test_producao_le_csrf_trusted_origins_do_ambiente():
+    assert _settings_de_producao().CSRF_TRUSTED_ORIGINS == ["https://mpd.onrender.com"]
+
+
+def test_producao_ensina_o_axes_a_ler_o_ip_real_atras_do_proxy():
+    settings = _settings_de_producao()
+    assert settings.AXES_IPWARE_PROXY_COUNT == 1
+    assert settings.AXES_IPWARE_META_PRECEDENCE_ORDER[0] == "HTTP_X_FORWARDED_FOR"
+
+
+def test_producao_manda_log_para_a_saida_padrao():
+    logging = _settings_de_producao().LOGGING
+    assert logging["handlers"]["console"]["class"] == "logging.StreamHandler"
+    assert logging["root"]["handlers"] == ["console"]

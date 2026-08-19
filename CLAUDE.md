@@ -247,7 +247,21 @@ O modelo de acesso inverteu de "colaborativo por default" para **privilégio mí
 
 **235 testes passando** ao final da v0.8 (228 → +visibilidade por papel, mascaramento, listas/ficha contextuais, busca cega, gating de export/analise/config; −testes de restrito/coordenação/Coordenador). ADRs 0001–0059.
 
-**Próximo marco:** v1.0 — Fase 7 restante (Polimento e Web: Docker, backup `-Fc`, docs de deploy/manual, performance, Lighthouse) → deploy. Ver [`roadmap.md`](./roadmap.md) §Fase 7.
+**Decidido e ainda não implementado — ADR 0060 (2026-08-18):** correção, cancelamento e exclusão de **Encaminhamento** na UI. Levantado em teste de uso com os assessores: hoje só existe criar + registrar resposta; depois de lançado, órgão/data/número/prazo ficam congelados e a única saída é o Django Admin. A decisão cobre três ações no detalhe da demanda — corrigir (enquanto sem resposta), cancelar (novo status `cancelado` + motivo obrigatório) e excluir (fecha a permissão órfã `pode_excluir_encaminhamento`). Registrado como [DT-019](docs/debito-tecnico.md) com gatilho **antes do deploy em produção**; espelhado em `roadmap.md` §Fase 7 item 11. Nada de código escrito ainda — `permissoes.md`, `fluxos-de-estado.md` §5.4 e `modelo-de-dados.md` §12 trazem a marcação "decidido, ainda não implementado".
+
+**Deploy em produção — Render (trilha de infraestrutura da Fase 7, ADR 0061):**
+- **Blueprint `render.yaml`** cria os três recursos de uma vez: Web Service Starter, PostgreSQL Basic-256mb e disco persistente de 1 GB montado em `/var/data` (~US$ 13,25/mês). Endereço `mpd.onrender.com`, região Virgínia. Runtime Python nativo — **Docker adiado** (DT-022).
+- **`build.sh`** instala deps via `uv sync --frozen --no-dev`, **baixa o binário do Tailwind e compila o CSS** (`tailwind-output.css` não é versionado — sem esse passo o site sobe sem estilo) e roda `collectstatic --ignore tailwind-input.css` (o arquivo-fonte contém `@import "tailwindcss"`, que faz o `CompressedManifestStaticFilesStorage` abortar o build).
+- **`production.py` endurecido:** `MEDIA_ROOT` no disco persistente, `CSRF_TRUSTED_ORIGINS` por env var, logging estruturado para stdout, `AXES_IPWARE_PROXY_COUNT`/`AXES_IPWARE_META_PRECEDENCE_ORDER` para o axes ler o IP real atrás do proxy. 6 testes travam cada garantia.
+- **Duas variáveis derrubam o deploy em silêncio**, ambas fixas no `render.yaml`: `DJANGO_SETTINGS_MODULE=config.settings.production` (o `manage.py` usa `development` por padrão enquanto o `wsgi.py` usa `production` — sem ela, 500 em toda página) e `DJANGO_TRUST_PROXY_SSL_HEADER=True` (sem ela, loop infinito de redirecionamento).
+- **Migrações** rodam no pre-deploy command; as data migrations criam os três grupos. **Primeiro usuário** via `createsuperuser` no Shell do Render (`criar_usuarios_iniciais` exige `DEBUG=True` — ADR 0030).
+- **Backup em duas camadas:** PITR de 3 dias do Render + export manual mensal. Automação off-site adiada (DT-020).
+- **Guia operacional:** [`docs/deploy.md`](docs/deploy.md), com tabela de diagnóstico por sintoma.
+- **Dados fora do Brasil:** o Render não tem região na América do Sul, contrariando a preferência registrada no roadmap. Consequência assumida e gatilho de revisita em DT-023.
+
+**245 testes passando** ao final desta trilha (239 verificados na base — o número 235 registrado antes estava defasado — mais 6 de settings de produção). ADRs 0001–0061.
+
+**Próximo marco:** v1.0 — Fase 7 restante (Polimento e Web: Docker, backup `-Fc`, docs de deploy/manual, performance, Lighthouse, DT-019) → deploy. Ver [`roadmap.md`](./roadmap.md) §Fase 7.
 
 ---
 
@@ -326,4 +340,4 @@ Para o histórico completo ver [`docs/decisoes.md`](./docs/decisoes.md). Decisõ
 
 ---
 
-*Atualizar este arquivo ao fim de cada fase. Última atualização: 2026-06-21 (branch `feature/teste-claude-design` — front-end inteiro na identidade nova + Fase 7 que toca template: DT-013/DT-011 fechados, confirmação one-way do resultado, responsividade + a11y. 228 testes).*
+*Atualizar este arquivo ao fim de cada fase. Última atualização: 2026-08-18 (branch `feature/deploy-render` — deploy em produção no Render via Blueprint, ADR 0061, 245 testes; e ADR 0060 registrada, sem código — ver §5). Anterior: 2026-06-21 (branch `feature/teste-claude-design` — front-end inteiro na identidade nova + Fase 7 que toca template: DT-013/DT-011 fechados, confirmação one-way do resultado, responsividade + a11y. 228 testes).*

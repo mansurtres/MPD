@@ -491,6 +491,9 @@ Fase 5 concluída.
 
 #### 4.6.2. Especificações
 
+> **Status da trilha de infraestrutura (2026-08-18 — ADR 0061).** O deploy foi executado no **Render** via Blueprint (`render.yaml`), com Postgres gerenciado e disco persistente para anexos. **Entregues:** `production.py` revisado (item 3 — disco, CSRF, logging estruturado para stdout, `django-axes` atrás de proxy), Whitenoise já em uso desde a base, `docs/deploy.md` (item 2). **Adiados com ADR e gatilho registrados:** backup robusto com `pg_dump -Fc`/rotação/criptografia (item 3 — [DT-020](docs/debito-tecnico.md)) e Docker (item 4 — [DT-022](docs/debito-tecnico.md)). Sentry segue opcional e não foi ativado. `docs/manual.md` (item 2) continua pendente. Novos débitos abertos pela trilha: DT-020 a DT-023.
+
+
 1. **Filtros avançados via querystring** em todas as listagens (Demandas, Pessoas, Entidades, Encaminhamentos, Inbox). Filtros são combináveis e preservados na paginação. Inclui filtro por intervalo de datas (`criado_em`, `data_envio`, etc.).
 
 2. **Exportação CSV**: UTF-8 com BOM (para o Excel BR ler acentos), separador `;`. Endpoints `/demandas/export.csv`, `/pessoas/export.csv`, `/encaminhamentos/export.csv`. Permissão CO+. Limite de 10.000 registros por exportação. Toda exportação registra entrada no auditlog (quem, quando, filtros aplicados, total).
@@ -608,6 +611,13 @@ Fase 6 concluída (v0.7.3 — incluindo fechamento via ADRs 0048–0053).
     - DT-016: teste de regressão para `?ate=` em `/auditoria`.
     - DT-017: trocar assert de classe Tailwind por `data-envelhecimento` em `/inbox/`.
 
+11. **Encaminhamento corrigível (DT-019 / ADR 0060)** — levantado em teste de uso com os assessores: hoje, depois de criado, o encaminhamento não pode ser corrigido nem excluído pela interface, só pelo Django Admin.
+    - Migration `demandas/0014`: novo status `cancelado` + campo `motivo_cancelamento`.
+    - **Corrigir** (`change_encaminhamento` + visibilidade da demanda, só enquanto sem resposta): reusa o `EncaminhamentoForm`, sincroniza o texto da `Interacao` de lançamento, rastro em `/auditoria`.
+    - **Cancelar** (mesma regra, motivo obrigatório): marca a `Interacao` de lançamento como `cancelada`; o signal existente devolve a demanda a `em_andamento` se não sobrar encaminhamento aberto.
+    - **Excluir** (`pode_excluir_encaminhamento` — Admin e CG, só antes de resposta registrada): apaga as `Interacao` vinculadas para não deixar linha órfã na timeline.
+    - Nenhuma permissão nova, nenhuma mudança de grupo. ~8 testes.
+
 #### 4.6.3. Critérios de Aceite
 
 - [ ] Telas funcionam em smartphone.
@@ -620,6 +630,7 @@ Fase 6 concluída (v0.7.3 — incluindo fechamento via ADRs 0048–0053).
 - [ ] **DT-013 fechado**: campo `papel`/`papel_outro` removido de `DemandaPessoa` e `DemandaEntidade` (ADR 0054); formulário de demanda e tela de processar inbox não exibem mais o seletor.
 - [ ] **DT-014 fechado**: ≥2 testes por listagem principal cobrem combinações de filtros via querystring; §4.4.3 marca filtros combinados como `[x]`.
 - [ ] **DT-015–017 fechados**: 3 ajustes de higiene aplicados.
+- [ ] **DT-019 fechado (ADR 0060)**: assessor corrige um encaminhamento lançado com erro sem passar pelo Django Admin; encaminhamento cancelado sai da cobrança de prazo e continua visível com o motivo; exclusão disponível a Admin/CG antes da resposta e indisponível ao Assessor.
 - [ ] **Backup**: `scripts/backup.sh` usa `-Fc`, gera arquivo encriptado e respeita rotação. CI roda smoke test (`pg_restore --list` >0 linhas).
 - [ ] **EstadoForm**: classificar `resultado` exibe modal de confirmação no front; usuário confirma explicitamente antes da ação one-way.
 - [ ] Painel `/analise` carrega em < 1s para 1000 registros (validação manual com `criar_dados_teste` em escala).

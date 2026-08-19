@@ -464,6 +464,8 @@ Coração da rastreabilidade. Existe em três tempos: passado (`realizada`), pre
 
 **Índices:** `demanda_id`, `destinatario_orgao`, `(prazo_resposta, status)`.
 
+**Decidido, ainda não implementado (ADR 0060 / [DT-019](debito-tecnico.md)):** `status` ganha o valor `cancelado` e a tabela ganha `motivo_cancelamento` (TEXT, NULL — obrigatório quando `status = 'cancelado'`, validado no `clean()`), na migration `demandas/0014`. O schema descrito acima é o vigente até lá.
+
 ---
 
 ## 13. Tabela: `anexos`

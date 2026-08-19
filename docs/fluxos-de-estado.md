@@ -470,7 +470,21 @@ Não há transição automática. Pendência é responsabilidade humana de proce
 
 Implementação simples sem cron: campo é calculado dinamicamente nas queries. Mas para clareza no UI, vale ter campo `status` real e job diário que atualiza. Decisão de implementação fica para Fase 3.
 
-### 5.4 Resposta recebida do órgão externo
+### 5.4 Cancelamento — decidido, ainda não implementado (ADR 0060 / DT-019)
+
+> Esta subseção descreve estado **aprovado e ainda não codificado**. O diagrama e as tabelas acima refletem o sistema como ele é hoje.
+
+Um sexto estado, `cancelado`, cobre o encaminhamento que o mandato **abriu e desistiu** antes de qualquer resposta — ofício que não foi mais enviado, pedido retirado. Distingue-se de `sem_resposta`, que é encerramento após o silêncio do órgão.
+
+| Estado | Significado |
+|---|---|
+| `cancelado` | Encaminhamento abortado pelo mandato antes de resposta. Exige `motivo_cancelamento`. |
+
+Transições: `enviado` → `cancelado` e `prazo_vencido` → `cancelado`. De `cancelado` não se sai — não se edita, não se responde, não se reverte (o caminho é excluir e relançar). Estados `respondido_*` e `sem_resposta` não vão para `cancelado`.
+
+Como `cancelado` não conta como encaminhamento aberto, a transição da Demanda `aguardando_terceiros` → `em_andamento` (§ tabela de transições da Demanda) dispara também no cancelamento, quando não sobra nenhum aberto.
+
+### 5.5 Resposta recebida do órgão externo
 
 Quando o assessor registra a resposta recebida:
 
