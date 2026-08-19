@@ -340,4 +340,4 @@ Para o histórico completo ver [`docs/decisoes.md`](./docs/decisoes.md). Decisõ
 
 ---
 
-*Atualizar este arquivo ao fim de cada fase. Última atualização: 2026-08-18 (ADR 0060 registrada, sem código — ver §5). Anterior: 2026-06-21 (branch `feature/teste-claude-design` — front-end inteiro na identidade nova + Fase 7 que toca template: DT-013/DT-011 fechados, confirmação one-way do resultado, responsividade + a11y. 228 testes).*
+*Atualizar este arquivo ao fim de cada fase. Última atualização: 2026-08-18 (branch `feature/deploy-render` — deploy em produção no Render via Blueprint, ADR 0061, 245 testes; e ADR 0060 registrada, sem código — ver §5). Anterior: 2026-06-21 (branch `feature/teste-claude-design` — front-end inteiro na identidade nova + Fase 7 que toca template: DT-013/DT-011 fechados, confirmação one-way do resultado, responsividade + a11y. 228 testes).*
