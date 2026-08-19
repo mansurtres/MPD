@@ -879,3 +879,107 @@ def test_slug_publico_retenta_em_colisao(db, usuario_admin, monkeypatch):
     # Retry funcionou: usou o segundo slug.
     assert p2.slug_publico == "ffffffff"
     assert p2.slug_publico != p1.slug_publico
+
+
+# --- Drawer de criação rápida no form de Demanda (bug de produção 2026-08-19) ---
+#
+# Angelo (Assessor) recebeu "Erro de rede ao criar. Tente novamente" ao cadastrar
+# uma pessoa pelo drawer. Não havia falha de rede: `montarFormDataPessoa` em
+# static/js/autocomplete.js omitia o formset `sites` (adicionado pela ADR 0057),
+# a guarda de página-desatualizada em `_PessoaFormMixin.post` não achava
+# `sites-TOTAL_FORMS` e devolvia um redirect HTML, que o `resp.json()` do fetch
+# não conseguia interpretar.
+
+
+def _payload_drawer_pessoa(prefixos=("telefones", "emails", "redes_sociais", "sites")):
+    """Reproduz o FormData que o drawer envia. `prefixos` permite omitir formsets."""
+    dados = {
+        "nome": "Joana",
+        "sobrenome": "Silva",
+        "nome_social": "",
+        "cpf": "",
+        "data_nascimento": "",
+        "genero": "",
+        "cep": "",
+        "logradouro": "",
+        "numero": "",
+        "complemento": "",
+        "bairro": "Centro",
+        "cidade": "Sao Paulo",
+        "estado": "SP",
+        "telefones-0-numero": "11987654321",
+        "telefones-0-tipo": "celular",
+        "telefones-0-rotulo": "",
+        "emails-0-endereco": "",
+        "emails-0-rotulo": "",
+        "redes_sociais-0-plataforma": "",
+        "redes_sociais-0-valor": "",
+        "redes_sociais-0-rotulo": "",
+        "sites-0-url": "",
+        "sites-0-rotulo": "",
+    }
+    for prefixo in prefixos:
+        dados[f"{prefixo}-TOTAL_FORMS"] = "1"
+        dados[f"{prefixo}-INITIAL_FORMS"] = "0"
+        dados[f"{prefixo}-MIN_NUM_FORMS"] = "0"
+        dados[f"{prefixo}-MAX_NUM_FORMS"] = "1000"
+    return dados
+
+
+def test_drawer_ajax_cria_pessoa_e_devolve_json(client, db):
+    """Payload completo do drawer cria a pessoa e responde no shape do autocomplete."""
+    user = Usuario.objects.create_user(email="a@x.com", password="senha12345")
+    user.groups.add(Group.objects.get(name="Assessor"))
+    client.force_login(user)
+
+    resp = client.post(
+        reverse("pessoas:pessoa_nova"),
+        _payload_drawer_pessoa(),
+        HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+    )
+
+    assert resp.status_code == 201, resp.content[:400]
+    corpo = resp.json()
+    assert {"id", "slug_publico", "label", "secundario"} <= set(corpo)
+    assert Pessoa.objects.filter(nome="Joana").exists()
+
+
+def test_drawer_ajax_sem_management_form_responde_json_e_nao_redireciona(client, db):
+    """Guarda de página desatualizada precisa falar JSON com o drawer.
+
+    Devolver um redirect HTML faz o `resp.json()` do fetch estourar, e o catch
+    do JS reporta "Erro de rede" — mensagem que esconde a causa real.
+    """
+    user = Usuario.objects.create_user(email="b@x.com", password="senha12345")
+    user.groups.add(Group.objects.get(name="Assessor"))
+    client.force_login(user)
+
+    resp = client.post(
+        reverse("pessoas:pessoa_nova"),
+        _payload_drawer_pessoa(prefixos=("telefones", "emails", "redes_sociais")),
+        HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+    )
+
+    assert resp.status_code == 400, f"esperava JSON de erro, veio {resp.status_code}"
+    assert resp["Content-Type"].startswith("application/json")
+    assert "erro" in resp.json()
+
+
+def test_js_do_drawer_cobre_todos_os_formsets_de_pessoa():
+    """Trava a deriva que causou o bug: o JS precisa mapear todo formset do mixin.
+
+    `montarFormDataEntidade` já cobria os quatro; `montarFormDataPessoa` ficou em
+    três quando `sites` entrou (ADR 0057). Nenhum teste pegava porque a suíte não
+    exercita JavaScript.
+    """
+    from pathlib import Path
+
+    from pessoas.views import _PessoaFormMixin
+
+    js = Path(__file__).resolve().parent.parent / "static" / "js" / "autocomplete.js"
+    fonte = js.read_text(encoding="utf-8")
+    inicio = fonte.index("function montarFormDataPessoa")
+    corpo = fonte[inicio : fonte.index("function ", inicio + 10)]
+
+    for prefixo, _ in _PessoaFormMixin.FORMSETS:
+        assert f"'{prefixo}'" in corpo, f"montarFormDataPessoa nao envia o formset '{prefixo}'"

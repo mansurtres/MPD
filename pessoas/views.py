@@ -190,12 +190,22 @@ class _PessoaFormMixin:
         # POST sem management forms = aba aberta antes de um deploy que mudou
         # o template, ou submit duplicado do navegador. Redireciona para GET
         # limpo em vez de exibir o erro interno do Django sobre ManagementForm.
-        for chave, _ in self.FORMSETS:
-            if f"{chave}-TOTAL_FORMS" not in request.POST:
-                messages.warning(
-                    request, "A página estava desatualizada. Recarregue e preencha novamente."
+        #
+        # No AJAX (drawer de criação rápida) o redirect é pior que inútil: o
+        # fetch o segue, recebe HTML e o resp.json() estoura, fazendo o JS
+        # relatar "Erro de rede" — mensagem que esconde a causa. Responder JSON
+        # mantém o diagnóstico visível. Bug de produção de 2026-08-19.
+        faltando = [c for c, _ in self.FORMSETS if f"{c}-TOTAL_FORMS" not in request.POST]
+        if faltando:
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                return JsonResponse(
+                    {"erro": f"Formulário incompleto: faltam os campos de {', '.join(faltando)}."},
+                    status=400,
                 )
-                return redirect(request.path)
+            messages.warning(
+                request, "A página estava desatualizada. Recarregue e preencha novamente."
+            )
+            return redirect(request.path)
         form = self.get_form()
         formsets = self._build_formsets(request.POST)
         if not (form.is_valid() and all(fs.is_valid() for fs in formsets.values())):
@@ -474,12 +484,18 @@ class _EntidadeFormMixin:
     def post(self, request, *args, **kwargs):
         eh_update = bool(self.kwargs.get("slug"))
         self.object = self.get_object() if eh_update else None
-        for chave, _ in self.FORMSETS:
-            if f"{chave}-TOTAL_FORMS" not in request.POST:
-                messages.warning(
-                    request, "A página estava desatualizada. Recarregue e preencha novamente."
+        # Mesma guarda de _PessoaFormMixin.post — ver comentário lá.
+        faltando = [c for c, _ in self.FORMSETS if f"{c}-TOTAL_FORMS" not in request.POST]
+        if faltando:
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                return JsonResponse(
+                    {"erro": f"Formulário incompleto: faltam os campos de {', '.join(faltando)}."},
+                    status=400,
                 )
-                return redirect(request.path)
+            messages.warning(
+                request, "A página estava desatualizada. Recarregue e preencha novamente."
+            )
+            return redirect(request.path)
         form = self.get_form()
         formsets = self._build_formsets(request.POST)
         if not (form.is_valid() and all(fs.is_valid() for fs in formsets.values())):

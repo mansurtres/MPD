@@ -267,8 +267,10 @@
       if (el) fd.append(n, el.value || '');
     });
 
-    // §02 Contatos (3 formsets, 1 row cada)
-    ['telefones','emails','redes_sociais'].forEach(prefix => {
+    // §02 Contatos (4 formsets, 1 row cada). `sites` entrou na ADR 0057 e ficou
+    // de fora daqui ate 2026-08-19: o backend rejeitava o POST inteiro por falta
+    // de sites-TOTAL_FORMS. Manter alinhado com _PessoaFormMixin.FORMSETS.
+    ['telefones','emails','redes_sociais','sites'].forEach(prefix => {
       ['TOTAL_FORMS','INITIAL_FORMS','MIN_NUM_FORMS','MAX_NUM_FORMS'].forEach(k => {
         const el = form.querySelector(`input[name="${prefix}-${k}"]`);
         if (el) fd.append(`${prefix}-${k}`, el.value);
@@ -288,6 +290,9 @@
     fd.append('redes_sociais-0-plataforma', form.querySelector('[name="redes_sociais-0-plataforma"]').value || '');
     fd.append('redes_sociais-0-valor', form.querySelector('[name="redes_sociais-0-valor"]').value || '');
     fd.append('redes_sociais-0-rotulo', '');
+    // Linha 0 de sites
+    fd.append('sites-0-url', form.querySelector('[name="sites-0-url"]').value || '');
+    fd.append('sites-0-rotulo', form.querySelector('[name="sites-0-rotulo"]').value || '');
 
     // §03 Endereço (CEP preenche os ocultos via lookup)
     ['cep','logradouro','numero','complemento','bairro','cidade','estado'].forEach(n => {
