@@ -2239,4 +2239,53 @@ Em paralelo, o campo **Coordenação** (time: gabinete/jurídico/comunicação �
 
 ---
 
+## ADR 0060 — Correção, cancelamento e exclusão de Encaminhamento
+
+**Data:** 2026-08-18
+**Status:** Aceito — **implementação pendente** (ver [DT-019](debito-tecnico.md)). Complementa ADR 0046 (encaminhamento sem CRUD próprio); herda a visibilidade de ADR 0059 sem alterá-la.
+
+### Contexto
+
+Teste de uso do sistema com os assessores do gabinete. Hoje o `Encaminhamento` só admite duas operações na UI: **criar** (`AdicionarEncaminhamentoView`) e **registrar resposta** (`EncaminhamentoRespostaView`, que grava apenas `status`, `data_resposta` e `conteudo_resposta`). Depois de criado, os dados do envio — órgão, pessoa de contato, tipo de documento, número/protocolo, data de envio, prazo — ficam congelados.
+
+O modelo tratou o encaminhamento como **lançamento imutável**, quase contábil: um fato que aconteceu, ao qual só se acrescenta a resposta. Mas o fato é **digitado por humano** no momento do lançamento. Errou o órgão, trocou a data, esqueceu o número do ofício, lançou duplicado ou lançou na demanda errada: não há saída na interface. A única correção possível é o Django Admin, restrito a staff — inacessível a quem opera.
+
+Dois problemas correlatos: a permissão `pode_excluir_encaminhamento` existe desde a Fase 3 e **nenhuma view a usa** (permissão órfã), e a [`permissoes.md` §3.5](permissoes.md) já promete "excluir encaminhamento: Admin (e CG nas ativas)" — uma linha da matriz sem implementação correspondente.
+
+### Decisão
+
+Três ações distintas, todas no **detalhe da Demanda**. A lista `/encaminhamentos/` continua sendo lente de leitura, sem mutação (ADR 0046).
+
+**1. Corrigir.** Disponível enquanto o `status` for `enviado` ou `prazo_vencido` — a resposta do órgão é o marco de congelamento, não o relógio. Permitido a quem tem `demandas.change_encaminhamento` **e** enxerga a demanda: exatamente a regra que hoje vale para registrar resposta (Admin e CG no que veem; Assessor nas demandas dele). Reusa o `EncaminhamentoForm` do lançamento, com os mesmos seis campos.
+
+Rastro: o `conteudo` da `Interacao` de lançamento vinculada é reescrito com o novo "Tipo → Órgão", para a timeline deixar de exibir o dado errado; o antes/depois fica em `/auditoria`, que já monitora `Encaminhamento` (ADR 0029). **Nenhuma linha nova na timeline.**
+
+**2. Cancelar.** Novo `status = 'cancelado'` e campo `motivo_cancelamento`, obrigatório quando o status é esse (validado no `clean()`, como o `motivo_descarte` do `ItemInbox`). Mesma regra de permissão da correção. Cobre o caminho que o mandato **abriu e desistiu**: ofício que não foi mais enviado, pedido retirado.
+
+Rastro: a `Interacao` de lançamento passa a `status='cancelada'` — semântica que o model já define como *"histórico de algo que não vai acontecer"* —, ficando atenuada na timeline com o motivo à vista. Nenhuma linha nova. Como `cancelado` não conta como status aberto, o signal `avancar_status_por_encaminhamento` já devolve a demanda de `aguardando_terceiros` para `em_andamento` quando não sobra encaminhamento aberto, sem código adicional. Encaminhamento cancelado não se edita nem se responde; **reverter o cancelamento fica fora da v1** (o caminho é excluir e relançar).
+
+**3. Excluir.** Exige `demandas.pode_excluir_encaminhamento` — que só Admin e CG possuem; Assessor não — mais a visibilidade da demanda. Disponível enquanto **não houver resposta registrada**; encaminhamento já respondido é fato histórico e sai apenas pelo Django Admin. Cobre o registro que **nunca deveria ter existido**: duplicata, lançamento na demanda errada.
+
+Efeito: apaga também as `Interacao` vinculadas — a FK é `SET_NULL`, então sem isso restaria uma linha órfã "Ofício → Secretaria X" na timeline — e os anexos, que o `pre_delete` já limpa. O status da demanda volta como no cancelamento.
+
+**Por que três ações e não uma.** Excluir e cancelar respondem a perguntas diferentes: se o registro nunca deveria existir, ele some; se o caminho existiu e foi abortado, ele fica visível como abortado. Colapsar os dois em "excluir" apaga a memória de uma decisão do mandato; colapsar em "cancelar" enche a tela de lixo de digitação.
+
+### Consequências
+
+- **Schema:** migration `demandas/0014` — novo valor `cancelado` em `STATUS_CHOICES` e campo `motivo_cancelamento`.
+- **Permissões inalteradas:** nenhuma permissão nova, nenhuma mudança de grupo. As três ações reusam `change_encaminhamento` e `pode_excluir_encaminhamento`, já distribuídas desde a Fase 3.
+- **Docs:** `permissoes.md` §3.5 ganha as três linhas; `fluxos-de-estado.md` §5 ganha o estado `cancelado` e suas transições; `modelo-de-dados.md` §12 ganha o campo.
+- **Fecha a permissão órfã** `pode_excluir_encaminhamento` e a promessa não cumprida da matriz.
+- **Enquanto não implementado** (DT-019), correção e exclusão seguem só pelo Django Admin, para staff.
+
+### Alternativas consideradas
+
+- **Janela de 24h para editar** (espelho de `Interacao.JANELA_EDICAO_HORAS`): rejeitado — o erro descoberto na semana seguinte (prazo errado, número de ofício) ficaria sem saída. O marco natural de congelamento é a resposta do órgão, não o relógio.
+- **Edição livre até a demanda ser arquivada, inclusive dos campos de resposta:** rejeitado — a resposta é justamente o fato que a timeline registrou; reescrevê-la é reescrever história.
+- **Só cancelar, sem excluir:** rejeitado — duplicata de digitação viraria lixo permanente na tela.
+- **Só excluir, sem cancelar:** rejeitado — perde o registro de que o mandato abriu e desistiu de um caminho.
+- **Uma linha "correção" na timeline a cada edição:** rejeitado — três correções de digitação ganhariam o mesmo peso visual de uma reunião ou de uma devolutiva. O rastro de quem corrigiu o quê pertence a `/auditoria`.
+
+---
+
 *Decisões adicionadas em ordem cronológica conforme surgem. Cada decisão registrada uma vez; alterações futuras criam nova ADR (não editam a anterior).*

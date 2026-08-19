@@ -608,6 +608,13 @@ Fase 6 concluída (v0.7.3 — incluindo fechamento via ADRs 0048–0053).
     - DT-016: teste de regressão para `?ate=` em `/auditoria`.
     - DT-017: trocar assert de classe Tailwind por `data-envelhecimento` em `/inbox/`.
 
+11. **Encaminhamento corrigível (DT-019 / ADR 0060)** — levantado em teste de uso com os assessores: hoje, depois de criado, o encaminhamento não pode ser corrigido nem excluído pela interface, só pelo Django Admin.
+    - Migration `demandas/0014`: novo status `cancelado` + campo `motivo_cancelamento`.
+    - **Corrigir** (`change_encaminhamento` + visibilidade da demanda, só enquanto sem resposta): reusa o `EncaminhamentoForm`, sincroniza o texto da `Interacao` de lançamento, rastro em `/auditoria`.
+    - **Cancelar** (mesma regra, motivo obrigatório): marca a `Interacao` de lançamento como `cancelada`; o signal existente devolve a demanda a `em_andamento` se não sobrar encaminhamento aberto.
+    - **Excluir** (`pode_excluir_encaminhamento` — Admin e CG, só antes de resposta registrada): apaga as `Interacao` vinculadas para não deixar linha órfã na timeline.
+    - Nenhuma permissão nova, nenhuma mudança de grupo. ~8 testes.
+
 #### 4.6.3. Critérios de Aceite
 
 - [ ] Telas funcionam em smartphone.
@@ -620,6 +627,7 @@ Fase 6 concluída (v0.7.3 — incluindo fechamento via ADRs 0048–0053).
 - [ ] **DT-013 fechado**: campo `papel`/`papel_outro` removido de `DemandaPessoa` e `DemandaEntidade` (ADR 0054); formulário de demanda e tela de processar inbox não exibem mais o seletor.
 - [ ] **DT-014 fechado**: ≥2 testes por listagem principal cobrem combinações de filtros via querystring; §4.4.3 marca filtros combinados como `[x]`.
 - [ ] **DT-015–017 fechados**: 3 ajustes de higiene aplicados.
+- [ ] **DT-019 fechado (ADR 0060)**: assessor corrige um encaminhamento lançado com erro sem passar pelo Django Admin; encaminhamento cancelado sai da cobrança de prazo e continua visível com o motivo; exclusão disponível a Admin/CG antes da resposta e indisponível ao Assessor.
 - [ ] **Backup**: `scripts/backup.sh` usa `-Fc`, gera arquivo encriptado e respeita rotação. CI roda smoke test (`pg_restore --list` >0 linhas).
 - [ ] **EstadoForm**: classificar `resultado` exibe modal de confirmação no front; usuário confirma explicitamente antes da ação one-way.
 - [ ] Painel `/analise` carrega em < 1s para 1000 registros (validação manual com `criar_dados_teste` em escala).

@@ -90,6 +90,7 @@ Todos **herdam a visibilidade da demanda** à qual pertencem. Se o usuário pode
 - A lista transversal `/encaminhamentos/` aplica a mesma regra de demandas: Assessor vê só os das suas; CG os das ativas; Admin todos.
 - Edição de interação própria em 24h; automáticas imutáveis (regra no model, inalterada).
 - Excluir encaminhamento / anexo alheio: Admin (e CG nas ativas). Assessor não exclui.
+- **Corrigir / cancelar / excluir encaminhamento — decidido, ainda não implementado (ADR 0060 / [DT-019](debito-tecnico.md)).** Hoje a UI só permite criar e registrar resposta; correção e exclusão só pelo Django Admin, para staff. Ao ser implementado: **corrigir** e **cancelar** (com motivo obrigatório) ficam disponíveis enquanto não houver resposta registrada, para quem tem `change_encaminhamento` e enxerga a demanda — mesma regra de registrar resposta, portanto Assessor nas demandas dele; **excluir** exige `pode_excluir_encaminhamento` (Admin e CG; Assessor não tem) e só antes de resposta registrada.
 - Exportar `/encaminhamentos/`: só Admin.
 
 ### 3.7 Tags e Temas (configuração)

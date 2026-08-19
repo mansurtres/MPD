@@ -87,6 +87,16 @@ Quando um item for resolvido, mover para a seção **Resolvidos** no fim com a r
 
 ---
 
+### DT-019 — Encaminhamento sem correção, cancelamento ou exclusão na UI (ADR 0060)
+
+**Prioridade:** Alta (levantado em teste de uso com assessores; sem saída na interface para erro de digitação)
+**Sintoma:** [demandas/views/encaminhamentos.py](../demandas/views/encaminhamentos.py) expõe apenas `AdicionarEncaminhamentoView` e `EncaminhamentoRespostaView` (esta só grava `status`, `data_resposta`, `conteudo_resposta`). Depois de criado, órgão, pessoa de contato, tipo de documento, número, data de envio e prazo ficam congelados. Não há exclusão: a permissão `pode_excluir_encaminhamento`, declarada em [demandas/models.py](../demandas/models.py) desde a Fase 3 e distribuída a Admin e CG na migration `0002_grupos_padrao_demandas`, **não é usada por nenhuma view** — e [permissoes.md §3.5](permissoes.md) já promete "excluir encaminhamento: Admin (e CG nas ativas)".
+**Por que é cheiro:** três problemas em um. (a) O usuário que erra a digitação não tem saída na UI — só o Django Admin, restrito a staff. (b) Permissão órfã: `pode_excluir_encaminhamento` sugere na interface do Django Admin uma capacidade que não existe. (c) A matriz de permissões descreve comportamento não implementado, o que corrói a confiança na `permissoes.md` como fonte de verdade.
+**Proposta:** implementar **ADR 0060** — corrigir (enquanto sem resposta, para quem tem `change_encaminhamento` + visibilidade da demanda, sincronizando o texto da `Interacao` vinculada), cancelar (novo status `cancelado` + `motivo_cancelamento` obrigatório, marcando a `Interacao` de lançamento como `cancelada`) e excluir (`pode_excluir_encaminhamento`, só sem resposta registrada, apagando as `Interacao` vinculadas para não deixar linha órfã na timeline). Migration `demandas/0014`. Nenhuma permissão nova, nenhuma mudança de grupo. ~8 testes.
+**Gatilho:** **antes do deploy em produção** — o sistema entra em uso real com assessores digitando encaminhamentos, e é o momento em que o erro de digitação sai do teste e vira registro do mandato.
+
+---
+
 ## Resolvidos
 
 ### DT-018 — Matriz fina de permissões de grupo divergia da permissoes.md v2

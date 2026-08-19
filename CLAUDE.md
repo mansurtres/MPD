@@ -247,7 +247,9 @@ O modelo de acesso inverteu de "colaborativo por default" para **privilégio mí
 
 **235 testes passando** ao final da v0.8 (228 → +visibilidade por papel, mascaramento, listas/ficha contextuais, busca cega, gating de export/analise/config; −testes de restrito/coordenação/Coordenador). ADRs 0001–0059.
 
-**Próximo marco:** v1.0 — Fase 7 restante (Polimento e Web: Docker, backup `-Fc`, docs de deploy/manual, performance, Lighthouse) → deploy. Ver [`roadmap.md`](./roadmap.md) §Fase 7.
+**Decidido e ainda não implementado — ADR 0060 (2026-08-18):** correção, cancelamento e exclusão de **Encaminhamento** na UI. Levantado em teste de uso com os assessores: hoje só existe criar + registrar resposta; depois de lançado, órgão/data/número/prazo ficam congelados e a única saída é o Django Admin. A decisão cobre três ações no detalhe da demanda — corrigir (enquanto sem resposta), cancelar (novo status `cancelado` + motivo obrigatório) e excluir (fecha a permissão órfã `pode_excluir_encaminhamento`). Registrado como [DT-019](docs/debito-tecnico.md) com gatilho **antes do deploy em produção**; espelhado em `roadmap.md` §Fase 7 item 11. Nada de código escrito ainda — `permissoes.md`, `fluxos-de-estado.md` §5.4 e `modelo-de-dados.md` §12 trazem a marcação "decidido, ainda não implementado".
+
+**Próximo marco:** v1.0 — Fase 7 restante (Polimento e Web: Docker, backup `-Fc`, docs de deploy/manual, performance, Lighthouse, DT-019) → deploy. Ver [`roadmap.md`](./roadmap.md) §Fase 7.
 
 ---
 
@@ -326,4 +328,4 @@ Para o histórico completo ver [`docs/decisoes.md`](./docs/decisoes.md). Decisõ
 
 ---
 
-*Atualizar este arquivo ao fim de cada fase. Última atualização: 2026-06-21 (branch `feature/teste-claude-design` — front-end inteiro na identidade nova + Fase 7 que toca template: DT-013/DT-011 fechados, confirmação one-way do resultado, responsividade + a11y. 228 testes).*
+*Atualizar este arquivo ao fim de cada fase. Última atualização: 2026-08-18 (ADR 0060 registrada, sem código — ver §5). Anterior: 2026-06-21 (branch `feature/teste-claude-design` — front-end inteiro na identidade nova + Fase 7 que toca template: DT-013/DT-011 fechados, confirmação one-way do resultado, responsividade + a11y. 228 testes).*
