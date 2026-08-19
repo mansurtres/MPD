@@ -1,0 +1,71 @@
+# Blueprint do MPD no Render. Guia de uso: docs/deploy.md. Ref: ADR 0061.
+#
+# Duas variaveis abaixo derrubam o deploy em silencio se saírem daqui:
+#   DJANGO_SETTINGS_MODULE — manage.py usa "development" por padrao. Sem esta
+#     variavel o collectstatic gera os estaticos no formato errado e TODA
+#     pagina responde 500, alem de rodar migracoes com DEBUG ligado.
+#   DJANGO_TRUST_PROXY_SSL_HEADER — sem ela o Django nao enxerga que a
+#     requisicao chegou por HTTPS e o navegador entra em loop de redirecionamento.
+
+services:
+  - type: web
+    name: mpd
+    runtime: python
+    plan: starter
+    # O Render nao tem regiao na America do Sul. Virginia e a mais proxima do
+    # Brasil por rota de rede (~120ms), contra ~180ms de Oregon. A preferencia
+    # por hospedagem no Brasil (roadmap, mitigacao de risco de vazamento) nao
+    # e atendivel no Render — ver nota na ADR 0061.
+    region: virginia
+    branch: main
+    buildCommand: "./build.sh"
+    preDeployCommand: "uv run python manage.py migrate --no-input"
+    startCommand: "uv run gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --timeout 60 --access-logfile - --error-logfile -"
+    # A barra final importa: /healthz sem ela responde 301 (APPEND_SLASH).
+    healthCheckPath: /healthz/
+    disk:
+      name: mpd-media
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings.production
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DJANGO_DEBUG
+        value: "False"
+      - key: DJANGO_ALLOWED_HOSTS
+        value: mpd.onrender.com
+      - key: DJANGO_CSRF_TRUSTED_ORIGINS
+        value: https://mpd.onrender.com
+      - key: DJANGO_TRUST_PROXY_SSL_HEADER
+        value: "True"
+      - key: DJANGO_PROXY_COUNT
+        value: "1"
+      - key: MEDIA_ROOT
+        value: /var/data/media
+      - key: STATIC_ROOT
+        value: /opt/render/project/src/staticfiles
+      - key: WEB_CONCURRENCY
+        value: "2"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: mpd-db
+          property: connectionString
+      # Identidade do mandato: preenchidas por Pedro no painel na criacao,
+      # nunca versionadas (licenciabilidade — ADR 0027).
+      - key: NOME_DO_MANDATO
+        sync: false
+      - key: NOME_CURTO_DO_MANDATO
+        sync: false
+      - key: SIGLA_MANDATO
+        sync: false
+      - key: DEFAULT_FROM_EMAIL
+        sync: false
+
+databases:
+  - name: mpd-db
+    plan: basic-256mb
+    databaseName: mpd
+    user: mpd
+    postgresMajorVersion: "16"
