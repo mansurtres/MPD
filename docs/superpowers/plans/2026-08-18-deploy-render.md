@@ -36,7 +36,7 @@
 | `core/tests.py` | Testes que travam as garantias de `production.py` | Modificar |
 | `.env.example` | Documenta as variáveis de produção | Modificar |
 | `docs/deploy.md` | Guia executável por Pedro, com diagnóstico por sintoma | Criar |
-| `docs/decisoes.md` | ADR 0060 | Modificar |
+| `docs/decisoes.md` | ADR 0061 | Modificar |
 | `roadmap.md`, `docs/debito-tecnico.md`, `CLAUDE.md` | Refletir o entregue e o adiado | Modificar |
 
 ---
@@ -114,7 +114,7 @@ Acrescentar ao **final** de `core/tests.py`:
 
 ```python
 # ---------------------------------------------------------------------------
-# Settings de produção (ADR 0060)
+# Settings de produção (ADR 0061)
 #
 # Carregam config.settings.production com um ambiente simulado e travam as
 # garantias que o deploy no Render depende. Nenhum destes testes toca no banco.
@@ -198,7 +198,7 @@ from .base import env
 DEBUG = False
 
 # Anexos vivem no disco persistente do Render. Fora do ponto de montagem o
-# filesystem é efêmero: todo arquivo enviado some no deploy seguinte. Ref: ADR 0060.
+# filesystem é efêmero: todo arquivo enviado some no deploy seguinte. Ref: ADR 0061.
 MEDIA_ROOT = env("MEDIA_ROOT", default="/var/data/media")
 
 # Origens confiáveis para POST sob HTTPS atrás do proxy. Sem isso, formulários
@@ -231,7 +231,7 @@ X_FRAME_OPTIONS = "DENY"
 
 # django-axes atrás de proxy: sem isto todo acesso chega com o IP do proxy e a
 # auditoria de tentativa de login fica cega — o lockout continua funcionando
-# (o par inclui username), mas o endereço registrado é inútil. Ref: ADR 0060.
+# (o par inclui username), mas o endereço registrado é inútil. Ref: ADR 0061.
 AXES_IPWARE_PROXY_COUNT = env.int("DJANGO_PROXY_COUNT", default=1)
 AXES_IPWARE_META_PRECEDENCE_ORDER = ("HTTP_X_FORWARDED_FOR", "REMOTE_ADDR")
 
@@ -314,7 +314,7 @@ travam cada garantia."
 ```bash
 #!/usr/bin/env bash
 # Build do MPD no Render — roda a cada deploy, antes das migrações e do start.
-# Documentado em docs/deploy.md. Ref: ADR 0060.
+# Documentado em docs/deploy.md. Ref: ADR 0061.
 set -o errexit   # aborta no primeiro erro: build falho e barulhento é melhor
 set -o nounset   # que site publicado sem CSS ou sem dependências
 set -o pipefail
@@ -404,7 +404,7 @@ Um arquivo cria os três recursos. As duas variáveis destacadas abaixo são os 
 - [ ] **Step 1: Criar `render.yaml`**
 
 ```yaml
-# Blueprint do MPD no Render. Guia de uso: docs/deploy.md. Ref: ADR 0060.
+# Blueprint do MPD no Render. Guia de uso: docs/deploy.md. Ref: ADR 0061.
 #
 # Duas variaveis abaixo derrubam o deploy em silencio se saírem daqui:
 #   DJANGO_SETTINGS_MODULE — manage.py usa "development" por padrao. Sem esta
@@ -539,7 +539,7 @@ Substituir a seção `# === Produção ===` existente por:
 #
 # DJANGO_PROXY_COUNT=1
 #   Quantos proxies há na frente da aplicação. Faz o django-axes registrar o IP
-#   real de quem tenta logar, em vez do IP do proxy. Ref: ADR 0060.
+#   real de quem tenta logar, em vez do IP do proxy. Ref: ADR 0061.
 #
 # MEDIA_ROOT=/var/data/media
 #   Dentro do disco persistente. Fora dele, todo anexo some no próximo deploy.
@@ -574,7 +574,7 @@ Documento em português, dirigido a Pedro, com esta estrutura e conteúdo:
 | Anexo enviado ontem sumiu hoje | O disco não está montado ou `MEDIA_ROOT` está fora dele | Conferir se o disco `mpd-media` existe em `/var/data` e se `MEDIA_ROOT=/var/data/media` |
 | "Bad Request (400)" ao abrir o site | O host não está em `DJANGO_ALLOWED_HOSTS` | Acrescentar o endereço exato do serviço |
 | O deploy trava em "in progress" e o health check falha | O banco ainda está provisionando, ou a migração falhou | Ver a aba Logs; a saída do pre-deploy mostra o erro da migração |
-| O site demora ~1 min para responder após cada atualização | Comportamento esperado: disco persistente impede troca sem interrupção | Nada a fazer — decisão registrada na ADR 0060 |
+| O site demora ~1 min para responder após cada atualização | Comportamento esperado: disco persistente impede troca sem interrupção | Nada a fazer — decisão registrada na ADR 0061 |
 
 **§9. Trocar para domínio próprio no futuro** — registrar o domínio, apontar CNAME conforme o painel, acrescentar o host em `DJANGO_ALLOWED_HOSTS` e a origem em `DJANGO_CSRF_TRUSTED_ORIGINS`. Nenhuma mudança de código; HTTPS é emitido automaticamente.
 
@@ -609,11 +609,11 @@ Pela regra do projeto (CLAUDE.md §2), divergência do roadmap vira ADR. São tr
 - Consumes: as decisões registradas nas Tasks 1–5
 - Produces: rastro documental; nada depende disto tecnicamente
 
-- [ ] **Step 1: Escrever a ADR 0060 em `docs/decisoes.md`**
+- [ ] **Step 1: Escrever a ADR 0061 em `docs/decisoes.md`**
 
 Acrescentar ao final, seguindo o formato das ADRs existentes no arquivo (ler a ADR 0059 antes para espelhar estrutura e tom). Conteúdo:
 
-- **Título:** ADR 0060 — Deploy em produção no Render via Blueprint
+- **Título:** ADR 0061 — Deploy em produção no Render via Blueprint
 - **Contexto:** MPD pronto para uso real; Pedro nunca fez deploy; roadmap §4.6.2 previa Docker e backup automatizado.
 - **Decisão:** (a) Render com `render.yaml`, runtime Python nativo; (b) anexos em disco persistente de 1 GB em `/var/data`, não em object storage; (c) backup em duas camadas — PITR de 3 dias do Render + export manual mensal; (d) Docker adiado; (e) recuperação de senha por e-mail adiada.
 - **Consequências:** ~1 min de indisponibilidade por deploy e instância única (efeito do disco); build depende do download do binário do Tailwind; janela de recuperação automática é de 3 dias; senha esquecida exige intervenção do Admin.
@@ -622,7 +622,7 @@ Acrescentar ao final, seguindo o formato das ADRs existentes no arquivo (ler a A
 
 - [ ] **Step 2: Atualizar `roadmap.md` §Fase 7**
 
-Marcar como entregue: configuração de produção, Whitenoise, logging estruturado, `docs/deploy.md`. Marcar como **adiado com ADR 0060**: Docker (item 4) e backup robusto com `pg_dump -Fc`/rotação/criptografia (item 3). Registrar que Sentry segue opcional e não foi ativado.
+Marcar como entregue: configuração de produção, Whitenoise, logging estruturado, `docs/deploy.md`. Marcar como **adiado com ADR 0061**: Docker (item 4) e backup robusto com `pg_dump -Fc`/rotação/criptografia (item 3). Registrar que Sentry segue opcional e não foi ativado.
 
 - [ ] **Step 3: Registrar os débitos técnicos novos**
 
@@ -646,7 +646,7 @@ Expected: `245 passed`.
 
 ```bash
 git add docs/decisoes.md roadmap.md docs/debito-tecnico.md CLAUDE.md
-git commit -m "docs(deploy): ADR 0060, roadmap Fase 7 e debitos do deploy
+git commit -m "docs(deploy): ADR 0061, roadmap Fase 7 e debitos do deploy
 
 Registra Render via Blueprint e as tres divergencias assumidas do
 roadmap: Docker, backup automatizado e recuperacao de senha adiados,

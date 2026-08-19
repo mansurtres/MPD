@@ -156,7 +156,7 @@ Registrado na ADR e no débito técnico, não varrido para debaixo do tapete. O 
 | Documento | Conteúdo |
 |---|---|
 | `docs/deploy.md` | Guia passo a passo, escrito para Pedro executar sozinho: criar o Blueprint, configurar variáveis, primeiro superusuário, cadastrar a equipe, procedimento mensal de backup, como trocar para domínio próprio no futuro, e **o que fazer quando cada etapa falhar** |
-| `docs/decisoes.md` | ADR 0060 — Render via Blueprint; Docker adiado; backup por PITR + export manual; recuperação de senha no backlog |
+| `docs/decisoes.md` | ADR 0061 — Render via Blueprint; Docker adiado; backup por PITR + export manual; recuperação de senha no backlog |
 | `roadmap.md` | Fase 7 atualizada: o que foi entregue, o que foi adiado e por quê |
 | `docs/debito-tecnico.md` | DTs novos: backup automatizado off-site; recuperação de senha por e-mail; Dockerfile para portabilidade |
 
