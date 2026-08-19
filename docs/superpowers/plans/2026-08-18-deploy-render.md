@@ -355,25 +355,30 @@ O Render roda em Linux e precisa do bit de execução. No Windows isso se regist
 Run: `git update-index --add --chmod=+x build.sh`
 Expected: sem saída. Confirmar com `git ls-files -s build.sh` — o modo deve ser `100755`, não `100644`.
 
-- [ ] **Step 3: Rodar o script localmente para provar que funciona**
+- [ ] **Step 3: Verificar a compilação do CSS (binário Windows)**
 
-Em **Git Bash** (não PowerShell), com `DJANGO_SETTINGS_MODULE` de produção e as variáveis mínimas:
+⚠️ **Não rode `./build.sh` na máquina do Pedro.** Duas razões, ambas descobertas na execução real:
+- `uv sync --frozen --no-dev` **desinstala as dependências de desenvolvimento** do venv local (pytest, ruff, black, pre-commit). Recuperar exige `uv sync --extra dev`.
+- O binário que o script baixa é `linux-x64` e falha no Windows com `cannot execute binary file: Exec format error`.
+
+Verifique as duas etapas separadamente. Primeiro o CSS, com o binário Windows já presente em `bin/`:
+
+Run: `./bin/tailwindcss.exe -i ./static/css/tailwind-input.css -o ./static/css/tailwind-output.css --minify`
+Expected: `Done in ...`; `wc -c static/css/tailwind-output.css` mostra ~15 KB. Um arquivo de poucos bytes indicaria que o `@source` do `tailwind-input.css` não encontrou os templates.
+
+- [ ] **Step 4: Verificar o collectstatic sob as settings de produção**
+
+Este é o passo que revelou um deploy-breaker real: `static/css/tailwind-input.css` é arquivo-**fonte** do compilador e contém `@import "tailwindcss"`. O `CompressedManifestStaticFilesStorage` tenta resolver esse import como caminho relativo (`css/tailwindcss`), não encontra, e **aborta o collectstatic inteiro** — o build falharia em produção. Daí o `--ignore tailwind-input.css` no `build.sh`.
+
+Em Git Bash, com STATIC_ROOT descartável para não sujar o repositório:
 
 ```bash
-DJANGO_SETTINGS_MODULE=config.settings.production \
-DJANGO_SECRET_KEY=teste-local-000000000000000000000000000000 \
-DJANGO_ALLOWED_HOSTS=localhost \
-DATABASE_URL=postgres://u:p@localhost:5432/mpd \
-STATIC_ROOT=./staticfiles \
-./build.sh
+DJANGO_SETTINGS_MODULE=config.settings.production DJANGO_SECRET_KEY=teste-local-000000000000000000000000000000 DJANGO_ALLOWED_HOSTS=localhost DATABASE_URL=postgres://u:p@localhost:5432/mpd DJANGO_TRUST_PROXY_SSL_HEADER=True STATIC_ROOT=/tmp/mpd-staticfiles-teste uv run python manage.py collectstatic --no-input --ignore tailwind-input.css
 ```
 
-Expected: as quatro etapas imprimem, `static/css/tailwind-output.css` existe e não está vazio, `staticfiles/` é criada com os estáticos coletados e comprimidos.
+Expected: `136 static files copied ..., 408 post-processed.` Sem `MissingFileError`.
 
-- [ ] **Step 4: Confirmar que o CSS compilado tem conteúdo real**
-
-Run: `wc -c static/css/tailwind-output.css`
-Expected: dezenas de milhares de bytes, não zero. Um arquivo de poucos bytes indica que o `@source` do `tailwind-input.css` não encontrou os templates.
+Limpar depois: `rm -rf /tmp/mpd-staticfiles-teste`
 
 - [ ] **Step 5: Confirmar que os artefatos continuam ignorados pelo git**
 
