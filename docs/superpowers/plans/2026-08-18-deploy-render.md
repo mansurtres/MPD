@@ -76,8 +76,10 @@ Expected: `uv.lock` atualizado incluindo `gunicorn`; nenhum erro de resolução.
 
 - [ ] **Step 4: Verificar que o gunicorn instalou**
 
-Run: `uv run gunicorn --version`
-Expected: imprime a versão (ex.: `gunicorn (version 23.0.0)`).
+Run: `uv run python -c "import importlib.metadata as m; print(m.version('gunicorn'))"`
+Expected: imprime a versão (ex.: `26.1.0`).
+
+⚠️ Não use `uv run gunicorn --version` no Windows: o gunicorn importa `fcntl`, módulo exclusivo de Unix, e falha com `ModuleNotFoundError` mesmo instalado corretamente. Ele só executa no Linux do Render — o que é o suficiente, já que é lá que serve tráfego.
 
 - [ ] **Step 5: Confirmar que nada quebrou**
 
